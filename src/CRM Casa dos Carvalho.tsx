@@ -333,7 +333,8 @@ const CAL_COLORS: Record<string, string> = {
   sess_camilla: "#27AE60",
   bloq_abraao: "#C0392B",
   bloq_camilla: "#E67E22",
-  bloq_geral: "#555"
+  bloq_geral: "#555",
+  piercing: "#E91E8C"
 };
 
 const CAL_LABELS: Record<string, string> = {
@@ -343,7 +344,8 @@ const CAL_LABELS: Record<string, string> = {
   sess_camilla: "Sessão Camilla",
   bloq_abraao: "Bloq. Abraao",
   bloq_camilla: "Bloq. Camilla",
-  bloq_geral: "Bloq. Geral"
+  bloq_geral: "Bloq. Geral",
+  piercing: "Piercing"
 };
 
 const SEGS = [
@@ -767,8 +769,9 @@ export default function CRM() {
     nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "", email: "", tel: ""
   });
   const [agForm, setAgForm] = useState({
-    title: "", tipo: "cons_abraao", date: "2026-06-01", start: 9, end: 11
+    title: "", tipo: "cons_abraao", date: new Date().toISOString().split("T")[0], start: 9, end: 11, desc: ""
   });
+  const [editingEvent, setEditingEvent] = useState<any>(null);
 
   const [dbReady, setDbReady] = useState(false);
 
@@ -1040,12 +1043,24 @@ export default function CRM() {
   };
 
   const saveAgEvent = async () => {
-    const ne = { id: Date.now(), ...agForm, start: Number(agForm.start), end: Number(agForm.end) };
-    setAgEvents(p => [...p, ne]);
-    await dbUpsert("agenda", {
-      titulo: ne.title, artista: agForm.tipo.includes("camilla") ? "camilla" : "abraao",
-      data: agForm.date, hora: agForm.start + ":00", tipo: agForm.tipo
-    });
+    if (editingEvent) {
+      // EDITAR evento existente
+      const updated = { ...editingEvent, ...agForm, start: Number(agForm.start), end: Number(agForm.end) };
+      setAgEvents(p => p.map(e => e.id === editingEvent.id ? updated : e));
+      await dbUpsert("agenda", {
+        id: editingEvent.id,
+        titulo: agForm.title, artista: agForm.tipo.includes("camilla") ? "camilla" : agForm.tipo.includes("abraao") ? "abraao" : "abraao",
+        data: agForm.date, hora: agForm.start + ":00", tipo: agForm.tipo, obs: agForm.desc || ""
+      });
+      setEditingEvent(null);
+    } else {
+      // NOVO evento
+      const ne = { id: Date.now(), ...agForm, start: Number(agForm.start), end: Number(agForm.end) };
+      setAgEvents(p => [...p, ne]);
+      await dbUpsert("agenda", {
+        titulo: ne.title, artista: agForm.tipo.includes("camilla") ? "camilla" : "abraao",
+        data: agForm.date, hora: agForm.start + ":00", tipo: agForm.tipo, obs: agForm.desc || ""
+      });
     setShowAgForm(false);
   };
 
@@ -1067,7 +1082,7 @@ export default function CRM() {
     tatuados: clients.filter(c => c.etapa === "tatuado" || c.etapa === "pos_venda").length,
     hoje: clients.filter(c => c.data === "29/05/2026").length
   };
-  const pvC = clients.filter(c => c.pv.length > 0);
+  const pvC = clients.filter(c => c.etapa === "tatuado" || c.etapa === "pos_venda");
   const totalFat = fin.reduce((s, f) => s + f.val_a, 0);
   const origC = useMemo(() => {
     const m: Record<string, number> = {};
@@ -1259,7 +1274,7 @@ export default function CRM() {
                   <div className="ff"><label className="fl">Tipo</label><select className="fs" value={artForm.role} onChange={e => setArtForm({ ...artForm, role: e.target.value })}><option value="residente">Residente</option><option value="guest">Guest</option></select></div>
                   <div className="ff"><label className="fl">Comissão (%)</label><input className="fi" type="number" min={0} max={100} value={artForm.com} onChange={e => setArtForm({ ...artForm, com: Number(e.target.value) })} /></div>
                 </div>
-                <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => setArtForm({ ...artForm, insta: e.target.value })} /></div>
+                <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => { const v = e.target.value; setArtForm({ ...artForm, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                 <div className="ff"><label className="fl">Cor</label><input type="color" value={artForm.cor} onChange={e => setArtForm({ ...artForm, cor: e.target.value })} style={{ width: "100%", height: 38, background: "none", border: "1px solid rgba(201,168,76,0.12)", borderRadius: 5, cursor: "pointer" }} /></div>
               </div>
               <div className="fmf"><button className="btn-c" onClick={() => setShowArtForm(false)}>Cancelar</button><button className="btn-s" onClick={saveArtist} disabled={!artForm.nome}>Salvar</button></div>
@@ -1590,12 +1605,14 @@ export default function CRM() {
                     return (
                       <div key={h} className="dr">
                         <div className="dtime">{h}:00</div>
-                        <div className="dslot" onClick={() => { setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2 })); setShowAgForm(true); }}>
+                        <div className="dslot" onClick={() => { if (!evs.length) { setEditingEvent(null); setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2, title: "", desc: "" })); setShowAgForm(true); } }}>
                           {evs.map(e => (
                             <div key={e.id} className="dev" style={{ background: CAL_COLORS[e.tipo] || "#888" }}>
                               {e.title} - {e.start}h as {e.end}h
                               <span style={{ marginLeft: 8, opacity: .7, cursor: "pointer" }}
-                                onClick={ev => { ev.stopPropagation(); setAgEvents(p => p.filter(x => x.id !== e.id)); }}>✕</span>
+                                onClick={ev => { ev.stopPropagation(); if(window.confirm("Excluir este evento?")) { setAgEvents(p => p.filter(x => x.id !== e.id)); dbDelete("agenda", e.id); } }}>🗑</span>
+                              <span style={{ marginLeft: 4, opacity: .7, cursor: "pointer" }}
+                                onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); setShowAgForm(true); }}>✏️</span>
                             </div>
                           ))}
                         </div>
@@ -2576,7 +2593,7 @@ export default function CRM() {
                     navigator.clipboard?.writeText(txt);
                     if (showCtr.type === "client" && sc) upC(sc.id, "contrato", true);
                     setShowCtr(null);
-                  }}>📋 Copiar</button>
+                  }}>📤 Enviar</button>
                 </div>
               </div>
             </div>
@@ -2598,7 +2615,7 @@ export default function CRM() {
                 </div>
                 <div className="fr">
                   <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email@email.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
-                  <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={form.insta} onChange={e => setForm({ ...form, insta: e.target.value })} /></div>
+                  <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={form.insta} onChange={e => { const v = e.target.value; setForm({ ...form, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                 </div>
                 <div className="fr">
                   <div className="ff">
@@ -2637,7 +2654,7 @@ export default function CRM() {
                   </div>
                 </div>
                 <div className="ff"><label className="fl">Descrição do Projeto</label><textarea className="fta" placeholder="Descreva a ideia..." value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} /></div>
-                <div className="ff"><label className="fl">Intenção Emocional</label><input className="fi" placeholder="Homenagem, estética, memória..." value={form.intencao} onChange={e => setForm({ ...form, intencao: e.target.value })} /></div>
+
                 <div className="ff"><label className="fl">Data de Nascimento</label><input className="fi" type="date" value={(form as any).nascimento || ""} onChange={e => setForm({ ...form, nascimento: e.target.value } as any)} /></div>
                 <div style={{ borderTop: "1px solid var(--br)", marginTop: 12, paddingTop: 12 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -2693,10 +2710,10 @@ export default function CRM() {
                   <div className="ff"><label className="fl">Comissão (%)</label><input className="fi" type="number" min={0} max={100} value={artForm.com} onChange={e => setArtForm({ ...artForm, com: Number(e.target.value) })} /></div>
                 </div>
                 <div className="fr">
-                  <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => setArtForm({ ...artForm, insta: e.target.value })} /></div>
+                  <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => { const v = e.target.value; setArtForm({ ...artForm, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                   <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email" value={artForm.email} onChange={e => setArtForm({ ...artForm, email: e.target.value })} /></div>
                 </div>
-                <div className="ff"><label className="fl">Telefone</label><input className="fi" placeholder="(27) 99999-9999" value={artForm.tel} onChange={e => setArtForm({ ...artForm, tel: e.target.value })} /></div>
+                <div className="ff"><label className="fl">Telefone</label><input className="fi" placeholder="(99) 9 9999-9999" value={artForm.tel} onChange={e => setArtForm({ ...artForm, tel: maskTel(e.target.value) })} /></div>
                 <div className="ff">
                   <label className="fl">Cor</label>
                   <input type="color" value={artForm.cor} onChange={e => setArtForm({ ...artForm, cor: e.target.value })}
@@ -2716,8 +2733,8 @@ export default function CRM() {
           <div className="fov" onClick={e => { if (e.target === e.currentTarget) setShowAgForm(false); }}>
             <div className="fmod" style={{ maxWidth: 400 }}>
               <div className="fmh">
-                <div className="fmt">Novo Evento</div>
-                <button className="mc" onClick={() => setShowAgForm(false)}>✕</button>
+                <div className="fmt">{editingEvent ? "Editar Evento" : "Novo Evento"}</div>
+                <button className="mc" onClick={() => { setShowAgForm(false); setEditingEvent(null); }}>✕</button>
               </div>
               <div className="fmb">
                 <div className="ff"><label className="fl">Titulo / Cliente *</label><input className="fi" placeholder="Nome" value={agForm.title} onChange={e => setAgForm({ ...agForm, title: e.target.value })} /></div>
@@ -2727,6 +2744,7 @@ export default function CRM() {
                     {Object.entries(CAL_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                   </select>
                 </div>
+                <div className="ff"><label className="fl">Descrição (opcional)</label><input className="fi" placeholder="Breve descrição..." value={(agForm as any).desc || ""} onChange={e => setAgForm({ ...agForm, desc: e.target.value } as any)} /></div>
                 <div className="ff"><label className="fl">Data</label><input className="fi" type="date" value={agForm.date} onChange={e => setAgForm({ ...agForm, date: e.target.value })} /></div>
                 <div className="fr">
                   <div className="ff"><label className="fl">Inicio (h)</label><input className="fi" type="number" min={8} max={20} value={agForm.start} onChange={e => setAgForm({ ...agForm, start: Number(e.target.value) })} /></div>
