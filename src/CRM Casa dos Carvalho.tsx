@@ -13,9 +13,16 @@ async function dbGet(table: string) {
   return data;
 }
 async function dbUpsert(table: string, row: any) {
-  if (!sb) return;
-  const { error } = await sb.from(table).upsert(row);
-  if (error) console.error("upsert", table, error);
+  if (!sb) return null;
+  const { data, error } = await sb.from(table).upsert(row).select().single();
+  if (error) { console.error("upsert", table, error); return null; }
+  return data;
+}
+async function dbInsert(table: string, row: any) {
+  if (!sb) return null;
+  const { data, error } = await sb.from(table).insert(row).select().single();
+  if (error) { console.error("insert", table, error); return null; }
+  return data;
 }
 async function dbDelete(table: string, id: any) {
   if (!sb) return;
@@ -804,9 +811,11 @@ export default function CRM() {
         if (sds && sds.length > 0) setSaidas(sds.map((s: any) => ({
           ...s, desc: s.descricao
         })));
-        if (ags && ags.length > 0) setAgEvents(ags.map((a: any) => ({
-          ...a, title: a.titulo || a.cliente_nome || "Sem título", start: parseInt(a.hora?.split(":")[0] || "9"), end: parseInt(a.hora?.split(":")[0] || "9") + 2
-        })));
+        if (ags && ags.length > 0) setAgEvents(ags.map((a: any) => {
+          const startH = parseInt(a.hora?.split(":")[0] || "9");
+          const endH = a.hora_fim ? parseInt(a.hora_fim.split(":")[0]) : startH + 2;
+          return { ...a, title: a.titulo || a.cliente_nome || "Sem título", start: startH, end: endH };
+        }));
         if (cfgs && cfgs.length > 0) {
           const cfg = cfgs[0];
           if (cfg.studio_name) setStudioName(cfg.studio_name);
@@ -831,8 +840,8 @@ export default function CRM() {
 
   // ─── SALVAR CLIENTE NO SUPABASE ──────────────────────────────────────────
   const saveClientDb = useCallback(async (c: any) => {
-    await dbUpsert("clientes", {
-      id: typeof c.id === "number" ? undefined : c.id,
+    const isLocalId = typeof c.id === "number";
+    const row: any = {
       nome: c.nome, insta: c.insta || "", tel: c.tel || "",
       qual: c.qual, artista: c.artista, etapa: c.etapa,
       estilo: c.estilo || "", regiao: c.regiao || "",
@@ -847,7 +856,9 @@ export default function CRM() {
       google_review: c.googleReview || false,
       hist: c.hist || [], followups: c.pv || [], dias: c.dias || 0,
       updated_at: new Date().toISOString()
-    });
+    };
+    if (!isLocalId) row.id = c.id;
+    await dbUpsert("clientes", row);
   }, []);
 
   useMemo(() => applyTheme(dark), [dark]);
@@ -1033,20 +1044,48 @@ export default function CRM() {
   };
 
   const saveArtist = async () => {
-    const na = { id: Date.now().toString(), ...artForm, ativo: true };
-    setArtists(p => [...p, na]);
-    await dbUpsert("artistas", na);
+    const id = Date.now().toString();
+    const na = { id, nome: artForm.nome, role: artForm.role, com: artForm.com, cor: artForm.cor, insta: artForm.insta, email: artForm.email, tel: artForm.tel, ativo: true };
+    const saved = await dbInsert("artistas", na);
+    if (saved) {
+      setArtists(p => [...p, { ...na, id: saved.id || id }]);
+    } else {
+      setArtists(p => [...p, na]);
+    }
     setShowArtForm(false);
     setArtForm({ nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "@", email: "", tel: "" });
   };
 
   const saveAgEvent = async () => {
-    const ne = { id: Date.now(), ...agForm, start: Number(agForm.start), end: Number(agForm.end) };
-    setAgEvents(p => [...p, ne]);
-    await dbUpsert("agenda", {
-      titulo: ne.title, artista: agForm.tipo.includes("camilla") ? "camilla" : "abraao",
-      data: agForm.date, hora: agForm.start + ":00", tipo: agForm.tipo
-    });
+    if (editingEvent) {
+      // EDITAR evento existente
+      const updated = { ...editingEvent, ...agForm, start: Number(agForm.start), end: Number(agForm.end) };
+      setAgEvents(p => p.map(e => e.id === editingEvent.id ? updated : e));
+      await dbUpsert("agenda", {
+        id: editingEvent.id,
+        titulo: agForm.title,
+        artista: agForm.tipo.includes("camilla") ? "camilla" : agForm.tipo.includes("abraao") ? "abraao" : "abraao",
+        data: agForm.date,
+        hora: String(agForm.start).padStart(2,"0") + ":00",
+        tipo: agForm.tipo,
+        obs: (agForm as any).desc || ""
+      });
+      setEditingEvent(null);
+    } else {
+      // NOVO evento
+      const row = {
+        titulo: agForm.title,
+        artista: agForm.tipo.includes("camilla") ? "camilla" : "abraao",
+        data: agForm.date,
+        hora: String(agForm.start).padStart(2,"0") + ":00",
+        tipo: agForm.tipo,
+        obs: (agForm as any).desc || ""
+      };
+      const saved = await dbInsert("agenda", row);
+      const newId = saved?.id || Date.now();
+      const ne = { id: newId, ...agForm, title: agForm.title, start: Number(agForm.start), end: Number(agForm.end) };
+      setAgEvents(p => [...p, ne]);
+    }
     setShowAgForm(false);
   };
 
@@ -1068,7 +1107,7 @@ export default function CRM() {
     tatuados: clients.filter(c => c.etapa === "tatuado" || c.etapa === "pos_venda").length,
     hoje: clients.filter(c => c.data === "29/05/2026").length
   };
-  const pvC = clients.filter(c => c.pv.length > 0);
+  const pvC = clients.filter(c => c.etapa === "tatuado" || c.etapa === "pos_venda");
   const totalFat = fin.reduce((s, f) => s + f.val_a, 0);
   const origC = useMemo(() => {
     const m: Record<string, number> = {};
@@ -1928,8 +1967,9 @@ export default function CRM() {
                   </div>
                   <div className="fmf">
                     <button className="btn-c" onClick={() => setEditingArtist(null)}>Cancelar</button>
-                    <button className="btn-s" onClick={() => {
+                    <button className="btn-s" onClick={async () => {
                       setArtists(p => p.map(x => x.id === editingArtist.id ? { ...editingArtist } : x));
+                      await dbUpsert("artistas", { id: editingArtist.id, nome: editingArtist.nome, role: editingArtist.role, com: editingArtist.com, cor: editingArtist.cor, insta: editingArtist.insta, email: editingArtist.email, tel: editingArtist.tel, ativo: editingArtist.ativo });
                       setEditingArtist(null);
                     }}>Salvar</button>
                   </div>
