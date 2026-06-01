@@ -1260,33 +1260,34 @@ export default function CRM() {
                 <div className="alert-btn" onClick={() => setShowAlerts(v => !v)}>
                   ⚠️ {alertas.length} alerta{alertas.length > 1 ? "s" : ""}
                 </div>
-                {showAlerts && (
-                  <div className="alert-drop">
-                    <div className="ad-hdr">Alertas - por prioridade</div>
-                    <div className="ad-body">
-                      {alertas.map(c => {
-                        const m = miss(c); const ch = churn(c);
-                        return (
-                          <div key={c.id} className="ad-item" onClick={() => { setSel(c); setShowAlerts(false); }}>
-                            <div className="ad-name">{c.nome}</div>
-                            <div className="ad-tags">
-                              {ch === "red" && <span className="co co-r">🔴 1a sem retorno</span>}
-                              {ch === "orange" && <span className="co co-o">🟠 6m sem retorno</span>}
-                              {c.orcamento && <span className="atag">💰 Orcamento</span>}
-                              {m.map(x => <span key={x} className="atag">⚠ Sem {x}</span>)}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
             <button className="theme-btn" onClick={() => setDark(d => !d)}>{dark ? "☀️" : "🌙"}</button>
             <button className="btn-new" onClick={() => setShowForm(true)}>+ Novo Cliente</button>
           </div>
         </div>
+        {/* ALERT DROPDOWN - fora do topbar para evitar overflow */}
+        {showAlerts && alertas.length > 0 && (
+          <div style={{ position: "fixed", top: 64, right: 16, width: "min(360px, calc(100vw - 32px))", background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,.5)", zIndex: 9999 }}>
+            <div className="ad-hdr">Alertas - por prioridade</div>
+            <div className="ad-body">
+              {alertas.map(c => {
+                const m = miss(c); const ch = churn(c);
+                return (
+                  <div key={c.id} className="ad-item" onClick={() => { setSel(c); setShowAlerts(false); }}>
+                    <div className="ad-name">{c.nome}</div>
+                    <div className="ad-tags">
+                      {ch === "red" && <span className="co co-r">🔴 1a sem retorno</span>}
+                      {ch === "orange" && <span className="co co-o">🟠 6m sem retorno</span>}
+                      {c.orcamento && <span className="atag">💰 Orcamento</span>}
+                      {m.map(x => <span key={x} className="atag">⚠ Sem {x}</span>)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* TABS */}
         <div className="tabs">
