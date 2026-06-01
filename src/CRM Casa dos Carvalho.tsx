@@ -711,7 +711,7 @@ export default function CRM() {
   ]);
   const [showSaidaForm, setShowSaidaForm] = useState(false);
   const [saidaForm, setSaidaForm] = useState({ desc: "", categoria: "Material", valor: 0, data: new Date().toLocaleDateString("pt-BR") });
-  const [clients, setClients] = useState(CLIENTS_INIT);
+  const [clients, setClients] = useState<any[]>([]);
   const [artists, setArtists] = useState(ARTISTS_INIT);
   const [fin, setFin] = useState(FIN_INIT);
   const [agEvents, setAgEvents] = useState([
@@ -938,6 +938,13 @@ export default function CRM() {
     }));
   };
 
+  const deleteClient = async (cid: any) => {
+    if (!window.confirm("Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.")) return;
+    setClients(p => p.filter(c => c.id !== cid));
+    setSel(null);
+    await dbDelete("clientes", cid);
+  };
+
   const registrarIndicacao = (cid: number, artista: string) => {
     setClients(p => p.map(c => {
       if (c.id !== cid) return c;
@@ -966,13 +973,31 @@ export default function CRM() {
 
   const saveClient = async () => {
     const nc: any = {
-      ...form, id: Date.now(), data: new Date().toLocaleDateString("pt-BR"),
+      ...form, data: new Date().toLocaleDateString("pt-BR"),
       dias: 0, stars: 0, starReason: "", consent: null, nps: null, obs: "",
       val_a: 0, val_c: 0, pgto: "", cri: "", orcamento: false,
       hist: [{ t: "Cadastro manual criado", d: new Date().toLocaleString("pt-BR") }], pv: []
     };
-    setClients(p => [nc, ...p]);
-    await saveClientDb(nc);
+    // Salva no banco primeiro para obter o UUID real
+    if (sb) {
+      const { data, error } = await sb.from("clientes").insert({
+        nome: nc.nome, insta: nc.insta || "", tel: nc.tel || "",
+        qual: nc.qual, artista: nc.artista, etapa: "lead",
+        estilo: nc.estilo || "", regiao: nc.regiao || "",
+        intencao: nc.intencao || "", primeira: nc.primeira || false,
+        cob: nc.cob || false, descricao: nc.desc || "",
+        stars: 0, consent: null, nps: null, obs: "",
+        val_a: 0, val_c: 0, pgto: "", orcamento: false, contrato: false,
+        faltas: 0, indicacoes: 0, credito: 0, cri: "",
+        hist: nc.hist, followups: [], dias: 0,
+        updated_at: new Date().toISOString()
+      }).select().single();
+      if (!error && data) {
+        setClients(p => [{ ...nc, id: data.id, etapa: "lead" }, ...p]);
+      }
+    } else {
+      setClients(p => [{ ...nc, id: Date.now(), etapa: "lead" }, ...p]);
+    }
     setShowForm(false);
     setForm({ nome: "", tel: "", email: "", insta: "", artista: "abraao", estilo: "", regiao: "", tam: "Medio", desc: "", orig: "Instagram Organico", qual: "Q2", primeira: false, cob: false, intencao: "", nascimento: "" });
   };
@@ -1392,7 +1417,7 @@ export default function CRM() {
                           </td>
                           <td>
                             <div style={{ fontSize: 12 }}>{c.estilo || " - "}</div>
-                            <div className="tdd">{c.regiao ? c.regiao + " " + c.tam : ""}</div>
+                            <div className="tdd">{c.regiao ? c.regiao + (c.tam ? " " + c.tam : "") : ""}</div>
                           </td>
                           <td><span className={("at " + aClass(c.artista)) || ""} style={aStyle(c.artista)}>{aName(c.artista).split(" ")[0]}</span></td>
                           <td><span className={"qb " + QC[c.qual]}>{c.qual}</span></td>
@@ -2215,6 +2240,7 @@ export default function CRM() {
                   </div>
                 </div>
                 <button className="mc" onClick={() => setSel(null)}>✕</button>
+                <button onClick={() => deleteClient(sc.id)} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "4px 10px", fontSize: 11, color: "var(--q1)", cursor: "pointer", marginRight: 4 }}>🗑 Excluir</button>
               </div>
               <div className="mb">
                 {sc.orcamento && (
