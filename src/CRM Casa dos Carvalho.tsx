@@ -774,7 +774,7 @@ export default function CRM() {
     nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "@", email: "", tel: ""
   });
   const [agForm, setAgForm] = useState({
-    title: "", tipo: "cons_abraao", date: "2026-06-01", start: 9, end: 11
+    title: "", tipo: "cons_abraao", date: new Date().toISOString().split("T")[0], start: 9, end: 11, desc: ""
   });
 
   const [dbReady, setDbReady] = useState(false);
@@ -1087,6 +1087,7 @@ export default function CRM() {
       setAgEvents(p => [...p, ne]);
     }
     setShowAgForm(false);
+    setAgForm({ title: "", tipo: "cons_abraao", date: new Date().toISOString().split("T")[0], start: 9, end: 11, desc: "" });
   };
 
   const disparo = () => { setSent(true); setTimeout(() => setSent(false), 4000); };
@@ -1598,7 +1599,7 @@ export default function CRM() {
                       const occupied = agEvents.some(e => e.date === ds && e.start < h && e.end > h);
                       return (
                         <div key={h + "-" + di} className="wc" style={{ position: "relative", overflow: "visible" }}
-                          onClick={() => { setAgDate(d); setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2 })); setShowAgForm(true); }}>
+                          onClick={() => { setEditingEvent(null); setAgDate(d); setAgForm({ title: "", tipo: "cons_abraao", date: ds, start: h, end: h + 2, desc: "" }); setShowAgForm(true); }}>
                           {evs.map(e => {
                             const duration = Math.max(e.end - e.start, 1);
                             return (
@@ -1630,7 +1631,7 @@ export default function CRM() {
                     return (
                       <div key={h} className="dr">
                         <div className="dtime">{h}:00</div>
-                        <div className="dslot" onClick={() => { setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2 })); setShowAgForm(true); }}>
+                        <div className="dslot" onClick={() => { setEditingEvent(null); setAgForm({ title: "", tipo: "cons_abraao", date: ds, start: h, end: h + 2, desc: "" }); setShowAgForm(true); }}>
                           {evs.map(e => (
                             <div key={e.id} className="dev" style={{ background: CAL_COLORS[e.tipo] || "#888" }}>
                               {e.title} - {e.start}h as {e.end}h
@@ -2473,6 +2474,21 @@ export default function CRM() {
                           <option>Transferência</option>
                         </select>
                       </div>
+                      {(sc.pgto === "Cartão") && (
+                        <div className="fi2">
+                          <div className="fil">Parcelamento</div>
+                          <select className="ef" value={(sc as any).parcelas || "1x"} onChange={e => upC(sc.id, "parcelas", e.target.value)} style={{ marginTop: 2 }}>
+                            {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                              <option key={n} value={n + "x"}>{n}x {n > 1 ? "de R$ " + (sc.val_a / n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}</option>
+                            ))}
+                          </select>
+                          {(sc as any).parcelas && (sc as any).parcelas !== "1x" && (
+                            <div style={{ fontSize: 11, color: "var(--gold)", marginTop: 4, fontWeight: 600 }}>
+                              {(sc as any).parcelas} de R$ {(sc.val_a / parseInt((sc as any).parcelas)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     {sc.val_a !== sc.val_c && sc.val_c > 0 && (
                       <div style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.25)", borderRadius: 5, padding: "7px 10px", marginTop: 7, fontSize: 12, color: "var(--q1)", fontWeight: 600 }}>
@@ -2836,9 +2852,9 @@ export default function CRM() {
                   <div className="stit">Perfil do Estúdio</div>
                   <div className="fg2">
                     <div className="fi2"><div className="fil">Nome do Estúdio</div><input className="ef" value={studioName} onChange={e => setStudioName(e.target.value)} /></div>
-                    <div className="fi2"><div className="fil">Cidade</div><input className="ef" defaultValue="Vitoria" /></div>
-                    <div className="fi2"><div className="fil">WhatsApp</div><input className="ef" defaultValue="(27) 99999-0000" /></div>
-                    <div className="fi2"><div className="fil">Instagram</div><input className="ef" defaultValue="@casadoscarvalho" /></div>
+                    <div className="fi2"><div className="fil">Cidade</div><input className="ef" value={studioCity} onChange={e => setStudioCity(e.target.value)} /></div>
+                    <div className="fi2"><div className="fil">WhatsApp</div><input className="ef" value={studioTel} onChange={e => setStudioTel(e.target.value)} /></div>
+                    <div className="fi2"><div className="fil">Instagram</div><input className="ef" value={studioInsta} onChange={e => setStudioInsta(e.target.value)} /></div>
                   </div>
                 </div>
                 <div>
@@ -2866,7 +2882,25 @@ export default function CRM() {
               </div>
               <div className="fmf">
                 <button className="btn-c" onClick={() => setShowSettings(false)}>Fechar</button>
-                <button className="btn-s" onClick={() => setShowSettings(false)}>Salvar</button>
+                <button className="btn-s" onClick={async () => {
+                  await dbUpsert("configuracoes", {
+                    id: 1,
+                    studio_name: studioName,
+                    studio_tel: studioTel,
+                    studio_owner: studioOwner,
+                    studio_email: studioEmail,
+                    studio_city: studioCity,
+                    studio_insta: studioInsta,
+                    aura_name: auraName,
+                    google_link: googleLink,
+                    cnpj: cnpj,
+                    meta_mensal: metaMensal,
+                    horarios: horarios,
+                    dark_mode: dark,
+                    updated_at: new Date().toISOString()
+                  });
+                  setShowSettings(false);
+                }}>Salvar</button>
               </div>
             </div>
           </div>
