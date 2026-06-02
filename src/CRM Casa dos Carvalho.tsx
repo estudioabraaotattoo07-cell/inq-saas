@@ -729,11 +729,7 @@ export default function CRM() {
   const [clients, setClients] = useState<any[]>([]);
   const [artists, setArtists] = useState(ARTISTS_INIT);
   const [fin, setFin] = useState(FIN_INIT);
-  const [agEvents, setAgEvents] = useState([
-    { id: 1, title: "Marina Alves", tipo: "cons_abraao", date: "2026-06-04", start: 14, end: 16 },
-    { id: 2, title: "Rafael Sousa", tipo: "sess_abraao", date: "2026-06-10", start: 9, end: 13 },
-    { id: 3, title: "Beatriz Souza", tipo: "cons_camilla", date: "2026-06-07", start: 10, end: 12 },
-  ]);
+  const [agEvents, setAgEvents] = useState<any[]>([]);
   const [tab, setTab] = useState("kanban");
   const [sel, setSel] = useState<any>(null);
   const [fa, setFa] = useState("todos");
@@ -811,7 +807,11 @@ export default function CRM() {
           ...s, desc: s.descricao
         })));
         if (ags && ags.length > 0) setAgEvents(ags.map((a: any) => ({
-          ...a, title: a.titulo, start: parseInt(a.hora?.split(":")[0] || "9"), end: parseInt(a.hora?.split(":")[0] || "9") + 2
+          ...a,
+          title: a.titulo || a.title || "Sem título",
+          date: a.data || a.date,
+          start: parseInt(a.hora?.split(":")[0] || "9"),
+          end: a.hora_fim ? parseInt(a.hora_fim.split(":")[0]) : parseInt(a.hora?.split(":")[0] || "9") + 2
         })));
         if (cfgs && cfgs.length > 0) {
           const cfg = cfgs[0];
@@ -1047,26 +1047,35 @@ export default function CRM() {
   };
 
   const saveAgEvent = async () => {
+    const row = {
+      titulo: agForm.title,
+      artista: agForm.tipo.includes("camilla") ? "camilla" : "abraao",
+      data: agForm.date,
+      hora: String(agForm.start).padStart(2, "0") + ":00",
+      tipo: agForm.tipo,
+      obs: (agForm as any).desc || ""
+    };
+
     if (editingEvent) {
-      const updated = { ...editingEvent, ...agForm, start: Number(agForm.start), end: Number(agForm.end) };
-      setAgEvents(p => p.map(e => e.id === editingEvent.id ? updated : e));
-      await dbUpsert("agenda", {
-        id: editingEvent.id,
-        titulo: agForm.title, artista: agForm.tipo.includes("camilla") ? "camilla" : "abraao",
-        data: agForm.date, hora: String(agForm.start).padStart(2,"0") + ":00",
-        tipo: agForm.tipo, obs: (agForm as any).desc || ""
-      });
+      const { data, error } = await sb.from("agenda").update(row).eq("id", editingEvent.id).select().single();
+      if (error) { console.error("Erro ao atualizar agenda:", error); alert("Erro ao atualizar agendamento."); return; }
+      setAgEvents(p => p.map(e => e.id === editingEvent.id ? {
+        ...data, title: data.titulo, date: data.data,
+        start: parseInt(data.hora?.split(":")[0] || "9"),
+        end: parseInt(data.hora?.split(":")[0] || "9") + 2
+      } : e));
       setEditingEvent(null);
-    } else {
-      const row = {
-        titulo: agForm.title, artista: agForm.tipo.includes("camilla") ? "camilla" : "abraao",
-        data: agForm.date, hora: String(agForm.start).padStart(2,"0") + ":00",
-        tipo: agForm.tipo, obs: (agForm as any).desc || ""
-      };
-      const saved = await dbInsert("agenda", row);
-      const ne = { id: saved?.id || Date.now(), ...agForm, title: agForm.title, start: Number(agForm.start), end: Number(agForm.end) };
-      setAgEvents(p => [...p, ne]);
+      setShowAgForm(false);
+      return;
     }
+
+    const { data, error } = await sb.from("agenda").insert(row).select().single();
+    if (error) { console.error("Erro ao salvar agenda:", error); alert("Erro ao salvar agendamento."); return; }
+    setAgEvents(p => [...p, {
+      ...data, title: data.titulo || agForm.title, date: data.data || agForm.date,
+      start: parseInt(data.hora?.split(":")[0] || String(agForm.start)),
+      end: parseInt(data.hora?.split(":")[0] || String(agForm.start)) + 2
+    }]);
     setShowAgForm(false);
     setEditingEvent(null);
   };
