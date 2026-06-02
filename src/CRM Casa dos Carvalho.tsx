@@ -341,11 +341,11 @@ const CAL_COLORS: Record<string, string> = {
 };
 
 const CAL_LABELS: Record<string, string> = {
-  cons_abraao: "Consulta Abraao",
-  sess_abraao: "Sessão Abraao",
+  cons_abraao: "Consulta Abraão",
+  sess_abraao: "Sessão Abraão",
   cons_camilla: "Consulta Camilla",
   sess_camilla: "Sessão Camilla",
-  bloq_abraao: "Bloq. Abraao",
+  bloq_abraao: "Bloq. Abraão",
   bloq_camilla: "Bloq. Camilla",
   bloq_geral: "Bloq. Geral",
   piercing: "Piercing"
@@ -1617,20 +1617,36 @@ export default function CRM() {
                 <div className="dg">
                   {HOURS.map(h => {
                     const ds = fmtDate(agDate);
-                    const evs = agEvents.filter(e => e.date === ds && e.start <= h && e.end > h);
+                    const evs = agEvents.filter(e => e.date === ds && e.start === h);
+                    const occupied = agEvents.some(e => e.date === ds && e.start < h && e.end > h);
                     return (
                       <div key={h} className="dr">
                         <div className="dtime">{h}:00</div>
-                        <div className="dslot" onClick={() => { if (!evs.length) { setEditingEvent(null); setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2, title: "", desc: "" })); setShowAgForm(true); } }}>
-                          {evs.map(e => (
-                            <div key={e.id} className="dev" style={{ background: CAL_COLORS[e.tipo] || "#888" }}>
-                              {e.title} - {e.start}h as {e.end}h
-                              <span style={{ marginLeft: 8, opacity: .7, cursor: "pointer" }}
-                                onClick={ev => { ev.stopPropagation(); if(window.confirm("Excluir este evento?")) { setAgEvents(p => p.filter(x => x.id !== e.id)); dbDelete("agenda", e.id); } }}>🗑</span>
-                              <span style={{ marginLeft: 4, opacity: .7, cursor: "pointer" }}
-                                onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); setShowAgForm(true); }}>✏️</span>
-                            </div>
-                          ))}
+                        <div className="dslot" style={{ position: "relative", minHeight: 46 }}
+                          onClick={() => { if (!evs.length && !occupied) { setEditingEvent(null); setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2, title: "", desc: "" })); setShowAgForm(true); } }}>
+                          {evs.map(e => {
+                            const duration = Math.max(e.end - e.start, 1);
+                            return (
+                              <div key={e.id} className="dev"
+                                style={{
+                                  background: CAL_COLORS[e.tipo] || "#888",
+                                  position: "absolute", left: 0, right: 0, top: 0,
+                                  height: (duration * 46) - 4 + "px",
+                                  zIndex: 5, borderRadius: 5, padding: "5px 10px",
+                                  display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+                                  cursor: "pointer"
+                                }}
+                                onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); setShowAgForm(true); }}>
+                                <span style={{ fontWeight: 600 }}>{e.title} · {e.start}h–{e.end}h</span>
+                                <div style={{ display: "flex", gap: 4 }}>
+                                  <span style={{ opacity: .8, cursor: "pointer", fontSize: 13 }}
+                                    onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); setShowAgForm(true); }}>✏️</span>
+                                  <span style={{ opacity: .8, cursor: "pointer", fontSize: 13 }}
+                                    onClick={ev => { ev.stopPropagation(); if(window.confirm("Excluir este evento?")) { setAgEvents(p => p.filter(x => x.id !== e.id)); dbDelete("agenda", e.id); } }}>🗑</span>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -2684,8 +2700,12 @@ export default function CRM() {
                         <input className="fi" type="date" value={formAg.data} onChange={e => setFormAg(f => ({ ...f, data: e.target.value }))} />
                       </div>
                       <div className="ff">
-                        <label className="fl">Hora</label>
+                        <label className="fl">Início</label>
                         <input className="fi" type="time" value={formAg.hora} onChange={e => setFormAg(f => ({ ...f, hora: e.target.value }))} />
+                      </div>
+                      <div className="ff">
+                        <label className="fl">Término</label>
+                        <input className="fi" type="time" value={(formAg as any).horaFim || "11:00"} onChange={e => setFormAg(f => ({ ...f, horaFim: e.target.value } as any))} />
                       </div>
                       <div className="ff">
                         <label className="fl">Tipo</label>
