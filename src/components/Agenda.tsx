@@ -200,6 +200,7 @@ export default function Agenda({ agEvents, setAgEvents }: AgendaProps) {
                     onClick={() => openNew(ds, h)}>
                     {evs.map(e => {
                       const duration = Math.max(e.end - e.start, 1);
+                      const ev_ref = e;
                       return (
                         <div key={e.id} className="we"
                           style={{
@@ -210,7 +211,7 @@ export default function Agenda({ agEvents, setAgEvents }: AgendaProps) {
                             overflow: "hidden", fontSize: 10, fontWeight: 600, color: "#fff",
                             cursor: "pointer"
                           }}
-                          onClick={ev => { ev.stopPropagation(); openEdit(e); }}>
+                          onClick={ev => { ev.stopPropagation(); openEdit(ev_ref); }}>
                           {e.title}<br />
                           <span style={{ opacity: .8 }}>{e.start}h–{e.end}h</span>
                         </div>
