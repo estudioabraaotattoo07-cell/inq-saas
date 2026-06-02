@@ -781,6 +781,9 @@ export default function CRM() {
     title: "", tipo: "cons_abraao", date: new Date().toISOString().split("T")[0], start: 9, end: 11, desc: ""
   });
   const [editingEvent, setEditingEvent] = useState<any>(null);
+  const [agClientSearch, setAgClientSearch] = useState("");
+  const [agClientVinc, setAgClientVinc] = useState<any>(null);
+  const [agClientDropdown, setAgClientDropdown] = useState(false);
 
   const [dbReady, setDbReady] = useState(false);
 
@@ -1057,13 +1060,14 @@ export default function CRM() {
   };
 
   const saveAgEvent = async () => {
-    const row = {
+    const row: any = {
       titulo: agForm.title,
       artista: agForm.tipo.includes("camilla") ? "camilla" : "abraao",
       data: agForm.date,
       hora: String(agForm.start).padStart(2, "0") + ":00",
       tipo: agForm.tipo,
-      obs: (agForm as any).desc || ""
+      obs: (agForm as any).desc || "",
+      ...(agClientVinc ? { cliente_id: agClientVinc.id, cliente_nome: agClientVinc.nome } : {})
     };
 
     if (editingEvent) {
@@ -1072,10 +1076,13 @@ export default function CRM() {
       setAgEvents(p => p.map(e => e.id === editingEvent.id ? {
         ...data, title: data.titulo, date: data.data,
         start: parseInt(data.hora?.split(":")[0] || "9"),
-        end: parseInt(data.hora?.split(":")[0] || "9") + 2
+        end: parseInt(data.hora?.split(":")[0] || "9") + 2,
+        cliente_id: data.cliente_id, cliente_nome: data.cliente_nome
       } : e));
       setEditingEvent(null);
       setShowAgForm(false);
+      setAgClientVinc(null);
+      setAgClientSearch("");
       return;
     }
 
@@ -1084,10 +1091,13 @@ export default function CRM() {
     setAgEvents(p => [...p, {
       ...data, title: data.titulo || agForm.title, date: data.data || agForm.date,
       start: parseInt(data.hora?.split(":")[0] || String(agForm.start)),
-      end: parseInt(data.hora?.split(":")[0] || String(agForm.start)) + 2
+      end: parseInt(data.hora?.split(":")[0] || String(agForm.start)) + 2,
+      cliente_id: data.cliente_id, cliente_nome: data.cliente_nome
     }]);
     setShowAgForm(false);
     setEditingEvent(null);
+    setAgClientVinc(null);
+    setAgClientSearch("");
   };
 
   const disparo = () => { setSent(true); setTimeout(() => setSent(false), 4000); };
@@ -1639,7 +1649,7 @@ export default function CRM() {
                       <div key={h} className="dr">
                         <div className="dtime">{h}:00</div>
                         <div className="dslot" style={{ position: "relative", minHeight: 46 }}
-                          onClick={() => { if (!evs.length && !occupied) { setEditingEvent(null); setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2, title: "", desc: "" })); setShowAgForm(true); } }}>
+                          onClick={() => { if (!evs.length && !occupied) { setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2, title: "", desc: "" })); setShowAgForm(true); } }}>
                           {evs.map(e => {
                             const duration = Math.max(e.end - e.start, 1);
                             return (
@@ -1652,11 +1662,11 @@ export default function CRM() {
                                   display: "flex", alignItems: "flex-start", justifyContent: "space-between",
                                   cursor: "pointer"
                                 }}
-                                onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); setShowAgForm(true); }}>
+                                onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
                                 <span style={{ fontWeight: 600 }}>{e.title} · {e.start}h–{e.end}h</span>
                                 <div style={{ display: "flex", gap: 4 }}>
                                   <span style={{ opacity: .8, cursor: "pointer", fontSize: 13 }}
-                                    onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); setShowAgForm(true); }}>✏️</span>
+                                    onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>✏️</span>
                                   <span style={{ opacity: .8, cursor: "pointer", fontSize: 13 }}
                                     onClick={ev => { ev.stopPropagation(); if(window.confirm("Excluir este evento?")) { setAgEvents(p => p.filter(x => x.id !== e.id)); dbDelete("agenda", e.id); } }}>🗑</span>
                                 </div>
@@ -2800,14 +2810,64 @@ export default function CRM() {
 
         {/* ── FORM NOVO EVENTO ── */}
         {showAgForm && (
-          <div className="fov" onClick={e => { if (e.target === e.currentTarget) setShowAgForm(false); }}>
-            <div className="fmod" style={{ maxWidth: 400 }}>
+          <div className="fov" onClick={e => { if (e.target === e.currentTarget) { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); } }}>
+            <div className="fmod" style={{ maxWidth: 420 }}>
               <div className="fmh">
                 <div className="fmt">{editingEvent ? "Editar Evento" : "Novo Evento"}</div>
-                <button className="mc" onClick={() => { setShowAgForm(false); setEditingEvent(null); }}>✕</button>
+                <button className="mc" onClick={() => { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); }}>✕</button>
               </div>
               <div className="fmb">
-                <div className="ff"><label className="fl">Titulo / Cliente *</label><input className="fi" placeholder="Nome" value={agForm.title} onChange={e => setAgForm({ ...agForm, title: e.target.value })} /></div>
+
+                {/* Campo com busca de cliente */}
+                <div className="ff" style={{ position: "relative" }}>
+                  <label className="fl">Título / Cliente *</label>
+                  {agClientVinc ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 5, padding: "7px 10px" }}>
+                      <span style={{ flex: 1, fontSize: 13, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif", fontWeight: 600 }}>{agClientVinc.nome}</span>
+                      <button onClick={() => { setSel(agClientVinc); setShowAgForm(false); }}
+                        style={{ background: "var(--gold-d)", border: "1px solid var(--gold)", borderRadius: 4, color: "var(--gold)", fontSize: 11, padding: "2px 8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}>
+                        👤 Ver ficha
+                      </button>
+                      <button onClick={() => { setAgClientVinc(null); setAgClientSearch(""); setAgForm({ ...agForm, title: "" }); }}
+                        style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 14 }}>✕</button>
+                    </div>
+                  ) : (
+                    <>
+                      <input className="fi" placeholder="Nome do cliente ou evento..."
+                        value={agClientSearch || agForm.title}
+                        onChange={e => {
+                          const v = e.target.value;
+                          setAgClientSearch(v);
+                          setAgForm({ ...agForm, title: v });
+                          setAgClientDropdown(v.length >= 2);
+                        }}
+                        onFocus={() => { if ((agClientSearch || agForm.title).length >= 2) setAgClientDropdown(true); }}
+                        onBlur={() => setTimeout(() => setAgClientDropdown(false), 200)}
+                      />
+                      {agClientDropdown && (
+                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, zIndex: 999, maxHeight: 180, overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,.5)", marginTop: 2 }}>
+                          {clients.filter(c => c.nome.toLowerCase().includes((agClientSearch || agForm.title).toLowerCase())).slice(0, 6).map(c => (
+                            <div key={c.id}
+                              style={{ padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                              onMouseDown={() => { setAgClientVinc(c); setAgForm({ ...agForm, title: c.nome }); setAgClientSearch(""); setAgClientDropdown(false); }}>
+                              <div>
+                                <div style={{ fontSize: 13, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif", fontWeight: 600 }}>{c.nome}</div>
+                                <div style={{ fontSize: 11, color: "var(--tx2)" }}>{c.estilo || "—"} · {c.regiao || "—"}</div>
+                              </div>
+                              <span style={aStyle(c.artista)}>{aName(c.artista).split(" ")[0]}</span>
+                            </div>
+                          ))}
+                          {clients.filter(c => c.nome.toLowerCase().includes((agClientSearch || agForm.title).toLowerCase())).length === 0 && (
+                            <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--tx3)", fontStyle: "italic" }}>
+                              Nenhum cliente encontrado — salvando como evento avulso
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
                 <div className="ff">
                   <label className="fl">Tipo</label>
                   <select className="fs" value={agForm.tipo} onChange={e => setAgForm({ ...agForm, tipo: e.target.value })}>
@@ -2817,13 +2877,48 @@ export default function CRM() {
                 <div className="ff"><label className="fl">Descrição (opcional)</label><input className="fi" placeholder="Breve descrição..." value={(agForm as any).desc || ""} onChange={e => setAgForm({ ...agForm, desc: e.target.value } as any)} /></div>
                 <div className="ff"><label className="fl">Data</label><input className="fi" type="date" value={agForm.date} onChange={e => setAgForm({ ...agForm, date: e.target.value })} /></div>
                 <div className="fr">
-                  <div className="ff"><label className="fl">Inicio (h)</label><input className="fi" type="number" min={8} max={20} value={agForm.start} onChange={e => setAgForm({ ...agForm, start: Number(e.target.value) })} /></div>
+                  <div className="ff"><label className="fl">Início (h)</label><input className="fi" type="number" min={8} max={20} value={agForm.start} onChange={e => setAgForm({ ...agForm, start: Number(e.target.value) })} /></div>
                   <div className="ff"><label className="fl">Fim (h)</label><input className="fi" type="number" min={9} max={22} value={agForm.end} onChange={e => setAgForm({ ...agForm, end: Number(e.target.value) })} /></div>
                 </div>
+
+                {/* Dados do cliente vinculado */}
+                {agClientVinc && (
+                  <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "11px 13px", marginTop: 4 }}>
+                    <div style={{ fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 600, marginBottom: 8 }}>📋 Dados do Cliente</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                      {[
+                        { l: "Estilo", v: agClientVinc.estilo || "—" },
+                        { l: "Região", v: agClientVinc.regiao || "—" },
+                        { l: "Tamanho", v: agClientVinc.tam || "—" },
+                        { l: "Qualificação", v: agClientVinc.qual || "—" },
+                      ].map((f, i) => (
+                        <div key={i} style={{ background: "var(--dk4)", borderRadius: 4, padding: "5px 8px" }}>
+                          <div style={{ fontSize: 9, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".07em" }}>{f.l}</div>
+                          <div style={{ fontSize: 12, color: "var(--tx)", fontWeight: 500, marginTop: 1 }}>{f.v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {agClientVinc.desc && (
+                      <div style={{ marginTop: 8, fontSize: 11, color: "var(--tx2)", fontStyle: "italic" }}>
+                        💡 {agClientVinc.desc}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="fmf">
-                <button className="btn-c" onClick={() => setShowAgForm(false)}>Cancelar</button>
-                <button className="btn-s" onClick={saveAgEvent} disabled={!agForm.title}>Salvar</button>
+              <div className="fmf" style={{ justifyContent: "space-between" }}>
+                <div>
+                  {editingEvent && (
+                    <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)" }}
+                      onClick={() => { if (window.confirm("Excluir este evento?")) { setAgEvents(p => p.filter(x => x.id !== editingEvent.id)); dbDelete("agenda", editingEvent.id); setShowAgForm(false); setEditingEvent(null); } }}>
+                      🗑 Excluir
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 7 }}>
+                  <button className="btn-c" onClick={() => { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); }}>Cancelar</button>
+                  <button className="btn-s" onClick={saveAgEvent} disabled={!agForm.title}>Salvar</button>
+                </div>
               </div>
             </div>
           </div>
