@@ -331,14 +331,24 @@ const STAR_REASONS = [
 
 const CAL_COLORS: Record<string, string> = {
   cons_abraao: "#4A9EBF",
-  sess_abraao: "#C9A84C",
+  sess_abraao: "#4A9EBF",
   cons_camilla: "#9B6BB5",
-  sess_camilla: "#27AE60",
+  sess_camilla: "#9B6BB5",
   bloq_abraao: "#C0392B",
-  bloq_camilla: "#E67E22",
+  bloq_camilla: "#C0392B",
   bloq_geral: "#555",
   piercing: "#E91E8C"
 };
+
+function getEventColor(tipo: string, artists: any[]): string {
+  if (!tipo) return "#888";
+  if (tipo === "bloq_geral") return "#555";
+  if (tipo === "piercing") return "#E91E8C";
+  const artistId = tipo.replace("cons_", "").replace("sess_", "").replace("bloq_", "");
+  const artist = artists.find(a => a.id === artistId);
+  if (artist?.cor) return artist.cor;
+  return CAL_COLORS[tipo] || "#888";
+}
 
 const CAL_LABELS: Record<string, string> = {
   cons_abraao: "Consulta Abraão",
@@ -1541,12 +1551,20 @@ export default function CRM() {
               <button className="btn-new" style={{ marginLeft: "auto" }} onClick={() => setShowAgForm(true)}>+ Evento</button>
             </div>
             <div className="ag-leg">
-              {Object.entries(CAL_COLORS).map(([k, v]) => (
-                <div className="ag-li" key={k}>
-                  <div className="ag-ld" style={{ background: v }} />
-                  {CAL_LABELS[k]}
+              {artists.filter(a => a.ativo).map(a => (
+                <div className="ag-li" key={a.id}>
+                  <div className="ag-ld" style={{ background: a.cor }} />
+                  {a.nome.split(" ")[0]}
                 </div>
               ))}
+              <div className="ag-li">
+                <div className="ag-ld" style={{ background: "#C0392B" }} />
+                Bloqueio
+              </div>
+              <div className="ag-li">
+                <div className="ag-ld" style={{ background: "#E91E8C" }} />
+                Piercing
+              </div>
             </div>
 
             {agView === "month" && (
@@ -1560,7 +1578,7 @@ export default function CRM() {
                         onClick={() => { setAgDate(item.date); setAgView("day"); }}>
                         <div className="mdn">{item.date.getDate()}</div>
                         {evs.slice(0, 3).map(e => (
-                          <div key={e.id} className="mev" style={{ background: CAL_COLORS[e.tipo] || "#888" }}>
+                          <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists) }}>
                             {e.start}h {e.title}
                           </div>
                         ))}
@@ -1594,7 +1612,7 @@ export default function CRM() {
                             const duration = Math.max(e.end - e.start, 1);
                             return (
                               <div key={e.id} className="we" style={{
-                                background: CAL_COLORS[e.tipo] || "#888",
+                                background: getEventColor(e.tipo, artists),
                                 position: "absolute", left: 2, right: 2, top: 2,
                                 height: (duration * 46) - 4 + "px",
                                 zIndex: 10, borderRadius: 4, padding: "3px 5px",
@@ -1629,7 +1647,7 @@ export default function CRM() {
                             return (
                               <div key={e.id} className="dev"
                                 style={{
-                                  background: CAL_COLORS[e.tipo] || "#888",
+                                  background: getEventColor(e.tipo, artists),
                                   position: "absolute", left: 0, right: 0, top: 0,
                                   height: (duration * 46) - 4 + "px",
                                   zIndex: 5, borderRadius: 5, padding: "5px 10px",
