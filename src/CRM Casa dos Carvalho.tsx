@@ -1141,16 +1141,14 @@ export default function CRM() {
     }
     return MONTHS[agDate.getMonth()] + " " + agDate.getFullYear();
   };
-  const aName = (id: string) => artists.find(a => a.id === id)?.nome || (id === "abraao" ? "Abraao" : "Camilla");
+  const aName = (id: string) => artists.find(a => a.id === id)?.nome || (id === "abraao" ? "Abraão" : "Camilla");
   const aColor = (id: string) => artists.find(a => a.id === id)?.cor || "#C9A84C";
-  const aClass = (id: string) => id === "abraao" ? "at-abraao" : id === "camilla" ? "at-camilla" : "";
+  const aClass = (id: string) => "";
   const aStyle = (id: string) => {
     const a = artists.find(x => x.id === id);
-    if (!a) return {};
-    if (id === "abraao" || id === "camilla") return {};
-    const hex = a.cor || "#C9A84C";
+    const hex = a?.cor || (id === "abraao" ? "#4A9EBF" : id === "camilla" ? "#9B6BB5" : "#C9A84C");
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-    return { background: "rgba("+r+","+g+","+b+",.15)", color: a.cor, border: "1px solid rgba("+r+","+g+","+b+",.25)" };
+    return { background: "rgba("+r+","+g+","+b+",.15)", color: hex, border: "1px solid rgba("+r+","+g+","+b+",.3)", borderRadius: 9, padding: "2px 6px", fontSize: 10, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase" as const };
   };
 
   const EBS: Record<string, any> = {
