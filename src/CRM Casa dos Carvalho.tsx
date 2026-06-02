@@ -789,6 +789,8 @@ export default function CRM() {
   const [showRegiaoDD, setShowRegiaoDD] = useState(false);
   const [estiloOpts, setEstiloOpts] = useState<string[]>(["Fine Line", "Realismo", "Black Work", "Old School", "Aquarela", "Geometrico", "Surrealismo", "Tribal", "Fine Line Floral", "Fine Line Botanico"]);
   const [regiaoOpts, setRegiaoOpts] = useState<string[]>(["Antebraço", "Braço inteiro", "Costela", "Costas", "Ombro", "Panturrilha", "Clavicula", "Pescoco", "Mao", "Pe"]);
+  const [showHistorico, setShowHistorico] = useState(false);
+  const [historico, setHistorico] = useState<{id?:any; data:string; hora:string; acao:string}[]>([]);
 
   const [dbReady, setDbReady] = useState(false);
 
@@ -874,6 +876,20 @@ export default function CRM() {
     });
   }, []);
 
+  const addLog = useCallback(async (acao: string) => {
+    const now = new Date();
+    const data = now.toLocaleDateString("pt-BR");
+    const hora = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const row = { data, hora, acao };
+    setHistorico(p => [{ ...row, id: Date.now() }, ...p]);
+    try { await sb.from("historico").insert(row); } catch(e) { console.warn("log error", e); }
+  }, []);
+
+  useEffect(() => {
+    sb.from("historico").select("*").order("id", { ascending: false }).limit(500)
+      .then(({ data }) => { if (data) setHistorico(data); });
+  }, []);
+
   useMemo(() => applyTheme(dark), [dark]);
 
   const filtered = useMemo(() => clients.filter(c => {
@@ -927,6 +943,8 @@ export default function CRM() {
       });
       const c = updated.find(c => c.id === cid);
       if (c) setTimeout(() => saveClientDb(c), 100);
+      const nome = updated.find(c => c.id === cid)?.nome || "cliente";
+      addLog(`Pipeline: "${nome}" movido para ${lbl}`);
       return updated;
     });
   };
@@ -975,9 +993,11 @@ export default function CRM() {
 
   const deleteClient = async (cid: any) => {
     if (!window.confirm("Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.")) return;
+    const nome = clients.find(c => c.id === cid)?.nome || "cliente";
     setClients(p => p.filter(c => c.id !== cid));
     setSel(null);
     await dbDelete("clientes", cid);
+    addLog(`Cliente "${nome}" excluído`);
   };
 
   const registrarIndicacao = (cid: number, artista: string) => {
@@ -1053,6 +1073,7 @@ export default function CRM() {
     setShowForm(false);
     setFormAg({ agendar: false, data: "", hora: "09:00", tipo: "cons" });
     setForm({ nome: "", tel: "", email: "", insta: "", artista: "abraao", estilo: "", regiao: "", tam: "Medio", desc: "", orig: "Instagram Organico", qual: "Q2", primeira: false, cob: false, intencao: "", nascimento: "" });
+    addLog(`Cliente "${nc.nome}" cadastrado`);
   };
 
   const saveArtist = async () => {
@@ -1088,6 +1109,7 @@ export default function CRM() {
       setShowAgForm(false);
       setAgClientVinc(null);
       setAgClientSearch("");
+      addLog(`Agenda: evento "${agForm.title}" editado (${agForm.date} ${agForm.start}h)`);
       return;
     }
 
@@ -1103,6 +1125,7 @@ export default function CRM() {
     setEditingEvent(null);
     setAgClientVinc(null);
     setAgClientSearch("");
+    addLog(`Agenda: evento "${agForm.title}" criado para ${agForm.date} às ${agForm.start}h`);
   };
 
   const disparo = () => { setSent(true); setTimeout(() => setSent(false), 4000); };
@@ -1346,6 +1369,7 @@ export default function CRM() {
               </div>
             )}
             <button className="theme-btn" onClick={() => setDark(d => !d)}>{dark ? "☀️" : "🌙"}</button>
+            <button className="theme-btn" onClick={() => setShowHistorico(true)} title="Histórico de ações">📋</button>
             <button className="btn-new" onClick={() => setShowForm(true)}>+ Novo Cliente</button>
           </div>
         </div>
@@ -1591,7 +1615,8 @@ export default function CRM() {
                         onClick={() => { setAgDate(item.date); setAgView("day"); }}>
                         <div className="mdn">{item.date.getDate()}</div>
                         {evs.slice(0, 3).map(e => (
-                          <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista) }}>
+                          <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista), cursor: "pointer" }}
+                            onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
                             {e.start}h {e.title}
                           </div>
                         ))}
@@ -1629,9 +1654,12 @@ export default function CRM() {
                                 position: "absolute", left: 2, right: 2, top: 2,
                                 height: (duration * 46) - 4 + "px",
                                 zIndex: 10, borderRadius: 4, padding: "3px 5px",
-                                overflow: "hidden", fontSize: 10, fontWeight: 600, color: "#fff"
-                              }}>
-                                {e.title}<br/><span style={{opacity:.8}}>{e.start}h–{e.end}h</span>
+                                overflow: "hidden", fontSize: 10, fontWeight: 600, color: "#fff",
+                                cursor: "pointer", display: "flex", alignItems: "flex-start", justifyContent: "space-between"
+                              }}
+                              onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
+                                <span>{e.title}<br/><span style={{opacity:.8}}>{e.start}h–{e.end}h</span></span>
+                                <span onClick={ev => { ev.stopPropagation(); setAgEvents(p => p.filter(x => x.id !== e.id)); dbDelete("agenda", e.id); addLog(`Agenda: evento "${e.title}" excluído`); }} style={{ opacity: .8, cursor: "pointer", fontSize: 12, flexShrink: 0 }}>🗑</span>
                               </div>
                             );
                           })}
@@ -1673,7 +1701,7 @@ export default function CRM() {
                                   <span style={{ opacity: .8, cursor: "pointer", fontSize: 13 }}
                                     onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>✏️</span>
                                   <span style={{ opacity: .8, cursor: "pointer", fontSize: 13 }}
-                                    onClick={ev => { ev.stopPropagation(); if(window.confirm("Excluir este evento?")) { setAgEvents(p => p.filter(x => x.id !== e.id)); dbDelete("agenda", e.id); } }}>🗑</span>
+                                    onClick={ev => { ev.stopPropagation(); if(window.confirm("Excluir este evento?")) { setAgEvents(p => p.filter(x => x.id !== e.id)); dbDelete("agenda", e.id); addLog(`Agenda: evento "${e.title}" excluído`); } }}>🗑</span>
                                 </div>
                               </div>
                             );
@@ -2975,7 +3003,7 @@ export default function CRM() {
                 <div>
                   {editingEvent && (
                     <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)" }}
-                      onClick={() => { if (window.confirm("Excluir este evento?")) { setAgEvents(p => p.filter(x => x.id !== editingEvent.id)); dbDelete("agenda", editingEvent.id); setShowAgForm(false); setEditingEvent(null); } }}>
+                      onClick={() => { if (window.confirm("Excluir este evento?")) { const titulo = editingEvent.title; setAgEvents(p => p.filter(x => x.id !== editingEvent.id)); dbDelete("agenda", editingEvent.id); setShowAgForm(false); setEditingEvent(null); addLog(`Agenda: evento "${titulo}" excluído`); } }}>
                       🗑 Excluir
                     </button>
                   )}
@@ -2984,6 +3012,47 @@ export default function CRM() {
                   <button className="btn-c" onClick={() => { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); }}>Cancelar</button>
                   <button className="btn-s" onClick={saveAgEvent} disabled={!agForm.title}>Salvar</button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── HISTÓRICO ── */}
+        {showHistorico && (
+          <div className="ov" onClick={e => { if (e.target === e.currentTarget) setShowHistorico(false); }}>
+            <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(620px, 95vw)", maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--br)", background: "var(--dk3)" }}>
+                <div>
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--tx)" }}>📋 Histórico de Ações</div>
+                  <div style={{ fontSize: 10, color: "var(--tx3)", letterSpacing: ".1em", textTransform: "uppercase", marginTop: 2 }}>{historico.length} registros</div>
+                </div>
+                <button className="mc" onClick={() => setShowHistorico(false)}>✕</button>
+              </div>
+              <div style={{ overflowY: "auto", padding: "12px 16px", flex: 1 }}>
+                {historico.length === 0 && (
+                  <div style={{ textAlign: "center", color: "var(--tx3)", fontSize: 13, padding: "40px 0", fontStyle: "italic" }}>Nenhuma ação registrada ainda.</div>
+                )}
+                {(() => {
+                  // Agrupa por data
+                  const grupos: Record<string, typeof historico> = {};
+                  historico.forEach(h => {
+                    if (!grupos[h.data]) grupos[h.data] = [];
+                    grupos[h.data].push(h);
+                  });
+                  return Object.entries(grupos).map(([data, itens]) => (
+                    <div key={data} style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 6, paddingBottom: 4, borderBottom: "1px solid var(--br)" }}>
+                        📅 {data}
+                      </div>
+                      {itens.map((h, i) => (
+                        <div key={h.id || i} style={{ display: "flex", gap: 10, padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+                          <span style={{ fontSize: 11, color: "var(--tx3)", minWidth: 42, fontVariantNumeric: "tabular-nums" }}>{h.hora}</span>
+                          <span style={{ fontSize: 12, color: "var(--tx)", lineHeight: 1.5 }}>{h.acao}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
           </div>
