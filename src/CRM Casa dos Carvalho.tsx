@@ -340,12 +340,13 @@ const CAL_COLORS: Record<string, string> = {
   piercing: "#E91E8C"
 };
 
-function getEventColor(tipo: string, artists: any[]): string {
+function getEventColor(tipo: string, artists: any[], artistaId?: string): string {
   if (!tipo) return "#888";
   if (tipo === "bloq_geral") return "#555";
   if (tipo === "piercing") return "#E91E8C";
-  const artistId = tipo.replace("cons_", "").replace("sess_", "").replace("bloq_", "");
-  const artist = artists.find(a => a.id === artistId);
+  // Usa o campo artista do evento se disponível, senão extrai do tipo
+  const id = artistaId || tipo.replace("cons_", "").replace("sess_", "").replace("bloq_", "");
+  const artist = artists.find(a => a.id === id);
   if (artist?.cor) return artist.cor;
   return CAL_COLORS[tipo] || "#888";
 }
@@ -1586,7 +1587,7 @@ export default function CRM() {
                         onClick={() => { setAgDate(item.date); setAgView("day"); }}>
                         <div className="mdn">{item.date.getDate()}</div>
                         {evs.slice(0, 3).map(e => (
-                          <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists) }}>
+                          <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista) }}>
                             {e.start}h {e.title}
                           </div>
                         ))}
@@ -1620,7 +1621,7 @@ export default function CRM() {
                             const duration = Math.max(e.end - e.start, 1);
                             return (
                               <div key={e.id} className="we" style={{
-                                background: getEventColor(e.tipo, artists),
+                                background: getEventColor(e.tipo, artists, e.artista),
                                 position: "absolute", left: 2, right: 2, top: 2,
                                 height: (duration * 46) - 4 + "px",
                                 zIndex: 10, borderRadius: 4, padding: "3px 5px",
@@ -1655,7 +1656,7 @@ export default function CRM() {
                             return (
                               <div key={e.id} className="dev"
                                 style={{
-                                  background: getEventColor(e.tipo, artists),
+                                  background: getEventColor(e.tipo, artists, e.artista),
                                   position: "absolute", left: 0, right: 0, top: 0,
                                   height: (duration * 46) - 4 + "px",
                                   zIndex: 5, borderRadius: 5, padding: "5px 10px",
@@ -2738,7 +2739,7 @@ export default function CRM() {
                     <label htmlFor="chkAg" style={{ fontSize: 12, fontWeight: 600, color: "var(--gold)", cursor: "pointer" }}>📅 Agendar sessão agora</label>
                   </div>
                   {formAg.agendar && (
-                    <div className="fr">
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginTop: 8 }}>
                       <div className="ff">
                         <label className="fl">Data</label>
                         <input className="fi" type="date" value={formAg.data} onChange={e => setFormAg(f => ({ ...f, data: e.target.value }))} />
@@ -2875,10 +2876,10 @@ export default function CRM() {
                   </select>
                 </div>
                 <div className="ff"><label className="fl">Descrição (opcional)</label><input className="fi" placeholder="Breve descrição..." value={(agForm as any).desc || ""} onChange={e => setAgForm({ ...agForm, desc: e.target.value } as any)} /></div>
-                <div className="ff"><label className="fl">Data</label><input className="fi" type="date" value={agForm.date} onChange={e => setAgForm({ ...agForm, date: e.target.value })} /></div>
                 <div className="fr">
                   <div className="ff"><label className="fl">Início (h)</label><input className="fi" type="number" min={8} max={20} value={agForm.start} onChange={e => setAgForm({ ...agForm, start: Number(e.target.value) })} /></div>
                   <div className="ff"><label className="fl">Fim (h)</label><input className="fi" type="number" min={9} max={22} value={agForm.end} onChange={e => setAgForm({ ...agForm, end: Number(e.target.value) })} /></div>
+                  <div className="ff"><label className="fl">Data</label><input className="fi" type="date" value={agForm.date} onChange={e => setAgForm({ ...agForm, date: e.target.value })} /></div>
                 </div>
 
                 {/* Dados do cliente vinculado */}
