@@ -1561,7 +1561,7 @@ export default function CRM() {
                   </button>
                 ))}
               </div>
-              <button className="btn-new" style={{ marginLeft: "auto" }} onClick={() => setShowAgForm(true)}>+ Evento</button>
+              <button className="btn-new" style={{ marginLeft: "auto" }} onClick={() => { setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setAgForm(f => ({ ...f, title: "", desc: "", tipo: "cons_abraao" })); setShowAgForm(true); }}>+ Evento</button>
             </div>
             <div className="ag-leg">
               {artists.filter(a => a.ativo).map(a => (
@@ -1620,7 +1620,7 @@ export default function CRM() {
                       const occupied = agEvents.some(e => e.date === ds && e.start < h && e.end > h);
                       return (
                         <div key={h + "-" + di} className="wc" style={{ position: "relative", overflow: "visible" }}
-                          onClick={() => { setAgDate(d); setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2 })); setShowAgForm(true); }}>
+                          onClick={() => { setAgDate(d); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2, title: "", desc: "", tipo: "cons_abraao" })); setShowAgForm(true); }}>
                           {evs.map(e => {
                             const duration = Math.max(e.end - e.start, 1);
                             return (
@@ -1654,7 +1654,7 @@ export default function CRM() {
                       <div key={h} className="dr">
                         <div className="dtime">{h}:00</div>
                         <div className="dslot" style={{ position: "relative", minHeight: 46 }}
-                          onClick={() => { if (!evs.length && !occupied) { setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2, title: "", desc: "" })); setShowAgForm(true); } }}>
+                          onClick={() => { if (!evs.length && !occupied) { setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2, title: "", desc: "", tipo: "cons_abraao" })); setShowAgForm(true); } }}>
                           {evs.map(e => {
                             const duration = Math.max(e.end - e.start, 1);
                             return (
