@@ -47,8 +47,9 @@ export default function Agenda({ agEvents, setAgEvents }: AgendaProps) {
   };
 
   const openNew = (date: string, start: number) => {
+    const newForm = { title: "", tipo: "cons_abraao", date, start, end: start + 2, desc: "" };
     setEditingEvent(null);
-    setAgForm({ ...EMPTY_FORM, date, start, end: start + 2 });
+    setAgForm(newForm);
     setShowAgForm(true);
   };
 
@@ -251,7 +252,8 @@ export default function Agenda({ agEvents, setAgEvents }: AgendaProps) {
 
       {/* ── MODAL EVENTO ── */}
       {showAgForm && (
-        <div className="fov" onClick={e => { if (e.target === e.currentTarget) closeForm(); }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", backdropFilter: "blur(4px)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}
+          onClick={e => { if (e.target === e.currentTarget) closeForm(); }}>
           <div className="fmod" style={{ maxWidth: 400 }}>
             <div className="fmh">
               <div className="fmt">{editingEvent ? "Editar Evento" : "Novo Evento"}</div>
