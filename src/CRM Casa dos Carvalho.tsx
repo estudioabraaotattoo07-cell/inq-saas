@@ -2822,8 +2822,7 @@ export default function CRM() {
               <div className="fmf">
                 <button className="btn-c" onClick={() => setShowSettings(false)}>Fechar</button>
                 <button className="btn-s" onClick={async () => {
-                  await dbUpsert("configuracoes", {
-                    id: 1,
+                  const cfg = {
                     studio_name: studioName, studio_tel: studioTel,
                     studio_owner: studioOwner, studio_email: studioEmail,
                     studio_city: studioCity, studio_insta: studioInsta,
@@ -2831,7 +2830,13 @@ export default function CRM() {
                     cnpj, meta_mensal: metaMensal,
                     horarios, dark_mode: dark,
                     updated_at: new Date().toISOString()
-                  });
+                  };
+                  const { data: existing } = await sb.from("configuracoes").select("id").limit(1).single();
+                  if (existing?.id) {
+                    await sb.from("configuracoes").update(cfg).eq("id", existing.id);
+                  } else {
+                    await sb.from("configuracoes").insert({ id: 1, ...cfg });
+                  }
                   setShowSettings(false);
                 }}>Salvar</button>
               </div>
