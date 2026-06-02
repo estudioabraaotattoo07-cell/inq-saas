@@ -1981,14 +1981,32 @@ export default function CRM() {
                     </div>
                     <div className="ff">
                       <label className="fl">Cor</label>
-                      <input type="color" value={editingArtist.cor} onChange={e => setEditingArtist({ ...editingArtist, cor: e.target.value })}
-                        style={{ width: "100%", height: 38, background: "none", border: "1px solid var(--br)", borderRadius: 5, cursor: "pointer" }} />
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                        {["#4A9EBF","#9B6BB5","#C0392B","#E67E22","#C9A84C","#27AE60","#3498DB","#E91E8C","#1ABC9C","#8E44AD","#E8E2D9","#555045"].map(cor => (
+                          <div key={cor} onClick={() => setEditingArtist({ ...editingArtist, cor })}
+                            style={{ width: 28, height: 28, borderRadius: "50%", background: cor, cursor: "pointer",
+                              border: editingArtist.cor === cor ? "3px solid var(--gold)" : "2px solid transparent",
+                              boxShadow: editingArtist.cor === cor ? "0 0 0 1px var(--gold)" : "none",
+                              transition: "all .15s" }} />
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <div className="fmf">
                     <button className="btn-c" onClick={() => setEditingArtist(null)}>Cancelar</button>
-                    <button className="btn-s" onClick={() => {
+                    <button className="btn-s" onClick={async () => {
                       setArtists(p => p.map(x => x.id === editingArtist.id ? { ...editingArtist } : x));
+                      const { error } = await sb.from("artistas").update({
+                        nome: editingArtist.nome,
+                        role: editingArtist.role,
+                        com: editingArtist.com,
+                        cor: editingArtist.cor,
+                        insta: editingArtist.insta,
+                        email: editingArtist.email,
+                        tel: editingArtist.tel,
+                        ativo: editingArtist.ativo
+                      }).eq("id", editingArtist.id);
+                      if (error) { console.error("Erro ao salvar artista:", error); alert("Erro ao salvar artista."); return; }
                       setEditingArtist(null);
                     }}>Salvar</button>
                   </div>
