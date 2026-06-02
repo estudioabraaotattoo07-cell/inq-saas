@@ -785,6 +785,10 @@ export default function CRM() {
   const [agClientSearch, setAgClientSearch] = useState("");
   const [agClientVinc, setAgClientVinc] = useState<any>(null);
   const [agClientDropdown, setAgClientDropdown] = useState(false);
+  const [showEstiloDD, setShowEstiloDD] = useState(false);
+  const [showRegiaoDD, setShowRegiaoDD] = useState(false);
+  const [estiloOpts, setEstiloOpts] = useState<string[]>(["Fine Line", "Realismo", "Black Work", "Old School", "Aquarela", "Geometrico", "Surrealismo", "Tribal", "Fine Line Floral", "Fine Line Botanico"]);
+  const [regiaoOpts, setRegiaoOpts] = useState<string[]>(["Antebraço", "Braço inteiro", "Costela", "Costas", "Ombro", "Panturrilha", "Clavicula", "Pescoco", "Mao", "Pe"]);
 
   const [dbReady, setDbReady] = useState(false);
 
@@ -2687,7 +2691,7 @@ export default function CRM() {
               </div>
               <div className="fmb">
                 <div className="fr">
-                  <div className="ff"><label className="fl">Nome *</label><input className="fi" placeholder="Nome completo" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} /></div>
+                  <div className="ff"><label className="fl">Nome *</label><input className="fi" placeholder="Nome completo" value={form.nome} onChange={e => { const v = e.target.value; setForm({ ...form, nome: v.replace(/\b\w/g, l => l.toUpperCase()) }); }} /></div>
                   <div className="ff"><label className="fl">Telefone *</label><input className="fi" placeholder="(99) 9 9999-9999" value={form.tel} onChange={e => setForm({ ...form, tel: maskTel(e.target.value) })} /></div>
                 </div>
                 <div className="fr">
@@ -2712,8 +2716,68 @@ export default function CRM() {
                   </div>
                 </div>
                 <div className="fr">
-                  <div className="ff"><label className="fl">Estilo</label><input className="fi" placeholder="Fine Line, Realismo..." value={form.estilo} onChange={e => setForm({ ...form, estilo: e.target.value })} /></div>
-                  <div className="ff"><label className="fl">Regiao</label><input className="fi" placeholder="Antebraco, Costas..." value={form.regiao} onChange={e => setForm({ ...form, regiao: e.target.value })} /></div>
+                  {/* ── COMBOBOX ESTILO ── */}
+                  <div className="ff" style={{ position: "relative" }}>
+                    <label className="fl">Estilo</label>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <input className="fi" style={{ flex: 1 }} placeholder="Fine Line, Realismo..." value={form.estilo}
+                        onChange={e => { setForm({ ...form, estilo: e.target.value }); setShowEstiloDD(true); }}
+                        onFocus={() => setShowEstiloDD(true)}
+                        onBlur={() => setTimeout(() => setShowEstiloDD(false), 150)}
+                      />
+                      <button type="button" style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "0 8px", cursor: "pointer", color: "var(--tx2)", fontSize: 12 }}
+                        onMouseDown={e => { e.preventDefault(); setShowEstiloDD(v => !v); }}>▾</button>
+                    </div>
+                    {showEstiloDD && (
+                      <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 7, boxShadow: "0 6px 24px rgba(0,0,0,.5)", maxHeight: 200, overflowY: "auto" }}>
+                        {estiloOpts.filter(o => !form.estilo || o.toLowerCase().includes(form.estilo.toLowerCase())).map(o => (
+                          <div key={o} onMouseDown={() => { setForm({ ...form, estilo: o }); setShowEstiloDD(false); }}
+                            style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--tx)" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                            {o}
+                          </div>
+                        ))}
+                        {form.estilo && !estiloOpts.some(o => o.toLowerCase() === form.estilo.toLowerCase()) && (
+                          <div onMouseDown={() => { setEstiloOpts(p => [...p, form.estilo]); setShowEstiloDD(false); }}
+                            style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
+                            + Adicionar "{form.estilo}"
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {/* ── COMBOBOX REGIAO ── */}
+                  <div className="ff" style={{ position: "relative" }}>
+                    <label className="fl">Região</label>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <input className="fi" style={{ flex: 1 }} placeholder="Antebraço, Costas..." value={form.regiao}
+                        onChange={e => { setForm({ ...form, regiao: e.target.value }); setShowRegiaoDD(true); }}
+                        onFocus={() => setShowRegiaoDD(true)}
+                        onBlur={() => setTimeout(() => setShowRegiaoDD(false), 150)}
+                      />
+                      <button type="button" style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "0 8px", cursor: "pointer", color: "var(--tx2)", fontSize: 12 }}
+                        onMouseDown={e => { e.preventDefault(); setShowRegiaoDD(v => !v); }}>▾</button>
+                    </div>
+                    {showRegiaoDD && (
+                      <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 7, boxShadow: "0 6px 24px rgba(0,0,0,.5)", maxHeight: 200, overflowY: "auto" }}>
+                        {regiaoOpts.filter(o => !form.regiao || o.toLowerCase().includes(form.regiao.toLowerCase())).map(o => (
+                          <div key={o} onMouseDown={() => { setForm({ ...form, regiao: o }); setShowRegiaoDD(false); }}
+                            style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--tx)" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                            {o}
+                          </div>
+                        ))}
+                        {form.regiao && !regiaoOpts.some(o => o.toLowerCase() === form.regiao.toLowerCase()) && (
+                          <div onMouseDown={() => { setRegiaoOpts(p => [...p, form.regiao]); setShowRegiaoDD(false); }}
+                            style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
+                            + Adicionar "{form.regiao}"
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="fr">
                   <div className="ff">
