@@ -707,6 +707,61 @@ const FIN_INIT = [
 ];
 
 
+// ─── TIME SCROLLER ────────────────────────────────────────────────────────────
+function TimeScroller({ value, onChange, label }: { value: number; onChange: (h: number, m: number) => void; label: string }) {
+  const hour = Math.floor(value);
+  const [open, setOpen] = React.useState(false);
+  const [selH, setSelH] = React.useState(hour);
+  const [selM, setSelM] = React.useState(0);
+  const HOURS = Array.from({ length: 24 }, (_, i) => i);
+  const MINS = [0, 15, 30, 45];
+  React.useEffect(() => { setSelH(Math.floor(value)); }, [value]);
+  const confirm = (h: number, m: number) => { onChange(h, m); setOpen(false); };
+  return (
+    <div style={{ position: "relative", flex: 1 }}>
+      <label className="fl">{label}</label>
+      <div onClick={() => setOpen(v => !v)} className="fi"
+        style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", userSelect: "none" }}>
+        <span>{String(selH).padStart(2,"0")}:{String(selM).padStart(2,"0")}</span>
+        <span style={{ fontSize: 10, color: "var(--tx3)" }}>▾</span>
+      </div>
+      {open && (
+        <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, zIndex: 9999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 8, boxShadow: "0 8px 32px rgba(0,0,0,.6)", marginTop: 4, padding: "8px 4px", width: 140 }}>
+          <div style={{ display: "flex", gap: 4 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, color: "var(--tx3)", textAlign: "center", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 4 }}>Hora</div>
+              <div style={{ height: 160, overflowY: "auto", scrollbarWidth: "thin" }}>
+                {HOURS.map(h => (
+                  <div key={h} onClick={() => setSelH(h)}
+                    style={{ padding: "6px 4px", textAlign: "center", fontSize: 13, borderRadius: 4, cursor: "pointer", fontWeight: h === selH ? 700 : 400, color: h === selH ? "var(--gold)" : "var(--tx)", background: h === selH ? "rgba(201,168,76,.1)" : "" }}>
+                    {String(h).padStart(2,"0")}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ width: 1, background: "var(--br)" }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, color: "var(--tx3)", textAlign: "center", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 4 }}>Min</div>
+              <div style={{ height: 160, overflowY: "auto" }}>
+                {MINS.map(m => (
+                  <div key={m} onClick={() => setSelM(m)}
+                    style={{ padding: "6px 4px", textAlign: "center", fontSize: 13, borderRadius: 4, cursor: "pointer", fontWeight: m === selM ? 700 : 400, color: m === selM ? "var(--gold)" : "var(--tx)", background: m === selM ? "rgba(201,168,76,.1)" : "" }}>
+                    {String(m).padStart(2,"0")}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <button onClick={() => confirm(selH, selM)}
+            style={{ width: "100%", marginTop: 8, background: "var(--gold)", border: "none", borderRadius: 6, padding: "6px 0", fontSize: 12, fontWeight: 700, color: "#1a1a1a", cursor: "pointer" }}>
+            OK
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── COLOR PICKER ─────────────────────────────────────────────────────────────
 function hexToHsv(hex: string): [number, number, number] {
   const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
@@ -723,43 +778,51 @@ function hsvToHex(h: number, s: number, v: number): string {
 }
 function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   const [hsv, setHsv] = React.useState<[number,number,number]>(() => hexToHsv(value || "#C9A84C"));
-  const [dragging, setDragging] = React.useState<"sq"|"hue"|null>(null);
   const sqRef = React.useRef<HTMLDivElement>(null);
   const hueRef = React.useRef<HTMLDivElement>(null);
+  const dragRef = React.useRef<"sq"|"hue"|null>(null);
+  const hsvRef = React.useRef(hsv);
+  hsvRef.current = hsv;
+
   React.useEffect(() => { setHsv(hexToHsv(value || "#C9A84C")); }, [value]);
-  const updateSq = (e: any) => {
+
+  const calcSq = (e: MouseEvent | React.MouseEvent) => {
     if (!sqRef.current) return;
     const r = sqRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
     const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
-    const ns: [number,number,number] = [hsv[0], Math.round(x*100), Math.round((1-y)*100)];
+    const ns: [number,number,number] = [hsvRef.current[0], Math.round(x*100), Math.round((1-y)*100)];
     setHsv(ns); onChange(hsvToHex(...ns));
   };
-  const updateHue = (e: any) => {
+  const calcHue = (e: MouseEvent | React.MouseEvent) => {
     if (!hueRef.current) return;
     const r = hueRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-    const ns: [number,number,number] = [Math.round(x*360), hsv[1], hsv[2]];
+    const ns: [number,number,number] = [Math.round(x*360), hsvRef.current[1], hsvRef.current[2]];
     setHsv(ns); onChange(hsvToHex(...ns));
   };
+
   React.useEffect(() => {
-    if (!dragging) return;
-    const move = (e: MouseEvent) => dragging === "sq" ? updateSq(e) : updateHue(e);
-    const up = () => setDragging(null);
-    window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+    const move = (e: MouseEvent) => { if (dragRef.current === "sq") calcSq(e); else if (dragRef.current === "hue") calcHue(e); };
+    const up = () => { dragRef.current = null; };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
     return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
-  }, [dragging, hsv]);
+  }, []);
+
   const bgSq = `hsl(${hsv[0]},100%,50%)`;
   const curX = hsv[1]; const curY = 100 - hsv[2];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, userSelect: "none" }}>
-      <div ref={sqRef} onMouseDown={e => { setDragging("sq"); updateSq(e); }}
+      <div ref={sqRef}
+        onMouseDown={e => { dragRef.current = "sq"; calcSq(e); }}
         style={{ width: "100%", height: 140, borderRadius: 6, position: "relative", cursor: "crosshair",
           background: bgSq, backgroundImage: "linear-gradient(to right,#fff,transparent),linear-gradient(to top,#000,transparent)" }}>
         <div style={{ position: "absolute", left: `calc(${curX}% - 6px)`, top: `calc(${curY}% - 6px)`,
           width: 12, height: 12, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 0 2px rgba(0,0,0,.5)", pointerEvents: "none" }} />
       </div>
-      <div ref={hueRef} onMouseDown={e => { setDragging("hue"); updateHue(e); }}
+      <div ref={hueRef}
+        onMouseDown={e => { dragRef.current = "hue"; calcHue(e); }}
         style={{ width: "100%", height: 14, borderRadius: 7, cursor: "pointer", position: "relative",
           background: "linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)" }}>
         <div style={{ position: "absolute", left: `calc(${hsv[0]/360*100}% - 7px)`, top: 0,
@@ -853,6 +916,10 @@ export default function CRM() {
   const [agClientSearch, setAgClientSearch] = useState("");
   const [agClientVinc, setAgClientVinc] = useState<any>(null);
   const [agClientDropdown, setAgClientDropdown] = useState(false);
+  const [showQuickClient, setShowQuickClient] = useState(false);
+  const [quickClientForm, setQuickClientForm] = useState({ nome: "", tel: "", artista: "abraao", estilo: "", regiao: "" });
+  const [showPostAg, setShowPostAg] = useState(false);
+  const [postAgNome, setPostAgNome] = useState("");
   const [showEstiloDD, setShowEstiloDD] = useState(false);
   const [showRegiaoDD, setShowRegiaoDD] = useState(false);
   const [estiloOpts, setEstiloOpts] = useState<string[]>(["Fine Line", "Realismo", "Black Work", "Old School", "Aquarela", "Geometrico", "Surrealismo", "Tribal", "Fine Line Floral", "Fine Line Botanico"]);
@@ -1215,6 +1282,11 @@ export default function CRM() {
     setAgClientVinc(null);
     setAgClientSearch("");
     addLog(`Agenda: evento "${agForm.title}" criado para ${agForm.date} às ${agForm.start}h`);
+    // Fluxo pós-agendamento: perguntar se quer completar cadastro
+    if (!agClientVinc && agForm.title) {
+      setPostAgNome(agForm.title);
+      setShowPostAg(true);
+    }
   };
 
   const disparo = () => { setSent(true); setTimeout(() => setSent(false), 4000); };
@@ -3088,7 +3160,7 @@ export default function CRM() {
                       <input className="fi" placeholder="Nome do cliente ou evento..."
                         value={agClientSearch || agForm.title}
                         onChange={e => {
-                          const v = e.target.value;
+                          const v = e.target.value.replace(/\b\w/g, l => l.toUpperCase());
                           setAgClientSearch(v);
                           setAgForm({ ...agForm, title: v });
                           setAgClientDropdown(v.length >= 2);
@@ -3097,7 +3169,7 @@ export default function CRM() {
                         onBlur={() => setTimeout(() => setAgClientDropdown(false), 200)}
                       />
                       {agClientDropdown && (
-                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, zIndex: 999, maxHeight: 180, overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,.5)", marginTop: 2 }}>
+                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, zIndex: 999, maxHeight: 220, overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,.5)", marginTop: 2 }}>
                           {clients.filter(c => c.nome.toLowerCase().includes((agClientSearch || agForm.title).toLowerCase())).slice(0, 6).map(c => (
                             <div key={c.id}
                               style={{ padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between", alignItems: "center" }}
@@ -3109,9 +3181,15 @@ export default function CRM() {
                               <span style={aStyle(c.artista)}>{aName(c.artista).split(" ")[0]}</span>
                             </div>
                           ))}
-                          {clients.filter(c => c.nome.toLowerCase().includes((agClientSearch || agForm.title).toLowerCase())).length === 0 && (
-                            <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--tx3)", fontStyle: "italic" }}>
-                              Nenhum cliente encontrado — salvando como evento avulso
+                          {(agClientSearch || agForm.title).length >= 2 && (
+                            <div
+                              onMouseDown={() => {
+                                setQuickClientForm({ nome: agClientSearch || agForm.title, tel: "", artista: "abraao", estilo: "", regiao: "" });
+                                setShowQuickClient(true);
+                                setAgClientDropdown(false);
+                              }}
+                              style={{ padding: "10px 12px", fontSize: 12, color: "var(--gold)", cursor: "pointer", fontWeight: 600, borderTop: "1px solid var(--br)", display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 16 }}>+</span> Cadastrar "{agClientSearch || agForm.title}" como novo cliente
                             </div>
                           )}
                         </div>
@@ -3128,8 +3206,8 @@ export default function CRM() {
                 </div>
                 <div className="ff"><label className="fl">Descrição (opcional)</label><input className="fi" placeholder="Breve descrição..." value={(agForm as any).desc || ""} onChange={e => setAgForm({ ...agForm, desc: e.target.value } as any)} /></div>
                 <div className="fr">
-                  <div className="ff"><label className="fl">Início (h)</label><input className="fi" type="number" min={8} max={20} value={agForm.start} onChange={e => setAgForm({ ...agForm, start: Number(e.target.value) })} /></div>
-                  <div className="ff"><label className="fl">Fim (h)</label><input className="fi" type="number" min={9} max={22} value={agForm.end} onChange={e => setAgForm({ ...agForm, end: Number(e.target.value) })} /></div>
+                  <TimeScroller label="Início" value={agForm.start} onChange={(h, m) => setAgForm({ ...agForm, start: h + m/60 })} />
+                  <TimeScroller label="Fim" value={agForm.end} onChange={(h, m) => setAgForm({ ...agForm, end: h + m/60 })} />
                   <div className="ff"><label className="fl">Data</label><input className="fi" type="date" value={agForm.date} onChange={e => setAgForm({ ...agForm, date: e.target.value })} /></div>
                 </div>
 
@@ -3171,6 +3249,66 @@ export default function CRM() {
                   <button className="btn-c" onClick={() => { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); }}>Cancelar</button>
                   <button className="btn-s" onClick={saveAgEvent} disabled={!agForm.title}>Salvar</button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── CADASTRO RÁPIDO PELO AGENDAMENTO ── */}
+        {showQuickClient && (
+          <div className="ov" onClick={() => setShowQuickClient(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(460px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>Cadastrar Novo Cliente</div>
+              <div style={{ fontSize: 11, color: "var(--tx3)" }}>Preencha os dados essenciais. Você pode completar o cadastro depois.</div>
+              <div className="fr">
+                <div className="ff"><label className="fl">Nome *</label><input className="fi" value={quickClientForm.nome} onChange={e => setQuickClientForm({ ...quickClientForm, nome: e.target.value.replace(/\b\w/g, l => l.toUpperCase()) })} /></div>
+                <div className="ff"><label className="fl">Telefone *</label><input className="fi" placeholder="(99) 9 9999-9999" value={quickClientForm.tel} onChange={e => setQuickClientForm({ ...quickClientForm, tel: maskTel(e.target.value) })} /></div>
+              </div>
+              <div className="fr">
+                <div className="ff"><label className="fl">Artista</label>
+                  <select className="fs" value={quickClientForm.artista} onChange={e => setQuickClientForm({ ...quickClientForm, artista: e.target.value })}>
+                    {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                  </select>
+                </div>
+                <div className="ff"><label className="fl">Estilo</label><input className="fi" placeholder="Fine Line..." value={quickClientForm.estilo} onChange={e => setQuickClientForm({ ...quickClientForm, estilo: e.target.value.replace(/\b\w/g, l => l.toUpperCase()) })} /></div>
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn-c" onClick={() => setShowQuickClient(false)}>Cancelar</button>
+                <button className="btn-s" disabled={!quickClientForm.nome || !quickClientForm.tel}
+                  onClick={async () => {
+                    const nc: any = { ...quickClientForm, data: new Date().toLocaleDateString("pt-BR"), dias: 0, stars: 0, qual: "Q2", tam: "Medio", orig: "Agenda", desc: "", estilo: quickClientForm.estilo, regiao: "", email: "", insta: "", nascimento: "", consent: null, nps: null, obs: "", val_a: 0, val_c: 0, pgto: "", orcamento: false, contrato: false, faltas: 0, indicacoes: 0, credito: 0, cri: "", hist: [{ t: "Cadastrado via agendamento", d: new Date().toLocaleString("pt-BR") }], pv: [], primeira: false, cob: false, intencao: "" };
+                    try {
+                      const { data, error } = await sb.from("clientes").insert({ nome: nc.nome, tel: nc.tel, artista: nc.artista, estilo: nc.estilo, regiao: "", qual: "Q2", etapa: "lead", email: "", insta: "", val_a: 0, val_c: 0, pgto: "", orcamento: false, contrato: false, faltas: 0, indicacoes: 0, credito: 0, hist: nc.hist, followups: [], dias: 0, updated_at: new Date().toISOString() }).select().single();
+                      if (!error && data) {
+                        setClients(p => [{ ...nc, id: data.id, etapa: "lead" }, ...p]);
+                        setAgClientVinc({ ...nc, id: data.id, etapa: "lead" });
+                        setAgForm(f => ({ ...f, title: nc.nome }));
+                        addLog(`Cliente "${nc.nome}" cadastrado via agendamento`);
+                      }
+                    } catch(e) { console.error(e); }
+                    setShowQuickClient(false);
+                  }}>Salvar e Vincular</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── PÓS AGENDAMENTO ── */}
+        {showPostAg && (
+          <div className="ov" onClick={() => setShowPostAg(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(400px, 92vw)", padding: "28px 28px 22px", display: "flex", flexDirection: "column", gap: 16, textAlign: "center" }}>
+              <div style={{ fontSize: 28 }}>✅</div>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--tx)" }}>Agendamento salvo!</div>
+              <div style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.6 }}>
+                Deseja completar o cadastro de <strong style={{ color: "var(--tx)" }}>{postAgNome}</strong> como cliente?
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                <button className="btn-c" onClick={() => setShowPostAg(false)}>Depois</button>
+                <button className="btn-s" onClick={() => {
+                  setShowPostAg(false);
+                  setForm(f => ({ ...f, nome: postAgNome }));
+                  setShowForm(true);
+                }}>Cadastrar Agora</button>
               </div>
             </div>
           </div>
