@@ -784,47 +784,49 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
   const [hsv, setHsv] = React.useState<[number,number,number]>(() => hexToHsv(value || "#C9A84C"));
   const sqRef = React.useRef<HTMLDivElement>(null);
   const hueRef = React.useRef<HTMLDivElement>(null);
+  const dragRef = React.useRef<"sq"|"hue"|null>(null);
   const hsvRef = React.useRef(hsv);
   hsvRef.current = hsv;
 
   React.useEffect(() => { setHsv(hexToHsv(value || "#C9A84C")); }, [value]);
 
-  const startDrag = (type: "sq"|"hue", initE: React.MouseEvent) => {
-    initE.preventDefault();
-    const calc = (e: MouseEvent) => {
-      if (type === "sq" && sqRef.current) {
-        const r = sqRef.current.getBoundingClientRect();
-        const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-        const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
-        const ns: [number,number,number] = [hsvRef.current[0], Math.round(x*100), Math.round((1-y)*100)];
-        hsvRef.current = ns; setHsv(ns); onChange(hsvToHex(...ns));
-      } else if (type === "hue" && hueRef.current) {
-        const r = hueRef.current.getBoundingClientRect();
-        const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-        const ns: [number,number,number] = [Math.round(x*360), hsvRef.current[1], hsvRef.current[2]];
-        hsvRef.current = ns; setHsv(ns); onChange(hsvToHex(...ns));
-      }
-    };
-    calc(initE.nativeEvent);
-    const onMove = (e: MouseEvent) => calc(e);
-    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+  const calcSq = (e: MouseEvent | React.MouseEvent) => {
+    if (!sqRef.current) return;
+    const r = sqRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+    const ns: [number,number,number] = [hsvRef.current[0], Math.round(x*100), Math.round((1-y)*100)];
+    setHsv(ns); onChange(hsvToHex(...ns));
   };
+  const calcHue = (e: MouseEvent | React.MouseEvent) => {
+    if (!hueRef.current) return;
+    const r = hueRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    const ns: [number,number,number] = [Math.round(x*360), hsvRef.current[1], hsvRef.current[2]];
+    setHsv(ns); onChange(hsvToHex(...ns));
+  };
+
+  React.useEffect(() => {
+    const move = (e: MouseEvent) => { if (dragRef.current === "sq") calcSq(e); else if (dragRef.current === "hue") calcHue(e); };
+    const up = () => { dragRef.current = null; };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
+  }, []);
 
   const bgSq = `hsl(${hsv[0]},100%,50%)`;
   const curX = hsv[1]; const curY = 100 - hsv[2];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, userSelect: "none" }}>
       <div ref={sqRef}
-        onMouseDown={e => startDrag("sq", e)}
+        onMouseDown={e => { dragRef.current = "sq"; calcSq(e); }}
         style={{ width: "100%", height: 140, borderRadius: 6, position: "relative", cursor: "crosshair",
           background: bgSq, backgroundImage: "linear-gradient(to right,#fff,transparent),linear-gradient(to top,#000,transparent)" }}>
         <div style={{ position: "absolute", left: `calc(${curX}% - 6px)`, top: `calc(${curY}% - 6px)`,
           width: 12, height: 12, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 0 2px rgba(0,0,0,.5)", pointerEvents: "none" }} />
       </div>
       <div ref={hueRef}
-        onMouseDown={e => startDrag("hue", e)}
+        onMouseDown={e => { dragRef.current = "hue"; calcHue(e); }}
         style={{ width: "100%", height: 14, borderRadius: 7, cursor: "pointer", position: "relative",
           background: "linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)" }}>
         <div style={{ position: "absolute", left: `calc(${hsv[0]/360*100}% - 7px)`, top: 0,
@@ -968,13 +970,17 @@ export default function CRM() {
         if (sds && sds.length > 0) setSaidas(sds.map((s: any) => ({
           ...s, desc: s.descricao
         })));
-        if (ags && ags.length > 0) setAgEvents(ags.map((a: any) => ({
-          ...a,
-          title: a.titulo || a.title || "Sem título",
-          date: a.data || a.date,
-          start: parseInt(a.hora?.split(":")[0] || "9"),
-          end: a.hora_fim ? parseInt(a.hora_fim.split(":")[0]) : parseInt(a.hora?.split(":")[0] || "9") + 2
-        })));
+        if (ags && ags.length > 0) setAgEvents(ags.map((a: any) => {
+          const startH = parseInt(a.hora?.split(":")[0] || "9");
+          const endH = a.hora_fim ? parseInt(a.hora_fim.split(":")[0]) : startH + 2;
+          return {
+            ...a,
+            title: a.titulo || a.title || "Sem título",
+            date: a.data || a.date,
+            start: isNaN(startH) ? 9 : startH,
+            end: isNaN(endH) ? startH + 2 : endH
+          };
+        }));
         if (cfgs && cfgs.length > 0) {
           const cfg = cfgs[0];
           if (cfg.studio_name) setStudioName(cfg.studio_name);
@@ -1837,7 +1843,9 @@ export default function CRM() {
                         <div key={h + "-" + di} className="wc" style={{ position: "relative", overflow: "visible" }}
                           onClick={() => { setAgDate(d); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2, title: "", desc: "", tipo: "cons_abraao" })); setShowAgForm(true); }}>
                           {evs.map((e, ei) => {
-                            const duration = Math.max(e.end - e.start, 1);
+                            const eStart = isNaN(e.start) || e.start == null ? 9 : Number(e.start);
+                            const eEnd = isNaN(e.end) || e.end == null ? eStart + 2 : Number(e.end);
+                            const duration = Math.max(eEnd - eStart, 1);
                             const total = evs.length;
                             const w = total > 1 ? `calc(${100/total}% - 3px)` : "calc(100% - 4px)";
                             const left = total > 1 ? `calc(${(ei * 100/total)}% + 1px)` : "2px";
@@ -1877,7 +1885,9 @@ export default function CRM() {
                         <div className="dslot" style={{ position: "relative", minHeight: 46 }}
                           onClick={() => { if (!evs.length && !occupied) { setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setAgForm(f => ({ ...f, date: ds, start: h, end: h + 2, title: "", desc: "", tipo: "cons_abraao" })); setShowAgForm(true); } }}>
                           {evs.map(e => {
-                            const duration = Math.max(e.end - e.start, 1);
+                            const eStart = isNaN(e.start) || e.start == null ? 9 : Number(e.start);
+                            const eEnd = isNaN(e.end) || e.end == null ? eStart + 2 : Number(e.end);
+                            const duration = Math.max(eEnd - eStart, 1);
                             return (
                               <div key={e.id} className="dev"
                                 style={{
