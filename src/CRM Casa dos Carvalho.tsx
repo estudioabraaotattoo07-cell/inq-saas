@@ -784,49 +784,47 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
   const [hsv, setHsv] = React.useState<[number,number,number]>(() => hexToHsv(value || "#C9A84C"));
   const sqRef = React.useRef<HTMLDivElement>(null);
   const hueRef = React.useRef<HTMLDivElement>(null);
-  const dragRef = React.useRef<"sq"|"hue"|null>(null);
   const hsvRef = React.useRef(hsv);
   hsvRef.current = hsv;
 
   React.useEffect(() => { setHsv(hexToHsv(value || "#C9A84C")); }, [value]);
 
-  const calcSq = (e: MouseEvent | React.MouseEvent) => {
-    if (!sqRef.current) return;
-    const r = sqRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-    const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
-    const ns: [number,number,number] = [hsvRef.current[0], Math.round(x*100), Math.round((1-y)*100)];
-    setHsv(ns); onChange(hsvToHex(...ns));
+  const startDrag = (type: "sq"|"hue", initE: React.MouseEvent) => {
+    initE.preventDefault();
+    const calc = (e: MouseEvent) => {
+      if (type === "sq" && sqRef.current) {
+        const r = sqRef.current.getBoundingClientRect();
+        const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+        const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+        const ns: [number,number,number] = [hsvRef.current[0], Math.round(x*100), Math.round((1-y)*100)];
+        hsvRef.current = ns; setHsv(ns); onChange(hsvToHex(...ns));
+      } else if (type === "hue" && hueRef.current) {
+        const r = hueRef.current.getBoundingClientRect();
+        const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+        const ns: [number,number,number] = [Math.round(x*360), hsvRef.current[1], hsvRef.current[2]];
+        hsvRef.current = ns; setHsv(ns); onChange(hsvToHex(...ns));
+      }
+    };
+    calc(initE.nativeEvent);
+    const onMove = (e: MouseEvent) => calc(e);
+    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
   };
-  const calcHue = (e: MouseEvent | React.MouseEvent) => {
-    if (!hueRef.current) return;
-    const r = hueRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-    const ns: [number,number,number] = [Math.round(x*360), hsvRef.current[1], hsvRef.current[2]];
-    setHsv(ns); onChange(hsvToHex(...ns));
-  };
-
-  React.useEffect(() => {
-    const move = (e: MouseEvent) => { if (dragRef.current === "sq") calcSq(e); else if (dragRef.current === "hue") calcHue(e); };
-    const up = () => { dragRef.current = null; };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
-    return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
-  }, []);
 
   const bgSq = `hsl(${hsv[0]},100%,50%)`;
   const curX = hsv[1]; const curY = 100 - hsv[2];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, userSelect: "none" }}>
       <div ref={sqRef}
-        onMouseDown={e => { dragRef.current = "sq"; calcSq(e); }}
+        onMouseDown={e => startDrag("sq", e)}
         style={{ width: "100%", height: 140, borderRadius: 6, position: "relative", cursor: "crosshair",
           background: bgSq, backgroundImage: "linear-gradient(to right,#fff,transparent),linear-gradient(to top,#000,transparent)" }}>
         <div style={{ position: "absolute", left: `calc(${curX}% - 6px)`, top: `calc(${curY}% - 6px)`,
           width: 12, height: 12, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 0 2px rgba(0,0,0,.5)", pointerEvents: "none" }} />
       </div>
       <div ref={hueRef}
-        onMouseDown={e => { dragRef.current = "hue"; calcHue(e); }}
+        onMouseDown={e => startDrag("hue", e)}
         style={{ width: "100%", height: 14, borderRadius: 7, cursor: "pointer", position: "relative",
           background: "linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)" }}>
         <div style={{ position: "absolute", left: `calc(${hsv[0]/360*100}% - 7px)`, top: 0,
