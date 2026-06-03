@@ -707,6 +707,73 @@ const FIN_INIT = [
 ];
 
 
+// ─── COLOR PICKER ─────────────────────────────────────────────────────────────
+function hexToHsv(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max - min;
+  let h = 0;
+  if (d) { if (max===r) h=(g-b)/d%6; else if (max===g) h=(b-r)/d+2; else h=(r-g)/d+4; h=Math.round(h*60); if(h<0)h+=360; }
+  return [h, max ? Math.round(d/max*100) : 0, Math.round(max*100)];
+}
+function hsvToHex(h: number, s: number, v: number): string {
+  s/=100; v/=100;
+  const f=(n:number)=>{const k=(n+h/60)%6; return v-v*s*Math.max(0,Math.min(k,4-k,1));};
+  const toH=(n:number)=>Math.round(f(n)*255).toString(16).padStart(2,"0");
+  return "#"+toH(5)+toH(3)+toH(1);
+}
+function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  const [hsv, setHsv] = React.useState<[number,number,number]>(() => hexToHsv(value || "#C9A84C"));
+  const [dragging, setDragging] = React.useState<"sq"|"hue"|null>(null);
+  const sqRef = React.useRef<HTMLDivElement>(null);
+  const hueRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => { setHsv(hexToHsv(value || "#C9A84C")); }, [value]);
+  const updateSq = (e: any) => {
+    if (!sqRef.current) return;
+    const r = sqRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+    const ns: [number,number,number] = [hsv[0], Math.round(x*100), Math.round((1-y)*100)];
+    setHsv(ns); onChange(hsvToHex(...ns));
+  };
+  const updateHue = (e: any) => {
+    if (!hueRef.current) return;
+    const r = hueRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    const ns: [number,number,number] = [Math.round(x*360), hsv[1], hsv[2]];
+    setHsv(ns); onChange(hsvToHex(...ns));
+  };
+  React.useEffect(() => {
+    if (!dragging) return;
+    const move = (e: MouseEvent) => dragging === "sq" ? updateSq(e) : updateHue(e);
+    const up = () => setDragging(null);
+    window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+    return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
+  }, [dragging, hsv]);
+  const bgSq = `hsl(${hsv[0]},100%,50%)`;
+  const curX = hsv[1]; const curY = 100 - hsv[2];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, userSelect: "none" }}>
+      <div ref={sqRef} onMouseDown={e => { setDragging("sq"); updateSq(e); }}
+        style={{ width: "100%", height: 140, borderRadius: 6, position: "relative", cursor: "crosshair",
+          background: bgSq, backgroundImage: "linear-gradient(to right,#fff,transparent),linear-gradient(to top,#000,transparent)" }}>
+        <div style={{ position: "absolute", left: `calc(${curX}% - 6px)`, top: `calc(${curY}% - 6px)`,
+          width: 12, height: 12, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 0 2px rgba(0,0,0,.5)", pointerEvents: "none" }} />
+      </div>
+      <div ref={hueRef} onMouseDown={e => { setDragging("hue"); updateHue(e); }}
+        style={{ width: "100%", height: 14, borderRadius: 7, cursor: "pointer", position: "relative",
+          background: "linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)" }}>
+        <div style={{ position: "absolute", left: `calc(${hsv[0]/360*100}% - 7px)`, top: 0,
+          width: 14, height: 14, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 0 2px rgba(0,0,0,.5)", background: `hsl(${hsv[0]},100%,50%)`, pointerEvents: "none" }} />
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ width: 32, height: 32, borderRadius: 6, background: hsvToHex(...hsv), border: "1px solid var(--br)", flexShrink: 0 }} />
+        <input value={hsvToHex(...hsv)} onChange={e => { const v = e.target.value; if (/^#[0-9a-fA-F]{6}$/.test(v)) { onChange(v); setHsv(hexToHsv(v)); } }}
+          style={{ flex: 1, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 10px", fontSize: 12, color: "var(--tx)", fontFamily: "monospace" }} />
+      </div>
+    </div>
+  );
+}
+
 // ─── MÁSCARA TELEFONE ────────────────────────────────────────────────────────
 function maskTel(v: string) {
   v = v.replace(/\D/g, "").slice(0, 11);
@@ -743,6 +810,7 @@ export default function CRM() {
   const [agEvents, setAgEvents] = useState<any[]>([]);
   const [tab, setTab] = useState("kanban");
   const [sel, setSel] = useState<any>(null);
+  const [selCtx, setSelCtx] = useState<"clientes"|"agenda">("clientes");
   const [fa, setFa] = useState("todos");
   const [srch, setSrch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -1365,7 +1433,7 @@ export default function CRM() {
                   <div className="ff"><label className="fl">Comissão (%)</label><input className="fi" type="number" min={0} max={100} value={artForm.com} onChange={e => setArtForm({ ...artForm, com: Number(e.target.value) })} /></div>
                 </div>
                 <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => { const v = e.target.value; setArtForm({ ...artForm, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
-                <div className="ff"><label className="fl">Cor</label><input type="color" value={artForm.cor} onChange={e => setArtForm({ ...artForm, cor: e.target.value })} style={{ width: "100%", height: 38, background: "none", border: "1px solid rgba(201,168,76,0.12)", borderRadius: 5, cursor: "pointer" }} /></div>
+                <div className="ff"><label className="fl">Cor</label><ColorPicker value={artForm.cor} onChange={cor => setArtForm({ ...artForm, cor })} /></div>
               </div>
               <div className="fmf"><button className="btn-c" onClick={() => setShowArtForm(false)}>Cancelar</button><button className="btn-s" onClick={saveArtist} disabled={!artForm.nome}>Salvar</button></div>
             </div>
@@ -1409,7 +1477,7 @@ export default function CRM() {
               {alertas.map(c => {
                 const m = miss(c); const ch = churn(c);
                 return (
-                  <div key={c.id} className="ad-item" onClick={() => { setSel(c); setShowAlerts(false); }}>
+                  <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); }}>
                     <div className="ad-name">{c.nome}</div>
                     <div className="ad-tags">
                       {ch === "red" && <span className="co co-r">🔴 1a sem retorno</span>}
@@ -1486,7 +1554,7 @@ export default function CRM() {
                     {sc2.map(c => {
                       const m = miss(c); const ch = churn(c);
                       return (
-                        <div key={c.id} className="card" onClick={() => setSel(c)}>
+                        <div key={c.id} className="card" onClick={() => { setSel(c); setSelCtx("clientes"); }}>
                           <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "3px", background: c.artista === "abraao" ? "var(--ab)" : "var(--ca)", borderRadius: "7px 0 0 7px" }} />
                           <div className="ctop">
                             <div className="cname">{c.nome}</div>
@@ -1542,7 +1610,7 @@ export default function CRM() {
                       const es = EBS[c.etapa] || EBS.lead;
                       const m = miss(c); const ch = churn(c);
                       return (
-                        <tr key={c.id} data-letter={c.nome[0]?.toUpperCase()} onClick={() => setSel(c)}>
+                        <tr key={c.id} data-letter={c.nome[0]?.toUpperCase()} onClick={() => { setSel(c); setSelCtx("clientes"); }}>
                           <td>
                             <div className="tdn">{c.nome}</div>
                             <div className="tdd">{c.insta || <span style={{ color: "var(--q2)" }}>⚠ Instagram</span>}</div>
@@ -1890,7 +1958,7 @@ export default function CRM() {
                         <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontWeight: 600 }}>{c.nome}</div>
                         <div style={{ fontSize: 11, color: "var(--tx2)" }}>Sessao realizada - pagamento nao registrado</div>
                       </div>
-                      <button className="btn-sm gold" onClick={() => setSel(c)}>Ver ficha</button>
+                      <button className="btn-sm gold" onClick={() => { setSel(c); setSelCtx("clientes"); }}>Ver ficha</button>
                     </div>
                   ))}
                 </div>
@@ -2053,15 +2121,7 @@ export default function CRM() {
                     </div>
                     <div className="ff">
                       <label className="fl">Cor</label>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-                        {["#4A9EBF","#9B6BB5","#C0392B","#E67E22","#C9A84C","#27AE60","#3498DB","#E91E8C","#1ABC9C","#8E44AD","#E8E2D9","#555045"].map(cor => (
-                          <div key={cor} onClick={() => setEditingArtist({ ...editingArtist, cor })}
-                            style={{ width: 28, height: 28, borderRadius: "50%", background: cor, cursor: "pointer",
-                              border: editingArtist.cor === cor ? "3px solid var(--gold)" : "2px solid transparent",
-                              boxShadow: editingArtist.cor === cor ? "0 0 0 1px var(--gold)" : "none",
-                              transition: "all .15s" }} />
-                        ))}
-                      </div>
+                      <ColorPicker value={editingArtist.cor} onChange={cor => setEditingArtist({ ...editingArtist, cor })} />
                     </div>
                   </div>
                   <div className="fmf">
@@ -2189,7 +2249,7 @@ export default function CRM() {
                     : alertas.map(c => {
                       const m = miss(c); const ch = churn(c);
                       return (
-                        <div key={c.id} onClick={() => setSel(c)} style={{ padding: "8px 10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, marginBottom: 5, cursor: "pointer" }}>
+                        <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); }} style={{ padding: "8px 10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, marginBottom: 5, cursor: "pointer" }}>
                           <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, marginBottom: 3 }}>{c.nome}</div>
                           <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                             {m.map(x => <span key={x} className="atag">⚠ Sem {x}</span>)}
@@ -2263,7 +2323,7 @@ export default function CRM() {
                   {reativacao.length === 0
                     ? <div style={{ color: "var(--tx3)", fontSize: 12 }}>Nenhum cliente para reativar.</div>
                     : reativacao.map(c => (
-                      <div key={c.id} onClick={() => setSel(c)} style={{ padding: "8px 10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, marginBottom: 5, cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
+                      <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); }} style={{ padding: "8px 10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, marginBottom: 5, cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontWeight: 600, color: "var(--tx)" }}>{c.nome}</div>
                           <div style={{ fontSize: 11, color: "var(--tx2)" }}>{c.dias} dias sem movimento {c.qual}</div>
@@ -2301,7 +2361,7 @@ export default function CRM() {
                         {c.nps && <span style={{ marginLeft: 9, color: "var(--gold)", fontWeight: 600 }}>NPS: {c.nps}/10</span>}
                       </div>
                     </div>
-                    <button className="mc" style={{ width: "auto", padding: "0 9px", fontSize: 11 }} onClick={() => setSel(c)}>Ver ficha</button>
+                    <button className="mc" style={{ width: "auto", padding: "0 9px", fontSize: 11 }} onClick={() => { setSel(c); setSelCtx("clientes"); }}>Ver ficha</button>
                   </div>
                   <div className="pvt">
                     {c.pv.map((p: any, i: number) => (
@@ -2427,7 +2487,9 @@ export default function CRM() {
                   </div>
                 </div>
                 <button className="mc" onClick={() => setSel(null)}>✕</button>
-                <button onClick={() => deleteClient(sc.id)} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "4px 10px", fontSize: 11, color: "var(--q1)", cursor: "pointer", marginRight: 4 }}>🗑 Excluir</button>
+                {selCtx === "clientes" && (
+                  <button onClick={() => deleteClient(sc.id)} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "4px 10px", fontSize: 11, color: "var(--q1)", cursor: "pointer", marginRight: 4 }}>🗑 Excluir</button>
+                )}
               </div>
               <div className="mb">
                 {sc.orcamento && (
@@ -2780,7 +2842,7 @@ export default function CRM() {
                     <label className="fl">Estilo</label>
                     <div style={{ display: "flex", gap: 4 }}>
                       <input className="fi" style={{ flex: 1 }} placeholder="Fine Line, Realismo..." value={form.estilo}
-                        onChange={e => { setForm({ ...form, estilo: e.target.value }); setShowEstiloDD(true); }}
+                        onChange={e => { const v = e.target.value.replace(/\b\w/g, l => l.toUpperCase()); setForm({ ...form, estilo: v }); setShowEstiloDD(true); }}
                         onFocus={() => setShowEstiloDD(true)}
                         onBlur={() => setTimeout(() => setShowEstiloDD(false), 150)}
                       />
@@ -2811,7 +2873,7 @@ export default function CRM() {
                     <label className="fl">Região</label>
                     <div style={{ display: "flex", gap: 4 }}>
                       <input className="fi" style={{ flex: 1 }} placeholder="Antebraço, Costas..." value={form.regiao}
-                        onChange={e => { setForm({ ...form, regiao: e.target.value }); setShowRegiaoDD(true); }}
+                        onChange={e => { const v = e.target.value.replace(/\b\w/g, l => l.toUpperCase()); setForm({ ...form, regiao: v }); setShowRegiaoDD(true); }}
                         onFocus={() => setShowRegiaoDD(true)}
                         onBlur={() => setTimeout(() => setShowRegiaoDD(false), 150)}
                       />
@@ -2920,8 +2982,7 @@ export default function CRM() {
                 <div className="ff"><label className="fl">Telefone</label><input className="fi" placeholder="(99) 9 9999-9999" value={artForm.tel} onChange={e => setArtForm({ ...artForm, tel: maskTel(e.target.value) })} /></div>
                 <div className="ff">
                   <label className="fl">Cor</label>
-                  <input type="color" value={artForm.cor} onChange={e => setArtForm({ ...artForm, cor: e.target.value })}
-                    style={{ width: "100%", height: 38, background: "none", border: "1px solid var(--br)", borderRadius: 5, cursor: "pointer" }} />
+                  <ColorPicker value={artForm.cor} onChange={cor => setArtForm({ ...artForm, cor })} />
                 </div>
               </div>
               <div className="fmf">
@@ -2948,7 +3009,7 @@ export default function CRM() {
                   {agClientVinc ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 5, padding: "7px 10px" }}>
                       <span style={{ flex: 1, fontSize: 13, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif", fontWeight: 600 }}>{agClientVinc.nome}</span>
-                      <button onClick={() => { setSel(agClientVinc); setShowAgForm(false); }}
+                      <button onClick={() => { setSel(agClientVinc); setSelCtx("agenda"); setShowAgForm(false); }}
                         style={{ background: "var(--gold-d)", border: "1px solid var(--gold)", borderRadius: 4, color: "var(--gold)", fontSize: 11, padding: "2px 8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}>
                         👤 Ver ficha
                       </button>
