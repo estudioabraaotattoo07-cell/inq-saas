@@ -709,13 +709,17 @@ const FIN_INIT = [
 
 // ─── TIME SCROLLER ────────────────────────────────────────────────────────────
 function TimeScroller({ value, onChange, label }: { value: number; onChange: (h: number, m: number) => void; label: string }) {
-  const hour = Math.floor(value);
+  const safeVal = (isNaN(value) || value == null) ? 9 : value;
+  const hour = Math.floor(safeVal);
   const [open, setOpen] = React.useState(false);
   const [selH, setSelH] = React.useState(hour);
   const [selM, setSelM] = React.useState(0);
   const HOURS = Array.from({ length: 24 }, (_, i) => i);
   const MINS = [0, 15, 30, 45];
-  React.useEffect(() => { setSelH(Math.floor(value)); }, [value]);
+  React.useEffect(() => {
+    const sv = (isNaN(value) || value == null) ? 9 : value;
+    setSelH(Math.floor(sv));
+  }, [value]);
   const confirm = (h: number, m: number) => { onChange(h, m); setOpen(false); };
   return (
     <div style={{ position: "relative", flex: 1 }}>
@@ -2578,12 +2582,13 @@ export default function CRM() {
                     {miss(sc).map((m: string) => <span key={m} className="atag">⚠ Sem {m}</span>)}
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   <button onClick={() => {
                     const updated = clients.find(c => c.id === sc.id);
                     if (updated) saveClientDb(updated);
                   }} style={{ background: "rgba(39,174,96,.15)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 6, padding: "5px 14px", fontSize: 11, color: "#27AE60", cursor: "pointer", fontWeight: 600 }}>💾 Salvar</button>
-                  <button className="mc" style={{ position: "absolute", top: 10, right: 12 }} onClick={() => setSel(null)}>✕</button>
+                  <div style={{ width: 1, height: 20, background: "var(--br)" }} />
+                  <button className="mc" onClick={() => setSel(null)}>✕</button>
                 </div>
               </div>
               <div className="mb">
@@ -3251,8 +3256,8 @@ export default function CRM() {
                 </div>
                 <div className="ff"><label className="fl">Descrição (opcional)</label><input className="fi" placeholder="Breve descrição..." value={(agForm as any).desc || ""} onChange={e => setAgForm({ ...agForm, desc: e.target.value } as any)} /></div>
                 <div className="fr">
-                  <TimeScroller label="Início" value={agForm.start} onChange={(h, m) => setAgForm({ ...agForm, start: h + m/60 })} />
-                  <TimeScroller label="Fim" value={agForm.end} onChange={(h, m) => setAgForm({ ...agForm, end: h + m/60 })} />
+                  <TimeScroller label="Início" value={agForm.start || 9} onChange={(h, m) => setAgForm({ ...agForm, start: h })} />
+                  <TimeScroller label="Fim" value={agForm.end || 11} onChange={(h, m) => setAgForm({ ...agForm, end: h })} />
                   <div className="ff"><label className="fl">Data</label><input className="fi" type="date" value={agForm.date} onChange={e => setAgForm({ ...agForm, date: e.target.value })} /></div>
                 </div>
 
@@ -3379,7 +3384,15 @@ export default function CRM() {
               ) : (
                 <div style={{ background: "rgba(212,130,10,.1)", border: "1px solid rgba(212,130,10,.3)", borderRadius: 7, padding: "10px 14px", fontSize: 12, color: "#D4820A" }}>
                   ⚠️ Nenhum agendamento encontrado para este cliente. Deseja criar um agora?
-                  <button onClick={() => { setConfirmMover(null); setAgClientVinc(clients.find(c => c.id === confirmMover.cid) || null); setShowAgForm(true); }}
+                  <button onClick={() => {
+                    const cli = clients.find(c => c.id === confirmMover.cid);
+                    setConfirmMover(null);
+                    setEditingEvent(null);
+                    setAgClientVinc(cli || null);
+                    setAgClientSearch("");
+                    setAgForm({ title: cli?.nome || "", desc: "", tipo: "cons_abraao", date: new Date().toISOString().split("T")[0], start: 9, end: 11 });
+                    setShowAgForm(true);
+                  }}
                     style={{ display: "block", marginTop: 8, background: "rgba(212,130,10,.2)", border: "1px solid rgba(212,130,10,.4)", borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#D4820A", cursor: "pointer" }}>
                     + Criar agendamento
                   </button>
