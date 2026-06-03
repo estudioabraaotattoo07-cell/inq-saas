@@ -2900,6 +2900,28 @@ export default function CRM() {
                   </div>
                 </div>
 
+                {/* AGENDAMENTOS DO CLIENTE */}
+                {(() => {
+                  const evsCli = agEvents.filter(e => e.cliente_id === sc.id);
+                  if (evsCli.length === 0) return null;
+                  return (
+                    <div>
+                      <div className="stit">📅 Agendamentos</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {[...evsCli].sort((a, b) => a.date > b.date ? -1 : 1).map(e => (
+                          <div key={e.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>{e.date}</div>
+                              <div style={{ fontSize: 11, color: "var(--tx2)" }}>{String(e.start).padStart(2,"0")}h — {CAL_LABELS[e.tipo] || e.tipo}</div>
+                            </div>
+                            <div style={{ width: 10, height: 10, borderRadius: "50%", background: getEventColor(e.tipo, artists, e.artista), flexShrink: 0 }} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div>
                   <div className="stit">Mover no Pipeline</div>
                   <div className="pm">
@@ -3115,35 +3137,6 @@ export default function CRM() {
                 <div className="ff"><label className="fl">Descrição do Projeto</label><textarea className="fta" placeholder="Descreva a ideia..." value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} /></div>
 
                 <div className="ff"><label className="fl">Data de Nascimento</label><input className="fi" type="date" value={(form as any).nascimento || ""} onChange={e => setForm({ ...form, nascimento: e.target.value } as any)} /></div>
-                <div style={{ borderTop: "1px solid var(--br)", marginTop: 12, paddingTop: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                    <input type="checkbox" id="chkAg" checked={formAg.agendar} onChange={e => setFormAg(f => ({ ...f, agendar: e.target.checked }))} />
-                    <label htmlFor="chkAg" style={{ fontSize: 12, fontWeight: 600, color: "var(--gold)", cursor: "pointer" }}>📅 Agendar sessão agora</label>
-                  </div>
-                  {formAg.agendar && (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginTop: 8 }}>
-                      <div className="ff">
-                        <label className="fl">Data</label>
-                        <input className="fi" type="date" value={formAg.data} onChange={e => setFormAg(f => ({ ...f, data: e.target.value }))} />
-                      </div>
-                      <div className="ff">
-                        <label className="fl">Início</label>
-                        <input className="fi" type="time" value={formAg.hora} onChange={e => setFormAg(f => ({ ...f, hora: e.target.value }))} />
-                      </div>
-                      <div className="ff">
-                        <label className="fl">Término</label>
-                        <input className="fi" type="time" value={(formAg as any).horaFim || "11:00"} onChange={e => setFormAg(f => ({ ...f, horaFim: e.target.value } as any))} />
-                      </div>
-                      <div className="ff">
-                        <label className="fl">Tipo</label>
-                        <select className="fs" value={formAg.tipo} onChange={e => setFormAg(f => ({ ...f, tipo: e.target.value }))}>
-                          <option value="cons">Consultoria</option>
-                          <option value="sess">Sessão</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
               <div className="fmf">
                 <button className="btn-c" onClick={() => setShowForm(false)}>Cancelar</button>
@@ -3193,61 +3186,48 @@ export default function CRM() {
         {/* ── FORM NOVO EVENTO ── */}
         {showAgForm && (
           <div className="fov" onClick={e => { if (e.target === e.currentTarget) { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); } }}>
-            <div className="fmod" style={{ maxWidth: 420 }}>
+            <div className="fmod" style={{ maxWidth: 460 }}>
               <div className="fmh">
                 <div className="fmt">{editingEvent ? "Editar Evento" : "Novo Evento"}</div>
                 <button className="mc" onClick={() => { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); }}>✕</button>
               </div>
               <div className="fmb">
 
-                {/* Campo com busca de cliente */}
+                {/* 1. CLIENTE */}
                 <div className="ff" style={{ position: "relative" }}>
-                  <label className="fl">Título / Cliente *</label>
+                  <label className="fl">Cliente *</label>
                   {agClientVinc ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 5, padding: "7px 10px" }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: aStyle(agClientVinc.artista).background || "var(--gold)", flexShrink: 0 }} />
                       <span style={{ flex: 1, fontSize: 13, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif", fontWeight: 600 }}>{agClientVinc.nome}</span>
-                      <button onClick={() => { setSel(agClientVinc); setSelCtx("agenda"); setShowAgForm(false); }}
-                        style={{ background: "var(--gold-d)", border: "1px solid var(--gold)", borderRadius: 4, color: "var(--gold)", fontSize: 11, padding: "2px 8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}>
-                        👤 Ver ficha
-                      </button>
+                      <span style={{ fontSize: 11, color: "var(--tx3)" }}>{agClientVinc.estilo || "—"}</span>
                       <button onClick={() => { setAgClientVinc(null); setAgClientSearch(""); setAgForm({ ...agForm, title: "" }); }}
                         style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 14 }}>✕</button>
                     </div>
                   ) : (
                     <>
-                      <input className="fi" placeholder="Nome do cliente ou evento..."
-                        value={agClientSearch || agForm.title}
-                        onChange={e => {
-                          const v = e.target.value.replace(/\b\w/g, l => l.toUpperCase());
-                          setAgClientSearch(v);
-                          setAgForm({ ...agForm, title: v });
-                          setAgClientDropdown(v.length >= 2);
-                        }}
-                        onFocus={() => { if ((agClientSearch || agForm.title).length >= 2) setAgClientDropdown(true); }}
+                      <input className="fi" placeholder="Buscar cliente cadastrado..."
+                        value={agClientSearch}
+                        onChange={e => { setAgClientSearch(e.target.value); setAgClientDropdown(e.target.value.length >= 1); }}
+                        onFocus={() => { if (agClientSearch.length >= 1) setAgClientDropdown(true); }}
                         onBlur={() => setTimeout(() => setAgClientDropdown(false), 200)}
                       />
                       {agClientDropdown && (
-                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, zIndex: 999, maxHeight: 220, overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,.5)", marginTop: 2 }}>
-                          {clients.filter(c => c.nome.toLowerCase().includes((agClientSearch || agForm.title).toLowerCase())).slice(0, 6).map(c => (
+                        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 6, zIndex: 999, maxHeight: 220, overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,.5)", marginTop: 2 }}>
+                          {clients.filter(c => c.nome.toLowerCase().includes(agClientSearch.toLowerCase())).slice(0, 8).map(c => (
                             <div key={c.id}
                               style={{ padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between", alignItems: "center" }}
                               onMouseDown={() => { setAgClientVinc(c); setAgForm({ ...agForm, title: c.nome }); setAgClientSearch(""); setAgClientDropdown(false); }}>
                               <div>
                                 <div style={{ fontSize: 13, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif", fontWeight: 600 }}>{c.nome}</div>
-                                <div style={{ fontSize: 11, color: "var(--tx2)" }}>{c.estilo || "—"} · {c.regiao || "—"}</div>
+                                <div style={{ fontSize: 11, color: "var(--tx2)" }}>{c.estilo || "—"}</div>
                               </div>
                               <span style={aStyle(c.artista)}>{aName(c.artista).split(" ")[0]}</span>
                             </div>
                           ))}
-                          {(agClientSearch || agForm.title).length >= 2 && (
-                            <div
-                              onMouseDown={() => {
-                                setQuickClientForm({ nome: agClientSearch || agForm.title, tel: "", artista: "abraao", estilo: "", regiao: "" });
-                                setShowQuickClient(true);
-                                setAgClientDropdown(false);
-                              }}
-                              style={{ padding: "10px 12px", fontSize: 12, color: "var(--gold)", cursor: "pointer", fontWeight: 600, borderTop: "1px solid var(--br)", display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ fontSize: 16 }}>+</span> Cadastrar "{agClientSearch || agForm.title}" como novo cliente
+                          {clients.filter(c => c.nome.toLowerCase().includes(agClientSearch.toLowerCase())).length === 0 && (
+                            <div style={{ padding: "12px", fontSize: 12, color: "var(--tx3)", textAlign: "center", fontStyle: "italic" }}>
+                              Nenhum cliente encontrado. Cadastre-o primeiro.
                             </div>
                           )}
                         </div>
@@ -3256,43 +3236,64 @@ export default function CRM() {
                   )}
                 </div>
 
+                {/* 2. DATA */}
                 <div className="ff">
-                  <label className="fl">Tipo</label>
-                  <select className="fs" value={agForm.tipo} onChange={e => setAgForm({ ...agForm, tipo: e.target.value })}>
-                    {Object.entries(CAL_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
+                  <label className="fl">Data</label>
+                  <input className="fi" type="date" value={agForm.date} onChange={e => setAgForm({ ...agForm, date: e.target.value })} />
                 </div>
-                <div className="ff"><label className="fl">Descrição (opcional)</label><input className="fi" placeholder="Breve descrição..." value={(agForm as any).desc || ""} onChange={e => setAgForm({ ...agForm, desc: e.target.value } as any)} /></div>
+
+                {/* 3. HORÁRIO */}
                 <div className="fr">
                   <TimeScroller label="Início" value={agForm.start || 9} onChange={(h, m) => setAgForm({ ...agForm, start: h })} />
                   <TimeScroller label="Fim" value={agForm.end || 11} onChange={(h, m) => setAgForm({ ...agForm, end: h })} />
-                  <div className="ff"><label className="fl">Data</label><input className="fi" type="date" value={agForm.date} onChange={e => setAgForm({ ...agForm, date: e.target.value })} /></div>
                 </div>
 
-                {/* Dados do cliente vinculado */}
-                {agClientVinc && (
-                  <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "11px 13px", marginTop: 4 }}>
-                    <div style={{ fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 600, marginBottom: 8 }}>📋 Dados do Cliente</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                      {[
-                        { l: "Estilo", v: agClientVinc.estilo || "—" },
-                        { l: "Região", v: agClientVinc.regiao || "—" },
-                        { l: "Tamanho", v: agClientVinc.tam || "—" },
-                        { l: "Qualificação", v: agClientVinc.qual || "—" },
-                      ].map((f, i) => (
-                        <div key={i} style={{ background: "var(--dk4)", borderRadius: 4, padding: "5px 8px" }}>
-                          <div style={{ fontSize: 9, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".07em" }}>{f.l}</div>
-                          <div style={{ fontSize: 12, color: "var(--tx)", fontWeight: 500, marginTop: 1 }}>{f.v}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {agClientVinc.desc && (
-                      <div style={{ marginTop: 8, fontSize: 11, color: "var(--tx2)", fontStyle: "italic" }}>
-                        💡 {agClientVinc.desc}
+                {/* 4. DESCRIÇÃO */}
+                <div className="ff">
+                  <label className="fl">Descrição / Observação</label>
+                  <textarea className="fi" placeholder="Detalhes da tatuagem ou observações..." value={(agForm as any).desc || ""}
+                    onChange={e => setAgForm({ ...agForm, desc: e.target.value } as any)}
+                    style={{ resize: "vertical", minHeight: 60, fontFamily: "inherit" }} />
+                </div>
+
+                {/* 5. ARTISTA */}
+                <div className="ff">
+                  <label className="fl">Artista</label>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {artists.filter(a => a.ativo).map(a => (
+                      <div key={a.id} onMouseDown={() => setAgForm({ ...agForm, tipo: agForm.tipo.includes("sess") ? "sess_" + a.id : "cons_" + a.id })}
+                        style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                          background: agForm.tipo.includes(a.id) ? a.cor + "33" : "var(--dk3)",
+                          border: `1px solid ${agForm.tipo.includes(a.id) ? a.cor : "var(--br)"}`,
+                          color: agForm.tipo.includes(a.id) ? a.cor : "var(--tx2)" }}>
+                        {a.nome.split(" ")[0]}
                       </div>
-                    )}
+                    ))}
                   </div>
-                )}
+                </div>
+
+                {/* 6. TIPO SESSÃO */}
+                <div className="ff">
+                  <label className="fl">Tipo</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {["cons", "sess", "bloq"].map(t => {
+                      const labels: Record<string,string> = { cons: "Consulta", sess: "Sessão", bloq: "Bloqueio" };
+                      const active = agForm.tipo.startsWith(t);
+                      return (
+                        <div key={t} onMouseDown={() => {
+                          const artist = artists.find(a => agForm.tipo.includes(a.id))?.id || (artists[0]?.id || "abraao");
+                          setAgForm({ ...agForm, tipo: t === "bloq" ? "bloq_geral" : t + "_" + artist });
+                        }} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                          background: active ? "rgba(201,168,76,.15)" : "var(--dk3)",
+                          border: `1px solid ${active ? "var(--gold)" : "var(--br)"}`,
+                          color: active ? "var(--gold)" : "var(--tx2)" }}>
+                          {labels[t]}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
               </div>
               <div className="fmf" style={{ justifyContent: "space-between" }}>
                 <div>
@@ -3305,68 +3306,8 @@ export default function CRM() {
                 </div>
                 <div style={{ display: "flex", gap: 7 }}>
                   <button className="btn-c" onClick={() => { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); }}>Cancelar</button>
-                  <button className="btn-s" onClick={saveAgEvent} disabled={!agForm.title}>Salvar</button>
+                  <button className="btn-s" onClick={saveAgEvent} disabled={!agClientVinc && !agForm.title}>Salvar</button>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── CADASTRO RÁPIDO PELO AGENDAMENTO ── */}
-        {showQuickClient && (
-          <div className="ov" onClick={() => setShowQuickClient(false)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(460px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>Cadastrar Novo Cliente</div>
-              <div style={{ fontSize: 11, color: "var(--tx3)" }}>Preencha os dados essenciais. Você pode completar o cadastro depois.</div>
-              <div className="fr">
-                <div className="ff"><label className="fl">Nome *</label><input className="fi" value={quickClientForm.nome} onChange={e => setQuickClientForm({ ...quickClientForm, nome: e.target.value.replace(/\b\w/g, l => l.toUpperCase()) })} /></div>
-                <div className="ff"><label className="fl">Telefone *</label><input className="fi" placeholder="(99) 9 9999-9999" value={quickClientForm.tel} onChange={e => setQuickClientForm({ ...quickClientForm, tel: maskTel(e.target.value) })} /></div>
-              </div>
-              <div className="fr">
-                <div className="ff"><label className="fl">Artista</label>
-                  <select className="fs" value={quickClientForm.artista} onChange={e => setQuickClientForm({ ...quickClientForm, artista: e.target.value })}>
-                    {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
-                  </select>
-                </div>
-                <div className="ff"><label className="fl">Estilo</label><input className="fi" placeholder="Fine Line..." value={quickClientForm.estilo} onChange={e => setQuickClientForm({ ...quickClientForm, estilo: e.target.value.replace(/\b\w/g, l => l.toUpperCase()) })} /></div>
-              </div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button className="btn-c" onClick={() => setShowQuickClient(false)}>Cancelar</button>
-                <button className="btn-s" disabled={!quickClientForm.nome || !quickClientForm.tel}
-                  onClick={async () => {
-                    const nc: any = { ...quickClientForm, data: new Date().toLocaleDateString("pt-BR"), dias: 0, stars: 0, qual: "Q2", tam: "Medio", orig: "Agenda", desc: "", estilo: quickClientForm.estilo, regiao: "", email: "", insta: "", nascimento: "", consent: null, nps: null, obs: "", val_a: 0, val_c: 0, pgto: "", orcamento: false, contrato: false, faltas: 0, indicacoes: 0, credito: 0, cri: "", hist: [{ t: "Cadastrado via agendamento", d: new Date().toLocaleString("pt-BR") }], pv: [], primeira: false, cob: false, intencao: "" };
-                    try {
-                      const { data, error } = await sb.from("clientes").insert({ nome: nc.nome, tel: nc.tel, artista: nc.artista, estilo: nc.estilo, regiao: "", qual: "Q2", etapa: "lead", email: "", insta: "", val_a: 0, val_c: 0, pgto: "", orcamento: false, contrato: false, faltas: 0, indicacoes: 0, credito: 0, hist: nc.hist, followups: [], dias: 0, updated_at: new Date().toISOString() }).select().single();
-                      if (!error && data) {
-                        setClients(p => [{ ...nc, id: data.id, etapa: "lead" }, ...p]);
-                        setAgClientVinc({ ...nc, id: data.id, etapa: "lead" });
-                        setAgForm(f => ({ ...f, title: nc.nome }));
-                        addLog(`Cliente "${nc.nome}" cadastrado via agendamento`);
-                      }
-                    } catch(e) { console.error(e); }
-                    setShowQuickClient(false);
-                  }}>Salvar e Vincular</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── PÓS AGENDAMENTO ── */}
-        {showPostAg && (
-          <div className="ov" onClick={() => setShowPostAg(false)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(400px, 92vw)", padding: "28px 28px 22px", display: "flex", flexDirection: "column", gap: 16, textAlign: "center" }}>
-              <div style={{ fontSize: 28 }}>✅</div>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--tx)" }}>Agendamento salvo!</div>
-              <div style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.6 }}>
-                Deseja completar o cadastro de <strong style={{ color: "var(--tx)" }}>{postAgNome}</strong> como cliente?
-              </div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                <button className="btn-c" onClick={() => setShowPostAg(false)}>Depois</button>
-                <button className="btn-s" onClick={() => {
-                  setShowPostAg(false);
-                  setForm(f => ({ ...f, nome: postAgNome }));
-                  setShowForm(true);
-                }}>Cadastrar Agora</button>
               </div>
             </div>
           </div>
