@@ -875,7 +875,8 @@ export default function CRM() {
   const [artists, setArtists] = useState(ARTISTS_INIT);
   const [fin, setFin] = useState(FIN_INIT);
   const [agEvents, setAgEvents] = useState<any[]>([]);
-  const [tab, setTab] = useState("kanban");
+  const [tab, setTab] = useState(() => localStorage.getItem("inq_tab") || "kanban");
+  const changeTab = (id: string) => { setTab(id); localStorage.setItem("inq_tab", id); };
   const [sel, setSel] = useState<any>(null);
   const [selCtx, setSelCtx] = useState<"clientes"|"agenda">("clientes");
   const [fa, setFa] = useState("todos");
@@ -927,7 +928,7 @@ export default function CRM() {
   const [showEstiloDD, setShowEstiloDD] = useState(false);
   const [showRegiaoDD, setShowRegiaoDD] = useState(false);
   const [estiloOpts, setEstiloOpts] = useState<string[]>(["Fine Line", "Realismo", "Black Work", "Old School", "Aquarela", "Geometrico", "Surrealismo", "Tribal", "Fine Line Floral", "Fine Line Botanico"]);
-  const [regiaoOpts, setRegiaoOpts] = useState<string[]>(["Antebraço", "Braço inteiro", "Costela", "Costas", "Ombro", "Panturrilha", "Clavicula", "Pescoco", "Mao", "Pe"]);
+  const [regiaoOpts, setRegiaoOpts] = useState<string[]>(["Antebraço", "Braço Inteiro", "Costela", "Costas", "Ombro", "Panturrilha", "Clavícula", "Pescoço", "Mão", "Pé"]);
   const [showHistorico, setShowHistorico] = useState(false);
   const [historico, setHistorico] = useState<{id?:any; data:string; hora:string; acao:string}[]>([]);
   const [confirmExcluir, setConfirmExcluir] = useState<any>(null); // evento a confirmar exclusão
@@ -1302,26 +1303,41 @@ export default function CRM() {
   const disparo = () => { setSent(true); setTimeout(() => setSent(false), 4000); };
 
   const excluirEvento = (e: any, fecharModal = false) => {
-    // Remove da UI imediatamente
     setAgEvents(p => p.filter(x => x.id !== e.id));
     if (fecharModal) { setShowAgForm(false); setEditingEvent(null); }
     setConfirmExcluir(null);
-    // Guarda para desfazer
+    // Deleta imediatamente no banco
+    dbDelete("agenda", e.id);
+    addLog(`Agenda: evento "${e.title}" excluído`);
+    // Guarda para desfazer por 8s
     setUndoEvento(e);
-    // Cancela timer anterior se existir
     if (undoTimer) clearTimeout(undoTimer);
-    // Após 8s, deleta de verdade
-    const t = setTimeout(() => {
-      dbDelete("agenda", e.id);
-      addLog(`Agenda: evento "${e.title}" excluído`);
-      setUndoEvento(null);
-    }, 8000);
+    const t = setTimeout(() => { setUndoEvento(null); setUndoTimer(null); }, 8000);
     setUndoTimer(t);
   };
 
-  const desfazerExclusao = () => {
+  const desfazerExclusao = async () => {
     if (undoTimer) clearTimeout(undoTimer);
-    if (undoEvento) setAgEvents(p => [...p, undoEvento]);
+    if (undoEvento) {
+      // Reinsere no banco
+      const row = {
+        titulo: undoEvento.title,
+        artista: undoEvento.artista || (undoEvento.tipo?.includes("camilla") ? "camilla" : "abraao"),
+        data: undoEvento.date,
+        hora: String(undoEvento.start || 9).padStart(2,"0") + ":00",
+        tipo: undoEvento.tipo,
+        obs: undoEvento.desc || "",
+        cliente_id: undoEvento.cliente_id || null,
+        cliente_nome: undoEvento.cliente_nome || null
+      };
+      try {
+        const { data } = await sb.from("agenda").insert(row).select().single();
+        setAgEvents(p => [...p, { ...undoEvento, id: data?.id || undoEvento.id }]);
+        addLog(`Agenda: evento "${undoEvento.title}" restaurado`);
+      } catch(err) {
+        setAgEvents(p => [...p, undoEvento]);
+      }
+    }
     setUndoEvento(null);
     setUndoTimer(null);
   };
@@ -1346,7 +1362,7 @@ export default function CRM() {
   const totalFat = fin.reduce((s, f) => s + f.val_a, 0);
   const origC = useMemo(() => {
     const m: Record<string, number> = {};
-    clients.forEach(c => { m[c.orig] = (m[c.orig] || 0) + 1; });
+    clients.forEach(c => { const k = c.orig || "Não informado"; m[k] = (m[k] || 0) + 1; });
     return Object.entries(m).sort((a, b) => b[1] - a[1]);
   }, [clients]);
   const estilos = useMemo(() => {
@@ -1527,7 +1543,7 @@ export default function CRM() {
             <div className="fmod" style={{ maxWidth: 420 }}>
               <div className="fmh"><div className="fmt">Adicionar Artista</div><button className="mc" onClick={() => setShowArtForm(false)}>✕</button></div>
               <div className="fmb">
-                <div className="ff"><label className="fl">Nome Completo *</label><input className="fi" placeholder="Nome do artista" value={artForm.nome} onChange={e => setArtForm({ ...artForm, nome: e.target.value.replace(/\b\w/g, l => l.toUpperCase()) })} /></div>
+                <div className="ff"><label className="fl">Nome Completo *</label><input className="fi" placeholder="Nome do artista" value={artForm.nome} onChange={e => setArtForm({ ...artForm, nome: e.target.value.replace(/(^|s)(S)/g, (_, sp, c) => sp + c.toUpperCase()) })} /></div>
                 <div className="fr">
                   <div className="ff"><label className="fl">Tipo</label><select className="fs" value={artForm.role} onChange={e => setArtForm({ ...artForm, role: e.target.value })}><option value="residente">Residente</option><option value="guest">Guest</option></select></div>
                   <div className="ff"><label className="fl">Comissão (%)</label><input className="fi" type="number" min={0} max={100} value={artForm.com} onChange={e => setArtForm({ ...artForm, com: Number(e.target.value) })} /></div>
@@ -1605,7 +1621,7 @@ export default function CRM() {
             { id: "posvenda", l: "Pós-venda", i: "💬" },
             { id: "disparos", l: "Disparos", i: "📣" },
           ].map(t => (
-            <button key={t.id} className={"tab" + (tab === t.id ? " on" : "")} onClick={() => setTab(t.id)}>
+            <button key={t.id} className={"tab" + (tab === t.id ? " on" : "")} onClick={() => changeTab(t.id)}>
               {t.i} {t.l}
             </button>
           ))}
@@ -2590,14 +2606,7 @@ export default function CRM() {
                     {miss(sc).map((m: string) => <span key={m} className="atag">⚠ Sem {m}</span>)}
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                  <button onClick={() => {
-                    const updated = clients.find(c => c.id === sc.id);
-                    if (updated) saveClientDb(updated);
-                  }} style={{ background: "rgba(39,174,96,.15)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 6, padding: "5px 14px", fontSize: 11, color: "#27AE60", cursor: "pointer", fontWeight: 600 }}>💾 Salvar</button>
-                  <div style={{ width: 1, height: 20, background: "var(--br)" }} />
-                  <button className="mc" onClick={() => setSel(null)}>✕</button>
-                </div>
+                <button className="mc" onClick={() => setSel(null)}>✕</button>
               </div>
               <div className="mb">
                 {sc.orcamento && (
@@ -2631,7 +2640,7 @@ export default function CRM() {
                           style={{ borderColor: (fd as any).w && !(sc as any)[fd.f] ? "var(--q2)" : "var(--br)" }} />
                       </div>
                     ))}
-                    {[{ l: "Origem", v: sc.orig }, { l: "Criativo", v: sc.cri }, { l: "Data de Nascimento", v: (sc as any).nascimento || "" }].map((fd, i) => (
+                    {[{ l: "Origem", v: sc.orig }, { l: "Criativo", v: sc.cri }, { l: "Data de Nascimento", v: (sc as any).nascimento ? (() => { const p = ((sc as any).nascimento as string).split("-"); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : (sc as any).nascimento; })() : "—" }].map((fd, i) => (
                       <div className="fi2" key={i}><div className="fil">{fd.l}</div><div className="fiv">{fd.v || " - "}</div></div>
                     ))}
                   </div>
@@ -2642,7 +2651,7 @@ export default function CRM() {
                   <div className="fg3">
                     <div className="fi2">
                       <div className="fil">Estilo</div>
-                      <input className="ef" value={sc.estilo || ""} onChange={e => upC(sc.id, "estilo", e.target.value.replace(/\b\w/g, l => l.toUpperCase()))} />
+                      <input className="ef" value={sc.estilo || ""} onChange={e => upC(sc.id, "estilo", e.target.value.replace(/(^|s)(S)/g, (_, sp, c) => sp + c.toUpperCase()))} />
                     </div>
                     <div className="fi2">
                       <div className="fil">Tamanho</div>
@@ -2971,8 +2980,20 @@ export default function CRM() {
                 </div>
 
                 {selCtx === "clientes" && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--br)", marginTop: 8 }}>
+                    <button onClick={() => deleteClient(sc.id)} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "7px 16px", fontSize: 12, color: "var(--q1)", cursor: "pointer", fontWeight: 600 }}>🗑 Excluir cliente</button>
+                    <button onClick={() => {
+                      const updated = clients.find(c => c.id === sc.id);
+                      if (updated) { saveClientDb(updated); setSel(null); }
+                    }} style={{ background: "var(--gold)", border: "none", borderRadius: 6, padding: "7px 20px", fontSize: 12, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>💾 Salvar</button>
+                  </div>
+                )}
+                {selCtx !== "clientes" && (
                   <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 12, borderTop: "1px solid var(--br)", marginTop: 8 }}>
-                    <button onClick={() => deleteClient(sc.id)} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--q1)", cursor: "pointer", fontWeight: 600 }}>🗑 Excluir cliente</button>
+                    <button onClick={() => {
+                      const updated = clients.find(c => c.id === sc.id);
+                      if (updated) { saveClientDb(updated); setSel(null); }
+                    }} style={{ background: "var(--gold)", border: "none", borderRadius: 6, padding: "7px 20px", fontSize: 12, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>💾 Salvar</button>
                   </div>
                 )}
               </div>
@@ -3031,7 +3052,7 @@ export default function CRM() {
               </div>
               <div className="fmb">
                 <div className="fr">
-                  <div className="ff"><label className="fl">Nome *</label><input className="fi" placeholder="Nome completo" value={form.nome} onChange={e => { const v = e.target.value; setForm({ ...form, nome: v.replace(/\b\w/g, l => l.toUpperCase()) }); }} /></div>
+                  <div className="ff"><label className="fl">Nome *</label><input className="fi" placeholder="Nome completo" value={form.nome} onChange={e => { const v = e.target.value; setForm({ ...form, nome: v.replace(/(^|s)(S)/g, (_, sp, c) => sp + c.toUpperCase()) }); }} /></div>
                   <div className="ff"><label className="fl">Telefone *</label><input className="fi" placeholder="(99) 9 9999-9999" value={form.tel} onChange={e => setForm({ ...form, tel: maskTel(e.target.value) })} /></div>
                 </div>
                 <div className="fr">
@@ -3061,7 +3082,7 @@ export default function CRM() {
                     <label className="fl">Estilo</label>
                     <div style={{ display: "flex", gap: 4 }}>
                       <input className="fi" style={{ flex: 1 }} placeholder="Fine Line, Realismo..." value={form.estilo}
-                        onChange={e => { const v = e.target.value.replace(/\b\w/g, l => l.toUpperCase()); setForm({ ...form, estilo: v }); setShowEstiloDD(true); }}
+                        onChange={e => { const v = e.target.value.replace(/(^|s)(S)/g, (_, sp, c) => sp + c.toUpperCase()); setForm({ ...form, estilo: v }); setShowEstiloDD(true); }}
                         onFocus={() => setShowEstiloDD(true)}
                         onBlur={() => setTimeout(() => setShowEstiloDD(false), 150)}
                       />
@@ -3092,7 +3113,7 @@ export default function CRM() {
                     <label className="fl">Região</label>
                     <div style={{ display: "flex", gap: 4 }}>
                       <input className="fi" style={{ flex: 1 }} placeholder="Antebraço, Costas..." value={form.regiao}
-                        onChange={e => { const v = e.target.value.replace(/\b\w/g, l => l.toUpperCase()); setForm({ ...form, regiao: v }); setShowRegiaoDD(true); }}
+                        onChange={e => { const v = e.target.value.replace(/(^|s)(S)/g, (_, sp, c) => sp + c.toUpperCase()); setForm({ ...form, regiao: v }); setShowRegiaoDD(true); }}
                         onFocus={() => setShowRegiaoDD(true)}
                         onBlur={() => setTimeout(() => setShowRegiaoDD(false), 150)}
                       />
@@ -3155,7 +3176,7 @@ export default function CRM() {
                 <button className="mc" onClick={() => setShowArtForm(false)}>✕</button>
               </div>
               <div className="fmb">
-                <div className="ff"><label className="fl">Nome Completo *</label><input className="fi" placeholder="Nome do artista" value={artForm.nome} onChange={e => setArtForm({ ...artForm, nome: e.target.value.replace(/\b\w/g, l => l.toUpperCase()) })} /></div>
+                <div className="ff"><label className="fl">Nome Completo *</label><input className="fi" placeholder="Nome do artista" value={artForm.nome} onChange={e => setArtForm({ ...artForm, nome: e.target.value.replace(/(^|s)(S)/g, (_, sp, c) => sp + c.toUpperCase()) })} /></div>
                 <div className="fr">
                   <div className="ff">
                     <label className="fl">Tipo</label>
@@ -3276,13 +3297,13 @@ export default function CRM() {
                 <div className="ff">
                   <label className="fl">Tipo</label>
                   <div style={{ display: "flex", gap: 8 }}>
-                    {["cons", "sess", "bloq"].map(t => {
-                      const labels: Record<string,string> = { cons: "Consulta", sess: "Sessão", bloq: "Bloqueio" };
+                    {["cons", "sess", "piercing", "bloq"].map(t => {
+                      const labels: Record<string,string> = { cons: "Consulta", sess: "Sessão", piercing: "Piercing", bloq: "Bloqueio" };
                       const active = agForm.tipo.startsWith(t);
                       return (
                         <div key={t} onMouseDown={() => {
                           const artist = artists.find(a => agForm.tipo.includes(a.id))?.id || (artists[0]?.id || "abraao");
-                          setAgForm({ ...agForm, tipo: t === "bloq" ? "bloq_geral" : t + "_" + artist });
+                          setAgForm({ ...agForm, tipo: t === "bloq" ? "bloq_geral" : t === "piercing" ? "piercing" : t + "_" + artist });
                         }} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
                           background: active ? "rgba(201,168,76,.15)" : "var(--dk3)",
                           border: `1px solid ${active ? "var(--gold)" : "var(--br)"}`,
