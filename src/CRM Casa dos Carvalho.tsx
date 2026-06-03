@@ -1002,11 +1002,12 @@ export default function CRM() {
       nome: c.nome, insta: c.insta || "", tel: c.tel || "",
       qual: c.qual, artista: c.artista, etapa: c.etapa,
       estilo: c.estilo || "", regiao: c.regiao || "",
-      intencao: c.intencao || "", primeira: c.primeira || false,
+      tam: c.tam || "", intencao: c.intencao || "", primeira: c.primeira || false,
       cob: c.cob || false, descricao: c.desc || "",
       stars: c.stars || 0, star_reason: c.starReason || "",
       consent: c.consent, nps: c.nps, obs: c.obs || "",
       val_a: c.val_a || 0, val_c: c.val_c || 0, pgto: c.pgto || "",
+      parcelas: c.parcelas || "1",
       orcamento: c.orcamento || false, contrato: c.contrato || false,
       faltas: c.faltas || 0, indicacoes: c.indicacoes || 0,
       credito: c.credito || 0, cri: c.cri || "",
@@ -2626,22 +2627,27 @@ export default function CRM() {
                 <div>
                   <div className="stit">Projeto Artístico</div>
                   <div className="fg3">
-                    {[
-                      { l: "Estilo", f: "estilo" }, { l: "Região", f: "regiao" }, { l: "Tamanho", f: "tam" },
-                      { l: "1ª Tattoo", f: "primeira", tipo: "bool" }
-                    ].map((fd, i) => (
-                      <div className="fi2" key={i}>
-                        <div className="fil">{fd.l}</div>
-                        {fd.tipo === "bool" ? (
-                          <select className="ef" value={(sc as any)[fd.f] ? "Sim" : "Nao"} onChange={e => upC(sc.id, fd.f, e.target.value === "Sim")}>
-                            <option value="Sim">Sim</option>
-                            <option value="Nao">Não</option>
-                          </select>
-                        ) : (
-                          <input className="ef" value={(sc as any)[fd.f] || ""} onChange={e => upC(sc.id, fd.f, e.target.value)} />
-                        )}
-                      </div>
-                    ))}
+                    <div className="fi2">
+                      <div className="fil">Estilo</div>
+                      <input className="ef" value={sc.estilo || ""} onChange={e => upC(sc.id, "estilo", e.target.value.replace(/\b\w/g, l => l.toUpperCase()))} />
+                    </div>
+                    <div className="fi2">
+                      <div className="fil">Tamanho</div>
+                      <select className="ef" value={sc.tam || ""} onChange={e => upC(sc.id, "tam", e.target.value)}>
+                        <option value="">Não informado</option>
+                        <option value="Discreto">Discreto</option>
+                        <option value="Medio">Médio</option>
+                        <option value="Grande">Grande</option>
+                        <option value="Fechamento">Fechamento</option>
+                      </select>
+                    </div>
+                    <div className="fi2">
+                      <div className="fil">1ª Tattoo</div>
+                      <select className="ef" value={sc.primeira ? "Sim" : "Nao"} onChange={e => upC(sc.id, "primeira", e.target.value === "Sim")}>
+                        <option value="Sim">Sim</option>
+                        <option value="Nao">Não</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="fi2" style={{ marginTop: 7 }}>
                     <div className="fil">Descrição do Projeto</div>
@@ -2828,8 +2834,14 @@ export default function CRM() {
                         <label className="fl">Valor da Arte</label>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <span style={{ fontSize: 12, color: "var(--tx2)" }}>R$</span>
-                          <input className="fi" type="number" min={0} value={sc.val_a || ""} placeholder="0,00"
-                            onChange={e => upC(sc.id, "val_a", Number(e.target.value))}
+                          <input className="fi"
+                            value={sc.val_a ? sc.val_a.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
+                            placeholder="0,00"
+                            onChange={e => {
+                              const raw = e.target.value.replace(/\D/g, "");
+                              const num = raw ? Number(raw) / 100 : 0;
+                              upC(sc.id, "val_a", num);
+                            }}
                             style={{ flex: 1 }} />
                         </div>
                       </div>
