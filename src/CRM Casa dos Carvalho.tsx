@@ -928,6 +928,7 @@ export default function CRM() {
   const [historico, setHistorico] = useState<{id?:any; data:string; hora:string; acao:string}[]>([]);
   const [confirmExcluir, setConfirmExcluir] = useState<any>(null); // evento a confirmar exclusão
   const [confirmRemoverArtista, setConfirmRemoverArtista] = useState<any>(null);
+  const [confirmMover, setConfirmMover] = useState<{cid: any; stage: any; agEvents: any[]} | null>(null);
   const [undoEvento, setUndoEvento] = useState<any>(null); // evento para desfazer
   const [undoTimer, setUndoTimer] = useState<any>(null);
 
@@ -2564,8 +2565,8 @@ export default function CRM() {
         {sc && (
           <div className="ov" onClick={e => { if (e.target === e.currentTarget) setSel(null); }}>
             <div className="modal">
-              <div className="mh">
-                <div>
+              <div className="mh" style={{ position: "relative" }}>
+                <div style={{ flex: 1 }}>
                   <div className="mn">{sc.nome}</div>
                   <div className="ms">
                     <span className={"qb " + QC[sc.qual]}>{sc.qual}{sc.qual === "Q0" ? " - Acompanhante" : ""}</span>
@@ -2576,8 +2577,13 @@ export default function CRM() {
                     {miss(sc).map((m: string) => <span key={m} className="atag">⚠ Sem {m}</span>)}
                   </div>
                 </div>
-                <button className="mc" onClick={() => setSel(null)}>✕</button>
-                <button onClick={() => saveClientDb(sc)} style={{ background: "rgba(39,174,96,.15)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 6, padding: "4px 12px", fontSize: 11, color: "#27AE60", cursor: "pointer", fontWeight: 600 }}>💾 Salvar</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button onClick={() => {
+                    const updated = clients.find(c => c.id === sc.id);
+                    if (updated) saveClientDb(updated);
+                  }} style={{ background: "rgba(39,174,96,.15)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 6, padding: "5px 14px", fontSize: 11, color: "#27AE60", cursor: "pointer", fontWeight: 600 }}>💾 Salvar</button>
+                  <button className="mc" style={{ position: "absolute", top: 10, right: 12 }} onClick={() => setSel(null)}>✕</button>
+                </div>
               </div>
               <div className="mb">
                 {sc.orcamento && (
@@ -2621,19 +2627,26 @@ export default function CRM() {
                   <div className="stit">Projeto Artístico</div>
                   <div className="fg3">
                     {[
-                      { l: "Estilo", v: sc.estilo }, { l: "Regiao", v: sc.regiao }, { l: "Tamanho", v: sc.tam },
-                      { l: "Cobertura", v: sc.cob ? "Sim" : "Nao" }, { l: "1 Tattoo", v: sc.primeira ? "Sim" : "Nao" },
-                      { l: "Intencao", v: sc.intencao }
+                      { l: "Estilo", f: "estilo" }, { l: "Região", f: "regiao" }, { l: "Tamanho", f: "tam" },
+                      { l: "1ª Tattoo", f: "primeira", tipo: "bool" }
                     ].map((fd, i) => (
                       <div className="fi2" key={i}>
                         <div className="fil">{fd.l}</div>
-                        <div className={"fiv" + ((!fd.v || fd.v === " - ") ? " em" : "")}>{fd.v || " - "}</div>
+                        {fd.tipo === "bool" ? (
+                          <select className="ef" value={(sc as any)[fd.f] ? "Sim" : "Nao"} onChange={e => upC(sc.id, fd.f, e.target.value === "Sim")}>
+                            <option value="Sim">Sim</option>
+                            <option value="Nao">Não</option>
+                          </select>
+                        ) : (
+                          <input className="ef" value={(sc as any)[fd.f] || ""} onChange={e => upC(sc.id, fd.f, e.target.value)} />
+                        )}
                       </div>
                     ))}
                   </div>
                   <div className="fi2" style={{ marginTop: 7 }}>
                     <div className="fil">Descrição do Projeto</div>
-                    <div className="fiv">{sc.desc}</div>
+                    <textarea className="ef" value={sc.desc || ""} onChange={e => upC(sc.id, "desc", e.target.value)}
+                      style={{ resize: "vertical", minHeight: 60, width: "100%", fontFamily: "inherit" }} />
                   </div>
                 </div>
 
@@ -2832,6 +2845,16 @@ export default function CRM() {
                         </select>
                       </div>
                     </div>
+                    {sc.pgto === "Cartao Credito" && (
+                      <div className="ff">
+                        <label className="fl">Parcelas</label>
+                        <select className="fs" value={(sc as any).parcelas || "1"} onChange={e => upC(sc.id, "parcelas", e.target.value)}>
+                          {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => (
+                            <option key={n} value={String(n)}>{n}x {sc.val_a ? `de R$ ${(sc.val_a/n).toLocaleString("pt-BR",{minimumFractionDigits:2})}` : ""}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     {sc.val_c > 0 && (
                       <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 6, padding: "10px 12px" }}>
                         <div style={{ fontSize: 10, color: "var(--tx3)", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 4 }}>🔒 Valor captado pela Aura</div>
@@ -2855,13 +2878,23 @@ export default function CRM() {
                 <div>
                   <div className="stit">Mover no Pipeline</div>
                   <div className="pm">
-                    {STAGES.map(s => (
-                      <button key={s.id} className={"sb" + (sc.etapa === s.id ? " cur" : "")}
-                        style={sc.etapa === s.id ? { borderColor: s.color, color: s.color, background: s.color + "18" } : {}}
-                        onClick={() => move(sc.id, s.id)}>
-                        {s.emoji} {s.label}
-                      </button>
-                    ))}
+                    {STAGES.map(s => {
+                      const critica = ["cons_agendada","sessao_agend","tatuado"].includes(s.id);
+                      return (
+                        <button key={s.id} className={"sb" + (sc.etapa === s.id ? " cur" : "")}
+                          style={sc.etapa === s.id ? { borderColor: s.color, color: s.color, background: s.color + "18" } : {}}
+                          onClick={() => {
+                            if (critica && sc.etapa !== s.id) {
+                              const evs = agEvents.filter(e => e.cliente_id === sc.id);
+                              setConfirmMover({ cid: sc.id, stage: s, agEvents: evs });
+                            } else {
+                              move(sc.id, s.id);
+                            }
+                          }}>
+                          {s.emoji} {s.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -3309,6 +3342,42 @@ export default function CRM() {
                   setForm(f => ({ ...f, nome: postAgNome }));
                   setShowForm(true);
                 }}>Cadastrar Agora</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── CONFIRMAÇÃO MOVER PIPELINE ── */}
+        {confirmMover && (
+          <div className="ov" onClick={() => setConfirmMover(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(460px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>
+                Mover para {confirmMover.stage.emoji} {confirmMover.stage.label}?
+              </div>
+              {confirmMover.agEvents.length > 0 ? (
+                <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 14px" }}>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Agendamentos vinculados</div>
+                  {confirmMover.agEvents.map((e: any) => (
+                    <div key={e.id} style={{ fontSize: 12, color: "var(--tx)", padding: "4px 0", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between" }}>
+                      <span>{e.date}</span>
+                      <span style={{ color: "var(--tx2)" }}>{String(e.start).padStart(2,"0")}h — {e.tipo}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ background: "rgba(212,130,10,.1)", border: "1px solid rgba(212,130,10,.3)", borderRadius: 7, padding: "10px 14px", fontSize: 12, color: "#D4820A" }}>
+                  ⚠️ Nenhum agendamento encontrado para este cliente. Deseja criar um agora?
+                  <button onClick={() => { setConfirmMover(null); setAgClientVinc(clients.find(c => c.id === confirmMover.cid) || null); setShowAgForm(true); }}
+                    style={{ display: "block", marginTop: 8, background: "rgba(212,130,10,.2)", border: "1px solid rgba(212,130,10,.4)", borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#D4820A", cursor: "pointer" }}>
+                    + Criar agendamento
+                  </button>
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn-c" onClick={() => setConfirmMover(null)}>Cancelar</button>
+                <button className="btn-s" onClick={() => { move(confirmMover.cid, confirmMover.stage.id); setConfirmMover(null); }}>
+                  Confirmar
+                </button>
               </div>
             </div>
           </div>
