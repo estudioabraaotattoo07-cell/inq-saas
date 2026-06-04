@@ -824,7 +824,7 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
       <div ref={sqRef}
         onMouseDown={e => { dragRef.current = "sq"; calcSq(e); }}
         style={{ width: "100%", height: 140, borderRadius: 6, position: "relative", cursor: "crosshair",
-          background: bgSq, backgroundImage: "linear-gradient(to right,#fff,transparent),linear-gradient(to top,#000,transparent)" }}>
+          backgroundImage: `linear-gradient(to right,#fff,transparent),linear-gradient(to top,#000,transparent),linear-gradient(to right,${bgSq},${bgSq})` }}>
         <div style={{ position: "absolute", left: `calc(${curX}% - 6px)`, top: `calc(${curY}% - 6px)`,
           width: 12, height: 12, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 0 2px rgba(0,0,0,.5)", pointerEvents: "none" }} />
       </div>
