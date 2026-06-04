@@ -1340,6 +1340,27 @@ export default function CRM() {
       setAgClientVinc(null);
       setAgClientSearch("");
       addLog(`Agenda: evento "${agForm.title}" editado (${agForm.date} ${agForm.start}h)`);
+      // Lançar sinal no financeiro se foi marcado como pago agora e não havia antes
+      const sinalValEdit = parseFloat(String((agForm as any).sinal || "0").replace(/\./g, "").replace(",", ".")) || 0;
+      const sinalPagoEdit = !!(agForm as any).sinalPago;
+      const sinalJaLancado = !!(editingEvent as any).sinal_pago;
+      if (sinalValEdit > 0 && sinalPagoEdit && !sinalJaLancado && agClientVinc) {
+        const artistaSinalEdit = agForm.tipo.includes("camilla") ? "camilla" : "abraao";
+        const artistaObjEdit = artists.find(a => a.id === artistaSinalEdit);
+        const comSinalEdit = artistaObjEdit?.com || 0;
+        const { error: errSinalEdit } = await sb.from("financeiro").insert({
+          cliente_id: agClientVinc.id,
+          cliente_nome: agClientVinc.nome,
+          artista: artistaSinalEdit,
+          data: new Date().toISOString().split("T")[0],
+          val_a: sinalValEdit,
+          val_c: sinalValEdit,
+          pgto: "Sinal",
+          com_base: comSinalEdit,
+          com_sess: comSinalEdit,
+        });
+        if (errSinalEdit) console.error("financeiro insert (sinal edição):", errSinalEdit);
+      }
       return;
     }
 
@@ -1956,7 +1977,7 @@ export default function CRM() {
                         <div className="mdn">{item.date.getDate()}</div>
                         {evs.slice(0, 3).map(e => (
                           <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista), cursor: "pointer" }}
-                            onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
+                            onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
                             {e.start}h {e.title}
                           </div>
                         ))}
@@ -2002,7 +2023,7 @@ export default function CRM() {
                                 overflow: "hidden", fontSize: 10, fontWeight: 600, color: "#fff",
                                 cursor: "pointer", display: "flex", alignItems: "flex-start", justifyContent: "space-between"
                               }}
-                              onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
+                              onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
                                 <span style={{overflow:"hidden",flex:1,minWidth:0}}>{e.title}<br/><span style={{opacity:.8}}>{e.start}h–{e.end}h</span></span>
                                 <span onClick={ev => { ev.stopPropagation(); setConfirmExcluir(e); }} style={{ opacity: .8, cursor: "pointer", fontSize: 12, flexShrink: 0 }}>🗑</span>
                               </div>
@@ -2042,11 +2063,11 @@ export default function CRM() {
                                   display: "flex", alignItems: "flex-start", justifyContent: "space-between",
                                   cursor: "pointer"
                                 }}
-                                onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
+                                onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
                                 <span style={{ fontWeight: 600 }}>{e.title} · {e.start}h–{e.end}h</span>
                                 <div style={{ display: "flex", gap: 4 }}>
                                   <span style={{ opacity: .8, cursor: "pointer", fontSize: 13 }}
-                                    onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "" }); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>✏️</span>
+                                    onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>✏️</span>
                                   <span style={{ opacity: .8, cursor: "pointer", fontSize: 13 }}
                                     onClick={ev => { ev.stopPropagation(); setConfirmExcluir(e); }}>🗑</span>
                                 </div>
