@@ -875,6 +875,15 @@ export default function CRM() {
   ]);
   const [showSaidaForm, setShowSaidaForm] = useState(false);
   const [saidaForm, setSaidaForm] = useState({ desc: "", categoria: "Material", valor: 0, data: new Date().toLocaleDateString("pt-BR") });
+  const [equipamentos, setEquipamentos] = useState<any[]>([]);
+  const [showEquipForm, setShowEquipForm] = useState(false);
+  const [equipForm, setEquipForm] = useState({ nome: "", valor_aquisicao: "", data_compra: "", vida_util_meses: 48, categoria: "maquina", artista_id: "" });
+  const [showEntradaForm, setShowEntradaForm] = useState(false);
+  const [entradaForm, setEntradaForm] = useState({ descricao: "", categoria: "sessao", cliente_nome: "", artista_id: "", valor: "", forma_pgto: "Pix", parcelas: "1", data: new Date().toISOString().split("T")[0], competencia: new Date().toISOString().slice(0,7) });
+  const [finFiltroMes, setFinFiltroMes] = useState(new Date().toISOString().slice(0,7));
+  const [finFiltroArtista, setFinFiltroArtista] = useState("todos");
+  const [finFiltroTipo, setFinFiltroTipo] = useState("todos");
+  const [finAbaAtiva, setFinAbaAtiva] = useState<"livrocaixa"|"dre"|"equipamentos">("livrocaixa");
   const [clients, setClients] = useState<any[]>([]);
   const [artists, setArtists] = useState(ARTISTS_INIT);
   const [fin, setFin] = useState(FIN_INIT);
@@ -959,10 +968,11 @@ export default function CRM() {
     async function loadAll() {
       if (!sb) { setDbReady(true); return; }
       try {
-        const [cls, arts, fins, sds, ags, cfgs] = await Promise.all([
+        const [cls, arts, fins, sds, ags, cfgs, eqs] = await Promise.all([
           dbGet("clientes"), dbGet("artistas"), dbGet("financeiro"),
-          dbGet("saidas"), dbGet("agenda"), dbGet("configuracoes")
+          dbGet("saidas"), dbGet("agenda"), dbGet("configuracoes"), dbGet("equipamentos")
         ]);
+        if (eqs && eqs.length > 0) setEquipamentos(eqs);
         if (cls && cls.length > 0) setClients(cls.map((c: any) => ({
           ...c,
           hist: c.hist || [],
@@ -2086,203 +2096,566 @@ export default function CRM() {
 
         {/* ── FINANCEIRO ── */}
         {tab === "financeiro" && (() => {
-          const totalEntradas = fin.reduce((s, f) => s + f.val_a, 0);
-          const totalSaidas = saidas.reduce((s, x) => s + x.valor, 0);
-          const totalRepasses = fin.reduce((s, f) => s + (f.val_a * f.com_sess / 100), 0);
+          // ── helpers ──
+          const fmtR = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const parseDateISO = (d: string) => { if (!d) return ""; if (d.includes("-")) return d.slice(0,7); const p = d.split("/"); return p.length === 3 ? p[2]+"-"+p[1].padStart(2,"0") : ""; };
+          const categorias = ["Material","Energia","Internet","Manutencao","Marketing","Pro-labore","Aluguel","Saude","Impostos","Outros"];
+          const catEntrada = ["sessao","sinal","prolabore","outro"];
+
+          // ── entradas do financeiro (tudo de val_a) ──
+          const entradas = fin.map(f => ({ ...f, tipo: f.tipo || "entrada", categoria: f.categoria || "sessao", descricao: f.descricao || f.cliente_nome || "", forma_pgto: f.forma_pgto || f.pgto || "", competencia: f.competencia || parseDateISO(f.data) || finFiltroMes }));
+
+          // ── filtros ──
+          const finFiltrado = entradas.filter(f => {
+            const mes = parseDateISO(f.data) || f.competencia || "";
+            const mOk = !finFiltroMes || mes.startsWith(finFiltroMes);
+            const aOk = finFiltroArtista === "todos" || f.artista === finFiltroArtista || f.artista_id === finFiltroArtista;
+            const tOk = finFiltroTipo === "todos" || f.tipo === finFiltroTipo || (finFiltroTipo === "entrada" && (!f.tipo || f.tipo === "entrada")) || (finFiltroTipo === "saida" && f.tipo === "saida");
+            return mOk && aOk && tOk;
+          });
+          const saidasFiltradas = saidas.filter(s => {
+            const mes = parseDateISO(s.data);
+            return !finFiltroMes || mes.startsWith(finFiltroMes);
+          });
+
+          // ── totais ──
+          const totalEntradas = finFiltrado.filter(f => !f.tipo || f.tipo === "entrada").reduce((s, f) => s + (Number(f.val_a) || 0), 0);
+          const totalSaidas = saidasFiltradas.reduce((s, x) => s + (Number(x.valor) || 0), 0);
+          const totalRepasses = finFiltrado.filter(f => !f.tipo || f.tipo === "entrada").reduce((s, f) => s + ((Number(f.val_a) || 0) * (Number(f.com_sess) || 0) / 100), 0);
           const saldoLiquido = totalEntradas - totalSaidas - totalRepasses;
-          const inadimplentes = clients.filter(c => (c.etapa === "tatuado" || c.etapa === "pos_venda") && c.val_a > 0 && !c.pgto);
           const progressoMeta = Math.min(totalEntradas / metaMensal * 100, 100);
           const diaAtual = new Date().getDate();
           const projecao = diaAtual > 0 ? Math.round((totalEntradas / diaAtual) * 30) : 0;
-          const ticketMedio = (id) => {
-            const ss = fin.filter(f => f.artista === id && f.val_a > 0);
-            return ss.length > 0 ? Math.round(ss.reduce((s, f) => s + f.val_a, 0) / ss.length) : 0;
-          };
-          const categorias = ["Material", "Energia", "Internet", "Manutencao", "Marketing", "Pro-labore", "Outros"];
+
+          // ── depreciação mensal total ──
+          const deprMensal = equipamentos.filter(e => e.ativo).reduce((s, e) => s + (Number(e.valor_aquisicao) || 0) / (Number(e.vida_util_meses) || 48), 0);
+
+          // ── DRE ──
+          const receitaBruta = totalEntradas;
+          const custoVariavel = totalSaidas * 0.4;
+          const custoFixo = totalSaidas * 0.6;
+          const lucroAntesProlabore = receitaBruta - totalRepasses - totalSaidas - deprMensal;
+          const prolabore = finFiltrado.filter(f => f.categoria === "prolabore").reduce((s, f) => s + (Number(f.val_a) || 0), 0);
+          const lucroLiquido = lucroAntesProlabore - prolabore;
+
           return (
           <div className="fw">
-            <div className="fsum" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
-              {[
-                { l: "Entradas", v: "R$ " + totalEntradas.toLocaleString("pt-BR"), s: "Sessoes realizadas", c: "var(--q3)" },
-                { l: "Saidas", v: "R$ " + totalSaidas.toLocaleString("pt-BR"), s: "Despesas do estudio", c: "var(--q1)" },
-                { l: "Repasses", v: "R$ " + totalRepasses.toLocaleString("pt-BR"), s: "A pagar aos artistas", c: "var(--ab)" },
-                { l: "Saldo Liquido", v: "R$ " + saldoLiquido.toLocaleString("pt-BR"), s: "Entradas - saidas - repasses", c: saldoLiquido >= 0 ? "var(--q3)" : "var(--q1)" },
-              ].map((s, i) => (
-                <div className="fsc" key={i}>
-                  <div className="fsl">{s.l}</div>
-                  <div className="fsv" style={{ color: s.c }}>{s.v}</div>
-                  <div className="fss">{s.s}</div>
-                </div>
+
+            {/* ── SUB-ABAS ── */}
+            <div style={{ display: "flex", gap: 3, padding: "0 0 2px", borderBottom: "1px solid var(--br)", marginBottom: 4 }}>
+              {([["livrocaixa","📒 Livro-Caixa"],["dre","📊 DRE"],["equipamentos","🔧 Equipamentos"]] as [any,string][]).map(([id, lbl]) => (
+                <button key={id} onClick={() => setFinAbaAtiva(id)}
+                  style={{ padding: "7px 16px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", borderRadius: "6px 6px 0 0", fontFamily: "'DM Sans',sans-serif",
+                    background: finAbaAtiva === id ? "var(--gold-d)" : "var(--dk3)",
+                    color: finAbaAtiva === id ? "var(--gold)" : "var(--tx2)",
+                    borderBottom: finAbaAtiva === id ? "2px solid var(--gold)" : "2px solid transparent" }}>
+                  {lbl}
+                </button>
               ))}
             </div>
-            <div className="ftable">
-              <div className="fth" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span>Meta Mensal</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 11, color: "var(--tx2)" }}>Meta: R$</span>
-                  <input className="ci" type="number" value={metaMensal} onChange={e => setMetaMensal(Number(e.target.value))} style={{ width: 90 }} />
+
+            {/* ── FILTROS ── */}
+            {finAbaAtiva !== "equipamentos" && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "10px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 11, color: "var(--tx3)" }}>Mês</span>
+                  <input type="month" value={finFiltroMes} onChange={e => setFinFiltroMes(e.target.value)}
+                    style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 9px", fontSize: 12, color: "var(--tx)", outline: "none" }} />
                 </div>
-              </div>
-              <div style={{ padding: "13px 15px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, color: "var(--tx2)" }}>R$ {totalEntradas.toLocaleString("pt-BR")} de R$ {metaMensal.toLocaleString("pt-BR")}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: progressoMeta >= 100 ? "var(--q3)" : "var(--gold)" }}>{Math.round(progressoMeta)}%</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 11, color: "var(--tx3)" }}>Artista</span>
+                  <select value={finFiltroArtista} onChange={e => setFinFiltroArtista(e.target.value)}
+                    style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 9px", fontSize: 12, color: "var(--tx)", outline: "none" }}>
+                    <option value="todos">Todos</option>
+                    {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome.split(" ")[0]}</option>)}
+                  </select>
                 </div>
-                <div style={{ width: "100%", background: "var(--dk4)", borderRadius: 4, height: 10, overflow: "hidden" }}>
-                  <div style={{ height: "100%", borderRadius: 4, background: progressoMeta >= 100 ? "var(--q3)" : "var(--gold)", width: progressoMeta + "%", transition: "width .4s" }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 11, color: "var(--tx3)" }}>Tipo</span>
+                  <select value={finFiltroTipo} onChange={e => setFinFiltroTipo(e.target.value)}
+                    style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 9px", fontSize: 12, color: "var(--tx)", outline: "none" }}>
+                    <option value="todos">Todos</option>
+                    <option value="entrada">Entradas</option>
+                    <option value="saida">Saídas</option>
+                  </select>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
-                  <span style={{ fontSize: 11, color: "var(--tx3)" }}>Projecao do mes: <strong style={{ color: "var(--tx)" }}>R$ {projecao.toLocaleString("pt-BR")}</strong></span>
-                  <span style={{ fontSize: 11, color: "var(--tx3)" }}>Faltam: <strong style={{ color: "var(--gold)" }}>R$ {Math.max(metaMensal - totalEntradas, 0).toLocaleString("pt-BR")}</strong></span>
-                </div>
-              </div>
-            </div>
-            <div className="ftable">
-              <div className="fth">Desempenho por Artista</div>
-              <div style={{ padding: "13px 15px", display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
-                {artists.filter(a => a.ativo).map(a => {
-                  const ss = fin.filter(f => f.artista === a.id && f.val_a > 0);
-                  const fat = ss.reduce((s, f) => s + f.val_a, 0);
-                  const repasse = ss.reduce((s, f) => s + (f.val_a * f.com_sess / 100), 0);
-                  const ticket = ticketMedio(a.id);
-                  return (
-                    <div key={a.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "11px 13px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                        <span style={{ ...aStyle(a.id), fontFamily: "'Cormorant Garamond',serif", fontSize: 16, fontWeight: 600, padding: "2px 8px", borderRadius: 5 }}>{a.nome.split(" ")[0]}</span>
-                        <span style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase" }}>{a.role}</span>
-                      </div>
-                      {[
-                        { l: "Sessoes", v: ss.length },
-                        { l: "Faturamento", v: "R$ " + fat.toLocaleString("pt-BR") },
-                        { l: "Ticket medio", v: ticket > 0 ? "R$ " + ticket.toLocaleString("pt-BR") : "-" },
-                        { l: "Repasse", v: "R$ " + repasse.toLocaleString("pt-BR") },
-                        { l: "Comissao base", v: a.com + "%" },
-                      ].map((f, i) => (
-                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid var(--br)", fontSize: 11 }}>
-                          <span style={{ color: "var(--tx2)" }}>{f.l}</span>
-                          <span style={{ color: "var(--tx)", fontWeight: 600 }}>{f.v}</span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="ftable">
-              <div className="fth">Registro de Sessoes</div>
-              <table className="ft">
-                <thead><tr><th>Cliente</th><th>Artista</th><th>Data</th><th>Valor</th><th>Pagto</th><th>Com %</th><th>Repasse</th><th>Status</th></tr></thead>
-                <tbody>
-                  {fin.map((f, fi) => {
-                    const div = f.val_c > 0 && f.val_a !== f.val_c;
-                    const rec = f.val_a * f.com_sess / 100;
-                    return (
-                      <tr key={f.id}>
-                        <td style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14 }}>{f.cliente}</td>
-                        <td><span style={aStyle(f.artista)} className={aClass(f.artista) ? "at " + aClass(f.artista) : ""}>{aName(f.artista).split(" ")[0]}</span></td>
-                        <td style={{ fontSize: 11, color: "var(--tx2)" }}>{f.data}</td>
-                        <td style={{ fontWeight: 600, color: "var(--gold)" }}>{f.val_a > 0 ? "R$ " + f.val_a.toLocaleString("pt-BR") : "-"}</td>
-                        <td style={{ fontSize: 11 }}>{f.pgto || "-"}</td>
-                        <td><div style={{ display: "flex", alignItems: "center", gap: 4 }}><input className="ci" type="number" min={0} max={100} value={f.com_sess} onChange={e => setFin(p => p.map((x, i) => i === fi ? { ...x, com_sess: Number(e.target.value) } : x))} /><span style={{ fontSize: 11, color: "var(--tx2)" }}>%</span></div></td>
-                        <td style={{ color: "var(--q3)", fontWeight: 700, fontFamily: "'Cormorant Garamond',serif", fontSize: 14 }}>{rec > 0 ? "R$ " + rec.toLocaleString("pt-BR") : "-"}</td>
-                        <td>{div ? <span className="da">Divergencia</span> : f.val_a > 0 ? <span className="dok">OK</span> : <span style={{ fontSize: 11, color: "var(--tx3)" }}>Pendente</span>}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="ftable">
-              <div className="fth" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span>Saidas e Despesas</span>
-                <button className="btn-new" style={{ fontSize: 11, padding: "5px 12px" }} onClick={() => setShowSaidaForm(true)}>+ Lancar</button>
-              </div>
-              <table className="ft">
-                <thead><tr><th>Descricao</th><th>Categoria</th><th>Data</th><th>Valor</th><th></th></tr></thead>
-                <tbody>
-                  {saidas.map(s => (
-                    <tr key={s.id}>
-                      <td>{s.desc}</td>
-                      <td><span style={{ fontSize: 10, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 3, padding: "2px 6px", color: "var(--tx2)" }}>{s.categoria}</span></td>
-                      <td style={{ fontSize: 11, color: "var(--tx2)" }}>{s.data}</td>
-                      <td style={{ fontWeight: 600, color: "var(--q1)" }}>R$ {s.valor.toLocaleString("pt-BR")}</td>
-                      <td><button className="btn-sm" style={{ fontSize: 10, color: "var(--q1)" }} onClick={() => setSaidas(p => p.filter(x => x.id !== s.id))}>Remover</button></td>
-                    </tr>
-                  ))}
-                  {saidas.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--tx3)", fontSize: 12, padding: 16 }}>Nenhuma saida registrada.</td></tr>}
-                </tbody>
-              </table>
-              <div style={{ padding: "10px 15px", background: "var(--dk3)", display: "flex", justifyContent: "flex-end", gap: 4, alignItems: "center" }}>
-                <span style={{ fontSize: 12, color: "var(--tx2)" }}>Total saidas:</span>
-                <span style={{ fontSize: 16, fontWeight: 700, color: "var(--q1)", fontFamily: "'Cormorant Garamond',serif" }}>R$ {totalSaidas.toLocaleString("pt-BR")}</span>
-              </div>
-            </div>
-            {inadimplentes.length > 0 && (
-              <div className="ftable">
-                <div className="fth">Inadimplencia</div>
-                <div style={{ padding: "11px 15px", display: "flex", flexDirection: "column", gap: 6 }}>
-                  {inadimplentes.map(c => (
-                    <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 11px", background: "rgba(192,57,43,.08)", border: "1px solid rgba(192,57,43,.2)", borderRadius: 7 }}>
-                      <div>
-                        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontWeight: 600 }}>{c.nome}</div>
-                        <div style={{ fontSize: 11, color: "var(--tx2)" }}>Sessao realizada - pagamento nao registrado</div>
-                      </div>
-                      <button className="btn-sm gold" onClick={() => { setSel(c); setSelCtx("clientes"); }}>Ver ficha</button>
-                    </div>
-                  ))}
+                <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: "var(--tx3)" }}>Meta R$</span>
+                    <input type="number" value={metaMensal} onChange={e => setMetaMensal(Number(e.target.value))}
+                      style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 9px", fontSize: 12, color: "var(--tx)", outline: "none", width: 100 }} />
+                  </div>
                 </div>
               </div>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+
+            {/* ════ LIVRO-CAIXA ════ */}
+            {finAbaAtiva === "livrocaixa" && (<>
+
+              {/* cards resumo */}
+              <div className="fsum" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+                {[
+                  { l: "Entradas", v: fmtR(totalEntradas), s: "no período filtrado", c: "var(--q3)" },
+                  { l: "Saídas", v: fmtR(totalSaidas), s: "despesas do estúdio", c: "var(--q1)" },
+                  { l: "Repasses", v: fmtR(totalRepasses), s: "a pagar aos artistas", c: "var(--ab)" },
+                  { l: "Saldo Líquido", v: fmtR(saldoLiquido), s: "entradas − saídas − repasses", c: saldoLiquido >= 0 ? "var(--q3)" : "var(--q1)" },
+                ].map((s, i) => (
+                  <div className="fsc" key={i}>
+                    <div className="fsl">{s.l}</div>
+                    <div className="fsv" style={{ color: s.c }}>{s.v}</div>
+                    <div className="fss">{s.s}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* meta mensal */}
               <div className="ftable">
-                <div className="fth">Origem do Faturamento</div>
+                <div className="fth">Meta Mensal</div>
                 <div style={{ padding: "13px 15px" }}>
-                  {(() => {
-                    const m = {};
-                    fin.forEach(f => { const c = clients.find(x => x.nome === f.cliente); if (c) m[c.orig] = (m[c.orig] || 0) + f.val_a; });
-                    const max = Math.max(...Object.values(m), 1);
-                    return Object.entries(m).sort((a, b) => b[1] - a[1]).map(([o, v]) => (
-                      <div className="br-row" key={o}>
-                        <div className="br-lbl" style={{ fontSize: 10 }}>{o}</div>
-                        <div className="br-trk"><div className="br-fil" style={{ width: (v / max * 100) + "%", background: "var(--gold)" }} /></div>
-                        <div style={{ fontSize: 11, color: "var(--tx)", width: 60, textAlign: "right", flexShrink: 0 }}>R$ {v.toLocaleString("pt-BR")}</div>
-                      </div>
-                    ));
-                  })()}
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, color: "var(--tx2)" }}>{fmtR(totalEntradas)} de {fmtR(metaMensal)}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: progressoMeta >= 100 ? "var(--q3)" : "var(--gold)" }}>{Math.round(progressoMeta)}%</span>
+                  </div>
+                  <div style={{ width: "100%", background: "var(--dk4)", borderRadius: 4, height: 10, overflow: "hidden" }}>
+                    <div style={{ height: "100%", borderRadius: 4, background: progressoMeta >= 100 ? "var(--q3)" : "var(--gold)", width: progressoMeta + "%", transition: "width .4s" }} />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+                    <span style={{ fontSize: 11, color: "var(--tx3)" }}>Projeção: <strong style={{ color: "var(--tx)" }}>{fmtR(projecao)}</strong></span>
+                    <span style={{ fontSize: 11, color: "var(--tx3)" }}>Faltam: <strong style={{ color: "var(--gold)" }}>{fmtR(Math.max(metaMensal - totalEntradas, 0))}</strong></span>
+                  </div>
                 </div>
               </div>
+
+              {/* desempenho artistas */}
               <div className="ftable">
-                <div className="fth">Dias Mais Rentaveis</div>
-                <div style={{ padding: "13px 15px" }}>
-                  {(() => {
-                    const dias = ["Dom","Seg","Ter","Qua","Qui","Sex","Sab"];
-                    const m = {};
-                    fin.forEach(f => { const p = f.data.split("/"); if (p.length === 3) { const d = new Date(Number(p[2]), Number(p[1])-1, Number(p[0])); m[dias[d.getDay()]] = (m[dias[d.getDay()]] || 0) + f.val_a; } });
-                    const max = Math.max(...Object.values(m), 1);
-                    return dias.map(dia => (
-                      <div className="br-row" key={dia}>
-                        <div className="br-lbl" style={{ fontSize: 11 }}>{dia}</div>
-                        <div className="br-trk"><div className="br-fil" style={{ width: ((m[dia] || 0) / max * 100) + "%", background: "var(--ab)" }} /></div>
-                        <div style={{ fontSize: 11, color: "var(--tx)", width: 60, textAlign: "right", flexShrink: 0 }}>{m[dia] ? "R$ " + m[dia].toLocaleString("pt-BR") : "-"}</div>
+                <div className="fth">Desempenho por Artista</div>
+                <div style={{ padding: "13px 15px", display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
+                  {artists.filter(a => a.ativo).map(a => {
+                    const ss = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada"));
+                    const fat = ss.reduce((s, f) => s + (Number(f.val_a) || 0), 0);
+                    const repasse = ss.reduce((s, f) => s + ((Number(f.val_a) || 0) * (Number(f.com_sess) || 0) / 100), 0);
+                    const ticket = ss.length > 0 ? Math.round(fat / ss.length) : 0;
+                    return (
+                      <div key={a.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "11px 13px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                          <span style={{ ...aStyle(a.id), fontFamily: "'Cormorant Garamond',serif", fontSize: 16, fontWeight: 600, padding: "2px 8px", borderRadius: 5 }}>{a.nome.split(" ")[0]}</span>
+                          <span style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase" }}>{a.role}</span>
+                        </div>
+                        {[
+                          { l: "Sessões", v: ss.length },
+                          { l: "Faturamento", v: fmtR(fat) },
+                          { l: "Ticket Médio", v: ticket > 0 ? fmtR(ticket) : "—" },
+                          { l: "Repasse", v: fmtR(repasse) },
+                          { l: "Comissão", v: a.com + "%" },
+                        ].map((f, i) => (
+                          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid var(--br)", fontSize: 11 }}>
+                            <span style={{ color: "var(--tx2)" }}>{f.l}</span>
+                            <span style={{ color: "var(--tx)", fontWeight: 600 }}>{f.v}</span>
+                          </div>
+                        ))}
                       </div>
-                    ));
-                  })()}
+                    );
+                  })}
                 </div>
               </div>
-            </div>
-            <div style={{ background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.2)", borderRadius: 8, padding: "11px 15px", display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 20 }}>🧾</span>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--gold)" }}>Nota Fiscal</div>
-                <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 2 }}>Integracao com emissao de notas em breve. O numero da nota sera vinculado a cada sessao e enviado automaticamente pela Aura.</div>
+
+              {/* entradas */}
+              <div className="ftable">
+                <div className="fth" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>Entradas</span>
+                  <button className="btn-new" style={{ fontSize: 11, padding: "5px 12px" }} onClick={() => setShowEntradaForm(true)}>+ Lançar Manual</button>
+                </div>
+                <table className="ft">
+                  <thead><tr><th>Descrição</th><th>Artista</th><th>Data</th><th>Valor</th><th>Forma</th><th>Categoria</th><th>Com %</th><th>Repasse</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {finFiltrado.filter(f => !f.tipo || f.tipo === "entrada").length === 0 && (
+                      <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--tx3)", fontSize: 12, padding: 16, fontStyle: "italic" }}>Nenhuma entrada no período.</td></tr>
+                    )}
+                    {finFiltrado.filter(f => !f.tipo || f.tipo === "entrada").map((f, fi) => {
+                      const rec = (Number(f.val_a) || 0) * (Number(f.com_sess) || 0) / 100;
+                      const dataFmt = f.data ? (f.data.includes("-") ? f.data.split("-").reverse().join("/") : f.data) : "—";
+                      return (
+                        <tr key={f.id}>
+                          <td style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13 }}>{f.descricao || f.cliente_nome || "—"}</td>
+                          <td><span style={aStyle(f.artista || f.artista_id)}>{aName(f.artista || f.artista_id).split(" ")[0]}</span></td>
+                          <td style={{ fontSize: 11, color: "var(--tx2)" }}>{dataFmt}</td>
+                          <td style={{ fontWeight: 600, color: "var(--q3)" }}>{fmtR(Number(f.val_a) || 0)}</td>
+                          <td style={{ fontSize: 11 }}>{f.forma_pgto || f.pgto || "—"}</td>
+                          <td><span style={{ fontSize: 10, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 3, padding: "2px 6px", color: "var(--tx2)" }}>{f.categoria || "sessao"}</span></td>
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              <input className="ci" type="number" min={0} max={100} value={f.com_sess || 0}
+                                onChange={async e => {
+                                  const novo = Number(e.target.value);
+                                  setFin(p => p.map((x: any) => x.id === f.id ? { ...x, com_sess: novo } : x));
+                                  await sb.from("financeiro").update({ com_sess: novo }).eq("id", f.id);
+                                }} />
+                              <span style={{ fontSize: 11, color: "var(--tx2)" }}>%</span>
+                            </div>
+                          </td>
+                          <td style={{ color: "var(--q3)", fontWeight: 700, fontFamily: "'Cormorant Garamond',serif", fontSize: 13 }}>{rec > 0 ? fmtR(rec) : "—"}</td>
+                          <td>
+                            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                              <span className="dok">OK</span>
+                              <button onClick={async () => {
+                                if (!window.confirm) { await dbDelete("financeiro", f.id); setFin(p => p.filter((x: any) => x.id !== f.id)); return; }
+                                setFin(p => p.filter((x: any) => x.id !== f.id));
+                                await dbDelete("financeiro", f.id);
+                              }} style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 13, padding: "0 2px" }} title="Excluir">✕</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </div>
+
+              {/* saídas */}
+              <div className="ftable">
+                <div className="fth" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>Saídas e Despesas</span>
+                  <button className="btn-new" style={{ fontSize: 11, padding: "5px 12px" }} onClick={() => setShowSaidaForm(true)}>+ Lançar</button>
+                </div>
+                <table className="ft">
+                  <thead><tr><th>Descrição</th><th>Categoria</th><th>Data</th><th>Valor</th><th></th></tr></thead>
+                  <tbody>
+                    {saidasFiltradas.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--tx3)", fontSize: 12, padding: 16, fontStyle: "italic" }}>Nenhuma saída no período.</td></tr>}
+                    {saidasFiltradas.map(s => (
+                      <tr key={s.id}>
+                        <td>{s.desc || s.descricao}</td>
+                        <td><span style={{ fontSize: 10, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 3, padding: "2px 6px", color: "var(--tx2)" }}>{s.categoria}</span></td>
+                        <td style={{ fontSize: 11, color: "var(--tx2)" }}>{s.data}</td>
+                        <td style={{ fontWeight: 600, color: "var(--q1)" }}>{fmtR(Number(s.valor) || 0)}</td>
+                        <td>
+                          <button className="btn-sm" style={{ fontSize: 10, color: "var(--q1)" }} onClick={async () => {
+                            setSaidas(p => p.filter(x => x.id !== s.id));
+                            await dbDelete("saidas", s.id);
+                          }}>Remover</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ padding: "10px 15px", background: "var(--dk3)", display: "flex", justifyContent: "flex-end", gap: 4, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "var(--tx2)" }}>Total saídas:</span>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: "var(--q1)", fontFamily: "'Cormorant Garamond',serif" }}>{fmtR(totalSaidas)}</span>
+                </div>
+              </div>
+
+              {/* origem faturamento e dias rentáveis */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="ftable">
+                  <div className="fth">Origem do Faturamento</div>
+                  <div style={{ padding: "13px 15px" }}>
+                    {(() => {
+                      const m: Record<string,number> = {};
+                      finFiltrado.filter(f => !f.tipo || f.tipo === "entrada").forEach(f => {
+                        const c = clients.find(x => x.nome === (f.cliente_nome || f.cliente));
+                        const orig = c?.orig || "Não informado";
+                        m[orig] = (m[orig] || 0) + (Number(f.val_a) || 0);
+                      });
+                      const max = Math.max(...Object.values(m), 1);
+                      return Object.entries(m).sort((a: any, b: any) => b[1] - a[1]).map(([o, v]: any) => (
+                        <div className="br-row" key={o}>
+                          <div className="br-lbl" style={{ fontSize: 10 }}>{o}</div>
+                          <div className="br-trk"><div className="br-fil" style={{ width: (v / max * 100) + "%", background: "var(--gold)" }} /></div>
+                          <div style={{ fontSize: 11, color: "var(--tx)", width: 70, textAlign: "right", flexShrink: 0 }}>{fmtR(v)}</div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+                <div className="ftable">
+                  <div className="fth">Dias Mais Rentáveis</div>
+                  <div style={{ padding: "13px 15px" }}>
+                    {(() => {
+                      const dias = ["Dom","Seg","Ter","Qua","Qui","Sex","Sab"];
+                      const m: Record<string,number> = {};
+                      finFiltrado.filter(f => !f.tipo || f.tipo === "entrada").forEach(f => {
+                        if (!f.data) return;
+                        const d = f.data.includes("-") ? new Date(f.data + "T12:00:00") : (() => { const p = f.data.split("/"); return new Date(Number(p[2]), Number(p[1])-1, Number(p[0])); })();
+                        const dia = dias[d.getDay()];
+                        m[dia] = (m[dia] || 0) + (Number(f.val_a) || 0);
+                      });
+                      const max = Math.max(...Object.values(m), 1);
+                      return dias.map(dia => (
+                        <div className="br-row" key={dia}>
+                          <div className="br-lbl" style={{ fontSize: 11 }}>{dia}</div>
+                          <div className="br-trk"><div className="br-fil" style={{ width: ((m[dia] || 0) / max * 100) + "%", background: "var(--ab)" }} /></div>
+                          <div style={{ fontSize: 11, color: "var(--tx)", width: 70, textAlign: "right", flexShrink: 0 }}>{m[dia] ? fmtR(m[dia]) : "—"}</div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.2)", borderRadius: 8, padding: "11px 15px", display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 20 }}>🧾</span>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--gold)" }}>Nota Fiscal</div>
+                  <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 2 }}>Integração com emissão de notas em breve. A Aura vinculará o número da NF a cada sessão automaticamente.</div>
+                </div>
+              </div>
+
+            </>)}
+
+            {/* ════ DRE ════ */}
+            {finAbaAtiva === "dre" && (<>
+              <div className="ftable">
+                <div className="fth">Demonstrativo de Resultado — {finFiltroMes}</div>
+                <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 0 }}>
+                  {[
+                    { l: "Receita Bruta", v: receitaBruta, bold: true, color: "var(--q3)" },
+                    { l: "  (−) Repasses Artistas", v: -totalRepasses, color: "var(--q1)" },
+                    { l: "  (−) Depreciação Equipamentos", v: -deprMensal, color: "var(--q1)" },
+                    { l: "  (−) Despesas Operacionais", v: -totalSaidas, color: "var(--q1)" },
+                    { l: "Resultado Antes do Pró-Labore", v: lucroAntesProlabore, bold: true, color: lucroAntesProlabore >= 0 ? "var(--q3)" : "var(--q1)", sep: true },
+                    { l: "  (−) Pró-Labore", v: -prolabore, color: "var(--q1)" },
+                    { l: "Lucro Líquido", v: lucroLiquido, bold: true, color: lucroLiquido >= 0 ? "var(--q3)" : "var(--q1)", sep: true },
+                  ].map((row, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderBottom: row.sep ? "2px solid var(--br)" : "1px solid rgba(255,255,255,.04)" }}>
+                      <span style={{ fontSize: 13, color: row.bold ? "var(--tx)" : "var(--tx2)", fontWeight: row.bold ? 700 : 400, fontFamily: row.bold ? "'Cormorant Garamond',serif" : "inherit" }}>{row.l}</span>
+                      <span style={{ fontSize: row.bold ? 17 : 13, fontWeight: row.bold ? 700 : 600, color: row.color, fontFamily: row.bold ? "'Cormorant Garamond',serif" : "inherit" }}>{fmtR(Math.abs(row.v))}{row.v < 0 ? " (−)" : ""}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="ftable">
+                  <div className="fth">Saídas por Categoria</div>
+                  <div style={{ padding: "13px 15px" }}>
+                    {(() => {
+                      const m: Record<string,number> = {};
+                      saidasFiltradas.forEach(s => { m[s.categoria] = (m[s.categoria] || 0) + (Number(s.valor) || 0); });
+                      const max = Math.max(...Object.values(m), 1);
+                      return Object.entries(m).sort((a: any,b: any) => b[1]-a[1]).map(([cat, val]: any) => (
+                        <div className="br-row" key={cat}>
+                          <div className="br-lbl">{cat}</div>
+                          <div className="br-trk"><div className="br-fil" style={{ width: (val/max*100)+"%", background: "var(--q1)" }} /></div>
+                          <div style={{ fontSize: 11, color: "var(--tx)", width: 80, textAlign: "right", flexShrink: 0 }}>{fmtR(val)}</div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+                <div className="ftable">
+                  <div className="fth">Margem por Artista</div>
+                  <div style={{ padding: "13px 15px" }}>
+                    {artists.filter(a => a.ativo).map(a => {
+                      const fat = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada")).reduce((s, f) => s + (Number(f.val_a)||0), 0);
+                      const rep = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada")).reduce((s, f) => s + ((Number(f.val_a)||0) * (Number(f.com_sess)||0) / 100), 0);
+                      const margem = fat > 0 ? Math.round(((fat - rep) / fat) * 100) : 0;
+                      return (
+                        <div key={a.id} className="br-row">
+                          <div className="br-lbl"><span style={aStyle(a.id)}>{a.nome.split(" ")[0]}</span></div>
+                          <div className="br-trk"><div className="br-fil" style={{ width: margem+"%", background: a.cor || "var(--gold)" }} /></div>
+                          <div style={{ fontSize: 11, color: "var(--tx)", width: 50, textAlign: "right", flexShrink: 0 }}>{margem}%</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: "rgba(74,158,191,.08)", border: "1px solid rgba(74,158,191,.2)", borderRadius: 8, padding: "13px 16px" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ab)", marginBottom: 6 }}>💡 Para seu contador</div>
+                <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.7 }}>
+                  Este DRE é gerado automaticamente com base nos lançamentos do mês. Exporte os dados mensalmente e entregue ao seu contador junto com as notas fiscais emitidas. Em breve: exportação em PDF com CNPJ e competência.
+                </div>
+              </div>
+            </>)}
+
+            {/* ════ EQUIPAMENTOS ════ */}
+            {finAbaAtiva === "equipamentos" && (<>
+              <div className="ftable">
+                <div className="fth" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>Equipamentos e Depreciação</span>
+                  <button className="btn-new" style={{ fontSize: 11, padding: "5px 12px" }} onClick={() => setShowEquipForm(true)}>+ Cadastrar</button>
+                </div>
+                {equipamentos.length === 0 ? (
+                  <div style={{ padding: 24, textAlign: "center", color: "var(--tx3)", fontSize: 12, fontStyle: "italic" }}>Nenhum equipamento cadastrado. Cadastre suas máquinas, fontes e equipamentos para calcular a depreciação mensal.</div>
+                ) : (
+                  <table className="ft">
+                    <thead><tr><th>Equipamento</th><th>Categoria</th><th>Artista</th><th>Valor Aquisição</th><th>Data Compra</th><th>Vida Útil</th><th>Depr. Mensal</th><th>Depr. Acumulada</th><th></th></tr></thead>
+                    <tbody>
+                      {equipamentos.map(e => {
+                        const deprMes = (Number(e.valor_aquisicao)||0) / (Number(e.vida_util_meses)||48);
+                        const mesesUso = (() => { if (!e.data_compra) return 0; const compra = new Date(e.data_compra); const hoje = new Date(); return Math.max(0, (hoje.getFullYear() - compra.getFullYear())*12 + hoje.getMonth() - compra.getMonth()); })();
+                        const deprAcum = Math.min(deprMes * mesesUso, Number(e.valor_aquisicao)||0);
+                        const valorResidual = Math.max((Number(e.valor_aquisicao)||0) - deprAcum, 0);
+                        return (
+                          <tr key={e.id} style={{ opacity: e.ativo ? 1 : 0.5 }}>
+                            <td style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontWeight: 600 }}>{e.nome}</td>
+                            <td><span style={{ fontSize: 10, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 3, padding: "2px 6px", color: "var(--tx2)" }}>{e.categoria}</span></td>
+                            <td>{e.artista_id ? <span style={aStyle(e.artista_id)}>{aName(e.artista_id).split(" ")[0]}</span> : <span style={{ color: "var(--tx3)", fontSize: 11 }}>Geral</span>}</td>
+                            <td style={{ fontWeight: 600, color: "var(--tx)" }}>{fmtR(Number(e.valor_aquisicao)||0)}</td>
+                            <td style={{ fontSize: 11, color: "var(--tx2)" }}>{e.data_compra ? new Date(e.data_compra+"T12:00:00").toLocaleDateString("pt-BR") : "—"}</td>
+                            <td style={{ fontSize: 11, color: "var(--tx2)" }}>{e.vida_util_meses} meses</td>
+                            <td style={{ color: "var(--q2)", fontWeight: 600 }}>{fmtR(deprMes)}</td>
+                            <td>
+                              <div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--q1)" }}>{fmtR(deprAcum)}</div>
+                                <div style={{ fontSize: 10, color: "var(--tx3)" }}>Residual: {fmtR(valorResidual)}</div>
+                                <div style={{ width: "100%", background: "var(--dk4)", borderRadius: 2, height: 4, marginTop: 3, overflow: "hidden" }}>
+                                  <div style={{ height: "100%", background: deprAcum >= Number(e.valor_aquisicao) ? "var(--q1)" : "var(--q2)", width: Math.min(deprAcum / Math.max(Number(e.valor_aquisicao),1) * 100, 100) + "%" }} />
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <button className="btn-sm" style={{ fontSize: 10, color: "var(--q1)" }} onClick={async () => {
+                                setEquipamentos(p => p.filter(x => x.id !== e.id));
+                                await dbDelete("equipamentos", e.id);
+                              }}>Remover</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+                {equipamentos.length > 0 && (
+                  <div style={{ padding: "10px 15px", background: "var(--dk3)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 11, color: "var(--tx2)" }}>Depreciação mensal total do estúdio:</span>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: "var(--q2)", fontFamily: "'Cormorant Garamond',serif" }}>{fmtR(deprMensal)}</span>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ background: "rgba(212,130,10,.06)", border: "1px solid rgba(212,130,10,.2)", borderRadius: 8, padding: "13px 16px" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--q2)", marginBottom: 6 }}>📋 Como usar para o Imposto de Renda</div>
+                <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.8 }}>
+                  Cadastre cada equipamento com valor e data de compra. A depreciação mensal é calculada automaticamente pela Receita Federal (vida útil padrão: 48 meses para máquinas). O valor acumulado pode ser declarado como despesa dedutível. Guarde as notas fiscais de compra de cada equipamento.
+                </div>
+              </div>
+            </>)}
+
+            {/* ── MODAL ENTRADA MANUAL ── */}
+            {showEntradaForm && (
+              <div className="fov" onClick={e => { if (e.target === e.currentTarget) setShowEntradaForm(false); }}>
+                <div className="fmod" style={{ maxWidth: 460 }}>
+                  <div className="fmh"><div className="fmt">Lançar Entrada Manual</div><button className="mc" onClick={() => setShowEntradaForm(false)}>✕</button></div>
+                  <div className="fmb">
+                    <div className="ff"><label className="fl">Descrição *</label><input className="fi" placeholder="Ex: Sessão avulsa, Piercing..." value={entradaForm.descricao} onChange={e => setEntradaForm({ ...entradaForm, descricao: e.target.value })} /></div>
+                    <div className="fr">
+                      <div className="ff"><label className="fl">Categoria</label>
+                        <select className="fs" value={entradaForm.categoria} onChange={e => setEntradaForm({ ...entradaForm, categoria: e.target.value })}>
+                          {catEntrada.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div className="ff"><label className="fl">Artista</label>
+                        <select className="fs" value={entradaForm.artista_id} onChange={e => setEntradaForm({ ...entradaForm, artista_id: e.target.value })}>
+                          <option value="">Sem artista</option>
+                          {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome.split(" ")[0]}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="fr">
+                      <div className="ff"><label className="fl">Valor (R$) *</label>
+                        <input className="fi" type="text" placeholder="0,00" value={entradaForm.valor}
+                          onChange={e => { const raw = e.target.value.replace(/\D/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEntradaForm({ ...entradaForm, valor: num }); }} />
+                      </div>
+                      <div className="ff"><label className="fl">Forma</label>
+                        <select className="fs" value={entradaForm.forma_pgto} onChange={e => setEntradaForm({ ...entradaForm, forma_pgto: e.target.value })}>
+                          {["Pix","Dinheiro","Cartão","Transferência","Sinal"].map(f => <option key={f}>{f}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    {entradaForm.forma_pgto === "Cartão" && (
+                      <div className="ff"><label className="fl">Parcelas</label>
+                        <select className="fs" value={entradaForm.parcelas} onChange={e => setEntradaForm({ ...entradaForm, parcelas: e.target.value })}>
+                          {["1","2","3","4","5","6","7","8","9","10","11","12"].map(n => <option key={n}>{n}x</option>)}
+                        </select>
+                      </div>
+                    )}
+                    <div className="fr">
+                      <div className="ff"><label className="fl">Data</label><input className="fi" type="date" value={entradaForm.data} onChange={e => setEntradaForm({ ...entradaForm, data: e.target.value })} /></div>
+                      <div className="ff"><label className="fl">Competência</label><input className="fi" type="month" value={entradaForm.competencia} onChange={e => setEntradaForm({ ...entradaForm, competencia: e.target.value })} /></div>
+                    </div>
+                    <div className="ff"><label className="fl">Cliente (opcional)</label><input className="fi" placeholder="Nome do cliente" value={entradaForm.cliente_nome} onChange={e => setEntradaForm({ ...entradaForm, cliente_nome: e.target.value })} /></div>
+                  </div>
+                  <div className="fmf">
+                    <button className="btn-c" onClick={() => setShowEntradaForm(false)}>Cancelar</button>
+                    <button className="btn-s" disabled={!entradaForm.descricao || !entradaForm.valor} onClick={async () => {
+                      const val = parseFloat(entradaForm.valor.replace(/\./g,"").replace(",",".")) || 0;
+                      if (val <= 0) return;
+                      const artistaObj = artists.find(a => a.id === entradaForm.artista_id);
+                      const com = artistaObj?.com || 0;
+                      const row = {
+                        tipo: "entrada", categoria: entradaForm.categoria,
+                        descricao: entradaForm.descricao, cliente_nome: entradaForm.cliente_nome || "",
+                        artista: entradaForm.artista_id, artista_id: entradaForm.artista_id,
+                        val_a: val, val_c: val, pgto: entradaForm.forma_pgto,
+                        forma_pgto: entradaForm.forma_pgto,
+                        parcelas: entradaForm.forma_pgto === "Cartão" ? parseInt(entradaForm.parcelas) || 1 : 1,
+                        data: entradaForm.data, competencia: entradaForm.competencia,
+                        com_base: com, com_sess: com
+                      };
+                      const saved = await dbInsert("financeiro", row);
+                      if (saved) setFin(p => [...p, { ...saved, cliente: saved.cliente_nome }]);
+                      setShowEntradaForm(false);
+                      setEntradaForm({ descricao: "", categoria: "sessao", cliente_nome: "", artista_id: "", valor: "", forma_pgto: "Pix", parcelas: "1", data: new Date().toISOString().split("T")[0], competencia: new Date().toISOString().slice(0,7) });
+                    }}>Salvar</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── MODAL EQUIPAMENTO ── */}
+            {showEquipForm && (
+              <div className="fov" onClick={e => { if (e.target === e.currentTarget) setShowEquipForm(false); }}>
+                <div className="fmod" style={{ maxWidth: 460 }}>
+                  <div className="fmh"><div className="fmt">Cadastrar Equipamento</div><button className="mc" onClick={() => setShowEquipForm(false)}>✕</button></div>
+                  <div className="fmb">
+                    <div className="ff"><label className="fl">Nome do Equipamento *</label><input className="fi" placeholder="Ex: Máquina Bishop Rotary" value={equipForm.nome} onChange={e => setEquipForm({ ...equipForm, nome: e.target.value })} /></div>
+                    <div className="fr">
+                      <div className="ff"><label className="fl">Categoria</label>
+                        <select className="fs" value={equipForm.categoria} onChange={e => setEquipForm({ ...equipForm, categoria: e.target.value })}>
+                          {["maquina","fonte","autoclave","mobiliario","computador","iluminacao","outro"].map(c => <option key={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div className="ff"><label className="fl">Artista</label>
+                        <select className="fs" value={equipForm.artista_id} onChange={e => setEquipForm({ ...equipForm, artista_id: e.target.value })}>
+                          <option value="">Geral (estúdio)</option>
+                          {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome.split(" ")[0]}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="fr">
+                      <div className="ff"><label className="fl">Valor de Aquisição (R$) *</label>
+                        <input className="fi" type="text" placeholder="0,00" value={equipForm.valor_aquisicao}
+                          onChange={e => { const raw = e.target.value.replace(/\D/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEquipForm({ ...equipForm, valor_aquisicao: num }); }} />
+                      </div>
+                      <div className="ff"><label className="fl">Data de Compra *</label><input className="fi" type="date" value={equipForm.data_compra} onChange={e => setEquipForm({ ...equipForm, data_compra: e.target.value })} /></div>
+                    </div>
+                    <div className="ff"><label className="fl">Vida Útil (meses) — padrão 48</label>
+                      <input className="fi" type="number" min={1} value={equipForm.vida_util_meses} onChange={e => setEquipForm({ ...equipForm, vida_util_meses: Number(e.target.value) })} />
+                    </div>
+                  </div>
+                  <div className="fmf">
+                    <button className="btn-c" onClick={() => setShowEquipForm(false)}>Cancelar</button>
+                    <button className="btn-s" disabled={!equipForm.nome || !equipForm.valor_aquisicao || !equipForm.data_compra} onClick={async () => {
+                      const val = parseFloat(String(equipForm.valor_aquisicao).replace(/\./g,"").replace(",",".")) || 0;
+                      const row = { nome: equipForm.nome, valor_aquisicao: val, data_compra: equipForm.data_compra, vida_util_meses: equipForm.vida_util_meses, categoria: equipForm.categoria, artista_id: equipForm.artista_id, ativo: true };
+                      const saved = await dbInsert("equipamentos", row);
+                      if (saved) setEquipamentos(p => [...p, saved]);
+                      setShowEquipForm(false);
+                      setEquipForm({ nome: "", valor_aquisicao: "", data_compra: "", vida_util_meses: 48, categoria: "maquina", artista_id: "" });
+                    }}>Salvar</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── MODAL SAÍDA ── */}
             {showSaidaForm && (
               <div className="fov" onClick={e => { if (e.target === e.currentTarget) setShowSaidaForm(false); }}>
                 <div className="fmod" style={{ maxWidth: 420 }}>
-                  <div className="fmh"><div className="fmt">Lancar Saida</div><button className="mc" onClick={() => setShowSaidaForm(false)}>X</button></div>
+                  <div className="fmh"><div className="fmt">Lançar Saída</div><button className="mc" onClick={() => setShowSaidaForm(false)}>✕</button></div>
                   <div className="fmb">
-                    <div className="ff"><label className="fl">Descricao *</label><input className="fi" placeholder="Ex: Agulhas e tintas" value={saidaForm.desc} onChange={e => setSaidaForm({ ...saidaForm, desc: e.target.value })} /></div>
+                    <div className="ff"><label className="fl">Descrição *</label><input className="fi" placeholder="Ex: Agulhas e tintas" value={saidaForm.desc} onChange={e => setSaidaForm({ ...saidaForm, desc: e.target.value })} /></div>
                     <div className="fr">
                       <div className="ff"><label className="fl">Categoria</label><select className="fs" value={saidaForm.categoria} onChange={e => setSaidaForm({ ...saidaForm, categoria: e.target.value })}>{categorias.map(c => <option key={c}>{c}</option>)}</select></div>
                       <div className="ff"><label className="fl">Valor (R$)</label><input className="fi" type="number" min={0} value={saidaForm.valor} onChange={e => setSaidaForm({ ...saidaForm, valor: Number(e.target.value) })} /></div>
@@ -2291,11 +2664,19 @@ export default function CRM() {
                   </div>
                   <div className="fmf">
                     <button className="btn-c" onClick={() => setShowSaidaForm(false)}>Cancelar</button>
-                    <button className="btn-s" disabled={!saidaForm.desc || saidaForm.valor <= 0} onClick={() => { setSaidas(p => [...p, { id: Date.now(), ...saidaForm }]); setShowSaidaForm(false); setSaidaForm({ desc: "", categoria: "Material", valor: 0, data: new Date().toLocaleDateString("pt-BR") }); }}>Salvar</button>
+                    <button className="btn-s" disabled={!saidaForm.desc || saidaForm.valor <= 0} onClick={async () => {
+                      const row = { descricao: saidaForm.desc, categoria: saidaForm.categoria, valor: saidaForm.valor, data: saidaForm.data };
+                      const saved = await dbInsert("saidas", row);
+                      if (saved) setSaidas(p => [...p, { ...saved, desc: saved.descricao }]);
+                      else setSaidas(p => [...p, { id: Date.now(), ...saidaForm }]);
+                      setShowSaidaForm(false);
+                      setSaidaForm({ desc: "", categoria: "Material", valor: 0, data: new Date().toLocaleDateString("pt-BR") });
+                    }}>Salvar</button>
                   </div>
                 </div>
               </div>
             )}
+
           </div>
           );
         })()}
