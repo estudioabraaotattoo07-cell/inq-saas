@@ -856,10 +856,12 @@ function maskTel(v: string) {
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function CRM() {
-  const [onboardingDone, setOnboardingDone] = useState(() => !!sessionStorage.getItem("inq_onb"));
+  const [onboardingDone, setOnboardingDone] = useState(() => !!localStorage.getItem("inq_onb"));
+  const [showSplash, setShowSplash] = useState(() => !!localStorage.getItem("inq_onb"));
   const [onbStep, setOnbStep] = useState(0);
   const [dark, setDark] = useState(true);
   const [studioName, setStudioName] = useState("Casa dos Carvalho");
+  const [studioLogo, setStudioLogo] = useState<string>(() => localStorage.getItem("inq_logo") || "");
   const [studioTel, setStudioTel] = useState("(27) 99999-0000");
   const [studioOwner, setStudioOwner] = useState("Abraao Carvalho");
   const [studioEmail, setStudioEmail] = useState("");
@@ -1015,7 +1017,7 @@ export default function CRM() {
           if (cfg.horarios) setHorarios(cfg.horarios);
           setDark(cfg.dark_mode !== false);
           setOnboardingDone(true);
-          sessionStorage.setItem("inq_onb", "1");
+          localStorage.setItem("inq_onb", "1");
         }
       } catch(e) { console.error("Load error", e); }
       setDbReady(true);
@@ -1572,6 +1574,32 @@ export default function CRM() {
     blacklist: { bg: "rgba(192,57,43,.15)", color: "#C0392B", b: "rgba(192,57,43,.3)" }
   };
 
+  // ── SPLASH (já cadastrado, aguarda clique para entrar) ──
+  if (onboardingDone && showSplash) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0E0E0E", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 32, fontFamily: "'DM Sans',sans-serif" }}>
+        <style>{S}</style>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+          {studioLogo
+            ? <img src={studioLogo} alt="logo" style={{ width: 100, height: 100, borderRadius: "50%", objectFit: "cover", border: "3px solid #C9A84C", boxShadow: "0 0 40px rgba(201,168,76,.25)" }} />
+            : <div style={{ width: 100, height: 100, borderRadius: "50%", background: "#C9A84C", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond',serif", fontSize: 44, fontWeight: 700, color: "#000", boxShadow: "0 0 40px rgba(201,168,76,.25)" }}>
+                {studioName ? studioName[0].toUpperCase() : "S"}
+              </div>
+          }
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 700, color: "#C9A84C", letterSpacing: ".08em" }}>{studioName}</div>
+            <div style={{ fontSize: 10, color: "#555045", letterSpacing: ".18em", textTransform: "uppercase", marginTop: 5 }}>In-Quadra Ink System</div>
+          </div>
+        </div>
+        <button onClick={() => setShowSplash(false)}
+          style={{ background: "#C9A84C", color: "#000", border: "none", borderRadius: 8, padding: "13px 40px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", letterSpacing: ".04em", boxShadow: "0 4px 20px rgba(201,168,76,.3)" }}>
+          Entrar →
+        </button>
+        <div style={{ fontSize: 10, color: "#303030", letterSpacing: ".1em", textTransform: "uppercase" }}>© {new Date().getFullYear()} {studioName}</div>
+      </div>
+    );
+  }
+
   // ── ONBOARDING ──
   if (!onboardingDone) {
     const onbSteps = ["Estudio", "Horarios", "Artistas", "Concluido"];
@@ -1629,6 +1657,40 @@ export default function CRM() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>CNPJ</label>
                   <input className="fi" value={cnpj} onChange={e => setCnpj(e.target.value)} placeholder="00.000.000/0001-00" />
+                </div>
+              </div>
+              {/* Logo upload */}
+              <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 0 4px", borderTop: "1px solid rgba(201,168,76,0.12)", marginTop: 4 }}>
+                <div style={{ flexShrink: 0 }}>
+                  {studioLogo
+                    ? <img src={studioLogo} alt="logo" style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", border: "3px solid #C9A84C" }} />
+                    : <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#C9A84C", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond',serif", fontSize: 26, fontWeight: 700, color: "#000" }}>
+                        {studioName ? studioName[0].toUpperCase() : "S"}
+                      </div>
+                  }
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Logo do Estúdio (opcional)</label>
+                  <label style={{ background: "#1E1E1E", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "#8A8070", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600, display: "inline-block", width: "fit-content" }}>
+                    📁 Escolher imagem
+                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = ev => {
+                        const base64 = ev.target?.result as string;
+                        setStudioLogo(base64);
+                        localStorage.setItem("inq_logo", base64);
+                      };
+                      reader.readAsDataURL(file);
+                    }} />
+                  </label>
+                  {studioLogo && (
+                    <button onClick={() => { setStudioLogo(""); localStorage.removeItem("inq_logo"); }}
+                      style={{ background: "none", border: "none", fontSize: 11, color: "#C0392B", cursor: "pointer", textAlign: "left", padding: 0 }}>
+                      ✕ Remover logo
+                    </button>
+                  )}
                 </div>
               </div>
               <div style={{ fontSize: 11, color: "#555045", marginTop: 2 }}>
@@ -1693,7 +1755,7 @@ export default function CRM() {
                   {onbStep === 2 ? "Concluir" : "Continuar"}
                 </button>
               )}
-              {onbStep === 3 && <button className="btn-s" onClick={() => { setOnboardingDone(true); sessionStorage.setItem("inq_onb", "1"); }}>Entrar no Sistema →</button>}
+              {onbStep === 3 && <button className="btn-s" onClick={() => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); }}>Entrar no Sistema →</button>}
             </div>
           </div>
         </div>
@@ -1724,7 +1786,10 @@ export default function CRM() {
         {/* TOPBAR */}
         <div className="topbar">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div className="bmark">C</div>
+            {studioLogo
+              ? <img src={studioLogo} alt="logo" style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--gold)" }} />
+              : <div className="bmark">C</div>
+            }
             <div style={{ cursor: "pointer" }} onClick={() => setShowSettings(true)}>
               <div className="bname">{studioName}</div>
               <div className="bsub">In-Quadra Ink System</div>
@@ -4132,6 +4197,40 @@ export default function CRM() {
                 <button className="mc" onClick={() => setShowSettings(false)}>✕</button>
               </div>
               <div className="mb">
+                <div>
+                  <div className="stit">Logo do Estúdio</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "10px 0" }}>
+                    <div style={{ position: "relative", width: 72, height: 72, flexShrink: 0 }}>
+                      {studioLogo
+                        ? <img src={studioLogo} alt="logo" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: "3px solid var(--gold)" }} />
+                        : <div style={{ width: 72, height: 72, borderRadius: "50%", background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 700, color: "#000" }}>C</div>
+                      }
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <label style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600, display: "inline-block" }}>
+                        📁 Escolher imagem
+                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = ev => {
+                            const base64 = ev.target?.result as string;
+                            setStudioLogo(base64);
+                            localStorage.setItem("inq_logo", base64);
+                          };
+                          reader.readAsDataURL(file);
+                        }} />
+                      </label>
+                      {studioLogo && (
+                        <button onClick={() => { setStudioLogo(""); localStorage.removeItem("inq_logo"); }}
+                          style={{ background: "none", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "5px 12px", fontSize: 11, color: "var(--q1)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                          🗑 Remover logo
+                        </button>
+                      )}
+                      <div style={{ fontSize: 10, color: "var(--tx3)", lineHeight: 1.5 }}>JPG, PNG ou SVG. Aparece na topbar e nos contratos.</div>
+                    </div>
+                  </div>
+                </div>
                 <div>
                   <div className="stit">Perfil do Estúdio</div>
                   <div className="fg2">
