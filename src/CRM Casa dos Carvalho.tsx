@@ -852,7 +852,7 @@ function maskTel(v: string) {
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function CRM() {
-  const [onboardingDone, setOnboardingDone] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(() => !!sessionStorage.getItem("inq_onb"));
   const [onbStep, setOnbStep] = useState(0);
   const [dark, setDark] = useState(true);
   const [studioName, setStudioName] = useState("Casa dos Carvalho");
@@ -933,6 +933,7 @@ export default function CRM() {
   const [historico, setHistorico] = useState<{id?:any; data:string; hora:string; acao:string}[]>([]);
   const [confirmExcluir, setConfirmExcluir] = useState<any>(null); // evento a confirmar exclusão
   const [confirmRemoverArtista, setConfirmRemoverArtista] = useState<any>(null);
+  const [confirmExcluirCliente, setConfirmExcluirCliente] = useState<any>(null);
   const [confirmMover, setConfirmMover] = useState<{cid: any; stage: any; agEvents: any[]} | null>(null);
   const [undoEvento, setUndoEvento] = useState<any>(null); // evento para desfazer
   const [undoTimer, setUndoTimer] = useState<any>(null);
@@ -997,6 +998,7 @@ export default function CRM() {
           if (cfg.horarios) setHorarios(cfg.horarios);
           setDark(cfg.dark_mode !== false);
           setOnboardingDone(true);
+          sessionStorage.setItem("inq_onb", "1");
         }
       } catch(e) { console.error("Load error", e); }
       setDbReady(true);
@@ -1142,12 +1144,13 @@ export default function CRM() {
   };
 
   const deleteClient = async (cid: any) => {
-    if (!window.confirm("Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.")) return;
     const nome = clients.find(c => c.id === cid)?.nome || "cliente";
     setClients(p => p.filter(c => c.id !== cid));
     setSel(null);
     await dbDelete("clientes", cid);
     addLog(`Cliente "${nome}" excluído`);
+    setConfirmExcluirCliente(null);
+  };
   };
 
   const registrarIndicacao = (cid: number, artista: string) => {
@@ -1534,7 +1537,7 @@ export default function CRM() {
                   {onbStep === 2 ? "Concluir" : "Continuar"}
                 </button>
               )}
-              {onbStep === 3 && <button className="btn-s" onClick={() => setOnboardingDone(true)}>Entrar no Sistema →</button>}
+              {onbStep === 3 && <button className="btn-s" onClick={() => { setOnboardingDone(true); sessionStorage.setItem("inq_onb", "1"); }}>Entrar no Sistema →</button>}
             </div>
           </div>
         </div>
@@ -2920,7 +2923,7 @@ export default function CRM() {
                         {[...evsCli].sort((a, b) => a.date > b.date ? -1 : 1).map(e => (
                           <div key={e.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>{e.date}</div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>{(() => { try { const [y,m,d] = e.date.split("-"); return `${["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][new Date(e.date).getDay()]}, ${d} de ${["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][parseInt(m)-1]}`; } catch { return e.date; } })()}</div>
                               <div style={{ fontSize: 11, color: "var(--tx2)" }}>{String(e.start).padStart(2,"0")}h — {CAL_LABELS[e.tipo] || e.tipo}</div>
                             </div>
                             <div style={{ width: 10, height: 10, borderRadius: "50%", background: getEventColor(e.tipo, artists, e.artista), flexShrink: 0 }} />
@@ -2981,7 +2984,7 @@ export default function CRM() {
 
                 {selCtx === "clientes" && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--br)", marginTop: 8 }}>
-                    <button onClick={() => deleteClient(sc.id)} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "7px 16px", fontSize: 12, color: "var(--q1)", cursor: "pointer", fontWeight: 600 }}>🗑 Excluir cliente</button>
+                    <button onClick={() => setConfirmExcluirCliente(sc)} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "7px 16px", fontSize: 12, color: "var(--q1)", cursor: "pointer", fontWeight: 600 }}>🗑 Excluir cliente</button>
                     <button onClick={() => {
                       const updated = clients.find(c => c.id === sc.id);
                       if (updated) { saveClientDb(updated); setSel(null); }
@@ -3372,6 +3375,32 @@ export default function CRM() {
                 <button className="btn-c" onClick={() => setConfirmMover(null)}>Cancelar</button>
                 <button className="btn-s" onClick={() => { move(confirmMover.cid, confirmMover.stage.id); setConfirmMover(null); }}>
                   Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── CONFIRMAÇÃO EXCLUSÃO CLIENTE ── */}
+        {confirmExcluirCliente && (
+          <div className="ov" onClick={() => setConfirmExcluirCliente(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid rgba(192,57,43,.4)", borderRadius: 12, width: "min(440px, 92vw)", padding: "28px 28px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(192,57,43,.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🗑</div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "var(--tx)" }}>Excluir cliente?</div>
+                  <div style={{ fontSize: 12, color: "var(--tx2)", marginTop: 3 }}>{confirmExcluirCliente.nome}</div>
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--tx3)", background: "var(--dk3)", borderRadius: 7, padding: "10px 14px", lineHeight: 1.6 }}>
+                ⚠️ Todos os dados deste cliente serão removidos permanentemente.<br/>
+                <strong style={{ color: "var(--q1)" }}>Esta ação não pode ser desfeita.</strong>
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn-c" onClick={() => setConfirmExcluirCliente(null)}>Cancelar</button>
+                <button style={{ background: "rgba(192,57,43,.8)", border: "1px solid rgba(192,57,43,.5)", borderRadius: 7, padding: "7px 20px", fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer" }}
+                  onClick={() => deleteClient(confirmExcluirCliente.id)}>
+                  Excluir
                 </button>
               </div>
             </div>
