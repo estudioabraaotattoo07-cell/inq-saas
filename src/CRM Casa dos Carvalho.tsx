@@ -819,12 +819,13 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
 
   const bgSq = `hsl(${hsv[0]},100%,50%)`;
   const curX = hsv[1]; const curY = 100 - hsv[2];
+  const sqBg = `linear-gradient(to right,#fff,transparent),linear-gradient(to top,#000,transparent),linear-gradient(${bgSq},${bgSq})`;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, userSelect: "none" }}>
       <div ref={sqRef}
         onMouseDown={e => { dragRef.current = "sq"; calcSq(e); }}
         style={{ width: "100%", height: 140, borderRadius: 6, position: "relative", cursor: "crosshair",
-          backgroundImage: `linear-gradient(to right,#fff,transparent),linear-gradient(to top,#000,transparent),linear-gradient(to right,${bgSq},${bgSq})` }}>
+          backgroundImage: sqBg }}>
         <div style={{ position: "absolute", left: `calc(${curX}% - 6px)`, top: `calc(${curY}% - 6px)`,
           width: 12, height: 12, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 0 2px rgba(0,0,0,.5)", pointerEvents: "none" }} />
       </div>
@@ -1240,8 +1241,6 @@ export default function CRM() {
       com: artForm.com,
       cor: artForm.cor,
       insta: artForm.insta || "",
-      email: artForm.email || "",
-      tel: artForm.tel || "",
       ativo: true
     };
     const { data: artData, error: artError } = await sb.from("artistas").insert(row).select().single();
@@ -2184,9 +2183,7 @@ export default function CRM() {
                     <button className="btn-sm" onClick={() => setArtists(p => p.map(x => x.id === a.id ? { ...x, ativo: !x.ativo } : x))}>
                       {a.ativo ? "Desativar" : "Reativar"}
                     </button>
-                    {a.role === "guest" && (
-                      <button className="btn-sm red" onClick={() => setConfirmRemoverArtista(a)}>Remover</button>
-                    )}
+                    <button className="btn-sm red" onClick={() => setConfirmRemoverArtista(a)}>Remover</button>
                   </div>
                 </div>
                 <div className="abody">
