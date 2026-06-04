@@ -57,7 +57,7 @@ const S = `
   --ab:#4A9EBF;--ca:#9B6BB5;
 }
 body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
-.root{min-height:100vh;background:var(--dk);display:flex;flex-direction:column;}
+.root{min-height:100vh;background:var(--dk);display:flex;flex-direction:column;}@media(max-width:768px){.kc{min-width:80vw!important;max-width:80vw!important;}.fmod{max-width:96vw!important;}.fr{flex-direction:column;}.fi,.fs{font-size:14px;padding:9px 11px;}}@media(max-width:480px){.kc{min-width:90vw!important;max-width:90vw!important;}}
 .topbar{background:var(--dk2);border-bottom:1px solid var(--br);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
 .bmark{width:30px;height:30px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:700;color:#000;}
 .bname{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:600;letter-spacing:.08em;color:var(--tx);}
@@ -88,8 +88,8 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .srch::placeholder{color:var(--tx3);}
 .fb{background:var(--dk3);border:1px solid var(--br);border-radius:6px;color:var(--tx2);padding:6px 11px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
 .fb.on{background:var(--gold-d);border-color:var(--gold);color:var(--gold);}
-.kw{flex:1;overflow-x:auto;padding:14px;display:flex;gap:11px;}
-.kc{min-width:215px;max-width:215px;display:flex;flex-direction:column;gap:6px;}
+.kw{flex:1;overflow-x:auto;padding:14px;display:flex;gap:11px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--gold) var(--dk3);}.kw::-webkit-scrollbar{height:6px;}.kw::-webkit-scrollbar-track{background:var(--dk3);border-radius:3px;}.kw::-webkit-scrollbar-thumb{background:var(--gold);border-radius:3px;}.kc{min-width:215px;max-width:215px;display:flex;flex-direction:column;gap:6px;scroll-snap-align:start;}
+
 .kh{padding:8px 11px;border-radius:7px 7px 0 0;background:var(--dk3);border:1px solid var(--br);border-bottom:2px solid;display:flex;align-items:center;justify-content:space-between;}
 .kt{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
 .kn{font-size:11px;font-weight:700;background:var(--dk4);border-radius:9px;padding:2px 6px;color:var(--tx2);}
@@ -887,7 +887,7 @@ export default function CRM() {
   const [finFiltroTipo, setFinFiltroTipo] = useState("todos");
   const [finAbaAtiva, setFinAbaAtiva] = useState<"livrocaixa"|"dre"|"equipamentos">("livrocaixa");
   const [clients, setClients] = useState<any[]>([]);
-  const [artists, setArtists] = useState(ARTISTS_INIT);
+  const [artists, setArtists] = useState<any[]>([]);
   const [fin, setFin] = useState(FIN_INIT);
   const [agEvents, setAgEvents] = useState<any[]>([]);
   const [tab, setTab] = useState(() => localStorage.getItem("inq_tab") || "kanban");
@@ -990,7 +990,15 @@ export default function CRM() {
           credito: c.credito || 0,
           desc: c.descricao || "",
         })));
-        if (arts && arts.length > 0) setArtists(arts);
+        if (arts && arts.length > 0) {
+          setArtists(arts);
+        } else {
+          // Banco vazio — seed com artistas padrão e salva no Supabase
+          for (const a of ARTISTS_INIT) {
+            await sb.from("artistas").upsert({ ...a }, { onConflict: "id" });
+          }
+          setArtists(ARTISTS_INIT);
+        }
         if (fins && fins.length > 0) setFin(fins.map((f: any) => ({
           ...f, cliente: f.cliente_nome
         })));
@@ -1964,11 +1972,23 @@ export default function CRM() {
 
         {/* ── KANBAN ── */}
         {tab === "kanban" && (
+          <>
+          {/* Seletor de coluna — visível em mobile/tablet */}
+          <div style={{ display: "flex", overflowX: "auto", gap: 6, padding: "8px 14px", background: "var(--dk2)", borderBottom: "1px solid var(--br)", scrollbarWidth: "none" }}>
+            {STAGES.map(stage => (
+              <button key={stage.id} onClick={() => {
+                const el = document.getElementById("kcol-" + stage.id);
+                el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+              }} style={{ flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 600, borderRadius: 20, border: "1px solid var(--br)", background: "var(--dk3)", color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
+                {stage.emoji} {stage.label}
+              </button>
+            ))}
+          </div>
           <div className="kw">
             {STAGES.map(stage => {
               const sc2 = getSC(stage.id);
               return (
-                <div className="kc" key={stage.id}>
+                <div className="kc" key={stage.id} id={"kcol-" + stage.id}>
                   <div className="kh" style={{ borderBottomColor: stage.color }}>
                     <span className="kt" style={{ color: stage.color }}>{stage.emoji} {stage.label}</span>
                     <span className="kn">{sc2.length}</span>
@@ -2008,6 +2028,7 @@ export default function CRM() {
               );
             })}
           </div>
+          </>
         )}
 
         {/* ── CLIENTES ── */}
