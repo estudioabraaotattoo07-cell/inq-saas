@@ -1126,20 +1126,28 @@ export default function CRM() {
     const totalPago = pagFormas.reduce((s, f) => s + (parseFloat(f.valor.replace(/\./g, "").replace(",", ".")) || 0), 0);
     const dataHoje = new Date().toLocaleDateString("pt-BR");
     // Lançar cada forma no financeiro
+    const cliente = clients.find(c => c.id === cid);
+    const artistaId = confirmPagamento.agEvent?.artista || cliente?.artista || "";
+    const artistaObj = artists.find(a => a.id === artistaId);
+    const comSess = artistaObj?.com || 0;
+    const dataHojeISO = new Date().toISOString().split("T")[0];
+    const pgtoTexto = pagFormas.filter(f => parseFloat(f.valor) > 0)
+      .map(f => f.forma === "Cartão" ? `Cartão ${f.parcelas}x` : f.forma).join(" + ");
     for (const f of pagFormas) {
-      const val = parseFloat(f.valor) || 0;
+      const val = parseFloat(f.valor.replace(/\./g, "").replace(",", ".")) || 0;
       if (val <= 0) continue;
-      const cliente = clients.find(c => c.id === cid);
-      await sb.from("financeiro").insert({
-        tipo: "entrada",
-        valor: val,
-        forma: f.forma,
-        parcelas: f.forma === "Cartão" ? parseInt(f.parcelas) || 1 : 1,
-        descricao: `Sessão — ${cliente?.nome || "cliente"}`,
+      const { error } = await sb.from("financeiro").insert({
         cliente_id: cid,
-        data: new Date().toISOString().split("T")[0],
-        artista: confirmPagamento.agEvent?.artista || ""
+        cliente_nome: cliente?.nome || "",
+        artista: artistaId,
+        data: dataHojeISO,
+        val_a: val,
+        val_c: val,
+        pgto: f.forma === "Cartão" ? `Cartão ${f.parcelas}x` : f.forma,
+        com_base: comSess,
+        com_sess: comSess,
       });
+      if (error) console.error("financeiro insert (sessão):", error);
     }
     // Registrar no histórico do cliente
     const formasTexto = pagFormas.filter(f => parseFloat(f.valor) > 0).map(f => `${f.forma} R$${parseFloat(f.valor).toFixed(2)}${f.forma === "Cartão" ? ` ${f.parcelas}x` : ""}`).join(" + ");
@@ -1401,13 +1409,21 @@ export default function CRM() {
       }
       // Lançar sinal no financeiro se já pago
       if (sinalVal > 0 && sinalPago) {
-        sb.from("financeiro").insert({
-          tipo: "entrada", valor: sinalVal, forma: "Sinal",
-          parcelas: 1, descricao: `Sinal — ${agClientVinc.nome}`,
+        const artistaSinal = agForm.tipo.includes("camilla") ? "camilla" : "abraao";
+        const artistaObjSinal = artists.find(a => a.id === artistaSinal);
+        const comSinal = artistaObjSinal?.com || 0;
+        const { error: errSinal } = await sb.from("financeiro").insert({
           cliente_id: agClientVinc.id,
+          cliente_nome: agClientVinc.nome,
+          artista: artistaSinal,
           data: new Date().toISOString().split("T")[0],
-          artista: agForm.tipo.includes("camilla") ? "camilla" : "abraao"
+          val_a: sinalVal,
+          val_c: sinalVal,
+          pgto: "Sinal",
+          com_base: comSinal,
+          com_sess: comSinal,
         });
+        if (errSinal) console.error("financeiro insert (sinal):", errSinal);
       }
     }
   };
