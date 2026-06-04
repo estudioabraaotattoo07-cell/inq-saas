@@ -307,7 +307,7 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 const STAGES = [
   { id: "lead", label: "Lead", color: "#5B8DEF", emoji: "🎯" },
   { id: "qualificacao", label: "Qualificação", color: "#C9A84C", emoji: "🔍" },
-  { id: "cons_agendada", label: "Consultoria", color: "#9B6BB5", emoji: "📅" },
+  { id: "cons_agendada", label: "Consulta Marcada", color: "#9B6BB5", emoji: "📅" },
   { id: "sessao_agend", label: "Sessão Agendada", color: "#4A9EBF", emoji: "✏️" },
   { id: "tatuado", label: "Cumpriu Evento", color: "#27AE60", emoji: "✅" },
   { id: "pos_venda", label: "Pós-venda", color: "#E67E22", emoji: "💬" },
@@ -1088,7 +1088,7 @@ export default function CRM() {
     if (ns === "tatuado") {
       const evs = agEvents.filter(e => e.cliente_id === cid);
       const ev = evs.length > 0 ? evs[evs.length - 1] : null;
-      const valorPrev = ev?.valor_previsto ? String(ev.valor_previsto) : "";
+      const valorPrev = ev?.valor_previsto ? (Number(ev.valor_previsto)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
       setPagFormas([{ forma: "Pix", valor: valorPrev, parcelas: "1" }]);
       setConfirmPagamento({ cid, agEvent: ev });
       return;
@@ -1312,8 +1312,8 @@ export default function CRM() {
       hora: String(agForm.start).padStart(2, "0") + ":00",
       tipo: agForm.tipo,
       obs: (agForm as any).desc || "",
-      valor_previsto: parseFloat((agForm as any).valorPrevisto || "0") || 0,
-      sinal: parseFloat((agForm as any).sinal || "0") || 0,
+      valor_previsto: parseFloat(String((agForm as any).valorPrevisto || "0").replace(/\./g, "").replace(",", ".")) || 0,
+      sinal: parseFloat(String((agForm as any).sinal || "0").replace(/\./g, "").replace(",", ".")) || 0,
       sinal_pago: !!(agForm as any).sinalPago,
       ...(agClientVinc ? { cliente_id: agClientVinc.id, cliente_nome: agClientVinc.nome } : {})
     };
@@ -1354,7 +1354,7 @@ export default function CRM() {
       const tipoLabel: Record<string,string> = { cons: "Consulta", sess: "Sessão", piercing: "Piercing", bloq: "Bloqueio" };
       const tipoKey = agForm.tipo.split("_")[0];
       const tipoNome = tipoLabel[tipoKey] || agForm.tipo;
-      const sinalVal = parseFloat((agForm as any).sinal || "0") || 0;
+      const sinalVal = parseFloat(String((agForm as any).sinal || "0").replace(/\./g, "").replace(",", ".")) || 0;
       const sinalPago = !!(agForm as any).sinalPago;
       const histEntries = [
         { t: `Agendamento criado: ${tipoNome} em ${dataFmt} às ${agForm.start}h`, d: new Date().toLocaleString("pt-BR") },
@@ -1368,6 +1368,37 @@ export default function CRM() {
         if (c) setTimeout(() => saveClientDb(c), 100);
         return updated;
       });
+      // Movimento automático de pipeline
+      const tipoKeyPip = agForm.tipo.split("_")[0];
+      if (tipoKeyPip === "cons") {
+        // Só move se ainda não passou de consulta marcada
+        const cli = p => p.find((c: any) => c.id === agClientVinc.id);
+        const etapasAbaixo = ["lead", "qualificacao"];
+        setClients(p => {
+          const c = p.find((c: any) => c.id === agClientVinc.id);
+          if (!c || !etapasAbaixo.includes(c.etapa)) return p;
+          const updated = p.map((x: any) => x.id !== agClientVinc.id ? x : {
+            ...x, etapa: "cons_agendada",
+            hist: [...(x.hist || []), { t: "Movido para: Consulta Marcada (automático via agendamento)", d: new Date().toLocaleString("pt-BR") }]
+          });
+          const upd = updated.find((x: any) => x.id === agClientVinc.id);
+          if (upd) setTimeout(() => saveClientDb(upd), 150);
+          return updated;
+        });
+      } else if (tipoKeyPip === "sess" || tipoKeyPip === "piercing") {
+        setClients(p => {
+          const c = p.find((x: any) => x.id === agClientVinc.id);
+          const etapasAbaixo = ["lead", "qualificacao", "cons_agendada"];
+          if (!c || !etapasAbaixo.includes(c.etapa)) return p;
+          const updated = p.map((x: any) => x.id !== agClientVinc.id ? x : {
+            ...x, etapa: "sessao_agend",
+            hist: [...(x.hist || []), { t: "Movido para: Sessão Agendada (automático via agendamento)", d: new Date().toLocaleString("pt-BR") }]
+          });
+          const upd = updated.find((x: any) => x.id === agClientVinc.id);
+          if (upd) setTimeout(() => saveClientDb(upd), 150);
+          return updated;
+        });
+      }
       // Lançar sinal no financeiro se já pago
       if (sinalVal > 0 && sinalPago) {
         sb.from("financeiro").insert({
@@ -3314,18 +3345,26 @@ export default function CRM() {
                 {/* 6. VALOR PREVISTO */}
                 <div className="ff">
                   <label className="fl">Valor Previsto (R$)</label>
-                  <input className="fi" type="number" min="0" step="0.01" placeholder="0,00"
+                  <input className="fi" type="text" placeholder="0,00"
                     value={(agForm as any).valorPrevisto || ""}
-                    onChange={e => setAgForm({ ...agForm, valorPrevisto: e.target.value } as any)} />
+                    onChange={e => {
+                      const raw = e.target.value.replace(/\D/g, "");
+                      const num = raw ? (Number(raw) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+                      setAgForm({ ...agForm, valorPrevisto: num } as any);
+                    }} />
                 </div>
 
                 {/* 6b. SINAL */}
                 <div className="fr" style={{ gap: 10 }}>
                   <div className="ff" style={{ flex: 1 }}>
                     <label className="fl">Sinal (R$)</label>
-                    <input className="fi" type="number" min="0" step="0.01" placeholder="0,00"
+                    <input className="fi" type="text" placeholder="0,00"
                       value={(agForm as any).sinal || ""}
-                      onChange={e => setAgForm({ ...agForm, sinal: e.target.value } as any)} />
+                      onChange={e => {
+                        const raw = e.target.value.replace(/\D/g, "");
+                        const num = raw ? (Number(raw) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+                        setAgForm({ ...agForm, sinal: num } as any);
+                      }} />
                   </div>
                   <div className="ff" style={{ flex: 1, justifyContent: "flex-end" }}>
                     <label className="fl">Sinal pago?</label>
