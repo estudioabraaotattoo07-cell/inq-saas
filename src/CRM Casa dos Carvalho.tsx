@@ -990,6 +990,7 @@ export default function CRM() {
           indicacoes: c.indicacoes || 0,
           credito: c.credito || 0,
           desc: c.descricao || "",
+          projetos: c.projetos || [],
         })));
         if (arts && arts.length > 0) {
           setArtists(arts);
@@ -1987,19 +1988,45 @@ export default function CRM() {
               </button>
             ))}
           </div>
-          {/* Barra de rolagem dourada visível */}
-          <div style={{ padding: "4px 14px 0", background: "var(--dk2)", borderBottom: "1px solid var(--br)" }}>
-            <div style={{ height: 4, background: "var(--dk4)", borderRadius: 2, overflow: "hidden" }}>
-              <div id="kanban-scrollbar-thumb" style={{ height: "100%", background: "var(--gold)", borderRadius: 2, width: "30%", transition: "left .1s" }} />
+          {/* Barra de rolagem dourada — clicável e arrastável */}
+          <div id="kanban-track" style={{ padding: "4px 14px 4px", background: "var(--dk2)", borderBottom: "1px solid var(--br)", cursor: "pointer" }}
+            onClick={e => {
+              const track = document.getElementById("kanban-track");
+              const kw = document.getElementById("kanban-scroll");
+              if (!track || !kw) return;
+              const rect = track.getBoundingClientRect();
+              const pct = (e.clientX - rect.left - 14) / (rect.width - 28);
+              kw.scrollLeft = pct * (kw.scrollWidth - kw.clientWidth);
+            }}
+            onMouseDown={e => {
+              e.preventDefault();
+              const kw = document.getElementById("kanban-scroll");
+              const track = document.getElementById("kanban-track");
+              if (!kw || !track) return;
+              const rect = track.getBoundingClientRect();
+              const onMove = (ev: MouseEvent) => {
+                const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left - 14) / (rect.width - 28)));
+                kw.scrollLeft = pct * (kw.scrollWidth - kw.clientWidth);
+              };
+              const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+              document.addEventListener("mousemove", onMove);
+              document.addEventListener("mouseup", onUp);
+            }}>
+            <div style={{ height: 5, background: "var(--dk4)", borderRadius: 3, overflow: "hidden", position: "relative" }}>
+              <div id="kanban-scrollbar-thumb" style={{ height: "100%", background: "var(--gold)", borderRadius: 3, width: "30%", marginLeft: "0%", transition: "margin-left .05s" }} />
             </div>
           </div>
           <div className="kw" id="kanban-scroll" onScroll={e => {
             const el = e.currentTarget;
-            const pct = el.scrollLeft / (el.scrollWidth - el.clientWidth);
+            const pct = (el.scrollWidth - el.clientWidth) > 0 ? el.scrollLeft / (el.scrollWidth - el.clientWidth) : 0;
             const thumb = document.getElementById("kanban-scrollbar-thumb");
-            const trackW = el.clientWidth - 28;
-            const thumbW = Math.max(trackW * (el.clientWidth / el.scrollWidth), 40);
-            if (thumb) { thumb.style.width = thumbW + "px"; thumb.style.marginLeft = (pct * (trackW - thumbW)) + "px"; }
+            const track = document.getElementById("kanban-track");
+            if (thumb && track) {
+              const trackW = track.clientWidth - 28;
+              const thumbW = Math.max(trackW * (el.clientWidth / el.scrollWidth), 40);
+              thumb.style.width = thumbW + "px";
+              thumb.style.marginLeft = (pct * (trackW - thumbW)) + "px";
+            }
           }}>
             {STAGES.map(stage => {
               const sc2 = getSC(stage.id);
@@ -3366,35 +3393,120 @@ export default function CRM() {
                 </div>
 
                 <div>
-                  <div className="stit">Projeto Artístico</div>
-                  <div className="fg3">
-                    <div className="fi2">
-                      <div className="fil">Estilo</div>
-                      <input className="ef" value={sc.estilo || ""} onChange={e => upC(sc.id, "estilo", e.target.value.replace(/(^|s)(S)/g, (_, sp, c) => sp + c.toUpperCase()))} />
-                    </div>
-                    <div className="fi2">
-                      <div className="fil">Tamanho</div>
-                      <select className="ef" value={sc.tam || ""} onChange={e => upC(sc.id, "tam", e.target.value)}>
-                        <option value="">Não informado</option>
-                        <option value="Discreto">Discreto</option>
-                        <option value="Medio">Médio</option>
-                        <option value="Grande">Grande</option>
-                        <option value="Fechamento">Fechamento</option>
-                      </select>
-                    </div>
-                    <div className="fi2">
-                      <div className="fil">1ª Tattoo</div>
-                      <select className="ef" value={sc.primeira ? "Sim" : "Nao"} onChange={e => upC(sc.id, "primeira", e.target.value === "Sim")}>
-                        <option value="Sim">Sim</option>
-                        <option value="Nao">Não</option>
-                      </select>
-                    </div>
+                  <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>Projetos Artísticos</span>
+                    <button onClick={() => {
+                      const novoProjeto = { id: Date.now(), estilo: "", tam: "Medio", primeira: false, desc: "", status: "ativo", criadoEm: new Date().toLocaleDateString("pt-BR") };
+                      const projetos = [...(sc.projetos || [])];
+                      // Migrar projeto legado se ainda não migrado
+                      if (projetos.length === 0 && (sc.estilo || sc.desc)) {
+                        projetos.push({ id: Date.now() - 1, estilo: sc.estilo || "", tam: sc.tam || "Medio", primeira: sc.primeira || false, desc: sc.desc || "", status: "ativo", criadoEm: "—" });
+                      }
+                      projetos.push(novoProjeto);
+                      upC(sc.id, "projetos", projetos);
+                    }} style={{ fontSize: 11, fontWeight: 600, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 10px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                      + Novo Projeto
+                    </button>
                   </div>
-                  <div className="fi2" style={{ marginTop: 7 }}>
-                    <div className="fil">Descrição do Projeto</div>
-                    <textarea className="ef" value={sc.desc || ""} onChange={e => upC(sc.id, "desc", e.target.value)}
-                      style={{ resize: "vertical", minHeight: 60, width: "100%", fontFamily: "inherit" }} />
-                  </div>
+                  {(() => {
+                    // Migrate legacy single project if projetos array is empty
+                    const projetos: any[] = sc.projetos && sc.projetos.length > 0
+                      ? sc.projetos
+                      : (sc.estilo || sc.desc)
+                        ? [{ id: "legacy", estilo: sc.estilo || "", tam: sc.tam || "Medio", primeira: sc.primeira || false, desc: sc.desc || "", status: "ativo", criadoEm: "—" }]
+                        : [];
+                    const ativos = projetos.filter((p: any) => p.status !== "concluido");
+                    const concluidos = projetos.filter((p: any) => p.status === "concluido");
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+                        {projetos.length === 0 && (
+                          <div style={{ fontSize: 12, color: "var(--tx3)", fontStyle: "italic", padding: "8px 0" }}>Nenhum projeto cadastrado. Clique em + Novo Projeto.</div>
+                        )}
+                        {ativos.map((proj: any, pi: number) => (
+                          <div key={proj.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <span style={{ fontSize: 11, color: "var(--gold)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>Projeto {pi + 1} — Em andamento</span>
+                              <button onClick={() => {
+                                const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+                                const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                if (idx >= 0) {
+                                  projs[idx] = { ...projs[idx], status: "concluido", concluidoEm: new Date().toLocaleDateString("pt-BR") };
+                                  upC(sc.id, "projetos", projs);
+                                  setClients(p => p.map(c => c.id !== sc.id ? c : {
+                                    ...c,
+                                    hist: [...c.hist, { t: `Projeto concluído: ${proj.estilo || "sem título"} — ${proj.desc?.slice(0,40) || ""}`, d: new Date().toLocaleDateString("pt-BR") }]
+                                  }));
+                                }
+                              }} style={{ fontSize: 10, fontWeight: 600, background: "rgba(39,174,96,.1)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 5, padding: "3px 9px", color: "#27AE60", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                                ✓ Concluir Projeto
+                              </button>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                              <div className="fi2">
+                                <div className="fil">Estilo</div>
+                                <select className="ef" value={proj.estilo || ""} onChange={e => {
+                                  const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+                                  const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                  if (idx >= 0) { projs[idx] = { ...projs[idx], estilo: e.target.value }; upC(sc.id, "projetos", projs); }
+                                  else upC(sc.id, "projetos", [{ ...proj, estilo: e.target.value }]);
+                                }}>
+                                  <option value="">Selecionar...</option>
+                                  {estiloOpts.map(o => <option key={o} value={o}>{o}</option>)}
+                                </select>
+                              </div>
+                              <div className="fi2">
+                                <div className="fil">Tamanho</div>
+                                <select className="ef" value={proj.tam || ""} onChange={e => {
+                                  const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+                                  const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                  if (idx >= 0) { projs[idx] = { ...projs[idx], tam: e.target.value }; upC(sc.id, "projetos", projs); }
+                                  else upC(sc.id, "projetos", [{ ...proj, tam: e.target.value }]);
+                                }}>
+                                  <option value="">Não informado</option>
+                                  <option>Discreto</option><option>Medio</option><option>Grande</option><option>Fechamento</option>
+                                </select>
+                              </div>
+                              <div className="fi2">
+                                <div className="fil">1ª Tattoo</div>
+                                <select className="ef" value={proj.primeira ? "Sim" : "Nao"} onChange={e => {
+                                  const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+                                  const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                  if (idx >= 0) { projs[idx] = { ...projs[idx], primeira: e.target.value === "Sim" }; upC(sc.id, "projetos", projs); }
+                                  else upC(sc.id, "projetos", [{ ...proj, primeira: e.target.value === "Sim" }]);
+                                }}>
+                                  <option value="Sim">Sim</option><option value="Nao">Não</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="fi2">
+                              <div className="fil">Descrição do Projeto</div>
+                              <textarea className="ef" value={proj.desc || ""} onChange={e => {
+                                const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+                                const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                if (idx >= 0) { projs[idx] = { ...projs[idx], desc: e.target.value }; upC(sc.id, "projetos", projs); }
+                                else upC(sc.id, "projetos", [{ ...proj, desc: e.target.value }]);
+                              }} style={{ resize: "vertical", minHeight: 55, width: "100%", fontFamily: "inherit" }} />
+                            </div>
+                          </div>
+                        ))}
+                        {concluidos.length > 0 && (
+                          <div style={{ borderTop: "1px solid var(--br)", paddingTop: 8, marginTop: 2 }}>
+                            <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Projetos Concluídos</div>
+                            {concluidos.map((proj: any) => (
+                              <div key={proj.id} style={{ background: "rgba(39,174,96,.05)", border: "1px solid rgba(39,174,96,.15)", borderRadius: 6, padding: "8px 12px", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div>
+                                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)" }}>{proj.estilo || "Sem título"} — {proj.tam}</div>
+                                  <div style={{ fontSize: 11, color: "var(--tx3)" }}>Concluído em {proj.concluidoEm || "—"}</div>
+                                  {proj.desc && <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2, fontStyle: "italic" }}>{proj.desc.slice(0,60)}{proj.desc.length > 60 ? "..." : ""}</div>}
+                                </div>
+                                <span style={{ fontSize: 16 }}>✅</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div>
