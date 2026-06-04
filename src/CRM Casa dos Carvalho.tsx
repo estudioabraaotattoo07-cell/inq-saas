@@ -1071,9 +1071,16 @@ export default function CRM() {
 
   const filtered = useMemo(() => clients.filter(c => {
     const mA = fa === "todos" || c.artista === fa;
+    const q = srch.toLowerCase();
     const mS = !srch ||
-      c.nome.toLowerCase().includes(srch.toLowerCase()) ||
-      c.estilo.toLowerCase().includes(srch.toLowerCase());
+      c.nome.toLowerCase().includes(q) ||
+      c.estilo.toLowerCase().includes(q) ||
+      (c.tel || "").toLowerCase().includes(q) ||
+      (c.email || "").toLowerCase().includes(q) ||
+      (c.insta || "").toLowerCase().includes(q) ||
+      (c.orig || "").toLowerCase().includes(q) ||
+      (c.desc || "").toLowerCase().includes(q) ||
+      (c.etapa || "").toLowerCase().includes(q);
     return mA && mS;
   }), [clients, fa, srch]);
 
@@ -1453,6 +1460,18 @@ export default function CRM() {
     setAgClientVinc(null);
     setAgClientSearch("");
     addLog(`Agenda: evento "${agForm.title}" criado para ${agForm.date} às ${agForm.start}h`);
+    // Vinculação bidirecional: mover cliente para etapa correta ao criar agendamento
+    if (agClientVinc) {
+      const tipoAg = (agForm as any).tipo || "";
+      const novaEtapa = tipoAg.includes("cons") ? "cons_agendada" : tipoAg.includes("sess") ? "sessao_agend" : null;
+      if (novaEtapa) {
+        const cli = clients.find((c: any) => c.id === agClientVinc.id);
+        const etapaAtual = cli?.etapa || "";
+        if (["lead", "qualificacao"].includes(etapaAtual)) {
+          executarMove(agClientVinc.id, novaEtapa);
+        }
+      }
+    }
     // Registrar no histórico do cliente vinculado
     if (agClientVinc) {
       const dataFmt = agForm.date ? agForm.date.split("-").reverse().join("/") : agForm.date;
@@ -2156,12 +2175,14 @@ export default function CRM() {
                             const left = total > 1 ? `calc(${(ei * 100/total)}% + 1px)` : "2px";
                             return (
                               <div key={e.id} className="we" style={{
-                                background: getEventColor(e.tipo, artists, e.artista),
+                                background: e.status === "cancelado" ? "#444" : getEventColor(e.tipo, artists, e.artista),
                                 position: "absolute", left, width: w, top: 2,
                                 height: (duration * 46) - 4 + "px",
                                 zIndex: 10, borderRadius: 4, padding: "3px 5px",
-                                overflow: "hidden", fontSize: 10, fontWeight: 600, color: "#fff",
-                                cursor: "pointer", display: "flex", alignItems: "flex-start", justifyContent: "space-between"
+                                overflow: "hidden", fontSize: 10, fontWeight: 600, color: e.status === "cancelado" ? "#aaa" : "#fff",
+                                cursor: "pointer", display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+                                opacity: e.status === "cancelado" ? 0.55 : 1,
+                                textDecoration: e.status === "cancelado" ? "line-through" : "none"
                               }}
                               onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
                                 <span style={{overflow:"hidden",flex:1,minWidth:0}}>{e.title}<br/><span style={{opacity:.8}}>{e.start}h–{e.end}h</span></span>
@@ -3975,12 +3996,32 @@ export default function CRM() {
 
               </div>
               <div className="fmf" style={{ justifyContent: "space-between" }}>
-                <div>
+                <div style={{ display: "flex", gap: 6 }}>
                   {editingEvent && (
                     <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)" }}
                       onClick={() => { setConfirmExcluir(editingEvent); }}>
                       🗑 Excluir
                     </button>
+                  )}
+                  {editingEvent && editingEvent.status !== "cancelado" && (
+                    <button className="btn-c" style={{ color: "#E67E22", borderColor: "rgba(230,126,34,.3)" }}
+                      onClick={async () => {
+                        const updated = { ...editingEvent, status: "cancelado" };
+                        setAgEvents(p => p.map(x => x.id === editingEvent.id ? updated : x));
+                        await sb.from("agenda").update({ status: "cancelado" }).eq("id", editingEvent.id);
+                        if (agClientVinc) {
+                          setClients(p => p.map(c => c.id !== agClientVinc.id ? c : {
+                            ...c, hist: [...c.hist, { t: "Evento cancelado: " + editingEvent.date, d: new Date().toLocaleDateString("pt-BR") }]
+                          }));
+                        }
+                        addLog(`Agenda: evento "${editingEvent.title}" cancelado`);
+                        setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch("");
+                      }}>
+                      ⊘ Cancelar Evento
+                    </button>
+                  )}
+                  {editingEvent && editingEvent.status === "cancelado" && (
+                    <span style={{ fontSize: 11, color: "#E67E22", padding: "5px 8px", background: "rgba(230,126,34,.1)", borderRadius: 5, border: "1px solid rgba(230,126,34,.3)" }}>⊘ Cancelado</span>
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 7 }}>
@@ -4187,24 +4228,27 @@ export default function CRM() {
             <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 14, width: "min(420px, 94vw)", padding: "24px", display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>Ajustar Logo</div>
               <div style={{ fontSize: 12, color: "var(--tx2)" }}>Arraste a imagem para centralizar dentro do círculo.</div>
-              <div style={{ position: "relative", width: 260, height: 260, margin: "0 auto", overflow: "hidden", borderRadius: 8, cursor: "grab", userSelect: "none" }}
+              <div style={{ position: "relative", width: 260, height: 260, margin: "0 auto", overflow: "hidden", borderRadius: 8, cursor: "grab", userSelect: "none", touchAction: "none" }}
                 ref={logoCropRef}
                 onMouseDown={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   const startX = e.clientX - logoCropPos.x;
                   const startY = e.clientY - logoCropPos.y;
-                  const onMove = (ev: MouseEvent) => setLogoCropPos({ x: ev.clientX - startX, y: ev.clientY - startY });
-                  const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-                  window.addEventListener("mousemove", onMove);
-                  window.addEventListener("mouseup", onUp);
+                  const onMove = (ev: MouseEvent) => { ev.preventDefault(); setLogoCropPos({ x: ev.clientX - startX, y: ev.clientY - startY }); };
+                  const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+                  document.addEventListener("mousemove", onMove);
+                  document.addEventListener("mouseup", onUp);
                 }}
                 onTouchStart={e => {
+                  e.stopPropagation();
                   const t = e.touches[0];
                   const startX = t.clientX - logoCropPos.x;
                   const startY = t.clientY - logoCropPos.y;
-                  const onMove = (ev: TouchEvent) => { const tt = ev.touches[0]; setLogoCropPos({ x: tt.clientX - startX, y: tt.clientY - startY }); };
-                  const onUp = () => { window.removeEventListener("touchmove", onMove as any); window.removeEventListener("touchend", onUp); };
-                  window.addEventListener("touchmove", onMove as any);
-                  window.addEventListener("touchend", onUp);
+                  const onMove = (ev: TouchEvent) => { ev.preventDefault(); const tt = ev.touches[0]; setLogoCropPos({ x: tt.clientX - startX, y: tt.clientY - startY }); };
+                  const onUp = () => { document.removeEventListener("touchmove", onMove as any); document.removeEventListener("touchend", onUp); };
+                  document.addEventListener("touchmove", onMove as any, { passive: false });
+                  document.addEventListener("touchend", onUp);
                 }}>
                 {/* imagem arrastável */}
                 <img src={logoCropSrc} alt="crop"
