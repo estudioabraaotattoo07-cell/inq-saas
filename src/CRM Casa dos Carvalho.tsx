@@ -876,6 +876,27 @@ function maskTel(v: string) {
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function CRM() {
+  // ── LOGIN ──
+  const [logado, setLogado] = useState(() => {
+    const t = localStorage.getItem("inq_auth");
+    if (!t) return false;
+    return (Date.now() - Number(t)) < 8 * 60 * 60 * 1000;
+  });
+  const [loginSenha, setLoginSenha] = useState("");
+  const [loginErro, setLoginErro] = useState(false);
+
+  // ── TOUR ──
+  const [tourAtivo, setTourAtivo] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
+  const TOUR_STEPS = [
+    { sel: ".topbar", title: "Topbar", desc: "Aqui ficam o logo do seu estúdio, o botão de alertas e o acesso às configurações." },
+    { sel: ".tabs", title: "Abas de Navegação", desc: "Pipeline, Clientes, Agenda, Financeiro, Artistas e mais. Clique para navegar entre as seções." },
+    { sel: ".kw", title: "Pipeline Kanban", desc: "Cada coluna representa uma etapa do cliente. Arraste ou clique nos botões da ficha para mover." },
+    { sel: ".btn-new", title: "Novo Cliente", desc: "Cadastre um novo cliente aqui. Preencha os dados básicos e ele entra automaticamente no Pipeline." },
+    { sel: ".alert-btn", title: "Alertas", desc: "Notificações de clientes sem contato, orçamentos pendentes e garantias vencendo." },
+    { sel: ".srch", title: "Busca Global", desc: "Busque clientes por nome, telefone, Instagram, estilo ou qualquer campo." },
+  ];
+
   const [onboardingDone, setOnboardingDone] = useState(() => !!localStorage.getItem("inq_onb"));
   const [showSplash, setShowSplash] = useState(() => !!localStorage.getItem("inq_onb"));
   const [onbStep, setOnbStep] = useState(0);
@@ -1724,6 +1745,64 @@ export default function CRM() {
     blacklist: { bg: "rgba(192,57,43,.15)", color: "#C0392B", b: "rgba(192,57,43,.3)" }
   };
 
+  // ── LOGIN ──
+  if (!logado) {
+    const senha = import.meta.env.VITE_APP_PASSWORD || "casa2026";
+    return (
+      <div style={{ minHeight: "100vh", background: "#0E0E0E", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 32, fontFamily: "'DM Sans',sans-serif" }}>
+        <style>{S}</style>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#C9A84C", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond',serif", fontSize: 36, fontWeight: 700, color: "#000", boxShadow: "0 0 40px rgba(201,168,76,.25)" }}>
+            {studioName ? studioName[0].toUpperCase() : "C"}
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "#C9A84C", letterSpacing: ".08em" }}>{studioName}</div>
+            <div style={{ fontSize: 10, color: "#555045", letterSpacing: ".18em", textTransform: "uppercase", marginTop: 4 }}>In-Quadra Ink System</div>
+          </div>
+        </div>
+        <div style={{ background: "#161616", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 12, padding: "28px 32px", width: "min(360px, 90vw)", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#E8E2D9", textAlign: "center" }}>Acesso Restrito</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Senha</label>
+            <input
+              className="fi"
+              type="password"
+              placeholder="••••••••"
+              value={loginSenha}
+              onChange={e => { setLoginSenha(e.target.value); setLoginErro(false); }}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  if (loginSenha === senha) {
+                    localStorage.setItem("inq_auth", String(Date.now()));
+                    setLogado(true);
+                  } else {
+                    setLoginErro(true);
+                  }
+                }
+              }}
+              autoFocus
+              style={{ fontSize: 16, letterSpacing: ".1em" }}
+            />
+            {loginErro && <div style={{ fontSize: 11, color: "#C0392B", marginTop: 2 }}>Senha incorreta. Tente novamente.</div>}
+          </div>
+          <button
+            onClick={() => {
+              if (loginSenha === senha) {
+                localStorage.setItem("inq_auth", String(Date.now()));
+                setLogado(true);
+              } else {
+                setLoginErro(true);
+              }
+            }}
+            style={{ background: "#C9A84C", color: "#000", border: "none", borderRadius: 8, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", letterSpacing: ".04em" }}>
+            Entrar →
+          </button>
+        </div>
+        <div style={{ fontSize: 10, color: "#303030", letterSpacing: ".1em", textTransform: "uppercase" }}>© {new Date().getFullYear()} {studioName}</div>
+      </div>
+    );
+  }
+
   // ── SPLASH (já cadastrado, aguarda clique para entrar) ──
   if (onboardingDone && showSplash) {
     return (
@@ -1906,7 +1985,7 @@ export default function CRM() {
                   {onbStep === 2 ? "Concluir" : "Continuar"}
                 </button>
               )}
-              {onbStep === 3 && <button className="btn-s" onClick={() => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); }}>Entrar no Sistema →</button>}
+              {onbStep === 3 && <button className="btn-s" onClick={() => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); if (!localStorage.getItem("inq_tour")) { setTimeout(() => { setTourStep(0); setTourAtivo(true); }, 800); } }}>Entrar no Sistema →</button>}
             </div>
           </div>
         </div>
@@ -1965,6 +2044,7 @@ export default function CRM() {
             )}
             <button className="theme-btn" onClick={() => setDark(d => !d)}>{dark ? "☀️" : "🌙"}</button>
             <button className="theme-btn" onClick={() => setShowHistorico(true)} title="Histórico de ações">📋</button>
+            <button className="theme-btn" onClick={() => { setTourStep(0); setTourAtivo(true); }} title="Tour guiado">🧭</button>
             <button className="btn-new" onClick={() => setShowForm(true)}>+ Novo Cliente</button>
           </div>
         </div>
@@ -4985,6 +5065,41 @@ export default function CRM() {
             </div>
           </div>
         )}
+
+        {/* ── TOUR GUIADO ── */}
+        {tourAtivo && (() => {
+          const step = TOUR_STEPS[tourStep];
+          const el = document.querySelector(step.sel);
+          const rect = el?.getBoundingClientRect();
+          const isLast = tourStep === TOUR_STEPS.length - 1;
+          const top = rect ? rect.bottom + 12 : window.innerHeight / 2;
+          const left = rect ? Math.min(Math.max(rect.left, 12), window.innerWidth - 312) : window.innerWidth / 2 - 150;
+          return (
+            <>
+              <div onClick={() => setTourAtivo(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", zIndex: 8000, pointerEvents: "all" }} />
+              {rect && (
+                <div style={{ position: "fixed", top: rect.top - 4, left: rect.left - 4, width: rect.width + 8, height: rect.height + 8, border: "2px solid var(--gold)", borderRadius: 8, zIndex: 8001, pointerEvents: "none", boxShadow: "0 0 0 4px rgba(201,168,76,.15)" }} />
+              )}
+              <div onClick={e => e.stopPropagation()} style={{ position: "fixed", top, left, width: 300, background: "var(--dk2)", border: "1px solid var(--gold)", borderRadius: 10, padding: "16px 18px", zIndex: 8002, boxShadow: "0 8px 32px rgba(0,0,0,.7)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>{step.title}</div>
+                  <div style={{ fontSize: 10, color: "var(--tx3)" }}>{tourStep + 1}/{TOUR_STEPS.length}</div>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--tx2)", lineHeight: 1.6, marginBottom: 14 }}>{step.desc}</div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button onClick={() => setTourAtivo(false)} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 12px", fontSize: 11, color: "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Pular tour</button>
+                  {tourStep > 0 && (
+                    <button onClick={() => setTourStep(p => p - 1)} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 12px", fontSize: 11, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>← Anterior</button>
+                  )}
+                  <button onClick={() => { if (isLast) { setTourAtivo(false); localStorage.setItem("inq_tour", "1"); } else setTourStep(p => p + 1); }}
+                    style={{ background: "var(--gold)", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 11, fontWeight: 700, color: "#000", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                    {isLast ? "Concluir ✓" : "Próximo →"}
+                  </button>
+                </div>
+              </div>
+            </>
+          );
+        })()}
 
         {/* ── MODAL ORÇAMENTO ── */}
         {orcamentoModal && (
