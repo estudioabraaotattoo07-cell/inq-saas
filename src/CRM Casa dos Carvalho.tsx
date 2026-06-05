@@ -301,6 +301,7 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 .empty{text-align:center;padding:48px 14px;color:var(--tx3);font-size:13px;}
 .tag-bl{background:rgba(192,57,43,.15);color:var(--q1);border:1px solid rgba(192,57,43,.25);font-size:9px;font-weight:700;padding:2px 4px;border-radius:3px;}
 .tag-wl{background:rgba(74,158,191,.15);color:var(--ab);border:1px solid rgba(74,158,191,.25);font-size:9px;font-weight:700;padding:2px 4px;border-radius:3px;}
+@keyframes resetBar{from{width:100%}to{width:0%}}
 `;
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -997,6 +998,9 @@ export default function CRM() {
   const [confirmRemoverArtista, setConfirmRemoverArtista] = useState<any>(null);
   const [confirmExcluirCliente, setConfirmExcluirCliente] = useState<any>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [resetUndo, setResetUndo] = useState(false);
+  const [resetTimer, setResetTimer] = useState<any>(null);
+  const [formStep, setFormStep] = useState(1);
   const [confirmMover, setConfirmMover] = useState<{cid: any; stage: any; agEvents: any[]} | null>(null);
   const [confirmPagamento, setConfirmPagamento] = useState<{cid: any; agEvent: any} | null>(null);
   const [pipelineMotivo, setPipelineMotivo] = useState<{cid: any; stage: any; motivo: string; dias?: string} | null>(null);
@@ -2086,7 +2090,6 @@ export default function CRM() {
             )}
             <button className="theme-btn" onClick={() => setDark(d => !d)}>{dark ? "☀️" : "🌙"}</button>
             <button className="theme-btn" onClick={() => setShowHistorico(true)} title="Histórico de ações">📋</button>
-            <button className="theme-btn" onClick={() => { setTourStep(0); setTourAtivo(true); }} title="Tour guiado">🧭</button>
             <button className="btn-new" onClick={() => setShowForm(true)}>+ Novo Cliente</button>
           </div>
         </div>
@@ -4186,124 +4189,146 @@ export default function CRM() {
 
         {/* ── FORM NOVO CLIENTE ── */}
         {showForm && (
-          <div className="fov" onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
+          <div className="fov" onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setFormStep(1); } }}>
             <div className="fmod">
               <div className="fmh">
-                <div className="fmt">Novo Cliente</div>
-                <button className="mc" onClick={() => setShowForm(false)}>✕</button>
+                <div>
+                  <div className="fmt">Novo Cliente</div>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Etapa {formStep} de 2 — {formStep === 1 ? "Dados Pessoais" : "Projeto Artístico"}</div>
+                </div>
+                <button className="mc" onClick={() => { setShowForm(false); setFormStep(1); }}>✕</button>
+              </div>
+              {/* Barra de progresso */}
+              <div style={{ height: 3, background: "var(--dk3)" }}>
+                <div style={{ height: 3, background: "var(--gold)", width: formStep === 1 ? "50%" : "100%", transition: "width .3s" }} />
               </div>
               <div className="fmb">
-                <div className="fr">
-                  <div className="ff"><label className="fl">Nome *</label><input className="fi" placeholder="Nome completo" value={form.nome} onChange={e => { const v = e.target.value; setForm({ ...form, nome: v.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()) }); }} /></div>
-                  <div className="ff"><label className="fl">Telefone *</label><input className="fi" placeholder="(99) 9 9999-9999" value={form.tel} onChange={e => setForm({ ...form, tel: maskTel(e.target.value) })} /></div>
-                </div>
-                <div className="fr">
-                  <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email@email.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
-                  <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={form.insta} onChange={e => { const v = e.target.value; setForm({ ...form, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
-                </div>
-                <div className="fr">
-                  <div className="ff">
-                    <label className="fl">Artista Responsável</label>
-                    <select className="fs" value={form.artista} onChange={e => setForm({ ...form, artista: e.target.value })}>
-                      {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
-                    </select>
-                  </div>
-                  <div className="ff">
-                    <label className="fl">Qualificação</label>
-                    <select className="fs" value={form.qual} onChange={e => setForm({ ...form, qual: e.target.value })}>
-                      <option value="Q0">Q0 - Presencial</option>
-                      <option value="Q1">Q1 - Frio</option>
-                      <option value="Q2">Q2 - Quente</option>
-                      <option value="Q3">Q3 - Pronto</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="fr">
-                  {/* ── COMBOBOX ESTILO ── */}
-                  <div className="ff" style={{ position: "relative" }}>
-                    <label className="fl">Estilo</label>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <input className="fi" style={{ flex: 1 }} placeholder="Fine Line, Realismo..." value={form.estilo}
-                        onChange={e => { const v = e.target.value.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()); setForm({ ...form, estilo: v }); setShowEstiloDD(true); }}
-                        onFocus={() => setShowEstiloDD(true)}
-                        onBlur={() => setTimeout(() => setShowEstiloDD(false), 150)}
-                      />
-                      <button type="button" style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "0 8px", cursor: "pointer", color: "var(--tx2)", fontSize: 12 }}
-                        onMouseDown={e => { e.preventDefault(); setShowEstiloDD(v => !v); }}>▾</button>
+                {formStep === 1 && (
+                  <>
+                    <div className="fr">
+                      <div className="ff"><label className="fl">Nome *</label><input className="fi" placeholder="Nome completo" value={form.nome} autoFocus onChange={e => { const v = e.target.value; setForm({ ...form, nome: v.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()) }); }} /></div>
+                      <div className="ff"><label className="fl">Telefone *</label><input className="fi" placeholder="(99) 9 9999-9999" value={form.tel} onChange={e => setForm({ ...form, tel: maskTel(e.target.value) })} /></div>
                     </div>
-                    {showEstiloDD && (
-                      <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 7, boxShadow: "0 6px 24px rgba(0,0,0,.5)", maxHeight: 200, overflowY: "auto" }}>
-                        {estiloOpts.filter(o => !form.estilo || o.toLowerCase().includes(form.estilo.toLowerCase())).map(o => (
-                          <div key={o} onMouseDown={() => { setForm({ ...form, estilo: o }); setShowEstiloDD(false); }}
-                            style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--tx)" }}
-                            onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
-                            onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                            {o}
-                          </div>
-                        ))}
-                        {form.estilo && !estiloOpts.some(o => o.toLowerCase() === form.estilo.toLowerCase()) && (
-                          <div onMouseDown={() => { setEstiloOpts(p => [...p, form.estilo]); setShowEstiloDD(false); }}
-                            style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
-                            + Adicionar "{form.estilo}"
+                    <div className="fr">
+                      <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email@email.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+                      <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={form.insta} onChange={e => { const v = e.target.value; setForm({ ...form, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
+                    </div>
+                    <div className="fr">
+                      <div className="ff">
+                        <label className="fl">Artista Responsável</label>
+                        <select className="fs" value={form.artista} onChange={e => setForm({ ...form, artista: e.target.value })}>
+                          {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                        </select>
+                      </div>
+                      <div className="ff">
+                        <label className="fl">Qualificação</label>
+                        <select className="fs" value={form.qual} onChange={e => setForm({ ...form, qual: e.target.value })}>
+                          <option value="Q0">Q0 - Presencial</option>
+                          <option value="Q1">Q1 - Frio</option>
+                          <option value="Q2">Q2 - Quente</option>
+                          <option value="Q3">Q3 - Pronto</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="fr">
+                      <div className="ff">
+                        <label className="fl">Origem</label>
+                        <select className="fs" value={form.orig} onChange={e => setForm({ ...form, orig: e.target.value })}>
+                          <option>Instagram Organico</option><option>Trafego Pago</option><option>Indicação</option>
+                          <option>Google</option><option>Presencial</option><option>Site</option>
+                        </select>
+                      </div>
+                      <div className="ff"><label className="fl">Data de Nascimento</label><input className="fi" type="date" value={(form as any).nascimento || ""} onChange={e => setForm({ ...form, nascimento: e.target.value } as any)} /></div>
+                    </div>
+                  </>
+                )}
+                {formStep === 2 && (
+                  <>
+                    <div className="fr">
+                      <div className="ff" style={{ position: "relative" }}>
+                        <label className="fl">Estilo</label>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <input className="fi" style={{ flex: 1 }} placeholder="Fine Line, Realismo..." value={form.estilo}
+                            onChange={e => { const v = e.target.value.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()); setForm({ ...form, estilo: v }); setShowEstiloDD(true); }}
+                            onFocus={() => setShowEstiloDD(true)} onBlur={() => setTimeout(() => setShowEstiloDD(false), 150)} />
+                          <button type="button" style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "0 8px", cursor: "pointer", color: "var(--tx2)", fontSize: 12 }}
+                            onMouseDown={e => { e.preventDefault(); setShowEstiloDD(v => !v); }}>▾</button>
+                        </div>
+                        {showEstiloDD && (
+                          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 7, boxShadow: "0 6px 24px rgba(0,0,0,.5)", maxHeight: 200, overflowY: "auto" }}>
+                            {estiloOpts.filter(o => !form.estilo || o.toLowerCase().includes(form.estilo.toLowerCase())).map(o => (
+                              <div key={o} onMouseDown={() => { setForm({ ...form, estilo: o }); setShowEstiloDD(false); }}
+                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--tx)" }}
+                                onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
+                                onMouseLeave={e => (e.currentTarget.style.background = "")}>{o}</div>
+                            ))}
+                            {form.estilo && !estiloOpts.some(o => o.toLowerCase() === form.estilo.toLowerCase()) && (
+                              <div onMouseDown={() => { setEstiloOpts(p => [...p, form.estilo]); setShowEstiloDD(false); }}
+                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
+                                + Adicionar "{form.estilo}"
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                  {/* ── COMBOBOX REGIAO ── */}
-                  <div className="ff" style={{ position: "relative" }}>
-                    <label className="fl">Região</label>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <input className="fi" style={{ flex: 1 }} placeholder="Antebraço, Costas..." value={form.regiao}
-                        onChange={e => { const v = e.target.value.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()); setForm({ ...form, regiao: v }); setShowRegiaoDD(true); }}
-                        onFocus={() => setShowRegiaoDD(true)}
-                        onBlur={() => setTimeout(() => setShowRegiaoDD(false), 150)}
-                      />
-                      <button type="button" style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "0 8px", cursor: "pointer", color: "var(--tx2)", fontSize: 12 }}
-                        onMouseDown={e => { e.preventDefault(); setShowRegiaoDD(v => !v); }}>▾</button>
-                    </div>
-                    {showRegiaoDD && (
-                      <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 7, boxShadow: "0 6px 24px rgba(0,0,0,.5)", maxHeight: 200, overflowY: "auto" }}>
-                        {regiaoOpts.filter(o => !form.regiao || o.toLowerCase().includes(form.regiao.toLowerCase())).map(o => (
-                          <div key={o} onMouseDown={() => { setForm({ ...form, regiao: o }); setShowRegiaoDD(false); }}
-                            style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--tx)" }}
-                            onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
-                            onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                            {o}
-                          </div>
-                        ))}
-                        {form.regiao && !regiaoOpts.some(o => o.toLowerCase() === form.regiao.toLowerCase()) && (
-                          <div onMouseDown={() => { setRegiaoOpts(p => [...p, form.regiao]); setShowRegiaoDD(false); }}
-                            style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
-                            + Adicionar "{form.regiao}"
+                      <div className="ff" style={{ position: "relative" }}>
+                        <label className="fl">Região</label>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <input className="fi" style={{ flex: 1 }} placeholder="Antebraço, Costas..." value={form.regiao}
+                            onChange={e => { const v = e.target.value.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()); setForm({ ...form, regiao: v }); setShowRegiaoDD(true); }}
+                            onFocus={() => setShowRegiaoDD(true)} onBlur={() => setTimeout(() => setShowRegiaoDD(false), 150)} />
+                          <button type="button" style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "0 8px", cursor: "pointer", color: "var(--tx2)", fontSize: 12 }}
+                            onMouseDown={e => { e.preventDefault(); setShowRegiaoDD(v => !v); }}>▾</button>
+                        </div>
+                        {showRegiaoDD && (
+                          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 7, boxShadow: "0 6px 24px rgba(0,0,0,.5)", maxHeight: 200, overflowY: "auto" }}>
+                            {regiaoOpts.filter(o => !form.regiao || o.toLowerCase().includes(form.regiao.toLowerCase())).map(o => (
+                              <div key={o} onMouseDown={() => { setForm({ ...form, regiao: o }); setShowRegiaoDD(false); }}
+                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--tx)" }}
+                                onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
+                                onMouseLeave={e => (e.currentTarget.style.background = "")}>{o}</div>
+                            ))}
+                            {form.regiao && !regiaoOpts.some(o => o.toLowerCase() === form.regiao.toLowerCase()) && (
+                              <div onMouseDown={() => { setRegiaoOpts(p => [...p, form.regiao]); setShowRegiaoDD(false); }}
+                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
+                                + Adicionar "{form.regiao}"
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                </div>
-                <div className="fr">
-                  <div className="ff">
-                    <label className="fl">Tamanho</label>
-                    <select className="fs" value={form.tam} onChange={e => setForm({ ...form, tam: e.target.value })}>
-                      <option>Discreto</option><option>Medio</option><option>Grande</option><option>Fechamento</option>
-                    </select>
-                  </div>
-                  <div className="ff">
-                    <label className="fl">Origem</label>
-                    <select className="fs" value={form.orig} onChange={e => setForm({ ...form, orig: e.target.value })}>
-                      <option>Instagram Organico</option><option>Trafego Pago</option><option>Indicação</option>
-                      <option>Google</option><option>Presencial</option><option>Site</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="ff"><label className="fl">Descrição do Projeto</label><textarea className="fta" placeholder="Descreva a ideia..." value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} /></div>
-
-                <div className="ff"><label className="fl">Data de Nascimento</label><input className="fi" type="date" value={(form as any).nascimento || ""} onChange={e => setForm({ ...form, nascimento: e.target.value } as any)} /></div>
+                    </div>
+                    <div className="fr">
+                      <div className="ff">
+                        <label className="fl">Tamanho</label>
+                        <select className="fs" value={form.tam} onChange={e => setForm({ ...form, tam: e.target.value })}>
+                          <option>Discreto</option><option>Medio</option><option>Grande</option><option>Fechamento</option>
+                        </select>
+                      </div>
+                      <div className="ff">
+                        <label className="fl">Valor Estimado do Projeto (R$)</label>
+                        <input className="fi" placeholder="0,00" value={(form as any).valorProjeto || ""}
+                          onChange={e => {
+                            const raw = e.target.value.replace(/\D/g, "");
+                            const num = raw ? (Number(raw) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+                            setForm({ ...form, valorProjeto: num } as any);
+                          }} />
+                      </div>
+                    </div>
+                    <div className="ff"><label className="fl">Descrição do Projeto</label><textarea className="fta" placeholder="Descreva a ideia..." value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} /></div>
+                  </>
+                )}
               </div>
               <div className="fmf">
-                <button className="btn-c" onClick={() => setShowForm(false)}>Cancelar</button>
-                <button className="btn-s" onClick={saveClient} disabled={!form.nome || !form.tel}>Salvar</button>
+                <button className="btn-c" onClick={() => { if (formStep === 1) { setShowForm(false); setFormStep(1); } else setFormStep(1); }}>
+                  {formStep === 1 ? "Cancelar" : "← Voltar"}
+                </button>
+                {formStep === 1 && (
+                  <button className="btn-s" disabled={!form.nome || !form.tel} onClick={() => setFormStep(2)}>Próximo →</button>
+                )}
+                {formStep === 2 && (
+                  <button className="btn-s" onClick={() => { saveClient(); setFormStep(1); }}>Salvar Cliente</button>
+                )}
               </div>
             </div>
           </div>
@@ -5152,38 +5177,62 @@ export default function CRM() {
           );
         })()}
 
-        {/* ── MODAL RESET ── */}
+        {/* ── MODAL RESET DE FÁBRICA ── */}
         {confirmReset && (
           <div className="ov" onClick={() => setConfirmReset(false)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid rgba(192,57,43,.4)", borderRadius: 12, width: "min(440px, 92vw)", padding: "28px 28px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid rgba(192,57,43,.4)", borderRadius: 12, width: "min(480px, 92vw)", padding: "28px 28px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(192,57,43,.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🗑</div>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(192,57,43,.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>⚠️</div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#C0392B" }}>Limpar Dados de Teste</div>
-                  <div style={{ fontSize: 12, color: "var(--tx2)", marginTop: 3 }}>Esta ação não pode ser desfeita</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: "#C0392B", fontFamily: "'Cormorant Garamond',serif" }}>Reset de Fábrica</div>
+                  <div style={{ fontSize: 12, color: "var(--tx2)", marginTop: 3 }}>Esta ação é irreversível</div>
                 </div>
               </div>
-              <div style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.6, background: "rgba(192,57,43,.08)", border: "1px solid rgba(192,57,43,.2)", borderRadius: 8, padding: "12px 14px" }}>
-                Serão apagados <strong style={{ color: "var(--tx)" }}>todos os clientes</strong>, <strong style={{ color: "var(--tx)" }}>agendamentos</strong> e <strong style={{ color: "var(--tx)" }}>lançamentos financeiros</strong> do banco.<br /><br />
-                Artistas e configurações do estúdio serão mantidos.
+              <div style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.7, background: "rgba(192,57,43,.08)", border: "1px solid rgba(192,57,43,.2)", borderRadius: 8, padding: "14px 16px" }}>
+                Serão apagados permanentemente:<br />
+                <strong style={{ color: "var(--tx)" }}>• Todos os clientes</strong><br />
+                <strong style={{ color: "var(--tx)" }}>• Todos os agendamentos</strong><br />
+                <strong style={{ color: "var(--tx)" }}>• Todos os lançamentos financeiros e saídas</strong><br /><br />
+                <span style={{ color: "var(--tx3)", fontSize: 12 }}>Artistas e configurações do estúdio serão mantidos.</span>
               </div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button className="btn-c" onClick={() => setConfirmReset(false)}>Cancelar</button>
-                <button style={{ background: "#C0392B", border: "none", borderRadius: 7, padding: "8px 18px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
-                  onClick={async () => {
-                    await sb.from("financeiro").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-                    await sb.from("agenda").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-                    await sb.from("clientes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-                    setClients([]);
-                    setAgEvents([]);
-                    setFin([]);
-                    setConfirmReset(false);
-                    setShowSettings(false);
-                    setShowAviso("Dados de teste apagados. Sistema pronto para uso real.");
-                  }}>
-                  Sim, apagar tudo
-                </button>
-              </div>
+              {!resetUndo && (
+                <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center" }}>
+                  <button className="btn-c" onClick={() => setConfirmReset(false)}>Cancelar</button>
+                  <button style={{ background: "#C0392B", border: "none", borderRadius: 7, padding: "10px 20px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                    onClick={() => {
+                      setResetUndo(true);
+                      let count = 8;
+                      const t = setInterval(async () => {
+                        count--;
+                        if (count <= 0) {
+                          clearInterval(t);
+                          await sb.from("saidas").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+                          await sb.from("financeiro").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+                          await sb.from("agenda").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+                          await sb.from("clientes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+                          setClients([]); setAgEvents([]); setFin([]); setSaidas([]);
+                          setResetUndo(false); setConfirmReset(false); setShowSettings(false);
+                          setShowAviso("Reset concluído. Sistema limpo e pronto para uso real. 🖤");
+                        }
+                      }, 1000);
+                      setResetTimer(t);
+                    }}>
+                    Sim, estou ciente
+                  </button>
+                </div>
+              )}
+              {resetUndo && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ fontSize: 13, color: "var(--tx2)", textAlign: "center" }}>Apagando em <strong style={{ color: "#C0392B" }}>8 segundos</strong>...</div>
+                  <div style={{ height: 6, background: "var(--dk3)", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ height: 6, background: "#C0392B", borderRadius: 3, animation: "resetBar 8s linear forwards" }} />
+                  </div>
+                  <button onClick={() => { clearInterval(resetTimer); setResetUndo(false); setConfirmReset(false); }}
+                    style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 0", fontSize: 13, fontWeight: 700, color: "var(--tx)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                    ↩ Cancelar — Desfazer
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -5201,27 +5250,47 @@ export default function CRM() {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--tx3)" }}>Valor (R$)</label>
-                <input className="fi" placeholder="Ex: 1200" value={orcamentoModal.valor}
-                  onChange={e => setOrcamentoModal(p => p ? { ...p, valor: e.target.value.replace(/\D/g,"") } : null)}
-                  onKeyDown={e => { if (e.key === "Enter") {
-                    const v = Number(orcamentoModal.valor);
-                    if (v > 0) {
-                      upC(orcamentoModal.cid, "val_a", v);
-                      upC(orcamentoModal.cid, "orcamento", false);
-                      setClients(p => p.map(c => c.id !== orcamentoModal.cid ? c : { ...c, hist: [...c.hist, { t: "Orcamento: R$ " + v.toLocaleString("pt-BR"), d: new Date().toLocaleString("pt-BR") }] }));
-                      setOrcamentoModal(null);
-                    }
-                  }}}
-                  autoFocus style={{ fontSize: 18, fontWeight: 600, textAlign: "center", letterSpacing: ".05em" }} />
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "var(--tx3)", fontWeight: 600 }}>R$</span>
+                  <input className="fi" placeholder="0,00" value={orcamentoModal.valor}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/\D/g, "");
+                      const num = raw ? (Number(raw) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+                      setOrcamentoModal(p => p ? { ...p, valor: num } : null);
+                    }}
+                    autoFocus style={{ fontSize: 18, fontWeight: 600, textAlign: "right", letterSpacing: ".05em", paddingLeft: 36 }} />
+                </div>
               </div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button className="btn-c" onClick={() => setOrcamentoModal(null)}>Cancelar</button>
-                <button className="btn-s" onClick={() => {
-                  const v = Number(orcamentoModal.valor);
+                <button className="btn-s" onClick={async () => {
+                  const v = Number(orcamentoModal.valor.replace(/\./g,"").replace(",","."));
                   if (v > 0) {
+                    const cliente = clients.find(c => c.id === orcamentoModal.cid);
+                    const artista = cliente?.artista || "abraao";
+                    const artObj = artists.find(a => a.id === artista);
+                    const comPct = artObj?.com || 60;
                     upC(orcamentoModal.cid, "val_a", v);
                     upC(orcamentoModal.cid, "orcamento", false);
-                    setClients(p => p.map(c => c.id !== orcamentoModal.cid ? c : { ...c, hist: [...c.hist, { t: "Orcamento: R$ " + v.toLocaleString("pt-BR"), d: new Date().toLocaleString("pt-BR") }] }));
+                    // Lança no financeiro como orçamento registrado
+                    const finRow = {
+                      cliente_id: orcamentoModal.cid,
+                      cliente_nome: cliente?.nome || "",
+                      artista_id: artista,
+                      artista: artista,
+                      tipo: "entrada",
+                      categoria: "sessao",
+                      val_a: v,
+                      val_c: v,
+                      pgto: "A definir",
+                      com_base: comPct,
+                      com_sess: comPct,
+                      data: new Date().toLocaleDateString("pt-BR"),
+                      status: "pendente"
+                    };
+                    const { data: fd } = await sb.from("financeiro").insert(finRow).select().single();
+                    if (fd) setFin(p => [...p, { ...finRow, id: fd.id, cliente: cliente?.nome }]);
+                    setClients(p => p.map(c => c.id !== orcamentoModal.cid ? c : { ...c, hist: [...c.hist, { t: "Orçamento registrado: R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }), d: new Date().toLocaleString("pt-BR") }] }));
                     setOrcamentoModal(null);
                   }
                 }}>Confirmar</button>
@@ -5523,6 +5592,55 @@ export default function CRM() {
                           ))}
                         </div>
                       </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>Traços de Personalidade <span style={{ color: "var(--tx3)", fontWeight: 400 }}>(escolha até 3)</span></div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {["Acolhedora","Sofisticada","Empática","Direta","Entusiasmada","Objetiva"].map(op => {
+                            const sel: string[] = (auraFormalidade as any).personalidade || [];
+                            const isOn = sel.includes(op);
+                            return (
+                              <button key={op} onClick={() => {
+                                const cur: string[] = (auraFormalidade as any).personalidade || [];
+                                const next = isOn ? cur.filter((x: string) => x !== op) : cur.length < 3 ? [...cur, op] : cur;
+                                setAuraFormalidade({ ...(auraFormalidade as any), personalidade: next } as any);
+                              }}
+                                style={{ padding: "7px 14px", borderRadius: 7, border: isOn ? "1px solid var(--gold)" : "1px solid var(--br)", background: isOn ? "rgba(201,168,76,.15)" : "var(--dk3)", color: isOn ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: isOn ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
+                                {op}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>Ritmo das Mensagens</div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {["Mensagens curtas","Mensagens elaboradas"].map(op => {
+                            const cur = typeof auraFormalidade === "string" ? auraFormalidade : (auraFormalidade as any).ritmo;
+                            const isOn = cur === op;
+                            return (
+                              <button key={op} onClick={() => setAuraFormalidade({ ...(auraFormalidade as any), ritmo: op } as any)}
+                                style={{ flex: 1, padding: "8px 4px", borderRadius: 7, border: isOn ? "1px solid var(--gold)" : "1px solid var(--br)", background: isOn ? "rgba(201,168,76,.15)" : "var(--dk3)", color: isOn ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: isOn ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
+                                {op}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>Uso de Emojis</div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {["Nenhum","Moderado","Expressivo"].map(op => {
+                            const cur = typeof auraFormalidade === "string" ? "" : (auraFormalidade as any).emojis;
+                            const isOn = cur === op;
+                            return (
+                              <button key={op} onClick={() => setAuraFormalidade({ ...(auraFormalidade as any), emojis: op } as any)}
+                                style={{ flex: 1, padding: "8px 4px", borderRadius: 7, border: isOn ? "1px solid var(--gold)" : "1px solid var(--br)", background: isOn ? "rgba(201,168,76,.15)" : "var(--dk3)", color: isOn ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: isOn ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
+                                {op}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </>}
@@ -5555,7 +5673,14 @@ export default function CRM() {
 
               <div className="fmf">
                 <button className="btn-c" onClick={() => setShowSettings(false)}>Cancelar</button>
-                <button className="btn-s" onClick={async () => {
+                <div style={{ display: "flex", gap: 8 }}>
+                  {settingsTab !== "sistema" && (
+                    <button style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                      onClick={() => setSettingsTab(settingsTab === "estudio" ? "ia" : "sistema")}>
+                      Próximo →
+                    </button>
+                  )}
+                  <button className="btn-s" onClick={async () => {
                   const cfg = {
                     studio_name: studioName, studio_tel: studioTel,
                     studio_owner: studioOwner, studio_email: studioEmail,
@@ -5576,8 +5701,8 @@ export default function CRM() {
                   setShowSettings(false);
                   setShowAviso("Configurações salvas com sucesso.");
                 }}>Salvar</button>
+                </div>
               </div>
-            </div>
           </div>
           );
         })()}
