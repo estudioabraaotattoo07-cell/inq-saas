@@ -603,7 +603,7 @@ const CLIENTS_INIT = [
   {
     id: 3, nome: "Fernanda Costa", tel: "(27) 99600-4411", email: "fer@email.com",
     insta: "", qual: "Q1", artista: "abraao", etapa: "qualificacao", estilo: "Realismo",
-    regiao: "Panturrilha", tam: "Grande", orig: "Indicacao", cri: "",
+    regiao: "Panturrilha", tam: "Grande", orig: "Indicação", cri: "",
     data: "25/05/2026", dias: 5, intencao: "Estetica pura", primeira: false, cob: false,
     desc: "Retrato realista de cachorro", stars: 0, starReason: "", consent: null,
     nps: null, obs: "", val_a: 0, val_c: 0, pgto: "", orcamento: false, contrato: false,
@@ -701,7 +701,7 @@ const CLIENTS_INIT = [
   {
     id: 9, nome: "Beatriz Souza", tel: "(27) 99777-5544", email: "bia@email.com",
     insta: "@bia.souza", qual: "Q3", artista: "camilla", etapa: "lista_espera",
-    estilo: "Fine Line", regiao: "Costela", tam: "Medio", orig: "Indicacao", cri: "",
+    estilo: "Fine Line", regiao: "Costela", tam: "Medio", orig: "Indicação", cri: "",
     data: "28/05/2026", dias: 2, intencao: "Autoestima", primeira: true, cob: false,
     desc: "Frase minimalista em fine line", stars: 0, starReason: "", consent: null,
     nps: null, obs: "Agenda lotada", val_a: 0, val_c: 0, pgto: "", orcamento: false,
@@ -990,6 +990,7 @@ export default function CRM() {
   const [confirmExcluir, setConfirmExcluir] = useState<any>(null);
   const [confirmRemoverArtista, setConfirmRemoverArtista] = useState<any>(null);
   const [confirmExcluirCliente, setConfirmExcluirCliente] = useState<any>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
   const [confirmMover, setConfirmMover] = useState<{cid: any; stage: any; agEvents: any[]} | null>(null);
   const [confirmPagamento, setConfirmPagamento] = useState<{cid: any; agEvent: any} | null>(null);
   const [pipelineMotivo, setPipelineMotivo] = useState<{cid: any; stage: any; motivo: string; dias?: string} | null>(null);
@@ -1383,20 +1384,20 @@ export default function CRM() {
     setConfirmExcluirCliente(null);
   };
 
-  const registrarIndicacao = (cid: number, artista: string) => {
+  const registrarIndicação = (cid: number, artista: string) => {
     setClients(p => p.map(c => {
       if (c.id !== cid) return c;
       const novas = (c.indicacoes || 0) + 1;
-      const audit = "Indicacao registrada " + novas + "/8 — " + new Date().toLocaleDateString("pt-BR") + " — por " + artista;
+      const audit = "Indicação registrada " + novas + "/8 — " + new Date().toLocaleDateString("pt-BR") + " — por " + artista;
       return { ...c, indicacoes: novas, hist: [...c.hist, { t: audit, d: new Date().toLocaleString("pt-BR") }] };
     }));
   };
 
-  const removerIndicacao = (cid: number, artista: string) => {
+  const removerIndicação = (cid: number, artista: string) => {
     setClients(p => p.map(c => {
       if (c.id !== cid) return c;
       const novas = Math.max((c.indicacoes || 0) - 1, 0);
-      const audit = "Indicacao removida (correcao) " + novas + "/8 — " + new Date().toLocaleDateString("pt-BR") + " — por " + artista;
+      const audit = "Indicação removida (correcao) " + novas + "/8 — " + new Date().toLocaleDateString("pt-BR") + " — por " + artista;
       return { ...c, indicacoes: novas, hist: [...c.hist, { t: audit, d: new Date().toLocaleString("pt-BR") }] };
     }));
   };
@@ -3765,7 +3766,12 @@ export default function CRM() {
                 <div>
                   <div className="stit">Financeiro</div>
                   {(() => {
-                    const pagCliente = fin.filter((f: any) => f.cliente_id === sc.id || f.cliente_nome === sc.nome);
+                    const pagCliente = fin.filter((f: any) =>
+                      f.cliente_id === sc.id ||
+                      f.cliente_id === String(sc.id) ||
+                      f.cliente_nome === sc.nome ||
+                      (sc.nome && f.cliente_nome?.toLowerCase().trim() === sc.nome.toLowerCase().trim())
+                    );
                     const totalPago = pagCliente.reduce((s: number, f: any) => s + (Number(f.val_a)||0), 0);
                     const credito = sc.credito || 0;
                     const projs = (sc.projetos || []).filter((p: any) => p.status === "ativo");
@@ -3926,10 +3932,10 @@ export default function CRM() {
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
                         {(sc.indicacoes || 0) > 0 && (
-                          <button className="btn-sm" onClick={() => removerIndicacao(sc.id, aName(sc.artista))}>− Remover</button>
+                          <button className="btn-sm" onClick={() => removerIndicação(sc.id, aName(sc.artista))}>− Remover</button>
                         )}
                         {(sc.indicacoes || 0) < 8 && (
-                          <button className="btn-sm gold" onClick={() => registrarIndicacao(sc.id, aName(sc.artista))}>+ Indicação</button>
+                          <button className="btn-sm gold" onClick={() => registrarIndicação(sc.id, aName(sc.artista))}>+ Indicação</button>
                         )}
                       </div>
                     </div>
@@ -4243,7 +4249,7 @@ export default function CRM() {
                   <div className="ff">
                     <label className="fl">Origem</label>
                     <select className="fs" value={form.orig} onChange={e => setForm({ ...form, orig: e.target.value })}>
-                      <option>Instagram Organico</option><option>Trafego Pago</option><option>Indicacao</option>
+                      <option>Instagram Organico</option><option>Trafego Pago</option><option>Indicação</option>
                       <option>Google</option><option>Presencial</option><option>Site</option>
                     </select>
                   </div>
@@ -5101,6 +5107,42 @@ export default function CRM() {
           );
         })()}
 
+        {/* ── MODAL RESET ── */}
+        {confirmReset && (
+          <div className="ov" onClick={() => setConfirmReset(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid rgba(192,57,43,.4)", borderRadius: 12, width: "min(440px, 92vw)", padding: "28px 28px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(192,57,43,.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🗑</div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#C0392B" }}>Limpar Dados de Teste</div>
+                  <div style={{ fontSize: 12, color: "var(--tx2)", marginTop: 3 }}>Esta ação não pode ser desfeita</div>
+                </div>
+              </div>
+              <div style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.6, background: "rgba(192,57,43,.08)", border: "1px solid rgba(192,57,43,.2)", borderRadius: 8, padding: "12px 14px" }}>
+                Serão apagados <strong style={{ color: "var(--tx)" }}>todos os clientes</strong>, <strong style={{ color: "var(--tx)" }}>agendamentos</strong> e <strong style={{ color: "var(--tx)" }}>lançamentos financeiros</strong> do banco.<br /><br />
+                Artistas e configurações do estúdio serão mantidos.
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn-c" onClick={() => setConfirmReset(false)}>Cancelar</button>
+                <button style={{ background: "#C0392B", border: "none", borderRadius: 7, padding: "8px 18px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                  onClick={async () => {
+                    await sb.from("financeiro").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+                    await sb.from("agenda").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+                    await sb.from("clientes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+                    setClients([]);
+                    setAgEvents([]);
+                    setFin([]);
+                    setConfirmReset(false);
+                    setShowSettings(false);
+                    setShowAviso("Dados de teste apagados. Sistema pronto para uso real.");
+                  }}>
+                  Sim, apagar tudo
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── MODAL ORÇAMENTO ── */}
         {orcamentoModal && (
           <div className="ov" onClick={() => setOrcamentoModal(null)}>
@@ -5358,6 +5400,26 @@ export default function CRM() {
               </div>
               <div className="fmf">
                 <button className="btn-c" onClick={() => setShowSettings(false)}>Fechar</button>
+                <button style={{ background: "rgba(52,152,219,.15)", border: "1px solid rgba(52,152,219,.3)", borderRadius: 7, padding: "7px 14px", fontSize: 12, color: "#3498DB", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                  onClick={async () => {
+                    if (!window.confirm) return;
+                    let corrigidos = 0;
+                    for (const c of clients) {
+                      const nomeCorrigido = c.nome?.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase());
+                      if (nomeCorrigido !== c.nome) {
+                        await sb.from("clientes").update({ nome: nomeCorrigido }).eq("id", c.id);
+                        corrigidos++;
+                      }
+                    }
+                    setClients(p => p.map(c => ({ ...c, nome: c.nome?.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase()) })));
+                    setShowAviso(`${corrigidos} nome(s) corrigido(s) com sucesso.`);
+                  }}>
+                  Aa Corrigir Nomes
+                </button>
+                <button style={{ background: "rgba(192,57,43,.12)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 7, padding: "7px 14px", fontSize: 12, color: "#C0392B", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                  onClick={() => setConfirmReset(true)}>
+                  🗑 Limpar Dados de Teste
+                </button>
                 <button className="btn-s" onClick={async () => {
                   const cfg = {
                     studio_name: studioName, studio_tel: studioTel,
