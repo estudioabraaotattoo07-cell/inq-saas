@@ -909,6 +909,12 @@ export default function CRM() {
   const [studioCity, setStudioCity] = useState("Vitoria - ES");
   const [studioInsta, setStudioInsta] = useState("@casadoscarvalho");
   const [auraName, setAuraName] = useState("Aura");
+  const [auraFormalidade, setAuraFormalidade] = useState("Equilibrado");
+  const [auraIdioma, setAuraIdioma] = useState("Português");
+  const [metaSessoes, setMetaSessoes] = useState(10);
+  const [metaLeads, setMetaLeads] = useState(20);
+  const [metaNPS, setMetaNPS] = useState(5);
+  const [settingsTab, setSettingsTab] = useState<"estudio"|"ia"|"sistema">("estudio");
   const [googleLink, setGoogleLink] = useState("");
   const [cnpj, setCnpj] = useState("");
   const [metaMensal, setMetaMensal] = useState(15000);
@@ -1832,7 +1838,7 @@ export default function CRM() {
 
   // ── ONBOARDING ──
   if (!onboardingDone) {
-    const onbSteps = ["Estudio", "Horarios", "Artistas", "Concluido"];
+    const onbSteps = ["Estúdio", "Horários", "Artistas", "IA", "Concluído"];
     return (
       <div style={{ minHeight: "100vh", background: "#0E0E0E", display: "flex", alignItems: "center", justifyContent: "center", padding: 18, fontFamily: "'DM Sans',sans-serif" }}>
         <style>{S}</style>
@@ -1969,6 +1975,39 @@ export default function CRM() {
             </div>
           )}
           {onbStep === 3 && (
+            <div style={{ padding: "22px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ fontSize: 14, color: "#E8E2D9", fontWeight: 600, marginBottom: 4 }}>Configure sua IA de atendimento</div>
+              <div style={{ fontSize: 11, color: "#555045", marginBottom: 4 }}>Ela atende 24h e nunca se passa por humano. Ajuste o comportamento abaixo.</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Nome da IA</label>
+                <input className="fi" value={auraName} placeholder="Aura"
+                  onChange={e => setAuraName(e.target.value.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase()))} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Formalidade</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {["Formal","Equilibrado","Descontraído"].map(op => (
+                    <button key={op} onClick={() => setAuraFormalidade(op)}
+                      style={{ flex: 1, padding: "8px 4px", borderRadius: 7, border: auraFormalidade === op ? "1px solid #C9A84C" : "1px solid rgba(201,168,76,.15)", background: auraFormalidade === op ? "rgba(201,168,76,.15)" : "#1E1E1E", color: auraFormalidade === op ? "#C9A84C" : "#8A8070", fontSize: 12, fontWeight: auraFormalidade === op ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                      {op}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Idioma Principal</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {["Português","Inglês","Espanhol"].map(op => (
+                    <button key={op} onClick={() => setAuraIdioma(op)}
+                      style={{ flex: 1, padding: "8px 4px", borderRadius: 7, border: auraIdioma === op ? "1px solid #C9A84C" : "1px solid rgba(201,168,76,.15)", background: auraIdioma === op ? "rgba(201,168,76,.15)" : "#1E1E1E", color: auraIdioma === op ? "#C9A84C" : "#8A8070", fontSize: 12, fontWeight: auraIdioma === op ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                      {op}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {onbStep === 4 && (
             <div style={{ padding: "32px 28px", display: "flex", flexDirection: "column", alignItems: "center", gap: 14, textAlign: "center" }}>
               <div style={{ fontSize: 40 }}>🖤</div>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 600, color: "#C9A84C" }}>Tudo pronto!</div>
@@ -1981,12 +2020,12 @@ export default function CRM() {
             <div style={{ fontSize: 11, color: "#555045" }}>{onbStep + 1} de {onbSteps.length}</div>
             <div style={{ display: "flex", gap: 8 }}>
               {onbStep > 0 && <button className="btn-c" onClick={() => setOnbStep(s => s - 1)}>Voltar</button>}
-              {onbStep < 3 && (
+              {onbStep < 4 && (
                 <button className="btn-s" disabled={onbStep === 0 && (!studioName || !studioOwner || !studioTel)} onClick={() => setOnbStep(s => s + 1)}>
-                  {onbStep === 2 ? "Concluir" : "Continuar"}
+                  {onbStep === 3 ? "Concluir" : "Continuar"}
                 </button>
               )}
-              {onbStep === 3 && <button className="btn-s" onClick={() => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); if (!localStorage.getItem("inq_tour")) { setTimeout(() => { setTourStep(0); setTourAtivo(true); }, 800); } }}>Entrar no Sistema →</button>}
+              {onbStep === 4 && <button className="btn-s" onClick={() => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); if (!localStorage.getItem("inq_tour")) { setTimeout(() => { setTourStep(0); setTourAtivo(true); }, 800); } }}>Entrar no Sistema →</button>}
             </div>
           </div>
         </div>
@@ -2002,8 +2041,10 @@ export default function CRM() {
                     <label className="fl">Comissão (%)</label>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <input className="fi" type="number" min={0} max={100} value={artForm.com} onChange={e => setArtForm({ ...artForm, com: Number(e.target.value) })} style={{ width: 80 }} />
-                      <span style={{ fontSize: 11, color: "var(--tx3)" }}>
-                        Artista: <strong style={{ color: "var(--gold)" }}>{artForm.com}%</strong> · Estúdio: <strong style={{ color: "var(--ab)" }}>{100 - artForm.com}%</strong>
+                      <span style={{ fontSize: 11, color: "var(--tx3)", display: "flex", gap: 10 }}>
+                        <span>Artista: <strong style={{ color: "var(--gold)" }}>{artForm.com}%</strong></span>
+                        <span style={{ color: "var(--br)" }}>|</span>
+                        <span>Estúdio: <strong style={{ color: "#27AE60" }}>{100 - artForm.com}%</strong></span>
                       </span>
                     </div>
                   </div>
@@ -3133,8 +3174,10 @@ export default function CRM() {
                   <label className="fl">Comissão (%)</label>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input className="fi" type="number" min={0} max={100} value={editingArtist.com} onChange={e => setEditingArtist({ ...editingArtist, com: Number(e.target.value) })} style={{ width: 80 }} />
-                    <span style={{ fontSize: 11, color: "var(--tx3)" }}>
-                      Artista: <strong style={{ color: "var(--gold)" }}>{editingArtist.com}%</strong> · Estúdio: <strong style={{ color: "var(--ab)" }}>{100 - editingArtist.com}%</strong>
+                    <span style={{ fontSize: 11, color: "var(--tx3)", display: "flex", gap: 10 }}>
+                        <span>Artista: <strong style={{ color: "var(--gold)" }}>{editingArtist.com}%</strong></span>
+                        <span style={{ color: "var(--br)" }}>|</span>
+                        <span>Estúdio: <strong style={{ color: "#27AE60" }}>{100 - editingArtist.com}%</strong></span>
                     </span>
                   </div>
                 </div>
@@ -3328,10 +3371,10 @@ export default function CRM() {
                 <div className="dch">🎯 Metas - Junho 2026</div>
                 <div className="dcb">
                   {[
-                    { l: "Sessões", v: fin.filter(f => f.val_a > 0).length, m: 10 },
-                    { l: "Fat. R$k", v: Math.round(totalFat / 1000), m: 15 },
-                    { l: "Leads", v: clients.length, m: 20 },
-                    { l: "NPS 9+", v: clients.filter(c => (c.nps || 0) >= 9).length, m: 5 },
+                    { l: "Sessões", v: fin.filter(f => f.val_a > 0).length, m: metaSessoes },
+                    { l: "Fat. R$k", v: Math.round(totalFat / 1000), m: Math.round(metaMensal / 1000) },
+                    { l: "Leads", v: clients.length, m: metaLeads },
+                    { l: "NPS 9+", v: clients.filter(c => (c.nps || 0) >= 9).length, m: metaNPS },
                   ].map((mt, i) => (
                     <div key={i} style={{ marginBottom: 11 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
@@ -4287,8 +4330,10 @@ export default function CRM() {
                   <label className="fl">Comissão (%)</label>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input className="fi" type="number" min={0} max={100} value={artForm.com} onChange={e => setArtForm({ ...artForm, com: Number(e.target.value) })} style={{ width: 80 }} />
-                    <span style={{ fontSize: 11, color: "var(--tx3)" }}>
-                      Artista: <strong style={{ color: "var(--gold)" }}>{artForm.com}%</strong> · Estúdio: <strong style={{ color: "var(--ab)" }}>{100 - artForm.com}%</strong>
+                    <span style={{ fontSize: 11, color: "var(--tx3)", display: "flex", gap: 10 }}>
+                      <span>Artista: <strong style={{ color: "var(--gold)" }}>{artForm.com}%</strong></span>
+                      <span style={{ color: "var(--br)" }}>|</span>
+                      <span>Estúdio: <strong style={{ color: "#27AE60" }}>{100 - artForm.com}%</strong></span>
                     </span>
                   </div>
                 </div>
@@ -5319,114 +5364,206 @@ export default function CRM() {
         )}
 
         {/* ── SETTINGS ── */}
-        {showSettings && (
+        {showSettings && (() => {
+          // Snapshot para cancelar
+          return (
           <div className="ov" onClick={e => { if (e.target === e.currentTarget) setShowSettings(false); }}>
             <div className="settings-modal">
               <div className="mh">
                 <div>
-                  <div className="mn">Configurações do Estúdio</div>
-                  <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 3 }}>Edite as informações do seu estúdio</div>
+                  <div className="mn">{studioName}</div>
+                  <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 3 }}>In-Quadra Ink System</div>
                 </div>
                 <button className="mc" onClick={() => setShowSettings(false)}>✕</button>
               </div>
-              <div className="mb">
-                <div>
-                  <div className="stit">Logo do Estúdio</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "10px 0" }}>
-                    <div style={{ position: "relative", width: 72, height: 72, flexShrink: 0 }}>
-                      {studioLogo
-                        ? <img src={studioLogo} alt="logo" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: "3px solid var(--gold)" }} />
-                        : <div style={{ width: 72, height: 72, borderRadius: "50%", background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 700, color: "#000" }}>C</div>
-                      }
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <label style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600, display: "inline-block" }}>
-                        📁 Escolher imagem
-                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = ev => {
-                            setLogoCropSrc(ev.target?.result as string);
-                            setLogoCropPos({ x: 0, y: 0 });
-                            setLogoCropScale(1);
-                            setShowSettings(false);
-                            setShowLogoCrop(true);
-                          };
-                          reader.readAsDataURL(file);
-                        }} />
-                      </label>
-                      {studioLogo && (
-                        <button onClick={() => { setStudioLogo(""); localStorage.removeItem("inq_logo"); }}
-                          style={{ background: "none", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "5px 12px", fontSize: 11, color: "var(--q1)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                          🗑 Remover logo
-                        </button>
-                      )}
-                      <div style={{ fontSize: 10, color: "var(--tx3)", lineHeight: 1.5 }}>JPG, PNG ou SVG. Aparece na topbar e nos contratos.</div>
-                    </div>
+              {/* ABAS */}
+              <div style={{ display: "flex", borderBottom: "1px solid var(--br)" }}>
+                {([["estudio","🏠 Estúdio"],["ia","🤖 Editar IA"],["sistema","⚙️ Sistema"]] as const).map(([id, label]) => (
+                  <div key={id} onClick={() => setSettingsTab(id)}
+                    style={{ flex: 1, padding: "10px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, cursor: "pointer", letterSpacing: ".04em",
+                      color: settingsTab === id ? "var(--gold)" : "var(--tx3)",
+                      borderBottom: settingsTab === id ? "2px solid var(--gold)" : "2px solid transparent",
+                      background: settingsTab === id ? "rgba(201,168,76,.05)" : "none" }}>
+                    {label}
                   </div>
-                </div>
-                <div>
-                  <div className="stit">Perfil do Estúdio</div>
-                  <div className="fg2">
-                    <div className="fi2"><div className="fil">Nome do Estúdio</div><input className="ef" value={studioName} onChange={e => setStudioName(e.target.value)} /></div>
-                    <div className="fi2"><div className="fil">Cidade</div><input className="ef" value={studioCity} onChange={e => setStudioCity(e.target.value)} /></div>
-                    <div className="fi2"><div className="fil">WhatsApp</div><input className="ef" value={studioTel} onChange={e => setStudioTel(e.target.value)} /></div>
-                    <div className="fi2"><div className="fil">Instagram</div><input className="ef" value={studioInsta} onChange={e => setStudioInsta(e.target.value)} /></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="stit">Horários de Funcionamento</div>
-                  <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>A Aura atende 24h. Estes horários são para a agenda interna.</div>
-                  {horarios.map((h, i) => (
-                    <div key={h.dia} className="hr-row">
-                      <div className="hr-dia">{h.dia}</div>
-                      <div className="hr-toggle" style={{ background: h.aberto ? "var(--q3)" : "var(--dk5)" }}
-                        onClick={() => setHorarios(p => p.map((x, j) => j === i ? { ...x, aberto: !x.aberto } : x))}>
-                        <div className="hr-toggle-dot" style={{ left: h.aberto ? "18px" : "2px" }} />
-                      </div>
-                      {h.aberto ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
-                          <input className="fi" type="time" value={h.ini} onChange={e => setHorarios(p => p.map((x, j) => j === i ? { ...x, ini: e.target.value } : x))} style={{ width: 90, padding: "4px 7px" }} />
-                          <span style={{ fontSize: 12, color: "var(--tx2)" }}>as</span>
-                          <input className="fi" type="time" value={h.fim} onChange={e => setHorarios(p => p.map((x, j) => j === i ? { ...x, fim: e.target.value } : x))} style={{ width: 90, padding: "4px 7px" }} />
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: 12, color: "var(--tx3)", fontStyle: "italic", flex: 1 }}>Fechado</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                ))}
               </div>
+
+              <div className="mb">
+
+                {/* ── ABA ESTÚDIO ── */}
+                {settingsTab === "estudio" && <>
+                  <div>
+                    <div className="stit">Logo do Estúdio</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "10px 0" }}>
+                      <div style={{ position: "relative", width: 72, height: 72, flexShrink: 0 }}>
+                        {studioLogo
+                          ? <img src={studioLogo} alt="logo" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: "3px solid var(--gold)" }} />
+                          : <div style={{ width: 72, height: 72, borderRadius: "50%", background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 700, color: "#000" }}>{studioName?.[0]?.toUpperCase() || "S"}</div>
+                        }
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <label style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600, display: "inline-block" }}>
+                          📁 Escolher imagem
+                          <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = ev => { setLogoCropSrc(ev.target?.result as string); setLogoCropPos({ x: 0, y: 0 }); setLogoCropScale(1); setShowSettings(false); setShowLogoCrop(true); };
+                            reader.readAsDataURL(file);
+                          }} />
+                        </label>
+                        {studioLogo && (
+                          <button onClick={() => { setStudioLogo(""); localStorage.removeItem("inq_logo"); }}
+                            style={{ background: "none", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "5px 12px", fontSize: 11, color: "var(--q1)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                            🗑 Remover logo
+                          </button>
+                        )}
+                        <div style={{ fontSize: 10, color: "var(--tx3)", lineHeight: 1.5 }}>JPG, PNG ou SVG. Aparece na topbar e nos contratos.</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="stit">Perfil do Estúdio</div>
+                    <div className="fg2">
+                      <div className="fi2"><div className="fil">Nome do Estúdio</div><input className="ef" value={studioName} onChange={e => setStudioName(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Responsável</div><input className="ef" value={studioOwner} onChange={e => setStudioOwner(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Cidade</div><input className="ef" value={studioCity} onChange={e => setStudioCity(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">WhatsApp</div><input className="ef" value={studioTel} onChange={e => setStudioTel(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Instagram</div><input className="ef" value={studioInsta} onChange={e => setStudioInsta(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Email</div><input className="ef" value={studioEmail} onChange={e => setStudioEmail(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">CNPJ</div><input className="ef" value={cnpj} onChange={e => setCnpj(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Link Google Meu Negócio</div><input className="ef" value={googleLink} onChange={e => setGoogleLink(e.target.value)} /></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="stit">Metas Mensais</div>
+                    <div className="fg2">
+                      <div className="fi2"><div className="fil">Meta de Faturamento (R$)</div><input className="ef" type="number" value={metaMensal} onChange={e => setMetaMensal(Number(e.target.value))} /></div>
+                      <div className="fi2"><div className="fil">Meta de Sessões</div><input className="ef" type="number" value={metaSessoes} onChange={e => setMetaSessoes(Number(e.target.value))} /></div>
+                      <div className="fi2"><div className="fil">Meta de Leads</div><input className="ef" type="number" value={metaLeads} onChange={e => setMetaLeads(Number(e.target.value))} /></div>
+                      <div className="fi2"><div className="fil">Meta NPS 9+</div><input className="ef" type="number" value={metaNPS} onChange={e => setMetaNPS(Number(e.target.value))} /></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="stit">Horários de Funcionamento</div>
+                    <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>A {auraName} atende 24h. Estes horários são para a agenda interna.</div>
+                    {horarios.map((h, i) => (
+                      <div key={h.dia} className="hr-row">
+                        <div className="hr-dia">{h.dia}</div>
+                        <div className="hr-toggle" style={{ background: h.aberto ? "var(--q3)" : "var(--dk5)" }}
+                          onClick={() => setHorarios(p => p.map((x, j) => j === i ? { ...x, aberto: !x.aberto } : x))}>
+                          <div className="hr-toggle-dot" style={{ left: h.aberto ? "18px" : "2px" }} />
+                        </div>
+                        {h.aberto ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+                            <input className="fi" type="time" value={h.ini} onChange={e => setHorarios(p => p.map((x, j) => j === i ? { ...x, ini: e.target.value } : x))} style={{ width: 90, padding: "4px 7px" }} />
+                            <span style={{ fontSize: 12, color: "var(--tx2)" }}>às</span>
+                            <input className="fi" type="time" value={h.fim} onChange={e => setHorarios(p => p.map((x, j) => j === i ? { ...x, fim: e.target.value } : x))} style={{ width: 90, padding: "4px 7px" }} />
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: 12, color: "var(--tx3)", fontStyle: "italic", flex: 1 }}>Fechado</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <div className="stit">Manutenção</div>
+                    <button style={{ background: "rgba(52,152,219,.12)", border: "1px solid rgba(52,152,219,.3)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "#3498DB", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                      onClick={async () => {
+                        let corrigidos = 0;
+                        for (const c of clients) {
+                          const nomeCorrigido = c.nome?.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase());
+                          if (nomeCorrigido !== c.nome) { await sb.from("clientes").update({ nome: nomeCorrigido }).eq("id", c.id); corrigidos++; }
+                        }
+                        setClients(p => p.map(c => ({ ...c, nome: c.nome?.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase()) })));
+                        setShowAviso(`${corrigidos} nome(s) corrigido(s) com sucesso.`);
+                      }}>
+                      Aa Corrigir Capitalização dos Nomes
+                    </button>
+                  </div>
+                </>}
+
+                {/* ── ABA IA ── */}
+                {settingsTab === "ia" && <>
+                  <div style={{ background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.15)", borderRadius: 8, padding: "12px 14px", marginBottom: 4 }}>
+                    <div style={{ fontSize: 12, color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>🔒 Essência imutável</div>
+                    <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.6 }}>A {auraName} sempre será transparente sobre ser uma IA, nunca se passará por humano e manterá o padrão premium do estúdio. Estas configurações ajustam comportamentos secundários.</div>
+                  </div>
+                  <div>
+                    <div className="stit">Identidade</div>
+                    <div className="fi2">
+                      <div className="fil">Nome da IA</div>
+                      <input className="ef" value={auraName} placeholder="Aura"
+                        onChange={e => setAuraName(e.target.value.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase()))} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="stit">Tom de Comunicação</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>Formalidade</div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {["Formal","Equilibrado","Descontraído"].map(op => (
+                            <button key={op} onClick={() => setAuraFormalidade(op)}
+                              style={{ flex: 1, padding: "8px 4px", borderRadius: 7, border: auraFormalidade === op ? "1px solid var(--gold)" : "1px solid var(--br)", background: auraFormalidade === op ? "rgba(201,168,76,.15)" : "var(--dk3)", color: auraFormalidade === op ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: auraFormalidade === op ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
+                              {op}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>Idioma Principal</div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {["Português","Inglês","Espanhol"].map(op => (
+                            <button key={op} onClick={() => setAuraIdioma(op)}
+                              style={{ flex: 1, padding: "8px 4px", borderRadius: 7, border: auraIdioma === op ? "1px solid var(--gold)" : "1px solid var(--br)", background: auraIdioma === op ? "rgba(201,168,76,.15)" : "var(--dk3)", color: auraIdioma === op ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: auraIdioma === op ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
+                              {op}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>}
+
+                {/* ── ABA SISTEMA ── */}
+                {settingsTab === "sistema" && <>
+                  <div>
+                    <div className="stit">Tour Guiado</div>
+                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>Refaça o tour de apresentação do sistema a qualquer momento.</div>
+                    <button style={{ background: "rgba(52,152,219,.12)", border: "1px solid rgba(52,152,219,.3)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "#3498DB", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                      onClick={() => { setShowSettings(false); localStorage.removeItem("inq_tour"); setTourStep(0); setTimeout(() => setTourAtivo(true), 300); }}>
+                      🧭 Refazer Tour
+                    </button>
+                  </div>
+                  <div>
+                    <div className="stit">Versão</div>
+                    <div style={{ fontSize: 12, color: "var(--tx3)" }}>In-Quadra Ink System <strong style={{ color: "var(--tx2)" }}>v1.5.0</strong></div>
+                  </div>
+                  <div>
+                    <div className="stit" style={{ color: "#C0392B" }}>Zona de Perigo</div>
+                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>Apaga todos os clientes, agendamentos e lançamentos financeiros. Artistas e configurações são mantidos.</div>
+                    <button style={{ background: "rgba(192,57,43,.12)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "#C0392B", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                      onClick={() => setConfirmReset(true)}>
+                      🗑 Limpar Dados de Teste
+                    </button>
+                  </div>
+                </>}
+
+              </div>
+
               <div className="fmf">
-                <button className="btn-c" onClick={() => setShowSettings(false)}>Fechar</button>
-                <button style={{ background: "rgba(52,152,219,.15)", border: "1px solid rgba(52,152,219,.3)", borderRadius: 7, padding: "7px 14px", fontSize: 12, color: "#3498DB", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
-                  onClick={async () => {
-                    if (!window.confirm) return;
-                    let corrigidos = 0;
-                    for (const c of clients) {
-                      const nomeCorrigido = c.nome?.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase());
-                      if (nomeCorrigido !== c.nome) {
-                        await sb.from("clientes").update({ nome: nomeCorrigido }).eq("id", c.id);
-                        corrigidos++;
-                      }
-                    }
-                    setClients(p => p.map(c => ({ ...c, nome: c.nome?.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase()) })));
-                    setShowAviso(`${corrigidos} nome(s) corrigido(s) com sucesso.`);
-                  }}>
-                  Aa Corrigir Nomes
-                </button>
-                <button style={{ background: "rgba(192,57,43,.12)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 7, padding: "7px 14px", fontSize: 12, color: "#C0392B", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
-                  onClick={() => setConfirmReset(true)}>
-                  🗑 Limpar Dados de Teste
-                </button>
+                <button className="btn-c" onClick={() => setShowSettings(false)}>Cancelar</button>
                 <button className="btn-s" onClick={async () => {
                   const cfg = {
                     studio_name: studioName, studio_tel: studioTel,
                     studio_owner: studioOwner, studio_email: studioEmail,
                     studio_city: studioCity, studio_insta: studioInsta,
-                    aura_name: auraName, google_link: googleLink,
+                    aura_name: auraName, aura_formalidade: auraFormalidade,
+                    aura_idioma: auraIdioma, google_link: googleLink,
                     cnpj, meta_mensal: metaMensal,
+                    meta_sessoes: metaSessoes, meta_leads: metaLeads, meta_nps: metaNPS,
                     horarios, dark_mode: dark,
                     updated_at: new Date().toISOString()
                   };
@@ -5437,11 +5574,13 @@ export default function CRM() {
                     await sb.from("configuracoes").insert({ id: 1, ...cfg });
                   }
                   setShowSettings(false);
+                  setShowAviso("Configurações salvas com sucesso.");
                 }}>Salvar</button>
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
       </div>
     </>
   );
