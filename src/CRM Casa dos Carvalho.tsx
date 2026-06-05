@@ -953,6 +953,7 @@ export default function CRM() {
   const [confirmPagamento, setConfirmPagamento] = useState<{cid: any; agEvent: any} | null>(null);
   const [pipelineMotivo, setPipelineMotivo] = useState<{cid: any; stage: any; motivo: string; dias?: string} | null>(null);
   const [confirmCancelarEvento, setConfirmCancelarEvento] = useState<{event: any; motivo: string} | null>(null);
+  const [proximaSessaoModal, setProximaSessaoModal] = useState<{cid: any} | null>(null);
   const [showLogoCrop, setShowLogoCrop] = useState(false);
   const [logoCropSrc, setLogoCropSrc] = useState("");
   const [logoCropPos, setLogoCropPos] = useState({ x: 0, y: 0 });
@@ -1988,33 +1989,39 @@ export default function CRM() {
               </button>
             ))}
           </div>
-          {/* Barra de rolagem dourada — clicável e arrastável */}
-          <div id="kanban-track" style={{ padding: "4px 14px 4px", background: "var(--dk2)", borderBottom: "1px solid var(--br)", cursor: "pointer" }}
-            onClick={e => {
-              const track = document.getElementById("kanban-track");
-              const kw = document.getElementById("kanban-scroll");
-              if (!track || !kw) return;
-              const rect = track.getBoundingClientRect();
-              const pct = (e.clientX - rect.left - 14) / (rect.width - 28);
-              kw.scrollLeft = pct * (kw.scrollWidth - kw.clientWidth);
-            }}
-            onMouseDown={e => {
-              e.preventDefault();
-              const kw = document.getElementById("kanban-scroll");
-              const track = document.getElementById("kanban-track");
-              if (!kw || !track) return;
-              const rect = track.getBoundingClientRect();
-              const onMove = (ev: MouseEvent) => {
-                const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left - 14) / (rect.width - 28)));
+          {/* Barra de rolagem dourada — com setas, clicável e arrastável */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", background: "var(--dk2)", borderBottom: "1px solid var(--br)" }}>
+            <button onClick={() => { const kw = document.getElementById("kanban-scroll"); if (kw) kw.scrollLeft -= 230; }}
+              style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 4, border: "1px solid var(--br)", background: "var(--dk3)", color: "var(--gold)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>◀</button>
+            <div id="kanban-track" style={{ flex: 1, cursor: "pointer", padding: "3px 0" }}
+              onClick={e => {
+                const track = document.getElementById("kanban-track");
+                const kw = document.getElementById("kanban-scroll");
+                if (!track || !kw) return;
+                const rect = track.getBoundingClientRect();
+                const pct = (e.clientX - rect.left) / rect.width;
                 kw.scrollLeft = pct * (kw.scrollWidth - kw.clientWidth);
-              };
-              const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
-              document.addEventListener("mousemove", onMove);
-              document.addEventListener("mouseup", onUp);
-            }}>
-            <div style={{ height: 5, background: "var(--dk4)", borderRadius: 3, overflow: "hidden", position: "relative" }}>
-              <div id="kanban-scrollbar-thumb" style={{ height: "100%", background: "var(--gold)", borderRadius: 3, width: "30%", marginLeft: "0%", transition: "margin-left .05s" }} />
+              }}
+              onMouseDown={e => {
+                e.preventDefault();
+                const kw = document.getElementById("kanban-scroll");
+                const track = document.getElementById("kanban-track");
+                if (!kw || !track) return;
+                const rect = track.getBoundingClientRect();
+                const onMove = (ev: MouseEvent) => {
+                  const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+                  kw.scrollLeft = pct * (kw.scrollWidth - kw.clientWidth);
+                };
+                const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+                document.addEventListener("mousemove", onMove);
+                document.addEventListener("mouseup", onUp);
+              }}>
+              <div style={{ height: 5, background: "var(--dk4)", borderRadius: 3, overflow: "hidden" }}>
+                <div id="kanban-scrollbar-thumb" style={{ height: "100%", background: "var(--gold)", borderRadius: 3, width: "30%", marginLeft: "0%", transition: "margin-left .05s" }} />
+              </div>
             </div>
+            <button onClick={() => { const kw = document.getElementById("kanban-scroll"); if (kw) kw.scrollLeft += 230; }}
+              style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 4, border: "1px solid var(--br)", background: "var(--dk3)", color: "var(--gold)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>▶</button>
           </div>
           <div className="kw" id="kanban-scroll" onScroll={e => {
             const el = e.currentTarget;
@@ -3424,22 +3431,63 @@ export default function CRM() {
                         )}
                         {ativos.map((proj: any, pi: number) => (
                           <div key={proj.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                               <span style={{ fontSize: 11, color: "var(--gold)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>Projeto {pi + 1} — Em andamento</span>
-                              <button onClick={() => {
-                                const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
-                                const idx = projs.findIndex((p: any) => p.id === proj.id);
-                                if (idx >= 0) {
-                                  projs[idx] = { ...projs[idx], status: "concluido", concluidoEm: new Date().toLocaleDateString("pt-BR") };
-                                  upC(sc.id, "projetos", projs);
-                                  setClients(p => p.map(c => c.id !== sc.id ? c : {
-                                    ...c,
-                                    hist: [...c.hist, { t: `Projeto concluído: ${proj.estilo || "sem título"} — ${proj.desc?.slice(0,40) || ""}`, d: new Date().toLocaleDateString("pt-BR") }]
-                                  }));
-                                }
-                              }} style={{ fontSize: 10, fontWeight: 600, background: "rgba(39,174,96,.1)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 5, padding: "3px 9px", color: "#27AE60", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                                ✓ Concluir Projeto
-                              </button>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button onClick={() => {
+                                  const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+                                  const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                  if (idx >= 0) {
+                                    projs[idx] = { ...projs[idx], status: "cancelado", canceladoEm: new Date().toLocaleDateString("pt-BR") };
+                                    upC(sc.id, "projetos", projs);
+                                    setClients(p => p.map(c => c.id !== sc.id ? c : {
+                                      ...c, hist: [...c.hist, { t: `Projeto cancelado: ${proj.estilo || "sem título"}`, d: new Date().toLocaleDateString("pt-BR") }]
+                                    }));
+                                  }
+                                }} style={{ fontSize: 10, fontWeight: 600, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "3px 9px", color: "var(--q1)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                                  ✕ Cancelar
+                                </button>
+                                <button onClick={() => {
+                                  const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+                                  const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                  if (idx >= 0) {
+                                    projs[idx] = { ...projs[idx], status: "concluido", concluidoEm: new Date().toLocaleDateString("pt-BR") };
+                                    upC(sc.id, "projetos", projs);
+                                    setClients(p => p.map(c => c.id !== sc.id ? c : {
+                                      ...c, hist: [...c.hist, { t: `Projeto concluído: ${proj.estilo || "sem título"} — ${proj.desc?.slice(0,40) || ""}`, d: new Date().toLocaleDateString("pt-BR") }]
+                                    }));
+                                  }
+                                }} style={{ fontSize: 10, fontWeight: 600, background: "rgba(39,174,96,.1)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 5, padding: "3px 9px", color: "#27AE60", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                                  ✓ Concluir
+                                </button>
+                              </div>
+                            </div>
+                            {/* Valor total do projeto + saldo devedor */}
+                            {(() => {
+                              const valorTotal = Number(proj.valorTotal) || 0;
+                              const pago = (proj.pagamentos || []).reduce((s: number, p: any) => s + (Number(p.valor) || 0), 0);
+                              const saldo = valorTotal - pago;
+                              return valorTotal > 0 ? (
+                                <div style={{ display: "flex", gap: 12, padding: "6px 10px", background: "var(--dk4)", borderRadius: 6, fontSize: 12 }}>
+                                  <span style={{ color: "var(--tx2)" }}>Total: <strong style={{ color: "var(--tx)" }}>R$ {valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
+                                  <span style={{ color: "var(--tx2)" }}>Pago: <strong style={{ color: "#27AE60" }}>R$ {pago.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
+                                  {saldo > 0 && <span style={{ color: "var(--tx2)" }}>Saldo: <strong style={{ color: "var(--q1)" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
+                                  {saldo <= 0 && pago > 0 && <span style={{ color: "#27AE60", fontWeight: 700 }}>✅ Quitado</span>}
+                                </div>
+                              ) : null;
+                            })()}
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 2 }}>
+                              <div className="fi2">
+                                <div className="fil">Valor Total do Projeto (R$)</div>
+                                <input className="ef" type="text" placeholder="0,00" value={proj.valorTotal ? Number(proj.valorTotal).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""}
+                                  onChange={e => {
+                                    const raw = e.target.value.replace(/\D/g,""); const num = raw ? Number(raw)/100 : 0;
+                                    const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+                                    const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                    if (idx >= 0) { projs[idx] = { ...projs[idx], valorTotal: num }; upC(sc.id, "projetos", projs); }
+                                    else upC(sc.id, "projetos", [{ ...proj, valorTotal: num }]);
+                                  }} />
+                              </div>
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                               <div className="fi2">
@@ -3489,6 +3537,20 @@ export default function CRM() {
                             </div>
                           </div>
                         ))}
+                        {projetos.filter((p: any) => p.status === "cancelado").length > 0 && (
+                          <div style={{ borderTop: "1px solid var(--br)", paddingTop: 8, marginTop: 2 }}>
+                            <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Projetos Cancelados</div>
+                            {projetos.filter((p: any) => p.status === "cancelado").map((proj: any) => (
+                              <div key={proj.id} style={{ background: "rgba(192,57,43,.05)", border: "1px solid rgba(192,57,43,.15)", borderRadius: 6, padding: "8px 12px", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div>
+                                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx3)" }}>{proj.estilo || "Sem título"}</div>
+                                  <div style={{ fontSize: 11, color: "var(--tx3)" }}>Cancelado em {proj.canceladoEm || "—"}</div>
+                                </div>
+                                <span style={{ fontSize: 16 }}>🚫</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         {concluidos.length > 0 && (
                           <div style={{ borderTop: "1px solid var(--br)", paddingTop: 8, marginTop: 2 }}>
                             <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Projetos Concluídos</div>
@@ -4295,9 +4357,31 @@ export default function CRM() {
                 );
                 return null;
               })()}
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+              <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>O que acontece após esta sessão?</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => {
+                    confirmarPagamento();
+                    const cli = clients.find(c => c.id === confirmPagamento?.cid);
+                    if (cli) {
+                      setTimeout(() => {
+                        setEditingEvent(null);
+                        setAgClientVinc(cli);
+                        setAgClientSearch("");
+                        setAgForm({ title: cli.nome, desc: "", tipo: "sess_" + (cli.artista || "abraao"), date: "", start: 9, end: 11 } as any);
+                        setShowAgForm(true);
+                      }, 400);
+                    }
+                  }} style={{ flex: 1, background: "rgba(74,158,191,.15)", border: "1px solid rgba(74,158,191,.3)", borderRadius: 7, padding: "9px 12px", fontSize: 12, fontWeight: 600, color: "var(--ab)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                    📅 Haverá próxima sessão
+                  </button>
+                  <button onClick={confirmarPagamento} style={{ flex: 1, background: "rgba(39,174,96,.15)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 7, padding: "9px 12px", fontSize: 12, fontWeight: 600, color: "#27AE60", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                    ✅ Projeto concluído
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 2 }}>
                 <button className="btn-c" onClick={() => setConfirmPagamento(null)}>Cancelar</button>
-                <button className="btn-s" onClick={confirmarPagamento}>Confirmar e Mover</button>
               </div>
             </div>
           </div>
