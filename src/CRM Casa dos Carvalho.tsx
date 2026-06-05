@@ -920,7 +920,6 @@ export default function CRM() {
   const [cnpj, setCnpj] = useState("");
   const [metaMensal, setMetaMensal] = useState(15000);
   const [saidas, setSaidas] = useState<any[]>([]);
-  ]);
   const [showSaidaForm, setShowSaidaForm] = useState(false);
   const [saidaForm, setSaidaForm] = useState({ desc: "", categoria: "Material", valor: 0, data: new Date().toLocaleDateString("pt-BR") });
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
