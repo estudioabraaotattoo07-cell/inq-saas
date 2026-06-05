@@ -998,6 +998,7 @@ export default function CRM() {
   const logoCropRef = useRef<any>(null);
   const [pagFormas, setPagFormas] = useState<{forma: string; valor: string; parcelas: string}[]>([{ forma: "Pix", valor: "", parcelas: "1" }]);
   const [showAviso, setShowAviso] = useState<string | null>(null);
+  const [orcamentoModal, setOrcamentoModal] = useState<{cid: any; valor: string} | null>(null);
   const [undoEvento, setUndoEvento] = useState<any>(null);
   const [undoTimer, setUndoTimer] = useState<any>(null);
 
@@ -2520,7 +2521,10 @@ export default function CRM() {
                 <div className="fth">Desempenho por Artista</div>
                 <div style={{ padding: "13px 15px", display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
                   {artists.filter(a => a.ativo).map(a => {
-                    const ss = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada"));
+                    const ss = finFiltrado.filter(f => {
+                      const fArt = (f.artista || f.artista_id || "").toLowerCase();
+                      return (fArt === a.id || fArt === a.id?.toLowerCase() || a.nome?.toLowerCase().startsWith(fArt) || fArt === a.nome?.split(" ")[0]?.toLowerCase()) && (!f.tipo || f.tipo === "entrada");
+                    });
                     const fat = ss.reduce((s, f) => s + (Number(f.val_a) || 0), 0);
                     const repasse = ss.reduce((s, f) => s + ((Number(f.val_a) || 0) * (Number(f.com_sess) || 0) / 100), 0);
                     const ticket = ss.length > 0 ? Math.round(fat / ss.length) : 0;
@@ -3439,16 +3443,7 @@ export default function CRM() {
                   <div className="ba">
                     <span style={{ fontSize: 18 }}>💰</span>
                     <div style={{ flex: 1, fontSize: 12, color: "var(--q2)", fontWeight: 600 }}>Orcamento pendente - registre o valor combinado nesta consultoria.</div>
-                    <button className="btn-sm gold" onClick={() => {
-                      const v = prompt("Valor combinado (ex: 1200):");
-                      if (v) {
-                        upC(sc.id, "val_a", Number(v));
-                        upC(sc.id, "orcamento", false);
-                        setClients(p => p.map(c => c.id !== sc.id ? c : {
-                          ...c, hist: [...c.hist, { t: "Orcamento: R$ " + Number(v).toLocaleString("pt-BR"), d: new Date().toLocaleString("pt-BR") }]
-                        }));
-                      }
-                    }}>Registrar</button>
+                    <button className="btn-sm gold" onClick={() => setOrcamentoModal({ cid: sc.id, valor: "" })}>Registrar</button>
                   </div>
                 )}
 
@@ -4832,7 +4827,7 @@ export default function CRM() {
               </div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button className="btn-c" onClick={() => setConfirmMover(null)}>Cancelar</button>
-                <button className="btn-s" onClick={() => { move(confirmMover.cid, confirmMover.stage.id); setConfirmMover(null); }}>
+                <button className="btn-s" onClick={() => { setConfirmMover(null); move(confirmMover.cid, confirmMover.stage.id); }}>
                   Confirmar
                 </button>
               </div>
@@ -4988,6 +4983,48 @@ export default function CRM() {
                   };
                   img.src = logoCropSrc;
                 }}>✓ Confirmar Recorte</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MODAL ORÇAMENTO ── */}
+        {orcamentoModal && (
+          <div className="ov" onClick={() => setOrcamentoModal(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(400px, 92vw)", padding: "28px 28px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(201,168,76,.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>💰</div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "var(--tx)" }}>Registrar Orçamento</div>
+                  <div style={{ fontSize: 12, color: "var(--tx2)", marginTop: 3 }}>Informe o valor combinado com o cliente</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--tx3)" }}>Valor (R$)</label>
+                <input className="fi" placeholder="Ex: 1200" value={orcamentoModal.valor}
+                  onChange={e => setOrcamentoModal(p => p ? { ...p, valor: e.target.value.replace(/\D/g,"") } : null)}
+                  onKeyDown={e => { if (e.key === "Enter") {
+                    const v = Number(orcamentoModal.valor);
+                    if (v > 0) {
+                      upC(orcamentoModal.cid, "val_a", v);
+                      upC(orcamentoModal.cid, "orcamento", false);
+                      setClients(p => p.map(c => c.id !== orcamentoModal.cid ? c : { ...c, hist: [...c.hist, { t: "Orcamento: R$ " + v.toLocaleString("pt-BR"), d: new Date().toLocaleString("pt-BR") }] }));
+                      setOrcamentoModal(null);
+                    }
+                  }}}
+                  autoFocus style={{ fontSize: 18, fontWeight: 600, textAlign: "center", letterSpacing: ".05em" }} />
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn-c" onClick={() => setOrcamentoModal(null)}>Cancelar</button>
+                <button className="btn-s" onClick={() => {
+                  const v = Number(orcamentoModal.valor);
+                  if (v > 0) {
+                    upC(orcamentoModal.cid, "val_a", v);
+                    upC(orcamentoModal.cid, "orcamento", false);
+                    setClients(p => p.map(c => c.id !== orcamentoModal.cid ? c : { ...c, hist: [...c.hist, { t: "Orcamento: R$ " + v.toLocaleString("pt-BR"), d: new Date().toLocaleString("pt-BR") }] }));
+                    setOrcamentoModal(null);
+                  }
+                }}>Confirmar</button>
               </div>
             </div>
           </div>
