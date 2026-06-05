@@ -1502,7 +1502,8 @@ export default function CRM() {
     if (sb) {
       const { data, error } = await sb.from("clientes").insert({
         nome: nc.nome, insta: nc.insta || "", tel: nc.tel || "",
-        qual: nc.qual, artista: nc.artista, etapa: "lead",
+        qual: nc.qual, artista: nc.artista,
+        etapa: nc.qual === "Q1" ? "lead" : "qualificacao",
         orig: nc.orig || "Instagram Organico",
         email: nc.email || "",
         estilo: nc.estilo || "", regiao: nc.regiao || "",
@@ -1524,7 +1525,9 @@ export default function CRM() {
         return;
       }
       if (data) {
-        setClients(p => [{ ...nc, id: data.id, etapa: "lead" }, ...p]);
+        // Definir etapa inicial baseada na qualificação
+        const etapaInicial = nc.qual === "Q1" ? "lead" : "qualificacao";
+        setClients(p => [{ ...nc, id: data.id, etapa: etapaInicial }, ...p]);
         // Salvar agendamento se marcado
         if (formAg.agendar && formAg.data) {
           await dbUpsert("agenda", {
@@ -1602,6 +1605,16 @@ export default function CRM() {
       setAgClientVinc(null);
       setAgClientSearch("");
       addLog(`Agenda: evento "${agForm.title}" editado (${agForm.date} ${agForm.start}h)`);
+      // Mover pipeline ao editar agendamento vinculado a cliente
+      if (agClientVinc) {
+        const tipoKey = agForm.tipo.split("_")[0];
+        const cli = clients.find((c: any) => c.id === agClientVinc.id);
+        if (tipoKey === "cons" && cli && ["lead", "qualificacao"].includes(cli.etapa)) {
+          executarMove(agClientVinc.id, "cons_agendada");
+        } else if ((tipoKey === "sess" || tipoKey === "piercing") && cli && ["lead", "qualificacao", "cons_agendada", "hibernacao"].includes(cli.etapa)) {
+          executarMove(agClientVinc.id, "sessao_agend");
+        }
+      }
       // Lançar sinal no financeiro se foi marcado como pago agora e não havia antes
       const sinalValEdit = parseFloat(String((agForm as any).sinal || "0").replace(/\./g, "").replace(",", ".")) || 0;
       const sinalPagoEdit = !!(agForm as any).sinalPago;
@@ -4987,29 +5000,14 @@ export default function CRM() {
                 const proj = (cli?.projetos || []).find((p: any) => p.status !== "concluido" && p.status !== "cancelado");
                 if (!proj?.valorTotal) return null;
                 const valorTotal = Number(proj.valorTotal) || 0;
-                const pago = (proj.pagamentos || []).reduce((s: number, p: any) => s + (Number(p.valor) || 0), 0);
-                const saldo = valorTotal - pago;
+                const pago = fin.filter((f: any) => f.cliente_id === confirmPagamento.cid && (!f.tipo || f.tipo === "entrada"))
+                  .reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
+                const saldo = Math.max(valorTotal - pago, 0);
                 return (
                   <div style={{ display: "flex", gap: 12, background: "rgba(201,168,76,.08)", border: "1px solid rgba(201,168,76,.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, flexWrap: "wrap" }}>
                     <span>💰 Projeto: <strong style={{ color: "var(--tx)" }}>R$ {valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
                     <span>Pago: <strong style={{ color: "#27AE60" }}>R$ {pago.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
                     {saldo > 0 && <span>Saldo: <strong style={{ color: "var(--q1)" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
-                    {saldo <= 0 && pago > 0 && <span style={{ color: "#27AE60", fontWeight: 700 }}>✅ Quitado</span>}
-                  </div>
-                );
-              })()}
-              {(() => {
-                const cli = clients.find(c => c.id === confirmPagamento.cid);
-                const proj = (cli?.projetos || []).find((p: any) => p.status !== "concluido" && p.status !== "cancelado");
-                if (!proj?.valorTotal) return null;
-                const valorTotal = Number(proj.valorTotal) || 0;
-                const pago = (proj.pagamentos || []).reduce((s: number, p: any) => s + (Number(p.valor) || 0), 0);
-                const saldo = valorTotal - pago;
-                return (
-                  <div style={{ display: "flex", gap: 12, background: "rgba(201,168,76,.08)", border: "1px solid rgba(201,168,76,.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
-                    <span>💰 Projeto: <strong style={{ color: "var(--tx)" }}>R$ {valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
-                    <span>Pago: <strong style={{ color: "#27AE60" }}>R$ {pago.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
-                    {saldo > 0 && <span>Saldo devedor: <strong style={{ color: "var(--q1)" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
                     {saldo <= 0 && pago > 0 && <span style={{ color: "#27AE60", fontWeight: 700 }}>✅ Quitado</span>}
                   </div>
                 );
