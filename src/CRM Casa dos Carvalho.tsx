@@ -334,6 +334,7 @@ const CAL_COLORS: Record<string, string> = {
   sess_abraao: "#4A9EBF",
   cons_camilla: "#9B6BB5",
   sess_camilla: "#9B6BB5",
+  // Dynamic colors override below via getEventColor
   bloq_abraao: "#C0392B",
   bloq_camilla: "#C0392B",
   bloq_geral: "#555",
@@ -1115,6 +1116,18 @@ export default function CRM() {
   }, []);
 
   useMemo(() => applyTheme(dark), [dark]);
+  useMemo(() => {
+    if (artists.length > 0) {
+      const root = document.documentElement;
+      artists.forEach(a => {
+        if (a.cor) root.style.setProperty("--artist-" + a.id, a.cor);
+      });
+      const ab = artists.find(a => a.id === "abraao")?.cor || "#4A9EBF";
+      const ca = artists.find(a => a.id === "camilla")?.cor || "#9B6BB5";
+      root.style.setProperty("--ab", ab);
+      root.style.setProperty("--ca", ca);
+    }
+  }, [artists]);
 
   const filtered = useMemo(() => clients.filter(c => {
     const mA = fa === "todos" || c.artista === fa;
@@ -1694,7 +1707,7 @@ export default function CRM() {
   const aClass = (id: string) => "";
   const aStyle = (id: string) => {
     const a = artists.find(x => x.id === id);
-    const hex = a?.cor || (id === "abraao" ? "#4A9EBF" : id === "camilla" ? "#9B6BB5" : "#C9A84C");
+    const hex = a?.cor || "#C9A84C";
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
     return { background: "rgba("+r+","+g+","+b+",.15)", color: hex, border: "1px solid rgba("+r+","+g+","+b+",.3)", borderRadius: 9, padding: "2px 6px", fontSize: 10, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase" as const };
   };
@@ -2063,7 +2076,7 @@ export default function CRM() {
                       const m = miss(c); const ch = churn(c);
                       return (
                         <div key={c.id} className="card" onClick={() => { setSel(c); setSelCtx("clientes"); }}>
-                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "3px", background: c.artista === "abraao" ? "var(--ab)" : "var(--ca)", borderRadius: "7px 0 0 7px" }} />
+                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "3px", background: aColor(c.artista), borderRadius: "7px 0 0 7px" }} />
                           <div className="ctop">
                             <div className="cname">{c.nome}</div>
                             <span className={"qb " + QC[c.qual]}>{c.qual}</span>
