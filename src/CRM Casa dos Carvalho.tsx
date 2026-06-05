@@ -361,6 +361,16 @@ const CAL_LABELS: Record<string, string> = {
   bloq_geral: "Bloq. Geral",
   piercing: "Piercing"
 };
+const getEventLabel = (tipo: string, artistsList?: any[]) => {
+  if (CAL_LABELS[tipo]) return CAL_LABELS[tipo];
+  if (artistsList) {
+    const prefix = tipo.startsWith("cons_") ? "Consulta" : tipo.startsWith("sess_") ? "Sessão" : null;
+    const artId = tipo.replace("cons_","").replace("sess_","");
+    const art = artistsList.find(a => a.id === artId);
+    if (prefix && art) return `${prefix} ${art.nome.split(" ")[0]}`;
+  }
+  return tipo;
+};
 
 const SEGS = [
   { id: "todos", label: "Todos", desc: "Toda a base", icon: "👥", f: () => true },
@@ -958,6 +968,9 @@ export default function CRM() {
   const [cancelMotivos, setCancelMotivos] = useState<string[]>(["Cliente desistiu", "Questão financeira", "Mudança de projeto", "Sem resposta do cliente", "Outro"]);
   const [novoProjetoAberto, setNovoProjetoAberto] = useState<any>(null);
   const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "" });
+  const [showRecorrenteModal, setShowRecorrenteModal] = useState<{cid: any} | null>(null);
+  const [recorrenteForm, setRecorrenteForm] = useState({ dataInicio: new Date().toISOString().split("T")[0], intervalo: 7, total: 4, hora: 9, duracao: 2, artista: "" });
+  const [fichaRevelada, setFichaRevelada] = useState<Set<any>>(new Set());
   const [showLogoCrop, setShowLogoCrop] = useState(false);
   const [logoCropSrc, setLogoCropSrc] = useState("");
   const [logoCropPos, setLogoCropPos] = useState({ x: 0, y: 0 });
@@ -3659,7 +3672,18 @@ export default function CRM() {
                 </div>
 
                 <div>
-                  <div className="stit">Avaliações Internas</div>
+                  <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>Avaliações Internas</span>
+                    <button onClick={() => setFichaRevelada(p => { const n = new Set(p); n.has(sc.id) ? n.delete(sc.id) : n.add(sc.id); return n; })}
+                      style={{ fontSize: 11, background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "3px 9px", color: fichaRevelada.has(sc.id) ? "var(--gold)" : "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                      {fichaRevelada.has(sc.id) ? "👁 Ocultar dados internos" : "👁 Ver dados internos"}
+                    </button>
+                  </div>
+                  {!fichaRevelada.has(sc.id) ? (
+                    <div style={{ padding: "14px 0", fontSize: 12, color: "var(--tx3)", fontStyle: "italic", textAlign: "center" }}>
+                      Dados internos ocultos — clique em "Ver dados internos" para revelar
+                    </div>
+                  ) : (
                   <div className="fg2">
                     <div className="fi2">
                       <div className="fil">Avaliação do Cliente pelo Artista</div>
@@ -3696,6 +3720,8 @@ export default function CRM() {
                       style={{ width: "100%", minHeight: 50, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "6px 8px", fontSize: 11, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", outline: "none", resize: "vertical", marginTop: 3 }}
                       placeholder="Anotações privadas..." />
                   </div>
+                  </div>
+                  )}
                 </div>
 
                 <div>
@@ -4388,6 +4414,61 @@ export default function CRM() {
           </div>
         )}
 
+        {/* ── MODAL SESSÕES RECORRENTES ── */}
+        {showRecorrenteModal && (
+          <div className="ov" onClick={() => setShowRecorrenteModal(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(460px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>📅 Sessões Recorrentes</div>
+              <div style={{ fontSize: 12, color: "var(--tx2)" }}>Configure as sessões e o sistema cria todos os agendamentos de uma vez.</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div className="ff"><label className="fl">Data da 1ª Sessão</label>
+                  <input className="fi" type="date" value={recorrenteForm.dataInicio} onChange={e => setRecorrenteForm(p => ({ ...p, dataInicio: e.target.value }))} />
+                </div>
+                <div className="ff"><label className="fl">Artista</label>
+                  <select className="fs" value={recorrenteForm.artista} onChange={e => setRecorrenteForm(p => ({ ...p, artista: e.target.value }))}>
+                    {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome.split(" ")[0]}</option>)}
+                  </select>
+                </div>
+                <div className="ff"><label className="fl">Intervalo (dias)</label>
+                  <input className="fi" type="number" min={1} value={recorrenteForm.intervalo} onChange={e => setRecorrenteForm(p => ({ ...p, intervalo: Number(e.target.value) }))} />
+                </div>
+                <div className="ff"><label className="fl">Total de Sessões</label>
+                  <input className="fi" type="number" min={1} max={52} value={recorrenteForm.total} onChange={e => setRecorrenteForm(p => ({ ...p, total: Number(e.target.value) }))} />
+                </div>
+                <div className="ff"><label className="fl">Horário de Início</label>
+                  <input className="fi" type="number" min={7} max={22} value={recorrenteForm.hora} onChange={e => setRecorrenteForm(p => ({ ...p, hora: Number(e.target.value) }))} />
+                </div>
+                <div className="ff"><label className="fl">Duração (horas)</label>
+                  <input className="fi" type="number" min={1} max={8} value={recorrenteForm.duracao} onChange={e => setRecorrenteForm(p => ({ ...p, duracao: Number(e.target.value) }))} />
+                </div>
+              </div>
+              <div style={{ background: "var(--dk3)", borderRadius: 7, padding: "10px 13px", fontSize: 12, color: "var(--tx2)" }}>
+                Serão criadas <strong style={{ color: "var(--gold)" }}>{recorrenteForm.total} sessões</strong>, a cada <strong style={{ color: "var(--gold)" }}>{recorrenteForm.intervalo} dias</strong>, com <strong style={{ color: "var(--gold)" }}>{recorrenteForm.hora}h–{recorrenteForm.hora + recorrenteForm.duracao}h</strong>.
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn-c" onClick={() => setShowRecorrenteModal(null)}>Cancelar</button>
+                <button className="btn-s" onClick={async () => {
+                  const cli = clients.find(c => c.id === showRecorrenteModal.cid);
+                  if (!cli) return;
+                  const tipo = "sess_" + recorrenteForm.artista;
+                  let dataBase = new Date(recorrenteForm.dataInicio + "T12:00:00");
+                  for (let i = 0; i < recorrenteForm.total; i++) {
+                    const dateStr = dataBase.toISOString().split("T")[0];
+                    const horaStr = String(recorrenteForm.hora).padStart(2,"0") + ":00";
+                    const row: any = { titulo: cli.nome, cliente_id: cli.id, cliente_nome: cli.nome, artista: recorrenteForm.artista, data: dateStr, hora: horaStr, hora_fim: String(recorrenteForm.hora + recorrenteForm.duracao).padStart(2,"0") + ":00", tipo };
+                    const { data } = await sb.from("agenda").insert(row).select().single();
+                    if (data) setAgEvents(p => [...p, { ...data, id: data.id, title: cli.nome, start: recorrenteForm.hora, end: recorrenteForm.hora + recorrenteForm.duracao, date: dateStr, tipo }]);
+                    dataBase = new Date(dataBase.getTime() + recorrenteForm.intervalo * 86400000);
+                  }
+                  executarMove(cli.id, "sessao_agend");
+                  addLog(`Agenda: ${recorrenteForm.total} sessões recorrentes criadas para ${cli.nome}`);
+                  setShowRecorrenteModal(null);
+                }}>Criar {recorrenteForm.total} Sessões</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── MODAL CANCELAR PROJETO ── */}
         {cancelProjetoModal && (() => {
           const cli = clients.find(c => c.id === cancelProjetoModal.clienteId);
@@ -4555,32 +4636,54 @@ export default function CRM() {
                 Mover para {confirmMover.stage.emoji} {confirmMover.stage.label}?
               </div>
               {confirmMover.agEvents.length > 0 ? (
-                <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 14px" }}>
-                  <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Agendamentos vinculados</div>
+                <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 2, textTransform: "uppercase", letterSpacing: ".06em" }}>Agendamentos vinculados</div>
                   {confirmMover.agEvents.map((e: any) => (
-                    <div key={e.id} style={{ fontSize: 12, color: "var(--tx)", padding: "4px 0", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between" }}>
-                      <span>{e.date}</span>
-                      <span style={{ color: "var(--tx2)" }}>{String(e.start).padStart(2,"0")}h — {e.tipo}</span>
+                    <div key={e.id} style={{ fontSize: 12, color: "var(--tx)", padding: "6px 0", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <span style={{ fontWeight: 600 }}>{e.date ? e.date.split("-").reverse().join("/") : "—"}</span>
+                        <span style={{ color: "var(--tx2)", marginLeft: 8 }}>{String(e.start).padStart(2,"0")}h — {getEventLabel(e.tipo, artists)}</span>
+                      </div>
+                      <button onClick={() => {
+                        setConfirmMover(null);
+                        setEditingEvent(e);
+                        const cv = clients.find(c => c.id === e.cliente_id) || null;
+                        setAgClientVinc(cv);
+                        setAgClientSearch("");
+                        setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "", sinalPago: !!e.sinal_pago } as any);
+                        setShowAgForm(true);
+                      }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 9px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>✏️ Editar</button>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div style={{ background: "rgba(212,130,10,.1)", border: "1px solid rgba(212,130,10,.3)", borderRadius: 7, padding: "10px 14px", fontSize: 12, color: "#D4820A" }}>
-                  ⚠️ Nenhum agendamento encontrado para este cliente. Deseja criar um agora?
-                  <button onClick={() => {
-                    const cli = clients.find(c => c.id === confirmMover.cid);
-                    setConfirmMover(null);
-                    setEditingEvent(null);
-                    setAgClientVinc(cli || null);
-                    setAgClientSearch("");
-                    setAgForm({ title: cli?.nome || "", desc: "", tipo: "cons_abraao", date: new Date().toISOString().split("T")[0], start: 9, end: 11 });
-                    setShowAgForm(true);
-                  }}
-                    style={{ display: "block", marginTop: 8, background: "rgba(212,130,10,.2)", border: "1px solid rgba(212,130,10,.4)", borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#D4820A", cursor: "pointer" }}>
-                    + Criar agendamento
-                  </button>
+                  ⚠️ Nenhum agendamento encontrado para este cliente.
                 </div>
               )}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button onClick={() => {
+                  const cli = clients.find(c => c.id === confirmMover.cid);
+                  setConfirmMover(null);
+                  setEditingEvent(null);
+                  setAgClientVinc(cli || null);
+                  setAgClientSearch("");
+                  const tipoAg = confirmMover.stage.id === "cons_agendada" ? "cons_" : "sess_";
+                  const artId = cli?.artista || (artists[0]?.id || "abraao");
+                  setAgForm({ title: cli?.nome || "", desc: "", tipo: tipoAg + artId, date: new Date().toISOString().split("T")[0], start: 9, end: 11 } as any);
+                  setShowAgForm(true);
+                }} style={{ flex: 1, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 10px", fontSize: 11, fontWeight: 600, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                  + Nova Sessão
+                </button>
+                <button onClick={() => {
+                  const cli = clients.find(c => c.id === confirmMover.cid);
+                  setConfirmMover(null);
+                  setRecorrenteForm(p => ({ ...p, artista: cli?.artista || artists[0]?.id || "abraao" }));
+                  setShowRecorrenteModal({ cid: confirmMover.cid });
+                }} style={{ flex: 1, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 10px", fontSize: 11, fontWeight: 600, color: "var(--ab)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                  📅 Sessões Recorrentes
+                </button>
+              </div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button className="btn-c" onClick={() => setConfirmMover(null)}>Cancelar</button>
                 <button className="btn-s" onClick={() => { move(confirmMover.cid, confirmMover.stage.id); setConfirmMover(null); }}>
