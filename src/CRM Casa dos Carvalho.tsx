@@ -88,7 +88,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .srch::placeholder{color:var(--tx3);}
 .fb{background:var(--dk3);border:1px solid var(--br);border-radius:6px;color:var(--tx2);padding:6px 11px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
 .fb.on{background:var(--gold-d);border-color:var(--gold);color:var(--gold);}
-.kw{flex:1;overflow-x:auto;padding:14px;display:flex;gap:11px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--gold) var(--dk3);}.kw::-webkit-scrollbar{height:6px;}.kw::-webkit-scrollbar-track{background:var(--dk3);border-radius:3px;}.kw::-webkit-scrollbar-thumb{background:var(--gold);border-radius:3px;}.kc{min-width:215px;max-width:215px;display:flex;flex-direction:column;gap:6px;}
+.kw{flex:1;overflow-x:auto;padding:14px;display:flex;gap:11px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:215px;max-width:215px;display:flex;flex-direction:column;gap:6px;}
 
 .kh{padding:8px 11px;border-radius:7px 7px 0 0;background:var(--dk3);border:1px solid var(--br);border-bottom:2px solid;display:flex;align-items:center;justify-content:space-between;}
 .kt{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
@@ -1999,7 +1999,7 @@ export default function CRM() {
             { id: "agenda", l: "Agenda", i: "📅" },
             { id: "financeiro", l: "Financeiro", i: "💰" },
             { id: "artistas", l: "Artistas", i: "🎨" },
-            { id: "contratos", l: "Contratos", i: "📄" },
+
             { id: "dashboard", l: "Visão Geral", i: "📊" },
             { id: "posvenda", l: "Pós-venda", i: "💬" },
             { id: "disparos", l: "Disparos", i: "📣" },
@@ -2049,11 +2049,18 @@ export default function CRM() {
         {/* ── KANBAN ── */}
         {tab === "kanban" && (
           <>
+          {/* Barra de rolagem nativa dourada — acima das colunas */}
+          <div style={{ background: "var(--dk2)", borderBottom: "1px solid var(--br)" }}>
+            <div className="kw-scroll-mirror" id="kanban-scroll" style={{ overflowX: "auto", overflowY: "hidden", height: 10, scrollbarWidth: "thin", scrollbarColor: "var(--gold) var(--dk3)" }}
+              onScroll={e => { const body = document.getElementById("kanban-body"); if (body) body.scrollLeft = e.currentTarget.scrollLeft; }}>
+              <div id="kanban-scroll-spacer" style={{ height: 1 }} />
+            </div>
+          </div>
           {/* Seletor de coluna */}
-          <div style={{ display: "flex", overflowX: "auto", gap: 6, padding: "8px 14px 6px", background: "var(--dk2)", scrollbarWidth: "none" }}>
+          <div style={{ display: "flex", overflowX: "auto", gap: 6, padding: "8px 14px 6px", background: "var(--dk2)", borderBottom: "1px solid var(--br)", scrollbarWidth: "none" }}>
             {STAGES.map(stage => (
               <button key={stage.id} onClick={() => {
-                const kw = document.getElementById("kanban-scroll");
+                const kw = document.getElementById("kanban-body");
                 const el = document.getElementById("kcol-" + stage.id);
                 if (kw && el) kw.scrollTo({ left: el.offsetLeft - 14, behavior: "smooth" });
               }} style={{ flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 600, borderRadius: 20, border: "1px solid var(--br)", background: "var(--dk3)", color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
@@ -2061,7 +2068,19 @@ export default function CRM() {
               </button>
             ))}
           </div>
-          <div className="kw" id="kanban-scroll">
+          <div className="kw" id="kanban-body" onScroll={e => {
+            const mirror = document.getElementById("kanban-scroll");
+            if (mirror) mirror.scrollLeft = e.currentTarget.scrollLeft;
+          }} ref={el => {
+            if (el) {
+              const spacer = document.getElementById("kanban-scroll-spacer");
+              if (spacer) spacer.style.width = el.scrollWidth + "px";
+              setTimeout(() => {
+                const spacer2 = document.getElementById("kanban-scroll-spacer");
+                if (spacer2) spacer2.style.width = el.scrollWidth + "px";
+              }, 600);
+            }
+          }}>
             {STAGES.map(stage => {
               const sc2 = getSC(stage.id);
               return (
@@ -3002,6 +3021,7 @@ export default function CRM() {
                       <input className="ci" type="number" min={0} max={100} value={a.com}
                         onChange={e => setArtists(p => p.map(x => x.id === a.id ? { ...x, com: Number(e.target.value) } : x))} />
                       <span style={{ fontSize: 11, color: "var(--tx2)" }}>%</span>
+                      <span style={{ fontSize: 10, color: "var(--tx3)" }}>· Est: <strong style={{ color: "var(--gold)" }}>{100 - (a.com || 0)}%</strong></span>
                     </div>
                   </div>
                 </div>
@@ -3026,7 +3046,15 @@ export default function CRM() {
                           <option value="guest">Guest</option>
                         </select>
                       </div>
-                      <div className="ff"><label className="fl">Comissão (%)</label><input className="fi" type="number" min={0} max={100} value={editingArtist.com} onChange={e => setEditingArtist({ ...editingArtist, com: Number(e.target.value) })} /></div>
+                      <div className="ff">
+                  <label className="fl">Comissão (%)</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input className="fi" type="number" min={0} max={100} value={editingArtist.com} onChange={e => setEditingArtist({ ...editingArtist, com: Number(e.target.value) })} style={{ width: 80 }} />
+                    <span style={{ fontSize: 11, color: "var(--tx3)" }}>
+                      Artista: <strong style={{ color: "var(--gold)" }}>{editingArtist.com}%</strong> · Estúdio: <strong style={{ color: "var(--ab)" }}>{100 - editingArtist.com}%</strong>
+                    </span>
+                  </div>
+                </div>
                     </div>
                     <div className="fr">
                       <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={editingArtist.insta || ""} onChange={e => setEditingArtist({ ...editingArtist, insta: e.target.value })} /></div>
@@ -4175,7 +4203,15 @@ export default function CRM() {
                       <option value="residente">Residente</option><option value="guest">Guest</option>
                     </select>
                   </div>
-                  <div className="ff"><label className="fl">Comissão (%)</label><input className="fi" type="number" min={0} max={100} value={artForm.com} onChange={e => setArtForm({ ...artForm, com: Number(e.target.value) })} /></div>
+                  <div className="ff">
+                  <label className="fl">Comissão (%)</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input className="fi" type="number" min={0} max={100} value={artForm.com} onChange={e => setArtForm({ ...artForm, com: Number(e.target.value) })} style={{ width: 80 }} />
+                    <span style={{ fontSize: 11, color: "var(--tx3)" }}>
+                      Artista: <strong style={{ color: "var(--gold)" }}>{artForm.com}%</strong> · Estúdio: <strong style={{ color: "var(--ab)" }}>{100 - artForm.com}%</strong>
+                    </span>
+                  </div>
+                </div>
                 </div>
                 <div className="fr">
                   <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => { const v = e.target.value; setArtForm({ ...artForm, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
