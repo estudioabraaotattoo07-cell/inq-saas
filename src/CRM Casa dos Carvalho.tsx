@@ -11,19 +11,19 @@ async function dbGet(table: string) {
   if (error) { console.error(table, error); return null; }
   return data;
 }
-async function dbUpsert(table: string, row: any) {
+async function dbUpsert(table: string, row: any, onError?: (msg: string) => void) {
   const { data, error } = await sb.from(table).upsert(row).select().single();
-  if (error) { console.error("upsert", table, error.message, row); return null; }
+  if (error) { console.error("upsert", table, error.message, row); onError?.(error.message); return null; }
   return data;
 }
-async function dbInsert(table: string, row: any) {
+async function dbInsert(table: string, row: any, onError?: (msg: string) => void) {
   const { data, error } = await sb.from(table).insert(row).select().single();
-  if (error) { console.error("insert", table, error.message, row); return null; }
+  if (error) { console.error("insert", table, error.message, row); onError?.(error.message); return null; }
   return data;
 }
-async function dbDelete(table: string, id: any) {
+async function dbDelete(table: string, id: any, onError?: (msg: string) => void) {
   const { error } = await sb.from(table).delete().eq("id", id);
-  if (error) console.error("delete", table, id, error.message);
+  if (error) { console.error("delete", table, id, error.message); onError?.(error.message); }
 }
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
@@ -1117,7 +1117,7 @@ export default function CRM() {
       qual: c.qual, artista: c.artista, etapa: c.etapa,
       orig: c.orig || "", email: c.email || "",
       estilo: c.estilo || "", regiao: c.regiao || "",
-      tam: c.tam || "", intencao: c.intencao || "", primeira: c.primeira || false,
+      tam: c.tam || "Medio", intencao: c.intencao || "", primeira: c.primeira || false,
       cob: c.cob || false, descricao: c.desc || "",
       stars: c.stars || 0, star_reason: c.starReason || "",
       consent: c.consent, nps: c.nps, obs: c.obs || "",
@@ -1132,7 +1132,7 @@ export default function CRM() {
       documento: (c as any).documento || "",
       projetos: c.projetos || [],
       updated_at: new Date().toISOString()
-    });
+    }, (msg) => setShowAviso("Erro ao salvar dados do cliente: " + msg));
   }, []);
 
   const addLog = useCallback(async (acao: string) => {
@@ -1593,7 +1593,7 @@ export default function CRM() {
 
     if (editingEvent) {
       const { data, error } = await sb.from("agenda").update(row).eq("id", editingEvent.id).select().single();
-      if (error) { console.error("Erro ao atualizar agenda:", error); alert("Erro ao atualizar agendamento."); return; }
+      if (error) { setShowAviso("Erro ao atualizar agendamento: " + error.message); return; }
       setAgEvents(p => p.map(e => e.id === editingEvent.id ? {
         ...data, title: data.titulo, date: data.data,
         start: parseInt(data.hora?.split(":")[0] || "9"),
@@ -1641,7 +1641,7 @@ export default function CRM() {
     }
 
     const { data, error } = await sb.from("agenda").insert(row).select().single();
-    if (error) { console.error("Erro ao salvar agenda:", error); alert("Erro ao salvar agendamento."); return; }
+    if (error) { setShowAviso("Erro ao salvar agendamento: " + error.message); return; }
     setAgEvents(p => [...p, {
       ...data, title: data.titulo || agForm.title, date: data.data || agForm.date,
       start: parseInt(data.hora?.split(":")[0] || String(agForm.start)),
@@ -5000,15 +5000,17 @@ export default function CRM() {
                 const proj = (cli?.projetos || []).find((p: any) => p.status !== "concluido" && p.status !== "cancelado");
                 if (!proj?.valorTotal) return null;
                 const valorTotal = Number(proj.valorTotal) || 0;
-                const pago = fin.filter((f: any) => f.cliente_id === confirmPagamento.cid && (!f.tipo || f.tipo === "entrada"))
+                const pagoAntes = fin.filter((f: any) => f.cliente_id === confirmPagamento.cid && (!f.tipo || f.tipo === "entrada"))
                   .reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
-                const saldo = Math.max(valorTotal - pago, 0);
+                const pagandoAgora = pagFormas.reduce((s, f) => s + (parseFloat(f.valor.replace(/\./g,"").replace(",",".")) || 0), 0);
+                const totalPago = pagoAntes + pagandoAgora;
+                const saldo = Math.max(valorTotal - totalPago, 0);
                 return (
                   <div style={{ display: "flex", gap: 12, background: "rgba(201,168,76,.08)", border: "1px solid rgba(201,168,76,.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, flexWrap: "wrap" }}>
                     <span>💰 Projeto: <strong style={{ color: "var(--tx)" }}>R$ {valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
-                    <span>Pago: <strong style={{ color: "#27AE60" }}>R$ {pago.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
+                    <span>Pago: <strong style={{ color: "#27AE60" }}>R$ {totalPago.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
                     {saldo > 0 && <span>Saldo: <strong style={{ color: "var(--q1)" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
-                    {saldo <= 0 && pago > 0 && <span style={{ color: "#27AE60", fontWeight: 700 }}>✅ Quitado</span>}
+                    {saldo <= 0 && totalPago > 0 && <span style={{ color: "#27AE60", fontWeight: 700 }}>✅ Quitado</span>}
                   </div>
                 );
               })()}
@@ -5105,15 +5107,19 @@ export default function CRM() {
                         <span style={{ fontWeight: 600 }}>{e.date ? e.date.split("-").reverse().join("/") : "—"}</span>
                         <span style={{ color: "var(--tx2)", marginLeft: 8 }}>{String(e.start).padStart(2,"0")}h — {getEventLabel(e.tipo, artists)}</span>
                       </div>
-                      <button onClick={() => {
+                      <button title="Altere a data ou horário deste agendamento. O pipeline será atualizado automaticamente ao salvar." onClick={() => {
                         setConfirmMover(null);
                         setEditingEvent(e);
                         const cv = clients.find(c => c.id === e.cliente_id) || null;
                         setAgClientVinc(cv);
                         setAgClientSearch("");
-                        setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "", sinalPago: !!e.sinal_pago } as any);
+                        // Força o tipo correto conforme o estágio destino
+                        const tipoCorreto = confirmMover.stage.id === "cons_agendada"
+                          ? "cons_" + (cv?.artista || artists[0]?.id || "abraao")
+                          : "sess_" + (cv?.artista || artists[0]?.id || "abraao");
+                        setAgForm({ title: e.title, tipo: tipoCorreto, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "", sinalPago: !!e.sinal_pago } as any);
                         setShowAgForm(true);
-                      }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 9px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>✏️ Editar</button>
+                      }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--gold)", borderRadius: 5, padding: "3px 9px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>📅 Remarcar</button>
                     </div>
                   ))}
                 </div>
@@ -5123,7 +5129,7 @@ export default function CRM() {
                 </div>
               )}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <button onClick={() => {
+                <button title="Use quando a tatuagem exige mais de uma sessão. Cria um novo agendamento vinculado ao mesmo projeto." onClick={() => {
                   const cli = clients.find(c => c.id === confirmMover.cid);
                   setConfirmMover(null);
                   setEditingEvent(null);
@@ -5136,7 +5142,7 @@ export default function CRM() {
                 }} style={{ flex: 1, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 10px", fontSize: 11, fontWeight: 600, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                   + Nova Sessão
                 </button>
-                <button onClick={() => {
+                <button title="Cria várias sessões de uma vez com intervalo fixo entre elas. Ideal para fechamentos e projetos longos." onClick={() => {
                   const cli = clients.find(c => c.id === confirmMover.cid);
                   setConfirmMover(null);
                   setRecorrenteForm(p => ({ ...p, artista: cli?.artista || artists[0]?.id || "abraao" }));
