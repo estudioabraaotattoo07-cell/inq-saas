@@ -987,7 +987,6 @@ export default function CRM() {
   const [postAgNome, setPostAgNome] = useState("");
   const [showEstiloDD, setShowEstiloDD] = useState(false);
   const [showRegiaoDD, setShowRegiaoDD] = useState(false);
-  const [saidas, setSaidas] = useState<any[]>([]);
   const [estiloOpts, setEstiloOpts] = useState<string[]>(["Fine Line", "Realismo", "Black Work", "Old School", "Aquarela", "Geometrico", "Surrealismo", "Tribal", "Fine Line Floral", "Fine Line Botanico"]);
   const [regiaoOpts, setRegiaoOpts] = useState<string[]>(["Antebraço", "Braço Inteiro", "Costela", "Costas", "Ombro", "Panturrilha", "Clavícula", "Pescoço", "Mão", "Pé"]);
   const [showHistorico, setShowHistorico] = useState(false);
