@@ -724,16 +724,7 @@ const CLIENTS_INIT = [
   },
 ];
 
-const FIN_INIT = [
-  {
-    id: 1, cliente: "Juliana Ferreira", artista: "camilla", tipo: "Sessão",
-    data: "22/05/2026", val_a: 800, val_c: 800, pgto: "Pix", com_base: 60, com_sess: 60
-  },
-  {
-    id: 2, cliente: "Amanda Oliveira", artista: "camilla", tipo: "Sessão",
-    data: "15/05/2026", val_a: 2200, val_c: 2200, pgto: "Cartao", com_base: 60, com_sess: 65
-  },
-];
+const FIN_INIT: any[] = [];
 
 
 // ─── TIME SCROLLER ────────────────────────────────────────────────────────────
@@ -950,7 +941,7 @@ export default function CRM() {
     { dia: "Domingo", aberto: false, ini: "", fim: "" },
   ]);
   const [form, setForm] = useState({
-    nome: "", tel: "", email: "", insta: "", artista: "abraao",
+    nome: "", tel: "", email: "", insta: "", artista: artists.find(a => a.ativo)?.id || "abraao",
     estilo: "", regiao: "", tam: "Medio", desc: "", orig: "Instagram Organico",
     qual: "Q2", primeira: false, cob: false, intencao: "", nascimento: ""
   });
@@ -1098,6 +1089,8 @@ export default function CRM() {
       credito: c.credito || 0, cri: c.cri || "",
       google_review: c.googleReview || false,
       hist: c.hist || [], followups: c.pv || [], dias: c.dias || 0,
+      nascimento: c.nascimento || "",
+      projetos: c.projetos || [],
       updated_at: new Date().toISOString()
     });
   }, []);
@@ -1359,7 +1352,12 @@ export default function CRM() {
     const nome = clients.find(c => c.id === cid)?.nome || "cliente";
     setClients(p => p.filter(c => c.id !== cid));
     setSel(null);
+    // Apaga em cascata: financeiro e agenda vinculados
+    await sb.from("financeiro").delete().eq("cliente_id", cid);
+    await sb.from("agenda").delete().eq("cliente_id", cid);
     await dbDelete("clientes", cid);
+    setFin(p => p.filter((f: any) => f.cliente_id !== cid));
+    setAgEvents(p => p.filter(e => e.cliente_id !== cid));
     addLog(`Cliente "${nome}" excluído`);
     setConfirmExcluirCliente(null);
   };
@@ -1452,7 +1450,7 @@ export default function CRM() {
     };
     const { data: artData, error: artError } = await sb.from("artistas").insert(row).select().single();
     if (artError) {
-      alert(`Erro ao salvar artista: ${artError.message}`);
+      setShowAviso(`Erro ao salvar artista: ${artError.message}`);
       return;
     }
     setArtists(p => [...p, { ...row, id: artData.id }]);
@@ -2591,7 +2589,6 @@ export default function CRM() {
                             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                               <span className="dok">OK</span>
                               <button onClick={async () => {
-                                if (!window.confirm) { await dbDelete("financeiro", f.id); setFin(p => p.filter((x: any) => x.id !== f.id)); return; }
                                 setFin(p => p.filter((x: any) => x.id !== f.id));
                                 await dbDelete("financeiro", f.id);
                               }} style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 13, padding: "0 2px" }} title="Excluir">✕</button>
@@ -2852,7 +2849,7 @@ export default function CRM() {
                       </div>
                       <div className="ff"><label className="fl">Forma</label>
                         <select className="fs" value={entradaForm.forma_pgto} onChange={e => setEntradaForm({ ...entradaForm, forma_pgto: e.target.value })}>
-                          {["Pix","Dinheiro","Cartão","Transferência","Sinal"].map(f => <option key={f}>{f}</option>)}
+                          {["Pix","Dinheiro","Cartão","Transferência","Sinal","Permuta"].map(f => <option key={f}>{f}</option>)}
                         </select>
                       </div>
                     </div>
@@ -3775,6 +3772,7 @@ export default function CRM() {
                           <option>Cartão</option>
                           <option>Dinheiro</option>
                           <option>Transferência</option>
+                          <option>Permuta</option>
                         </select>
                       </div>
                     </div>
@@ -4035,8 +4033,8 @@ export default function CRM() {
                       <button className="btn-s" style={{ background: "rgba(39,174,96,.8)" }} onClick={() => {
                         navigator.clipboard?.writeText(currentText);
                         if (showCtr.type === "client" && sc) upC(sc.id, "contrato", true);
-                        alert("Contrato copiado! A Aura enviará ao artista para assinar via Gov.br.");
                         setShowCtr(null);
+                        setShowAviso("Contrato copiado! A Aura enviará ao artista para assinar via Gov.br.");
                       }}>📤 Enviar via Aura</button>
                     </div>
                     <textarea
@@ -4703,7 +4701,7 @@ export default function CRM() {
                 <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <select value={f.forma} onChange={e => setPagFormas(p => p.map((x,j) => j===i ? {...x, forma: e.target.value} : x))}
                     style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 8px", fontSize: 12, color: "var(--tx)", flex: 1 }}>
-                    {["Pix","Dinheiro","Cartão","Transferência"].map(o => <option key={o}>{o}</option>)}
+                    {["Pix","Dinheiro","Cartão","Transferência","Permuta"].map(o => <option key={o}>{o}</option>)}
                   </select>
                   <input type="text" placeholder="R$ 0,00" value={f.valor}
                     onChange={e => {
@@ -5215,9 +5213,9 @@ export default function CRM() {
                   <div className="stit">Perfil do Estúdio</div>
                   <div className="fg2">
                     <div className="fi2"><div className="fil">Nome do Estúdio</div><input className="ef" value={studioName} onChange={e => setStudioName(e.target.value)} /></div>
-                    <div className="fi2"><div className="fil">Cidade</div><input className="ef" defaultValue="Vitoria" /></div>
-                    <div className="fi2"><div className="fil">WhatsApp</div><input className="ef" defaultValue="(27) 99999-0000" /></div>
-                    <div className="fi2"><div className="fil">Instagram</div><input className="ef" defaultValue="@casadoscarvalho" /></div>
+                    <div className="fi2"><div className="fil">Cidade</div><input className="ef" value={studioCity} onChange={e => setStudioCity(e.target.value)} /></div>
+                    <div className="fi2"><div className="fil">WhatsApp</div><input className="ef" value={studioTel} onChange={e => setStudioTel(e.target.value)} /></div>
+                    <div className="fi2"><div className="fil">Instagram</div><input className="ef" value={studioInsta} onChange={e => setStudioInsta(e.target.value)} /></div>
                   </div>
                 </div>
                 <div>
