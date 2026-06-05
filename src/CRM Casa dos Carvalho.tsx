@@ -1194,6 +1194,7 @@ export default function CRM() {
     const cor = score >= 80 ? "#C9A84C" : score >= 60 ? "#27AE60" : score >= 40 ? "#3498DB" : score >= 20 ? "var(--tx2)" : "var(--tx3)";
     return { score, label, cor };
   };
+  const miss = (c: any) => {
     const m: string[] = [];
     if (!c.email) m.push("Email");
     if (!c.insta) m.push("Instagram");
