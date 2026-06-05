@@ -361,6 +361,24 @@ const CAL_LABELS: Record<string, string> = {
   bloq_geral: "Bloq. Geral",
   piercing: "Piercing"
 };
+const getBloqLabel = (tipo: string, artistsList: any[]) => {
+  if (tipo === "bloq_geral") return "TODOS";
+  if (tipo.startsWith("bloq_")) {
+    const artId = tipo.replace("bloq_","");
+    const art = artistsList.find(a => a.id === artId);
+    return art ? "Bloqueio " + art.nome.split(" ")[0] : "Bloqueio";
+  }
+  return CAL_LABELS[tipo] || tipo;
+};
+const getBloqColor = (tipo: string, artistsList: any[]) => {
+  if (tipo === "bloq_geral") return "#C0392B";
+  if (tipo.startsWith("bloq_")) {
+    const artId = tipo.replace("bloq_","");
+    const art = artistsList.find(a => a.id === artId);
+    return art?.cor || "#888";
+  }
+  return "#888";
+};
 const getEventLabel = (tipo: string, artistsList?: any[]) => {
   if (CAL_LABELS[tipo]) return CAL_LABELS[tipo];
   if (artistsList) {
@@ -374,7 +392,7 @@ const getEventLabel = (tipo: string, artistsList?: any[]) => {
 
 const SEGS = [
   { id: "todos", label: "Todos", desc: "Toda a base", icon: "👥", f: () => true },
-  { id: "q0", label: "Q0 - Acompanhantes", desc: "Estiveram no atelier", icon: "🟣", f: (c: any) => c.qual === "Q0" },
+  { id: "q0", label: "Q0 - Presencial", desc: "Estiveram no atelier", icon: "🟣", f: (c: any) => c.qual === "Q0" },
   { id: "q1", label: "Q1 - Frios", desc: "Nutricao e educacao", icon: "🔴", f: (c: any) => c.qual === "Q1" },
   { id: "q2", label: "Q2 - Quentes", desc: "Prontos para avancar", icon: "🟡", f: (c: any) => c.qual === "Q2" },
   { id: "tatuados", label: "Tatuados", desc: "Ja fizeram sessao", icon: "🖤", f: (c: any) => c.etapa === "tatuado" || c.etapa === "pos_venda" },
@@ -2273,7 +2291,7 @@ export default function CRM() {
                             const left = total > 1 ? `calc(${(ei * 100/total)}% + 1px)` : "2px";
                             return (
                               <div key={e.id} className="we" style={{
-                                background: e.status === "cancelado" ? "#444" : getEventColor(e.tipo, artists, e.artista),
+                                background: e.status === "cancelado" ? "#444" : e.tipo?.startsWith("bloq") ? "#2a2a2a" : getEventColor(e.tipo, artists, e.artista),
                                 position: "absolute", left, width: w, top: 2,
                                 height: (duration * 46) - 4 + "px",
                                 zIndex: 10, borderRadius: 4, padding: "3px 5px",
@@ -2285,7 +2303,12 @@ export default function CRM() {
                               onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
                                 <span style={{overflow:"hidden",flex:1,minWidth:0}}>
                                   {e.status === "concluido" && <span style={{ fontSize: 10, marginRight: 3 }}>✅</span>}
-                                  {e.title}<br/><span style={{opacity:.8}}>{e.start}h–{e.end}h</span>
+                                  {e.tipo?.startsWith("bloq")
+                                    ? <span style={{ color: e.tipo === "bloq_geral" ? "#C0392B" : (artists.find((a:any) => a.id === e.tipo?.replace("bloq_",""))?.cor || "#888"), fontWeight: 700 }}>
+                                        🔒 {e.tipo === "bloq_geral" ? "TODOS" : (artists.find((a:any) => a.id === e.tipo?.replace("bloq_",""))?.nome?.split(" ")[0] || "Bloqueio")}
+                                      </span>
+                                    : e.title
+                                  }<br/><span style={{opacity:.8}}>{e.start}h–{e.end}h</span>
                                 </span>
                                 <span onClick={ev => { ev.stopPropagation(); setConfirmExcluir(e); }} style={{ opacity: .8, cursor: "pointer", fontSize: 12, flexShrink: 0 }}>🗑</span>
                               </div>
@@ -2318,15 +2341,24 @@ export default function CRM() {
                             return (
                               <div key={e.id} className="dev"
                                 style={{
-                                  background: getEventColor(e.tipo, artists, e.artista),
+                                  background: e.status === "cancelado" ? "#444" : e.tipo?.startsWith("bloq") ? "#2a2a2a" : getEventColor(e.tipo, artists, e.artista),
                                   position: "absolute", left: 0, right: 0, top: 0,
                                   height: (duration * 46) - 4 + "px",
                                   zIndex: 5, borderRadius: 5, padding: "5px 10px",
                                   display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-                                  cursor: "pointer"
+                                  cursor: "pointer",
+                                  opacity: e.status === "cancelado" ? 0.55 : 1
                                 }}
                                 onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
-                                <span style={{ fontWeight: 600 }}>{e.title} · {e.start}h–{e.end}h</span>
+                                <span style={{ fontWeight: 600 }}>
+                                  {e.status === "concluido" && "✅ "}
+                                  {e.tipo?.startsWith("bloq")
+                                    ? <span style={{ color: e.tipo === "bloq_geral" ? "#C0392B" : (artists.find((a:any) => a.id === e.tipo?.replace("bloq_",""))?.cor || "#888") }}>
+                                        🔒 {e.tipo === "bloq_geral" ? "TODOS" : (artists.find((a:any) => a.id === e.tipo?.replace("bloq_",""))?.nome?.split(" ")[0] || "Bloqueio")}
+                                      </span>
+                                    : e.title
+                                  } · {e.start}h–{e.end}h
+                                </span>
                                 <div style={{ display: "flex", gap: 4 }}>
                                   <span style={{ opacity: .8, cursor: "pointer", fontSize: 13 }}
                                     onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>✏️</span>
@@ -3378,7 +3410,7 @@ export default function CRM() {
                 <div style={{ flex: 1 }}>
                   <div className="mn">{sc.nome}</div>
                   <div className="ms">
-                    <span className={"qb " + QC[sc.qual]}>{sc.qual}{sc.qual === "Q0" ? " - Acompanhante" : ""}</span>
+                    <span className={"qb " + QC[sc.qual]}>{sc.qual}{sc.qual === "Q0" ? " - Presencial" : ""}</span>
                     <span className={("at " + aClass(sc.artista)) || ""} style={aStyle(sc.artista)}>{aName(sc.artista).split(" ")[0]}</span>
                     {sc.etapa === "blacklist" && <span className="tag-bl">🚫</span>}
                     {sc.etapa === "lista_espera" && <span className="tag-wl">⏳</span>}
@@ -3420,6 +3452,12 @@ export default function CRM() {
                           style={{ borderColor: (fd as any).w && !(sc as any)[fd.f] ? "var(--q2)" : "var(--br)" }} />
                       </div>
                     ))}
+                    <div className="fi2">
+                      <div className="fil">Artista Responsável</div>
+                      <select className="ef" value={sc.artista || ""} onChange={e => upC(sc.id, "artista", e.target.value)}>
+                        {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                      </select>
+                    </div>
                     {[{ l: "Origem", v: sc.orig }, { l: "Criativo", v: sc.cri }, { l: "Data de Nascimento", v: (sc as any).nascimento ? (() => { const p = ((sc as any).nascimento as string).split("-"); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : (sc as any).nascimento; })() : "—" }].map((fd, i) => (
                       <div className="fi2" key={i}><div className="fil">{fd.l}</div><div className="fiv">{fd.v || " - "}</div></div>
                     ))}
@@ -4017,7 +4055,7 @@ export default function CRM() {
                 </div>
                 <div className="fr">
                   <div className="ff">
-                    <label className="fl">Artista</label>
+                    <label className="fl">Artista Responsável</label>
                     <select className="fs" value={form.artista} onChange={e => setForm({ ...form, artista: e.target.value })}>
                       {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
                     </select>
@@ -4025,7 +4063,7 @@ export default function CRM() {
                   <div className="ff">
                     <label className="fl">Qualificação</label>
                     <select className="fs" value={form.qual} onChange={e => setForm({ ...form, qual: e.target.value })}>
-                      <option value="Q0">Q0 - Acompanhante</option>
+                      <option value="Q0">Q0 - Presencial</option>
                       <option value="Q1">Q1 - Frio</option>
                       <option value="Q2">Q2 - Quente</option>
                       <option value="Q3">Q3 - Pronto</option>
@@ -4170,7 +4208,8 @@ export default function CRM() {
               </div>
               <div className="fmb">
 
-                {/* 1. CLIENTE */}
+                {/* 1. CLIENTE — oculto para bloqueio */}
+                {!agForm.tipo.startsWith("bloq") && (
                 <div className="ff" style={{ position: "relative" }}>
                   <label className="fl">Cliente *</label>
                   {agClientVinc ? (
@@ -4213,6 +4252,7 @@ export default function CRM() {
                   )}
                 </div>
 
+                )}
                 {/* 2. DATA */}
                 <div className="ff">
                   <label className="fl">Data</label>
@@ -4298,14 +4338,20 @@ export default function CRM() {
                 {/* 7. TIPO SESSÃO */}
                 <div className="ff">
                   <label className="fl">Tipo</label>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    {["cons", "sess", "piercing", "bloq"].map(t => {
-                      const labels: Record<string,string> = { cons: "Consulta", sess: "Sessão", piercing: "Piercing", bloq: "Bloqueio" };
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {["cons", "sess", "piercing"].map(t => {
+                      const labels: Record<string,string> = { cons: "Consulta", sess: "Sessão", piercing: "Piercing" };
                       const active = agForm.tipo.startsWith(t);
                       return (
                         <div key={t} onMouseDown={() => {
                           const artist = artists.find(a => agForm.tipo.includes(a.id))?.id || (artists[0]?.id || "abraao");
-                          setAgForm({ ...agForm, tipo: t === "bloq" ? "bloq_geral" : t === "piercing" ? "piercing" : t + "_" + artist });
+                          const novoTipo = t === "piercing" ? "piercing" : t + "_" + artist;
+                          const novaEtapa = t === "cons" ? "cons_agendada" : t === "sess" ? "sessao_agend" : null;
+                          setAgForm({ ...agForm, tipo: novoTipo });
+                          if (novaEtapa && agClientVinc) {
+                            const cli = clients.find(c => c.id === agClientVinc.id);
+                            if (cli && cli.etapa !== novaEtapa) executarMove(agClientVinc.id, novaEtapa);
+                          }
                         }} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
                           background: active ? "rgba(201,168,76,.15)" : "var(--dk3)",
                           border: `1px solid ${active ? "var(--gold)" : "var(--br)"}`,
@@ -4314,7 +4360,40 @@ export default function CRM() {
                         </div>
                       );
                     })}
+                    {/* Bloqueio — mostra opções por artista */}
+                    <div style={{ position: "relative" }}>
+                      <div onMouseDown={() => {
+                        const isBloq = agForm.tipo.startsWith("bloq");
+                        if (!isBloq) setAgForm({ ...agForm, tipo: "bloq_geral" });
+                      }} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                        background: agForm.tipo.startsWith("bloq") ? "rgba(192,57,43,.15)" : "var(--dk3)",
+                        border: `1px solid ${agForm.tipo.startsWith("bloq") ? "var(--q1)" : "var(--br)"}`,
+                        color: agForm.tipo.startsWith("bloq") ? "var(--q1)" : "var(--tx2)" }}>
+                        🔒 Bloqueio
+                      </div>
+                    </div>
                   </div>
+                  {/* Sub-opções de bloqueio */}
+                  {agForm.tipo.startsWith("bloq") && (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                      <div onMouseDown={() => setAgForm({ ...agForm, tipo: "bloq_geral" })}
+                        style={{ padding: "4px 12px", borderRadius: 20, cursor: "pointer", fontSize: 11, fontWeight: 700,
+                          background: agForm.tipo === "bloq_geral" ? "rgba(192,57,43,.2)" : "var(--dk3)",
+                          border: `1px solid ${agForm.tipo === "bloq_geral" ? "var(--q1)" : "var(--br)"}`,
+                          color: agForm.tipo === "bloq_geral" ? "var(--q1)" : "var(--tx2)" }}>
+                        TODOS
+                      </div>
+                      {artists.filter(a => a.ativo).map(a => (
+                        <div key={a.id} onMouseDown={() => setAgForm({ ...agForm, tipo: "bloq_" + a.id })}
+                          style={{ padding: "4px 12px", borderRadius: 20, cursor: "pointer", fontSize: 11, fontWeight: 600,
+                            background: agForm.tipo === "bloq_" + a.id ? a.cor + "22" : "var(--dk3)",
+                            border: `1px solid ${agForm.tipo === "bloq_" + a.id ? a.cor : "var(--br)"}`,
+                            color: agForm.tipo === "bloq_" + a.id ? a.cor : "var(--tx2)" }}>
+                          {a.nome.split(" ")[0]}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* 8. PIPELINE DO CLIENTE */}
@@ -4329,7 +4408,16 @@ export default function CRM() {
                         {STAGES.filter(s => !["blacklist"].includes(s.id)).map(s => (
                           <div key={s.id}
                             onMouseDown={() => {
-                              if (s.id !== cli.etapa) move(cli.id, s.id);
+                              if (s.id !== cli.etapa) {
+                                // Use same confirmation flow as kanban pipeline
+                                const evs = agEvents.filter(e => e.cliente_id === cli.id);
+                                const needsConfirm = ["cons_agendada","sessao_agend","tatuado"].includes(s.id);
+                                if (needsConfirm) {
+                                  setConfirmMover({ cid: cli.id, stage: s, agEvents: evs });
+                                } else {
+                                  move(cli.id, s.id);
+                                }
+                              }
                             }}
                             style={{ padding: "4px 10px", borderRadius: 20, cursor: s.id === cli.etapa ? "default" : "pointer", fontSize: 11, fontWeight: 600,
                               background: s.id === cli.etapa ? s.color + "33" : "var(--dk3)",
