@@ -2031,50 +2031,28 @@ export default function CRM() {
               </button>
             ))}
           </div>
-          {/* Barra de rolagem dourada — com setas, clicável e arrastável */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", background: "var(--dk2)", borderBottom: "1px solid var(--br)" }}>
-            <button onClick={() => { const kw = document.getElementById("kanban-scroll"); if (kw) kw.scrollLeft -= 230; }}
-              style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 4, border: "1px solid var(--br)", background: "var(--dk3)", color: "var(--gold)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>◀</button>
-            <div id="kanban-track" style={{ flex: 1, cursor: "pointer", padding: "3px 0" }}
-              onClick={e => {
-                const track = document.getElementById("kanban-track");
-                const kw = document.getElementById("kanban-scroll");
-                if (!track || !kw) return;
-                const rect = track.getBoundingClientRect();
-                const pct = (e.clientX - rect.left) / rect.width;
-                kw.scrollLeft = pct * (kw.scrollWidth - kw.clientWidth);
-              }}
-              onMouseDown={e => {
-                e.preventDefault();
-                const kw = document.getElementById("kanban-scroll");
-                const track = document.getElementById("kanban-track");
-                if (!kw || !track) return;
-                const rect = track.getBoundingClientRect();
-                const onMove = (ev: MouseEvent) => {
-                  const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
-                  kw.scrollLeft = pct * (kw.scrollWidth - kw.clientWidth);
-                };
-                const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
-                document.addEventListener("mousemove", onMove);
-                document.addEventListener("mouseup", onUp);
-              }}>
-              <div style={{ height: 5, background: "var(--dk4)", borderRadius: 3, overflow: "hidden" }}>
-                <div id="kanban-scrollbar-thumb" style={{ height: "100%", background: "var(--gold)", borderRadius: 3, width: "30%", marginLeft: "0%", transition: "margin-left .05s" }} />
-              </div>
+          {/* Barra de rolagem espelhada — sincronizada com a nativa */}
+          <div style={{ display: "flex", alignItems: "center", background: "var(--dk2)", borderBottom: "1px solid var(--br)", padding: "2px 0" }}>
+            <button onMouseDown={e => { e.preventDefault(); const kw = document.getElementById("kanban-scroll"); if (kw) { const step = () => { kw.scrollLeft -= 8; }; const iv = setInterval(step, 16); const up = () => { clearInterval(iv); document.removeEventListener("mouseup", up); }; document.addEventListener("mouseup", up); step(); } }}
+              style={{ flexShrink: 0, width: 28, height: 20, background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>◀</button>
+            <div id="kanban-mirror-wrap" style={{ flex: 1, overflowX: "scroll", overflowY: "hidden", height: 12 }}
+              onScroll={e => { const kw = document.getElementById("kanban-scroll"); if (kw) kw.scrollLeft = e.currentTarget.scrollLeft; }}>
+              <div id="kanban-mirror-inner" style={{ height: 1 }} />
             </div>
-            <button onClick={() => { const kw = document.getElementById("kanban-scroll"); if (kw) kw.scrollLeft += 230; }}
-              style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 4, border: "1px solid var(--br)", background: "var(--dk3)", color: "var(--gold)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>▶</button>
+            <button onMouseDown={e => { e.preventDefault(); const kw = document.getElementById("kanban-scroll"); if (kw) { const step = () => { kw.scrollLeft += 8; }; const iv = setInterval(step, 16); const up = () => { clearInterval(iv); document.removeEventListener("mouseup", up); }; document.addEventListener("mouseup", up); step(); } }}
+              style={{ flexShrink: 0, width: 28, height: 20, background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>▶</button>
           </div>
           <div className="kw" id="kanban-scroll" onScroll={e => {
-            const el = e.currentTarget;
-            const pct = (el.scrollWidth - el.clientWidth) > 0 ? el.scrollLeft / (el.scrollWidth - el.clientWidth) : 0;
-            const thumb = document.getElementById("kanban-scrollbar-thumb");
-            const track = document.getElementById("kanban-track");
-            if (thumb && track) {
-              const trackW = track.clientWidth - 28;
-              const thumbW = Math.max(trackW * (el.clientWidth / el.scrollWidth), 40);
-              thumb.style.width = thumbW + "px";
-              thumb.style.marginLeft = (pct * (trackW - thumbW)) + "px";
+            const mirror = document.getElementById("kanban-mirror-wrap");
+            if (mirror) mirror.scrollLeft = e.currentTarget.scrollLeft;
+          }} ref={el => {
+            if (el) {
+              const inner = document.getElementById("kanban-mirror-inner");
+              if (inner) inner.style.width = el.scrollWidth + "px";
+              setTimeout(() => {
+                const inner2 = document.getElementById("kanban-mirror-inner");
+                if (inner2) inner2.style.width = el.scrollWidth + "px";
+              }, 500);
             }
           }}>
             {STAGES.map(stage => {
@@ -4312,8 +4290,8 @@ export default function CRM() {
                   );
                 })()}
 
-                {/* 6b. SINAL */}
-                <div className="fr" style={{ gap: 10 }}>
+                {/* 6b. SINAL — oculto para bloqueio */}
+                {!agForm.tipo.startsWith("bloq") && <div className="fr" style={{ gap: 10 }}>
                   <div className="ff" style={{ flex: 1 }}>
                     <label className="fl">Sinal (R$)</label>
                     <input className="fi" type="text" placeholder="0,00"
@@ -4333,7 +4311,7 @@ export default function CRM() {
                       <label htmlFor="sinalPago" style={{ fontSize: 12, color: "var(--tx2)", cursor: "pointer" }}>Já recebido</label>
                     </div>
                   </div>
-                </div>
+                </div>}
 
                 {/* 7. TIPO SESSÃO */}
                 <div className="ff">
@@ -4396,8 +4374,8 @@ export default function CRM() {
                   )}
                 </div>
 
-                {/* 8. PIPELINE DO CLIENTE */}
-                {agClientVinc && (() => {
+                {/* 8. PIPELINE DO CLIENTE — oculto para bloqueio */}
+                {agClientVinc && !agForm.tipo.startsWith("bloq") && (() => {
                   const cli = clients.find(c => c.id === agClientVinc.id);
                   if (!cli) return null;
                   const stage = STAGES.find(s => s.id === cli.etapa);
@@ -4440,10 +4418,21 @@ export default function CRM() {
                       🗑 Excluir
                     </button>
                   )}
-                  {editingEvent && editingEvent.status !== "cancelado" && (
+                  {editingEvent && editingEvent.status !== "cancelado" && !editingEvent.tipo?.startsWith("bloq") && (
                     <button className="btn-c" style={{ color: "#E67E22", borderColor: "rgba(230,126,34,.3)" }}
                       onClick={() => setConfirmCancelarEvento({ event: editingEvent, motivo: "" })}>
-                      ⊘ Cancelar Evento
+                      ⊘ Cliente Desmarcou
+                    </button>
+                  )}
+                  {editingEvent && editingEvent.tipo?.startsWith("bloq") && (
+                    <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)" }}
+                      onClick={async () => {
+                        setAgEvents(p => p.filter(x => x.id !== editingEvent.id));
+                        await dbDelete("agenda", editingEvent.id);
+                        addLog(`Agenda: bloqueio excluído`);
+                        setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch("");
+                      }}>
+                      🗑 Remover Bloqueio
                     </button>
                   )}
                   {editingEvent && editingEvent.status === "cancelado" && (
@@ -4453,7 +4442,7 @@ export default function CRM() {
                 <div style={{ display: "flex", gap: 7 }}>
                   <button className="btn-c" onClick={() => { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); }}>Cancelar</button>
                   <button className="btn-s" onClick={() => {
-                    if (!agClientVinc) {
+                    if (!agClientVinc && !agForm.tipo.startsWith("bloq")) {
                       setShowAviso("Apenas clientes cadastrados podem ser agendados. Cadastre o cliente primeiro na aba Clientes.");
                       return;
                     }
@@ -4469,7 +4458,7 @@ export default function CRM() {
         {confirmCancelarEvento && (
           <div className="ov" onClick={() => setConfirmCancelarEvento(null)}>
             <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid rgba(230,126,34,.4)", borderRadius: 12, width: "min(460px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "#E67E22" }}>⊘ Cancelar Evento</div>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "#E67E22" }}>⊘ Cliente Desmarcou</div>
               <div style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.6 }}>
                 Ao cancelar, o cliente será movido automaticamente para <strong style={{ color: "#888" }}>Hibernação</strong> e o motivo ficará registrado no histórico — disponível para a Aura usar no recontato.
               </div>
