@@ -4287,7 +4287,6 @@ export default function CRM() {
                   </div>
                 </div>
                 )}
-                )}
 
                 {/* 6. PROJETO VINCULADO — valor vem do projeto do cliente */}
                 {agClientVinc && (() => {
