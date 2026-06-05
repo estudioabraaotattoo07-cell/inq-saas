@@ -1463,9 +1463,10 @@ export default function CRM() {
   const saveAgEvent = async () => {
     const row: any = {
       titulo: agForm.title,
-      artista: agForm.tipo.includes("camilla") ? "camilla" : "abraao",
+      artista: agForm.tipo.replace("cons_","").replace("sess_","").replace("bloq_","") || "abraao",
       data: agForm.date,
       hora: String(agForm.start).padStart(2, "0") + ":00",
+      hora_fim: String(agForm.end).padStart(2, "0") + ":00",
       tipo: agForm.tipo,
       obs: (agForm as any).desc || "",
       valor_previsto: parseFloat(String((agForm as any).valorPrevisto || "0").replace(/\./g, "").replace(",", ".")) || 0,
@@ -1493,7 +1494,7 @@ export default function CRM() {
       const sinalPagoEdit = !!(agForm as any).sinalPago;
       const sinalJaLancado = !!(editingEvent as any).sinal_pago;
       if (sinalValEdit > 0 && sinalPagoEdit && !sinalJaLancado && agClientVinc) {
-        const artistaSinalEdit = agForm.tipo.includes("camilla") ? "camilla" : "abraao";
+        const artistaSinalEdit = agForm.tipo.replace("cons_","").replace("sess_","").replace("bloq_","") || "abraao";
         const artistaObjEdit = artists.find(a => a.id === artistaSinalEdit);
         const comSinalEdit = artistaObjEdit?.com || 0;
         const { error: errSinalEdit } = await sb.from("financeiro").insert({
@@ -1592,7 +1593,7 @@ export default function CRM() {
       }
       // Lançar sinal no financeiro se já pago
       if (sinalVal > 0 && sinalPago) {
-        const artistaSinal = agForm.tipo.includes("camilla") ? "camilla" : "abraao";
+        const artistaSinal = agForm.tipo.replace("cons_","").replace("sess_","").replace("bloq_","") || "abraao";
         const artistaObjSinal = artists.find(a => a.id === artistaSinal);
         const comSinal = artistaObjSinal?.com || 0;
         const { error: errSinal } = await sb.from("financeiro").insert({
@@ -1633,7 +1634,7 @@ export default function CRM() {
       // Reinsere no banco
       const row = {
         titulo: undoEvento.title,
-        artista: undoEvento.artista || (undoEvento.tipo?.includes("camilla") ? "camilla" : "abraao"),
+        artista: undoEvento.artista || undoEvento.tipo?.replace("cons_","").replace("sess_","").replace("bloq_","") || "abraao",
         data: undoEvento.date,
         hora: String(undoEvento.start || 9).padStart(2,"0") + ":00",
         tipo: undoEvento.tipo,
@@ -1915,7 +1916,7 @@ export default function CRM() {
             <div className="fmod" style={{ maxWidth: 420 }}>
               <div className="fmh"><div className="fmt">Adicionar Artista</div><button className="mc" onClick={() => setShowArtForm(false)}>✕</button></div>
               <div className="fmb">
-                <div className="ff"><label className="fl">Nome Completo *</label><input className="fi" placeholder="Nome do artista" value={artForm.nome} onChange={e => setArtForm({ ...artForm, nome: e.target.value.replace(/(^|s)(S)/g, (_, sp, c) => sp + c.toUpperCase()) })} /></div>
+                <div className="ff"><label className="fl">Nome Completo *</label><input className="fi" placeholder="Nome do artista" value={artForm.nome} onChange={e => setArtForm({ ...artForm, nome: e.target.value.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()) })} /></div>
                 <div className="fr">
                   <div className="ff"><label className="fl">Tipo</label><select className="fs" value={artForm.role} onChange={e => setArtForm({ ...artForm, role: e.target.value })}><option value="residente">Residente</option><option value="guest">Guest</option></select></div>
                   <div className="ff">
@@ -4071,7 +4072,7 @@ export default function CRM() {
               </div>
               <div className="fmb">
                 <div className="fr">
-                  <div className="ff"><label className="fl">Nome *</label><input className="fi" placeholder="Nome completo" value={form.nome} onChange={e => { const v = e.target.value; setForm({ ...form, nome: v.replace(/(^|s)(S)/g, (_, sp, c) => sp + c.toUpperCase()) }); }} /></div>
+                  <div className="ff"><label className="fl">Nome *</label><input className="fi" placeholder="Nome completo" value={form.nome} onChange={e => { const v = e.target.value; setForm({ ...form, nome: v.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()) }); }} /></div>
                   <div className="ff"><label className="fl">Telefone *</label><input className="fi" placeholder="(99) 9 9999-9999" value={form.tel} onChange={e => setForm({ ...form, tel: maskTel(e.target.value) })} /></div>
                 </div>
                 <div className="fr">
@@ -4101,7 +4102,7 @@ export default function CRM() {
                     <label className="fl">Estilo</label>
                     <div style={{ display: "flex", gap: 4 }}>
                       <input className="fi" style={{ flex: 1 }} placeholder="Fine Line, Realismo..." value={form.estilo}
-                        onChange={e => { const v = e.target.value.replace(/(^|s)(S)/g, (_, sp, c) => sp + c.toUpperCase()); setForm({ ...form, estilo: v }); setShowEstiloDD(true); }}
+                        onChange={e => { const v = e.target.value.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()); setForm({ ...form, estilo: v }); setShowEstiloDD(true); }}
                         onFocus={() => setShowEstiloDD(true)}
                         onBlur={() => setTimeout(() => setShowEstiloDD(false), 150)}
                       />
@@ -4132,7 +4133,7 @@ export default function CRM() {
                     <label className="fl">Região</label>
                     <div style={{ display: "flex", gap: 4 }}>
                       <input className="fi" style={{ flex: 1 }} placeholder="Antebraço, Costas..." value={form.regiao}
-                        onChange={e => { const v = e.target.value.replace(/(^|s)(S)/g, (_, sp, c) => sp + c.toUpperCase()); setForm({ ...form, regiao: v }); setShowRegiaoDD(true); }}
+                        onChange={e => { const v = e.target.value.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()); setForm({ ...form, regiao: v }); setShowRegiaoDD(true); }}
                         onFocus={() => setShowRegiaoDD(true)}
                         onBlur={() => setTimeout(() => setShowRegiaoDD(false), 150)}
                       />
@@ -4195,7 +4196,7 @@ export default function CRM() {
                 <button className="mc" onClick={() => setShowArtForm(false)}>✕</button>
               </div>
               <div className="fmb">
-                <div className="ff"><label className="fl">Nome Completo *</label><input className="fi" placeholder="Nome do artista" value={artForm.nome} onChange={e => setArtForm({ ...artForm, nome: e.target.value.replace(/(^|s)(S)/g, (_, sp, c) => sp + c.toUpperCase()) })} /></div>
+                <div className="ff"><label className="fl">Nome Completo *</label><input className="fi" placeholder="Nome do artista" value={artForm.nome} onChange={e => setArtForm({ ...artForm, nome: e.target.value.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()) })} /></div>
                 <div className="fr">
                   <div className="ff">
                     <label className="fl">Tipo</label>
