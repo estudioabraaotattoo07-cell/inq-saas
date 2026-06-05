@@ -1114,6 +1114,7 @@ export default function CRM() {
       id: typeof c.id === "number" ? undefined : c.id,
       nome: c.nome, insta: c.insta || "", tel: c.tel || "",
       qual: c.qual, artista: c.artista, etapa: c.etapa,
+      orig: c.orig || "", email: c.email || "",
       estilo: c.estilo || "", regiao: c.regiao || "",
       tam: c.tam || "", intencao: c.intencao || "", primeira: c.primeira || false,
       cob: c.cob || false, descricao: c.desc || "",
@@ -1127,6 +1128,7 @@ export default function CRM() {
       google_review: c.googleReview || false,
       hist: c.hist || [], followups: c.pv || [], dias: c.dias || 0,
       nascimento: c.nascimento || "",
+      documento: (c as any).documento || "",
       projetos: c.projetos || [],
       updated_at: new Date().toISOString()
     });
@@ -1213,10 +1215,23 @@ export default function CRM() {
     return null;
   };
 
-  const alertas = useMemo(() => clients.filter(c => {
-    const projSemValor = (c.projetos || []).some((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0)) && c.etapa !== "lead";
-    return miss(c).length > 0 || churn(c) || projSemValor;
-  }), [clients]);
+  const alertas = useMemo(() => {
+    const hoje = new Date();
+    return clients.filter(c => {
+      const projSemValor = (c.projetos || []).some((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0)) && c.etapa !== "lead";
+      let aniversario = false;
+      if ((c as any).nascimento) {
+        const nasc = new Date((c as any).nascimento);
+        for (let i = 0; i <= 7; i++) {
+          const d = new Date(hoje); d.setDate(d.getDate() + i);
+          if (nasc.getMonth() === d.getMonth() && nasc.getDate() === d.getDate()) { aniversario = true; break; }
+        }
+      }
+      const garantia = c.etapa === "tatuado" && c.dias >= 30 && c.dias <= 37;
+      const inativo = !["blacklist","tatuado","pos_venda","hibernacao"].includes(c.etapa) && c.dias >= 40;
+      return miss(c).length > 0 || churn(c) || projSemValor || aniversario || garantia || inativo;
+    });
+  }, [clients]);
   const reativacao = useMemo(() =>
     clients.filter(c => !["blacklist", "tatuado", "pos_venda"].includes(c.etapa) && c.dias >= 30)
       .sort((a, b) => b.dias - a.dias).slice(0, 5),
@@ -1487,6 +1502,8 @@ export default function CRM() {
       const { data, error } = await sb.from("clientes").insert({
         nome: nc.nome, insta: nc.insta || "", tel: nc.tel || "",
         qual: nc.qual, artista: nc.artista, etapa: "lead",
+        orig: nc.orig || "Instagram Organico",
+        email: nc.email || "",
         estilo: nc.estilo || "", regiao: nc.regiao || "",
         intencao: nc.intencao || "", primeira: nc.primeira || false,
         cob: nc.cob || false, descricao: nc.desc || "",
@@ -1653,8 +1670,6 @@ export default function CRM() {
       // Movimento automático de pipeline
       const tipoKeyPip = agForm.tipo.split("_")[0];
       if (tipoKeyPip === "cons") {
-        // Só move se ainda não passou de consulta marcada
-        const cli = p => p.find((c: any) => c.id === agClientVinc.id);
         const etapasAbaixo = ["lead", "qualificacao"];
         setClients(p => {
           const c = p.find((c: any) => c.id === agClientVinc.id);
@@ -1670,8 +1685,12 @@ export default function CRM() {
       } else if (tipoKeyPip === "sess" || tipoKeyPip === "piercing") {
         setClients(p => {
           const c = p.find((x: any) => x.id === agClientVinc.id);
-          const etapasAbaixo = ["lead", "qualificacao", "cons_agendada"];
+          const etapasAbaixo = ["lead", "qualificacao", "cons_agendada", "hibernacao"];
           if (!c || !etapasAbaixo.includes(c.etapa)) return p;
+          // Aviso de cobrança R$100 se vinha de hibernação com faltas
+          if (c.etapa === "hibernacao" && c.faltas > 0) {
+            setTimeout(() => setShowAviso(`⚠️ ${c.nome} estava em hibernação por desmarcação. Lembre de cobrar R$100,00 de taxa — conforme política do estúdio.`), 500);
+          }
           const updated = p.map((x: any) => x.id !== agClientVinc.id ? x : {
             ...x, etapa: "sessao_agend",
             hist: [...(x.hist || []), { t: "Movido para: Sessão Agendada (automático via agendamento)", d: new Date().toLocaleString("pt-BR") }]
@@ -2160,13 +2179,28 @@ export default function CRM() {
             <div className="ad-body">
               {alertas.map(c => {
                 const m = miss(c); const ch = churn(c);
+                const hoje = new Date();
+                let aniversario = false;
+                if ((c as any).nascimento) {
+                  const nasc = new Date((c as any).nascimento);
+                  for (let i = 0; i <= 7; i++) {
+                    const d = new Date(hoje); d.setDate(d.getDate() + i);
+                    if (nasc.getMonth() === d.getMonth() && nasc.getDate() === d.getDate()) { aniversario = true; break; }
+                  }
+                }
+                const garantia = c.etapa === "tatuado" && c.dias >= 30 && c.dias <= 37;
+                const inativo = !["blacklist","tatuado","pos_venda","hibernacao"].includes(c.etapa) && c.dias >= 40;
+                const projSemValor = (c.projetos || []).some((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0)) && c.etapa !== "lead";
                 return (
                   <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); }}>
                     <div className="ad-name">{c.nome}</div>
                     <div className="ad-tags">
                       {ch === "red" && <span className="co co-r">🔴 1a sem retorno</span>}
                       {ch === "orange" && <span className="co co-o">🟠 6m sem retorno</span>}
-                      {c.orcamento && <span className="atag">💰 Orcamento</span>}
+                      {projSemValor && <span className="atag">💰 Sem valor</span>}
+                      {aniversario && <span className="atag" style={{ color: "#C9A84C" }}>🎂 Aniversário</span>}
+                      {garantia && <span className="atag" style={{ color: "#E67E22" }}>🛡 Garantia D+{c.dias}</span>}
+                      {inativo && <span className="atag" style={{ color: "#888" }}>💤 Inativo {c.dias}d</span>}
                       {m.map(x => <span key={x} className="atag">⚠ Sem {x}</span>)}
                     </div>
                   </div>
@@ -2729,6 +2763,26 @@ export default function CRM() {
                             <span style={{ color: "var(--tx)", fontWeight: 600 }}>{f.v}</span>
                           </div>
                         ))}
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                            <span style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em" }}>Meta mensal</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              <span style={{ fontSize: 10, color: "var(--tx3)" }}>R$</span>
+                              <input type="number" value={a.meta || 0}
+                                onChange={async e => {
+                                  const v = Number(e.target.value);
+                                  setArtists(p => p.map(x => x.id === a.id ? { ...x, meta: v } : x));
+                                  await sb.from("artistas").update({ meta: v }).eq("id", a.id);
+                                }}
+                                style={{ width: 70, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 4, padding: "2px 6px", fontSize: 11, color: "var(--tx)", outline: "none" }} />
+                            </div>
+                          </div>
+                          {(a.meta || 0) > 0 && (
+                            <div style={{ height: 4, background: "var(--dk4)", borderRadius: 2, overflow: "hidden" }}>
+                              <div style={{ height: 4, borderRadius: 2, background: fat >= (a.meta || 0) ? "#27AE60" : "var(--gold)", width: Math.min(fat / (a.meta || 1) * 100, 100) + "%" }} />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -2742,20 +2796,29 @@ export default function CRM() {
                   <button className="btn-new" style={{ fontSize: 11, padding: "5px 12px" }} onClick={() => setShowEntradaForm(true)}>+ Lançar Manual</button>
                 </div>
                 <table className="ft">
-                  <thead><tr><th>Descrição</th><th>Artista</th><th>Data</th><th>Valor</th><th>Forma</th><th>Categoria</th><th>Com %</th><th>Repasse</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Descrição</th><th>Artista</th><th>Data</th><th>Valor</th><th>Saldo</th><th>Forma</th><th>Categoria</th><th>Com %</th><th>Repasse</th><th>Status</th></tr></thead>
                   <tbody>
                     {finFiltrado.filter(f => !f.tipo || f.tipo === "entrada").length === 0 && (
-                      <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--tx3)", fontSize: 12, padding: 16, fontStyle: "italic" }}>Nenhuma entrada no período.</td></tr>
+                      <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--tx3)", fontSize: 12, padding: 16, fontStyle: "italic" }}>Nenhuma entrada no período.</td></tr>
                     )}
                     {finFiltrado.filter(f => !f.tipo || f.tipo === "entrada").map((f, fi) => {
                       const rec = (Number(f.val_a) || 0) * (Number(f.com_sess) || 0) / 100;
                       const dataFmt = f.data ? (f.data.includes("-") ? f.data.split("-").reverse().join("/") : f.data) : "—";
+                      const cli = clients.find(c => c.id === f.cliente_id);
+                      const proj = (cli?.projetos || []).find((p: any) => p.status !== "cancelado");
+                      const valorTotal = Number(proj?.valorTotal) || 0;
+                      const entradas = finFiltrado.filter(x => x.cliente_id === f.cliente_id && (!x.tipo || x.tipo === "entrada"));
+                      const totalPagoAte = entradas.slice(0, fi + 1).reduce((s: number, x: any) => s + (Number(x.val_a) || 0), 0);
+                      const saldoDev = Math.max(valorTotal - totalPagoAte, 0);
                       return (
                         <tr key={f.id}>
                           <td style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13 }}>{f.descricao || f.cliente_nome || "—"}</td>
                           <td><span style={aStyle(f.artista || f.artista_id)}>{aName(f.artista || f.artista_id).split(" ")[0]}</span></td>
                           <td style={{ fontSize: 11, color: "var(--tx2)" }}>{dataFmt}</td>
                           <td style={{ fontWeight: 600, color: "var(--q3)" }}>{fmtR(Number(f.val_a) || 0)}</td>
+                          <td style={{ fontSize: 11, fontWeight: 600, color: saldoDev > 0 ? "var(--q1)" : "#27AE60" }}>
+                            {valorTotal > 0 ? (saldoDev > 0 ? fmtR(saldoDev) : "✅") : "—"}
+                          </td>
                           <td style={{ fontSize: 11 }}>{f.forma_pgto || f.pgto || "—"}</td>
                           <td><span style={{ fontSize: 10, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 3, padding: "2px 6px", color: "var(--tx2)" }}>{f.categoria || "sessao"}</span></td>
                           <td>
@@ -3668,6 +3731,11 @@ export default function CRM() {
                     {[{ l: "Origem", v: sc.orig }, { l: "Criativo", v: sc.cri }, { l: "Data de Nascimento", v: (sc as any).nascimento ? (() => { const p = ((sc as any).nascimento as string).split("-"); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : (sc as any).nascimento; })() : "—" }].map((fd, i) => (
                       <div className="fi2" key={i}><div className="fil">{fd.l}</div><div className="fiv">{fd.v || " - "}</div></div>
                     ))}
+                    <div className="fi2">
+                      <div className="fil">Documento <span style={{ fontSize: 9, color: "var(--tx3)" }}>RG/CPF — opcional</span></div>
+                      <input className="ef" placeholder="000.000.000-00" value={(sc as any).documento || ""}
+                        onChange={e => upC(sc.id, "documento", e.target.value)} />
+                    </div>
                   </div>
                 </div>
 
@@ -4938,6 +5006,22 @@ export default function CRM() {
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>
                 ✅ Confirmar Evento — {clients.find(c => c.id === confirmPagamento.cid)?.nome}
               </div>
+              {(() => {
+                const cli = clients.find(c => c.id === confirmPagamento.cid);
+                const proj = (cli?.projetos || []).find((p: any) => p.status !== "concluido" && p.status !== "cancelado");
+                if (!proj?.valorTotal) return null;
+                const valorTotal = Number(proj.valorTotal) || 0;
+                const pago = (proj.pagamentos || []).reduce((s: number, p: any) => s + (Number(p.valor) || 0), 0);
+                const saldo = valorTotal - pago;
+                return (
+                  <div style={{ display: "flex", gap: 12, background: "rgba(201,168,76,.08)", border: "1px solid rgba(201,168,76,.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, flexWrap: "wrap" }}>
+                    <span>💰 Projeto: <strong style={{ color: "var(--tx)" }}>R$ {valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
+                    <span>Pago: <strong style={{ color: "#27AE60" }}>R$ {pago.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
+                    {saldo > 0 && <span>Saldo: <strong style={{ color: "var(--q1)" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
+                    {saldo <= 0 && pago > 0 && <span style={{ color: "#27AE60", fontWeight: 700 }}>✅ Quitado</span>}
+                  </div>
+                );
+              })()}
               {(() => {
                 const cli = clients.find(c => c.id === confirmPagamento.cid);
                 const proj = (cli?.projetos || []).find((p: any) => p.status !== "concluido" && p.status !== "cancelado");
