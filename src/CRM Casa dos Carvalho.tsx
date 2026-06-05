@@ -1000,6 +1000,7 @@ export default function CRM() {
   const [formStep, setFormStep] = useState(1);
   const [confirmMover, setConfirmMover] = useState<{cid: any; stage: any; agEvents: any[]} | null>(null);
   const [confirmPagamento, setConfirmPagamento] = useState<{cid: any; agEvent: any} | null>(null);
+  const [projParaConcluir, setProjParaConcluir] = useState<{clienteId: any; projetoId: any} | null>(null);
   const [pipelineMotivo, setPipelineMotivo] = useState<{cid: any; stage: any; motivo: string; dias?: string} | null>(null);
   const [confirmCancelarEvento, setConfirmCancelarEvento] = useState<{event: any; motivo: string} | null>(null);
   const [proximaSessaoModal, setProximaSessaoModal] = useState<{cid: any} | null>(null);
@@ -1212,7 +1213,10 @@ export default function CRM() {
     return null;
   };
 
-  const alertas = useMemo(() => clients.filter(c => miss(c).length > 0 || churn(c) || c.orcamento), [clients]);
+  const alertas = useMemo(() => clients.filter(c => {
+    const projSemValor = (c.projetos || []).some((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0)) && c.etapa !== "lead";
+    return miss(c).length > 0 || churn(c) || projSemValor;
+  }), [clients]);
   const reativacao = useMemo(() =>
     clients.filter(c => !["blacklist", "tatuado", "pos_venda"].includes(c.etapa) && c.dias >= 30)
       .sort((a, b) => b.dias - a.dias).slice(0, 5),
@@ -1361,6 +1365,20 @@ export default function CRM() {
     if (confirmPagamento.agEvent?.id) {
       await sb.from("agenda").update({ status: "concluido" }).eq("id", confirmPagamento.agEvent.id);
       setAgEvents(p => p.map(e => e.id === confirmPagamento.agEvent.id ? { ...e, status: "concluido" } : e));
+    }
+    // Se veio de "Projeto Concluído" na ficha, marca o projeto e move pipeline
+    if (projParaConcluir && projParaConcluir.clienteId === cid) {
+      setClients(p => p.map(c => {
+        if (c.id !== cid) return c;
+        const projs = (c.projetos || []).map((p: any) =>
+          p.id === projParaConcluir.projetoId
+            ? { ...p, status: "concluido", concluidoEm: new Date().toLocaleDateString("pt-BR") }
+            : p
+        );
+        setTimeout(() => saveClientDb({ ...c, projetos: projs }), 100);
+        return { ...c, projetos: projs, hist: [...(c.hist||[]), { t: `Projeto concluído`, d: new Date().toLocaleString("pt-BR") }] };
+      }));
+      setProjParaConcluir(null);
     }
     setConfirmPagamento(null);
     executarMove(cid, "tatuado");
@@ -3616,13 +3634,16 @@ export default function CRM() {
                 <button className="mc" onClick={() => setSel(null)}>✕</button>
               </div>
               <div className="mb">
-                {sc.orcamento && (
-                  <div className="ba">
-                    <span style={{ fontSize: 18 }}>💰</span>
-                    <div style={{ flex: 1, fontSize: 12, color: "var(--q2)", fontWeight: 600 }}>Orcamento pendente - registre o valor combinado nesta consultoria.</div>
-                    <button className="btn-sm gold" onClick={() => setOrcamentoModal({ cid: sc.id, valor: "" })}>Registrar</button>
-                  </div>
-                )}
+                {(() => {
+                  const projSemValor = (sc.projetos || []).find((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0));
+                  return projSemValor && sc.etapa !== "lead" ? (
+                    <div className="ba">
+                      <span style={{ fontSize: 18 }}>💰</span>
+                      <div style={{ flex: 1, fontSize: 12, color: "var(--q2)", fontWeight: 600 }}>Valor do projeto não registrado — informe o valor combinado.</div>
+                      <button className="btn-sm gold" onClick={() => setOrcamentoModal({ cid: sc.id, valor: "" })}>Registrar</button>
+                    </div>
+                  ) : null;
+                })()}
 
                 <div>
                   <div className="stit">Dados Básicos</div>
@@ -3738,15 +3759,20 @@ export default function CRM() {
                                   ✕ Cancelar
                                 </button>
                                 <button onClick={() => {
-                                  const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
-                                  const idx = projs.findIndex((p: any) => p.id === proj.id);
-                                  if (idx >= 0) {
-                                    projs[idx] = { ...projs[idx], status: "concluido", concluidoEm: new Date().toLocaleDateString("pt-BR") };
-                                    upC(sc.id, "projetos", projs);
-                                    setClients(p => p.map(c => c.id !== sc.id ? c : {
-                                      ...c, hist: [...c.hist, { t: `Projeto concluído: ${proj.estilo || "sem título"} — ${proj.desc?.slice(0,40) || ""}`, d: new Date().toLocaleDateString("pt-BR") }]
-                                    }));
+                                  if (!window.confirm) {
+                                    const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+                                    const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                    if (idx >= 0) {
+                                      projs[idx] = { ...projs[idx], status: "concluido", concluidoEm: new Date().toLocaleDateString("pt-BR") };
+                                      upC(sc.id, "projetos", projs);
+                                    }
+                                    return;
                                   }
+                                  // Abre modal de pagamento antes de concluir
+                                  const evVinculado = agEvents.find(e => e.cliente_id === sc.id && e.status !== "concluido");
+                                  setConfirmPagamento({ cid: sc.id, agEvent: evVinculado || null });
+                                  // Após confirmar pagamento, marca projeto como concluído e move pipeline
+                                  setProjParaConcluir({ clienteId: sc.id, projetoId: proj.id });
                                 }} style={{ fontSize: 10, fontWeight: 600, background: "rgba(39,174,96,.1)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 5, padding: "3px 9px", color: "#27AE60", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                                   ✓ Projeto Concluído
                                 </button>
@@ -4912,6 +4938,22 @@ export default function CRM() {
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>
                 ✅ Confirmar Evento — {clients.find(c => c.id === confirmPagamento.cid)?.nome}
               </div>
+              {(() => {
+                const cli = clients.find(c => c.id === confirmPagamento.cid);
+                const proj = (cli?.projetos || []).find((p: any) => p.status !== "concluido" && p.status !== "cancelado");
+                if (!proj?.valorTotal) return null;
+                const valorTotal = Number(proj.valorTotal) || 0;
+                const pago = (proj.pagamentos || []).reduce((s: number, p: any) => s + (Number(p.valor) || 0), 0);
+                const saldo = valorTotal - pago;
+                return (
+                  <div style={{ display: "flex", gap: 12, background: "rgba(201,168,76,.08)", border: "1px solid rgba(201,168,76,.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
+                    <span>💰 Projeto: <strong style={{ color: "var(--tx)" }}>R$ {valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
+                    <span>Pago: <strong style={{ color: "#27AE60" }}>R$ {pago.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
+                    {saldo > 0 && <span>Saldo devedor: <strong style={{ color: "var(--q1)" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
+                    {saldo <= 0 && pago > 0 && <span style={{ color: "#27AE60", fontWeight: 700 }}>✅ Quitado</span>}
+                  </div>
+                );
+              })()}
               {confirmPagamento.agEvent && (
                 <div style={{ fontSize: 12, color: "var(--tx3)", background: "var(--dk3)", borderRadius: 8, padding: "8px 12px" }}>
                   Agendamento: {confirmPagamento.agEvent.date?.split("-").reverse().join("/") || confirmPagamento.agEvent.date} às {confirmPagamento.agEvent.start}h
