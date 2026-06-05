@@ -3684,6 +3684,7 @@ export default function CRM() {
                       Dados internos ocultos — clique em "Ver dados internos" para revelar
                     </div>
                   ) : (
+                  <>
                   <div className="fg2">
                     <div className="fi2">
                       <div className="fil">Avaliação do Cliente pelo Artista</div>
@@ -3720,6 +3721,7 @@ export default function CRM() {
                       style={{ width: "100%", minHeight: 50, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "6px 8px", fontSize: 11, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", outline: "none", resize: "vertical", marginTop: 3 }}
                       placeholder="Anotações privadas..." />
                   </div>
+                  </>
                   )}
                 </div>
 
