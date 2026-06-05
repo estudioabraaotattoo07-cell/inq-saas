@@ -1271,6 +1271,11 @@ export default function CRM() {
       if (c) setTimeout(() => saveClientDb(c), 100);
       return updated;
     });
+    // Marcar evento como concluído na agenda
+    if (confirmPagamento.agEvent?.id) {
+      await sb.from("agenda").update({ status: "concluido" }).eq("id", confirmPagamento.agEvent.id);
+      setAgEvents(p => p.map(e => e.id === confirmPagamento.agEvent.id ? { ...e, status: "concluido" } : e));
+    }
     setConfirmPagamento(null);
     executarMove(cid, "tatuado");
   };
@@ -1495,7 +1500,9 @@ export default function CRM() {
       if (novaEtapa) {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
         const etapaAtual = cli?.etapa || "";
-        if (["lead", "qualificacao"].includes(etapaAtual)) {
+        // Move para o estágio correto se estiver em estágio anterior OU se já tatuou e está marcando nova sessão
+        const etapasAnteriores = ["lead", "qualificacao", "tatuado", "pos_venda", "cons_agendada"];
+        if (etapasAnteriores.includes(etapaAtual) || etapaAtual === "cumpriu") {
           executarMove(agClientVinc.id, novaEtapa);
         }
       }
@@ -2228,7 +2235,7 @@ export default function CRM() {
                         {evs.slice(0, 3).map(e => (
                           <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista), cursor: "pointer" }}
                             onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
-                            {e.start}h {e.title}
+                            {e.status === "concluido" && "✅ "}{e.start}h {e.title}
                           </div>
                         ))}
                         {evs.length > 3 && <div style={{ fontSize: 10, color: "var(--tx2)" }}>+{evs.length - 3}</div>}
@@ -2276,7 +2283,10 @@ export default function CRM() {
                                 textDecoration: e.status === "cancelado" ? "line-through" : "none"
                               }}
                               onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
-                                <span style={{overflow:"hidden",flex:1,minWidth:0}}>{e.title}<br/><span style={{opacity:.8}}>{e.start}h–{e.end}h</span></span>
+                                <span style={{overflow:"hidden",flex:1,minWidth:0}}>
+                                  {e.status === "concluido" && <span style={{ fontSize: 10, marginRight: 3 }}>✅</span>}
+                                  {e.title}<br/><span style={{opacity:.8}}>{e.start}h–{e.end}h</span>
+                                </span>
                                 <span onClick={ev => { ev.stopPropagation(); setConfirmExcluir(e); }} style={{ opacity: .8, cursor: "pointer", fontSize: 12, flexShrink: 0 }}>🗑</span>
                               </div>
                             );
@@ -3672,60 +3682,6 @@ export default function CRM() {
                 </div>
 
                 <div>
-                  <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>Avaliações Internas</span>
-                    <button onClick={() => setFichaRevelada(p => { const n = new Set(p); n.has(sc.id) ? n.delete(sc.id) : n.add(sc.id); return n; })}
-                      style={{ fontSize: 11, background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "3px 9px", color: fichaRevelada.has(sc.id) ? "var(--gold)" : "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                      {fichaRevelada.has(sc.id) ? "👁 Ocultar dados internos" : "👁 Ver dados internos"}
-                    </button>
-                  </div>
-                  {!fichaRevelada.has(sc.id) ? (
-                    <div style={{ padding: "14px 0", fontSize: 12, color: "var(--tx3)", fontStyle: "italic", textAlign: "center" }}>
-                      Dados internos ocultos — clique em "Ver dados internos" para revelar
-                    </div>
-                  ) : (
-                  <>
-                  <div className="fg2">
-                    <div className="fi2">
-                      <div className="fil">Avaliação do Cliente pelo Artista</div>
-                      <div className="stars" style={{ marginTop: 4 }}>
-                        {[1, 2, 3, 4, 5].map(n => (
-                          <span key={n} className="star" style={{ opacity: n <= (sc.stars || 0) ? 1 : .25 }} onClick={() => setStars(sc.id, n)}>⭐</span>
-                        ))}
-                      </div>
-                      {sc.starReason && <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 3, fontStyle: "italic" }}>{sc.starReason}</div>}
-                    </div>
-                    <div className="fi2">
-                      <div className="fil">NPS do Cliente (0 - 10)</div>
-                      {sc.nps != null
-                        ? <div style={{ fontSize: 20, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif", marginTop: 3 }}>{sc.nps}/10</div>
-                        : <div className="nps-bar">
-                          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                            <button key={n} className={"nps-btn" + (sc.nps === n ? " sel" : "")} onClick={() => upC(sc.id, "nps", n)}>{n}</button>
-                          ))}
-                        </div>
-                      }
-                    </div>
-                  </div>
-                  <div className="fi2" style={{ marginTop: 7 }}>
-                    <div className="fil">Consentimento de Uso de Imagem</div>
-                    <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
-                      <button className={"cb" + (sc.consent === true ? " yes" : "")} onClick={() => upC(sc.id, "consent", true)}>✓ Autorizado</button>
-                      <button className={"cb" + (sc.consent === false ? " no" : "")} onClick={() => upC(sc.id, "consent", false)}>✕ Nao autorizado</button>
-                      {sc.consent === null && <span style={{ fontSize: 11, color: "var(--tx3)", alignSelf: "center" }}>Nao informado</span>}
-                    </div>
-                  </div>
-                  <div className="fi2" style={{ marginTop: 7 }}>
-                    <div className="fil">Observações Internas</div>
-                    <textarea value={sc.obs} onChange={e => upC(sc.id, "obs", e.target.value)}
-                      style={{ width: "100%", minHeight: 50, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "6px 8px", fontSize: 11, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", outline: "none", resize: "vertical", marginTop: 3 }}
-                      placeholder="Anotações privadas..." />
-                  </div>
-                  </>
-                  )}
-                </div>
-
-                <div>
                   <div className="stit">Fotos de Referência</div>
                   <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px" }}>
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 6 }}>
@@ -3914,6 +3870,60 @@ export default function CRM() {
                     ))}
                   </div>
                 )}
+
+                <div>
+                  <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>Avaliações Internas</span>
+                    <button onClick={() => setFichaRevelada(p => { const n = new Set(p); n.has(sc.id) ? n.delete(sc.id) : n.add(sc.id); return n; })}
+                      style={{ fontSize: 11, background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "3px 9px", color: fichaRevelada.has(sc.id) ? "var(--gold)" : "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                      {fichaRevelada.has(sc.id) ? "👁 Ocultar dados internos" : "👁 Ver dados internos"}
+                    </button>
+                  </div>
+                  {!fichaRevelada.has(sc.id) ? (
+                    <div style={{ padding: "14px 0", fontSize: 12, color: "var(--tx3)", fontStyle: "italic", textAlign: "center" }}>
+                      Dados internos ocultos — clique em "Ver dados internos" para revelar
+                    </div>
+                  ) : (
+                  <>
+                  <div className="fg2">
+                    <div className="fi2">
+                      <div className="fil">Avaliação do Cliente pelo Artista</div>
+                      <div className="stars" style={{ marginTop: 4 }}>
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <span key={n} className="star" style={{ opacity: n <= (sc.stars || 0) ? 1 : .25 }} onClick={() => setStars(sc.id, n)}>⭐</span>
+                        ))}
+                      </div>
+                      {sc.starReason && <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 3, fontStyle: "italic" }}>{sc.starReason}</div>}
+                    </div>
+                    <div className="fi2">
+                      <div className="fil">NPS do Cliente (0 - 10)</div>
+                      {sc.nps != null
+                        ? <div style={{ fontSize: 20, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif", marginTop: 3 }}>{sc.nps}/10</div>
+                        : <div className="nps-bar">
+                          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                            <button key={n} className={"nps-btn" + (sc.nps === n ? " sel" : "")} onClick={() => upC(sc.id, "nps", n)}>{n}</button>
+                          ))}
+                        </div>
+                      }
+                    </div>
+                  </div>
+                  <div className="fi2" style={{ marginTop: 7 }}>
+                    <div className="fil">Consentimento de Uso de Imagem</div>
+                    <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
+                      <button className={"cb" + (sc.consent === true ? " yes" : "")} onClick={() => upC(sc.id, "consent", true)}>✓ Autorizado</button>
+                      <button className={"cb" + (sc.consent === false ? " no" : "")} onClick={() => upC(sc.id, "consent", false)}>✕ Nao autorizado</button>
+                      {sc.consent === null && <span style={{ fontSize: 11, color: "var(--tx3)", alignSelf: "center" }}>Nao informado</span>}
+                    </div>
+                  </div>
+                  <div className="fi2" style={{ marginTop: 7 }}>
+                    <div className="fil">Observações Internas</div>
+                    <textarea value={sc.obs} onChange={e => upC(sc.id, "obs", e.target.value)}
+                      style={{ width: "100%", minHeight: 50, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "6px 8px", fontSize: 11, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", outline: "none", resize: "vertical", marginTop: 3 }}
+                      placeholder="Anotações privadas..." />
+                  </div>
+                  </>
+                  )}
+                </div>
 
                 <div>
                   <div className="stit">Historico</div>
