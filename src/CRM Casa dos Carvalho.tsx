@@ -988,6 +988,7 @@ export default function CRM() {
   const [postAgNome, setPostAgNome] = useState("");
   const [showEstiloDD, setShowEstiloDD] = useState(false);
   const [showRegiaoDD, setShowRegiaoDD] = useState(false);
+  const [saidas, setSaidas] = useState<any[]>([]);
   const [estiloOpts, setEstiloOpts] = useState<string[]>(["Fine Line", "Realismo", "Black Work", "Old School", "Aquarela", "Geometrico", "Surrealismo", "Tribal", "Fine Line Floral", "Fine Line Botanico"]);
   const [regiaoOpts, setRegiaoOpts] = useState<string[]>(["Antebraço", "Braço Inteiro", "Costela", "Costas", "Ombro", "Panturrilha", "Clavícula", "Pescoço", "Mão", "Pé"]);
   const [showHistorico, setShowHistorico] = useState(false);
@@ -1090,7 +1091,14 @@ export default function CRM() {
           if (cfg.google_link) setGoogleLink(cfg.google_link);
           if (cfg.cnpj) setCnpj(cfg.cnpj);
           if (cfg.meta_mensal) setMetaMensal(cfg.meta_mensal);
+          if (cfg.meta_sessoes) setMetaSessoes(cfg.meta_sessoes);
+          if (cfg.meta_leads) setMetaLeads(cfg.meta_leads);
+          if (cfg.meta_nps) setMetaNPS(cfg.meta_nps);
           if (cfg.horarios) setHorarios(cfg.horarios);
+          if (cfg.estilo_opts?.length) setEstiloOpts(cfg.estilo_opts);
+          if (cfg.regiao_opts?.length) setRegiaoOpts(cfg.regiao_opts);
+          if (cfg.aura_formalidade) setAuraFormalidade(cfg.aura_formalidade);
+          if (cfg.aura_idioma) setAuraIdioma(cfg.aura_idioma);
           setDark(cfg.dark_mode !== false);
           setOnboardingDone(true);
           localStorage.setItem("inq_onb", "1");
@@ -1169,10 +1177,33 @@ export default function CRM() {
   }), [clients, fa, srch]);
 
   const getSC = (id: string) => filtered.filter(c => c.etapa === id);
-  const miss = (c: any) => {
+  const calcScore = (c: any): { score: number; label: string; cor: string } => {
+    let pts = 0;
+    // Pontualidade — sem faltas = máximo
+    const faltas = c.faltas || 0;
+    pts += faltas === 0 ? 25 : faltas === 1 ? 15 : faltas === 2 ? 5 : 0;
+    // Valor médio — baseado no val_a
+    const val = c.val_a || 0;
+    pts += val >= 2000 ? 25 : val >= 1000 ? 20 : val >= 500 ? 15 : val >= 200 ? 10 : val > 0 ? 5 : 0;
+    // Indicações
+    const ind = c.indicacoes || 0;
+    pts += ind >= 5 ? 25 : ind >= 3 ? 20 : ind >= 1 ? 12 : 0;
+    // Frequência — dias desde cadastro vs sessões
+    const dias = c.dias || 0;
+    pts += dias <= 90 ? 25 : dias <= 180 ? 20 : dias <= 365 ? 10 : 5;
+    const score = Math.min(pts, 100);
+    const label = score >= 80 ? "VIP" : score >= 60 ? "Fiel" : score >= 40 ? "Regular" : score >= 20 ? "Novo" : "Frio";
+    const cor = score >= 80 ? "#C9A84C" : score >= 60 ? "#27AE60" : score >= 40 ? "#3498DB" : score >= 20 ? "var(--tx2)" : "var(--tx3)";
+    return { score, label, cor };
+  };
     const m: string[] = [];
     if (!c.email) m.push("Email");
     if (!c.insta) m.push("Instagram");
+    // Valor do projeto vazio
+    const proj = c.projetos?.[0];
+    if (proj && (!proj.valorTotal || proj.valorTotal === 0) && c.etapa !== "lead") m.push("Valor do projeto");
+    // Forma de pagamento não definida em cliente com sessão agendada
+    if (!c.pgto && ["sessao_agendada","tatuado","pos_venda"].includes(c.etapa)) m.push("Forma de pagamento");
     return m;
   };
   const churn = (c: any) => {
@@ -1423,7 +1454,16 @@ export default function CRM() {
       ...form, data: new Date().toLocaleDateString("pt-BR"),
       dias: 0, stars: 0, starReason: "", consent: null, nps: null, obs: "",
       val_a: 0, val_c: 0, pgto: "", cri: "", orcamento: false,
-      hist: [{ t: "Cadastro manual criado", d: new Date().toLocaleString("pt-BR") }], pv: []
+      hist: [{ t: "Cadastro manual criado", d: new Date().toLocaleString("pt-BR") }], pv: [],
+      projetos: [{
+        id: 1, status: "andamento",
+        estilo: (form as any).estilo || "",
+        tam: (form as any).tam || "Medio",
+        regiao: (form as any).regiao || "",
+        desc: (form as any).desc || "",
+        valorTotal: (form as any).valorProjeto ? Number(String((form as any).valorProjeto).replace(/\./g,"").replace(",",".")) : 0,
+        pagamentos: [], criadoEm: new Date().toLocaleDateString("pt-BR")
+      }]
     };
     // Salva no banco primeiro para obter o UUID real
     if (sb) {
@@ -1434,9 +1474,12 @@ export default function CRM() {
         intencao: nc.intencao || "", primeira: nc.primeira || false,
         cob: nc.cob || false, descricao: nc.desc || "",
         stars: 0, consent: null, nps: null, obs: "",
-        val_a: 0, val_c: 0, pgto: "", orcamento: false, contrato: false,
+        val_a: (form as any).valorProjeto ? Number(String((form as any).valorProjeto).replace(/\./g,"").replace(",",".")) : 0,
+        val_c: 0, pgto: "", orcamento: false, contrato: false,
         faltas: 0, indicacoes: 0, credito: 0, cri: "",
         hist: nc.hist, followups: [], dias: 0,
+        projetos: nc.projetos || [],
+        nascimento: (form as any).nascimento || "",
         updated_at: new Date().toISOString()
       }).select().single();
       if (!error && data) {
@@ -3279,13 +3322,23 @@ export default function CRM() {
               <div className="dcard">
                 <div className="dch">📍 Origem dos Leads</div>
                 <div className="dcb">
-                  {origC.map(([o, c]) => (
-                    <div className="br-row" key={o}>
-                      <div className="br-lbl">{o}</div>
-                      <div className="br-trk"><div className="br-fil" style={{ width: (c / maxO * 100) + "%", background: "var(--gold)" }} /></div>
-                      <div className="br-val">{c}</div>
-                    </div>
-                  ))}
+                  {origC.map(([o, c]) => {
+                    const total = clients.filter(x => (x.orig || x.origem) === o).length;
+                    const convertidos = clients.filter(x => (x.orig || x.origem) === o && ["tatuado","pos_venda"].includes(x.etapa)).length;
+                    const taxa = total > 0 ? Math.round(convertidos / total * 100) : 0;
+                    return (
+                      <div className="br-row" key={o} style={{ flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+                          <div className="br-lbl">{o}</div>
+                          <div style={{ display: "flex", gap: 10, fontSize: 10 }}>
+                            <span style={{ color: "var(--tx3)" }}>{c} leads</span>
+                            <span style={{ color: taxa >= 30 ? "#27AE60" : taxa >= 10 ? "var(--gold)" : "var(--tx3)", fontWeight: 600 }}>{taxa}% conv.</span>
+                          </div>
+                        </div>
+                        <div className="br-trk" style={{ width: "100%" }}><div className="br-fil" style={{ width: (c / maxO * 100) + "%", background: "var(--gold)" }} /></div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               <div className="dcard">
@@ -3557,6 +3610,7 @@ export default function CRM() {
                     {sc.etapa === "blacklist" && <span className="tag-bl">🚫</span>}
                     {sc.etapa === "lista_espera" && <span className="tag-wl">⏳</span>}
                     <span style={{ color: "var(--tx3)", fontSize: 11 }}>Entrou em {sc.data}</span>
+                    {(() => { const s = calcScore(sc); return <span style={{ fontSize: 10, fontWeight: 700, color: s.cor, background: s.cor + "22", border: `1px solid ${s.cor}44`, borderRadius: 4, padding: "1px 6px", letterSpacing: ".04em" }}>⭐ {s.label} {s.score}</span>; })()}
                     {miss(sc).map((m: string) => <span key={m} className="atag">⚠ Sem {m}</span>)}
                   </div>
                 </div>
@@ -4263,7 +4317,13 @@ export default function CRM() {
                                 onMouseLeave={e => (e.currentTarget.style.background = "")}>{o}</div>
                             ))}
                             {form.estilo && !estiloOpts.some(o => o.toLowerCase() === form.estilo.toLowerCase()) && (
-                              <div onMouseDown={() => { setEstiloOpts(p => [...p, form.estilo]); setShowEstiloDD(false); }}
+                              <div onMouseDown={async () => {
+                                const novaLista = [...estiloOpts, form.estilo];
+                                setEstiloOpts(novaLista);
+                                setShowEstiloDD(false);
+                                const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single();
+                                if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id);
+                              }}
                                 style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
                                 + Adicionar "{form.estilo}"
                               </div>
@@ -4289,7 +4349,13 @@ export default function CRM() {
                                 onMouseLeave={e => (e.currentTarget.style.background = "")}>{o}</div>
                             ))}
                             {form.regiao && !regiaoOpts.some(o => o.toLowerCase() === form.regiao.toLowerCase()) && (
-                              <div onMouseDown={() => { setRegiaoOpts(p => [...p, form.regiao]); setShowRegiaoDD(false); }}
+                              <div onMouseDown={async () => {
+                                const novaLista = [...regiaoOpts, form.regiao];
+                                setRegiaoOpts(novaLista);
+                                setShowRegiaoDD(false);
+                                const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single();
+                                if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id);
+                              }}
                                 style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
                                 + Adicionar "{form.regiao}"
                               </div>
