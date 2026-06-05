@@ -88,7 +88,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .srch::placeholder{color:var(--tx3);}
 .fb{background:var(--dk3);border:1px solid var(--br);border-radius:6px;color:var(--tx2);padding:6px 11px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
 .fb.on{background:var(--gold-d);border-color:var(--gold);color:var(--gold);}
-.kw{flex:1;overflow-x:auto;padding:14px;display:flex;gap:11px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--gold) var(--dk3);}.kw::-webkit-scrollbar{height:6px;}.kw::-webkit-scrollbar-track{background:var(--dk3);border-radius:3px;}.kw::-webkit-scrollbar-thumb{background:var(--gold);border-radius:3px;}.kc{min-width:215px;max-width:215px;display:flex;flex-direction:column;gap:6px;scroll-snap-align:start;}
+.kw{flex:1;overflow-x:auto;padding:14px;display:flex;gap:11px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}.kw::-webkit-scrollbar{display:none;}.kc{min-width:215px;max-width:215px;display:flex;flex-direction:column;gap:6px;}
 
 .kh{padding:8px 11px;border-radius:7px 7px 0 0;background:var(--dk3);border:1px solid var(--br);border-bottom:2px solid;display:flex;align-items:center;justify-content:space-between;}
 .kt{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
@@ -2031,28 +2031,62 @@ export default function CRM() {
               </button>
             ))}
           </div>
-          {/* Barra de rolagem espelhada — sincronizada com a nativa */}
-          <div style={{ display: "flex", alignItems: "center", background: "var(--dk2)", borderBottom: "1px solid var(--br)", padding: "2px 0" }}>
-            <button onMouseDown={e => { e.preventDefault(); const kw = document.getElementById("kanban-scroll"); if (kw) { const step = () => { kw.scrollLeft -= 8; }; const iv = setInterval(step, 16); const up = () => { clearInterval(iv); document.removeEventListener("mouseup", up); }; document.addEventListener("mouseup", up); step(); } }}
-              style={{ flexShrink: 0, width: 28, height: 20, background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>◀</button>
-            <div id="kanban-mirror-wrap" style={{ flex: 1, overflowX: "scroll", overflowY: "hidden", height: 12 }}
-              onScroll={e => { const kw = document.getElementById("kanban-scroll"); if (kw) kw.scrollLeft = e.currentTarget.scrollLeft; }}>
-              <div id="kanban-mirror-inner" style={{ height: 1 }} />
+          {/* Barra de rolagem superior — suave, drag e setas */}
+          <div style={{ display: "flex", alignItems: "center", background: "var(--dk2)", borderBottom: "1px solid var(--br)", padding: "4px 8px", gap: 6 }}>
+            <button
+              onMouseDown={e => { e.preventDefault(); const kw = document.getElementById("kanban-scroll"); if (!kw) return; let raf: any; const scroll = () => { kw.scrollLeft -= 6; raf = requestAnimationFrame(scroll); }; raf = requestAnimationFrame(scroll); const stop = () => { cancelAnimationFrame(raf); document.removeEventListener("mouseup", stop); }; document.addEventListener("mouseup", stop); }}
+              style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 3, border: "1px solid var(--br)", background: "var(--dk3)", color: "var(--tx3)", cursor: "pointer", fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", userSelect: "none" }}>◀</button>
+            <div style={{ flex: 1, position: "relative", height: 10, background: "var(--dk4)", borderRadius: 5, cursor: "pointer", overflow: "hidden" }}
+              onClick={e => {
+                const kw = document.getElementById("kanban-scroll");
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                if (!kw) return;
+                const pct = (e.clientX - rect.left) / rect.width;
+                kw.scrollTo({ left: pct * (kw.scrollWidth - kw.clientWidth), behavior: "smooth" });
+              }}
+              onMouseDown={e => {
+                e.preventDefault();
+                const kw = document.getElementById("kanban-scroll");
+                const track = e.currentTarget as HTMLElement;
+                if (!kw) return;
+                const rect = track.getBoundingClientRect();
+                const onMove = (ev: MouseEvent) => {
+                  const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+                  kw.scrollLeft = pct * (kw.scrollWidth - kw.clientWidth);
+                };
+                const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+                document.addEventListener("mousemove", onMove);
+                document.addEventListener("mouseup", onUp);
+              }}
+              onTouchStart={e => {
+                const kw = document.getElementById("kanban-scroll");
+                const track = e.currentTarget as HTMLElement;
+                if (!kw) return;
+                const rect = track.getBoundingClientRect();
+                const onMove = (ev: TouchEvent) => {
+                  const pct = Math.max(0, Math.min(1, (ev.touches[0].clientX - rect.left) / rect.width));
+                  kw.scrollLeft = pct * (kw.scrollWidth - kw.clientWidth);
+                };
+                const onUp = () => { document.removeEventListener("touchmove", onMove as any); document.removeEventListener("touchend", onUp); };
+                document.addEventListener("touchmove", onMove as any, { passive: true });
+                document.addEventListener("touchend", onUp);
+              }}>
+              <div id="kanban-thumb" style={{ position: "absolute", top: 0, left: 0, height: "100%", background: "var(--gold)", borderRadius: 5, width: "20%", transition: "left .05s" }} />
             </div>
-            <button onMouseDown={e => { e.preventDefault(); const kw = document.getElementById("kanban-scroll"); if (kw) { const step = () => { kw.scrollLeft += 8; }; const iv = setInterval(step, 16); const up = () => { clearInterval(iv); document.removeEventListener("mouseup", up); }; document.addEventListener("mouseup", up); step(); } }}
-              style={{ flexShrink: 0, width: 28, height: 20, background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>▶</button>
+            <button
+              onMouseDown={e => { e.preventDefault(); const kw = document.getElementById("kanban-scroll"); if (!kw) return; let raf: any; const scroll = () => { kw.scrollLeft += 6; raf = requestAnimationFrame(scroll); }; raf = requestAnimationFrame(scroll); const stop = () => { cancelAnimationFrame(raf); document.removeEventListener("mouseup", stop); }; document.addEventListener("mouseup", stop); }}
+              style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 3, border: "1px solid var(--br)", background: "var(--dk3)", color: "var(--tx3)", cursor: "pointer", fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", userSelect: "none" }}>▶</button>
           </div>
           <div className="kw" id="kanban-scroll" onScroll={e => {
-            const mirror = document.getElementById("kanban-mirror-wrap");
-            if (mirror) mirror.scrollLeft = e.currentTarget.scrollLeft;
-          }} ref={el => {
-            if (el) {
-              const inner = document.getElementById("kanban-mirror-inner");
-              if (inner) inner.style.width = el.scrollWidth + "px";
-              setTimeout(() => {
-                const inner2 = document.getElementById("kanban-mirror-inner");
-                if (inner2) inner2.style.width = el.scrollWidth + "px";
-              }, 500);
+            const el = e.currentTarget;
+            const thumb = document.getElementById("kanban-thumb");
+            const track = thumb?.parentElement;
+            if (thumb && track) {
+              const pct = (el.scrollWidth - el.clientWidth) > 0 ? el.scrollLeft / (el.scrollWidth - el.clientWidth) : 0;
+              const trackW = track.clientWidth;
+              const thumbW = Math.max(trackW * (el.clientWidth / el.scrollWidth), 30);
+              thumb.style.width = thumbW + "px";
+              thumb.style.left = (pct * (trackW - thumbW)) + "px";
             }
           }}>
             {STAGES.map(stage => {
