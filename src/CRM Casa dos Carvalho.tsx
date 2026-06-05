@@ -13,17 +13,17 @@ async function dbGet(table: string) {
 }
 async function dbUpsert(table: string, row: any) {
   const { data, error } = await sb.from(table).upsert(row).select().single();
-  if (error) { console.error("upsert", table, error); return null; }
+  if (error) { console.error("upsert", table, error.message, row); return null; }
   return data;
 }
 async function dbInsert(table: string, row: any) {
   const { data, error } = await sb.from(table).insert(row).select().single();
-  if (error) { console.error("insert", table, error); return null; }
+  if (error) { console.error("insert", table, error.message, row); return null; }
   return data;
 }
 async function dbDelete(table: string, id: any) {
   const { error } = await sb.from(table).delete().eq("id", id);
-  if (error) console.error("delete", table, error);
+  if (error) console.error("delete", table, id, error.message);
 }
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
@@ -1051,6 +1051,7 @@ export default function CRM() {
           credito: c.credito || 0,
           desc: c.descricao || "",
           projetos: c.projetos || [],
+          orig: c.orig || c.origem || "",
         })));
         if (arts && arts.length > 0) {
           setArtists(arts);
@@ -1505,6 +1506,7 @@ export default function CRM() {
         orig: nc.orig || "Instagram Organico",
         email: nc.email || "",
         estilo: nc.estilo || "", regiao: nc.regiao || "",
+        tam: nc.tam || "Medio",
         intencao: nc.intencao || "", primeira: nc.primeira || false,
         cob: nc.cob || false, descricao: nc.desc || "",
         stars: 0, consent: null, nps: null, obs: "",
@@ -1514,9 +1516,14 @@ export default function CRM() {
         hist: nc.hist, followups: [], dias: 0,
         projetos: nc.projetos || [],
         nascimento: (form as any).nascimento || "",
+        documento: (form as any).documento || "",
         updated_at: new Date().toISOString()
       }).select().single();
-      if (!error && data) {
+      if (error) {
+        setShowAviso("Erro ao salvar cliente: " + (error.message || "Tente novamente."));
+        return;
+      }
+      if (data) {
         setClients(p => [{ ...nc, id: data.id, etapa: "lead" }, ...p]);
         // Salvar agendamento se marcado
         if (formAg.agendar && formAg.data) {
@@ -1633,21 +1640,7 @@ export default function CRM() {
     setAgClientVinc(null);
     setAgClientSearch("");
     addLog(`Agenda: evento "${agForm.title}" criado para ${agForm.date} às ${agForm.start}h`);
-    // Vinculação bidirecional: mover cliente para etapa correta ao criar agendamento
-    if (agClientVinc) {
-      const tipoAg = (agForm as any).tipo || "";
-      const novaEtapa = tipoAg.includes("cons") ? "cons_agendada" : tipoAg.includes("sess") ? "sessao_agend" : null;
-      if (novaEtapa) {
-        const cli = clients.find((c: any) => c.id === agClientVinc.id);
-        const etapaAtual = cli?.etapa || "";
-        // Move para o estágio correto se estiver em estágio anterior OU se já tatuou e está marcando nova sessão
-        const etapasAnteriores = ["lead", "qualificacao", "tatuado", "pos_venda", "cons_agendada"];
-        if (etapasAnteriores.includes(etapaAtual) || etapaAtual === "cumpriu") {
-          executarMove(agClientVinc.id, novaEtapa);
-        }
-      }
-    }
-    // Registrar no histórico do cliente vinculado
+    // Registrar no histórico e mover pipeline automaticamente
     if (agClientVinc) {
       const dataFmt = agForm.date ? agForm.date.split("-").reverse().join("/") : agForm.date;
       const tipoLabel: Record<string,string> = { cons: "Consulta", sess: "Sessão", piercing: "Piercing", bloq: "Bloqueio" };
@@ -1667,38 +1660,20 @@ export default function CRM() {
         if (c) setTimeout(() => saveClientDb(c), 100);
         return updated;
       });
-      // Movimento automático de pipeline
-      const tipoKeyPip = agForm.tipo.split("_")[0];
-      if (tipoKeyPip === "cons") {
-        const etapasAbaixo = ["lead", "qualificacao"];
-        setClients(p => {
-          const c = p.find((c: any) => c.id === agClientVinc.id);
-          if (!c || !etapasAbaixo.includes(c.etapa)) return p;
-          const updated = p.map((x: any) => x.id !== agClientVinc.id ? x : {
-            ...x, etapa: "cons_agendada",
-            hist: [...(x.hist || []), { t: "Movido para: Consulta Marcada (automático via agendamento)", d: new Date().toLocaleString("pt-BR") }]
-          });
-          const upd = updated.find((x: any) => x.id === agClientVinc.id);
-          if (upd) setTimeout(() => saveClientDb(upd), 150);
-          return updated;
-        });
-      } else if (tipoKeyPip === "sess" || tipoKeyPip === "piercing") {
-        setClients(p => {
-          const c = p.find((x: any) => x.id === agClientVinc.id);
-          const etapasAbaixo = ["lead", "qualificacao", "cons_agendada", "hibernacao"];
-          if (!c || !etapasAbaixo.includes(c.etapa)) return p;
-          // Aviso de cobrança R$100 se vinha de hibernação com faltas
-          if (c.etapa === "hibernacao" && c.faltas > 0) {
-            setTimeout(() => setShowAviso(`⚠️ ${c.nome} estava em hibernação por desmarcação. Lembre de cobrar R$100,00 de taxa — conforme política do estúdio.`), 500);
+      // Movimento automático de pipeline — único bloco, sem duplicação
+      if (tipoKey === "cons") {
+        const cli = clients.find((c: any) => c.id === agClientVinc.id);
+        if (cli && ["lead", "qualificacao"].includes(cli.etapa)) {
+          executarMove(agClientVinc.id, "cons_agendada");
+        }
+      } else if (tipoKey === "sess" || tipoKey === "piercing") {
+        const cli = clients.find((c: any) => c.id === agClientVinc.id);
+        if (cli && ["lead", "qualificacao", "cons_agendada", "hibernacao"].includes(cli.etapa)) {
+          if (cli.etapa === "hibernacao" && (cli.faltas || 0) > 0) {
+            setTimeout(() => setShowAviso(`⚠️ ${cli.nome} estava em hibernação por desmarcação. Lembre de cobrar R$100,00 de taxa — conforme política do estúdio.`), 500);
           }
-          const updated = p.map((x: any) => x.id !== agClientVinc.id ? x : {
-            ...x, etapa: "sessao_agend",
-            hist: [...(x.hist || []), { t: "Movido para: Sessão Agendada (automático via agendamento)", d: new Date().toLocaleString("pt-BR") }]
-          });
-          const upd = updated.find((x: any) => x.id === agClientVinc.id);
-          if (upd) setTimeout(() => saveClientDb(upd), 150);
-          return updated;
-        });
+          executarMove(agClientVinc.id, "sessao_agend");
+        }
       }
       // Lançar sinal no financeiro se já pago
       if (sinalVal > 0 && sinalPago) {
@@ -2807,8 +2782,9 @@ export default function CRM() {
                       const cli = clients.find(c => c.id === f.cliente_id);
                       const proj = (cli?.projetos || []).find((p: any) => p.status !== "cancelado");
                       const valorTotal = Number(proj?.valorTotal) || 0;
-                      const entradas = finFiltrado.filter(x => x.cliente_id === f.cliente_id && (!x.tipo || x.tipo === "entrada"));
-                      const totalPagoAte = entradas.slice(0, fi + 1).reduce((s: number, x: any) => s + (Number(x.val_a) || 0), 0);
+                      const entradasCliente = fin.filter((x: any) => x.cliente_id === f.cliente_id && (!x.tipo || x.tipo === "entrada"));
+                      const idxNoBanco = entradasCliente.findIndex((x: any) => x.id === f.id);
+                      const totalPagoAte = entradasCliente.slice(0, idxNoBanco + 1).reduce((s: number, x: any) => s + (Number(x.val_a) || 0), 0);
                       const saldoDev = Math.max(valorTotal - totalPagoAte, 0);
                       return (
                         <tr key={f.id}>
