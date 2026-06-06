@@ -3094,22 +3094,23 @@ export default function CRM() {
               {(() => {
                 const hoje = new Date();
                 // Sessões agendadas nos próximos 90 dias
+                const msDay = 86400000;
                 const ag30 = agEvents.filter(e => {
                   if (!e.date) return false;
                   const d = new Date(e.date + "T12:00:00");
-                  const diff = Math.floor((d.getTime() - hoje.getTime()) / 86400000);
+                  const diff = Math.floor((d.getTime() - hoje.getTime()) / msDay);
                   return diff >= 0 && diff <= 30 && e.status !== "cancelado";
                 });
                 const ag60 = agEvents.filter(e => {
                   if (!e.date) return false;
                   const d = new Date(e.date + "T12:00:00");
-                  const diff = Math.floor((d.getTime() - hoje.getTime()) / 86400000);
+                  const diff = Math.floor((d.getTime() - hoje.getTime()) / msDay);
                   return diff > 30 && diff <= 60 && e.status !== "cancelado";
                 });
                 const ag90 = agEvents.filter(e => {
                   if (!e.date) return false;
                   const d = new Date(e.date + "T12:00:00");
-                  const diff = Math.floor((d.getTime() - hoje.getTime()) / 86400000);
+                  const diff = Math.floor((d.getTime() - hoje.getTime()) / msDay);
                   return diff > 60 && diff <= 90 && e.status !== "cancelado";
                 });
                 // Saldos devedores em aberto
@@ -3827,7 +3828,8 @@ export default function CRM() {
                   let ano = hoje.getFullYear();
                   const data = new Date(ano, m, dia);
                   if (data < hoje) data.setFullYear(ano + 1);
-                  const diff = Math.floor((data.getTime() - hoje.getTime()) / 86400000);
+                  const msDay2 = 86400000;
+                  const diff = Math.floor((data.getTime() - hoje.getTime()) / msDay2);
                   return { ...d, diff };
                 }).filter(Boolean).sort((a: any, b: any) => a.diff - b.diff)[0] as any;
                 if (!proximaData || proximaData.diff > 30) return null;
@@ -4333,28 +4335,33 @@ export default function CRM() {
                   const dataObj = partes.length === 3 ? new Date(Number(partes[2]), Number(partes[1])-1, Number(partes[0])) : null;
                   if (!dataObj) return null;
                   const hoje = new Date();
-                  const diasPassados = Math.floor((hoje.getTime() - dataObj.getTime()) / 86400000);
+                  const msPerDay = 86400000;
+                  const diff = hoje.getTime() - dataObj.getTime();
+                  const diasPassados = Math.floor(diff / msPerDay);
                   const diasRestantes = 37 - diasPassados;
                   const vencida = diasPassados > 37;
                   const urgente = !vencida && diasPassados >= 30;
+                  const bgColor = vencida ? "rgba(192,57,43,.08)" : urgente ? "rgba(230,126,34,.08)" : "rgba(39,174,96,.08)";
+                  const borderColor = vencida ? "rgba(192,57,43,.3)" : urgente ? "rgba(230,126,34,.3)" : "rgba(39,174,96,.3)";
+                  const mainColor = vencida ? "var(--q1)" : urgente ? "#E67E22" : "#27AE60";
+                  const pct = Math.min(diasPassados * 100 / 37, 100);
+                  const label = vencida ? "🚫 Garantia vencida" : urgente ? ("⚠️ Vence em " + diasRestantes + " dia" + (diasRestantes !== 1 ? "s" : "")) : ("✅ " + diasRestantes + " dias restantes");
                   return (
                     <div>
                       <div className="stit">🛡 Garantia de Retoque</div>
-                      <div style={{ background: vencida ? "rgba(192,57,43,.08)" : urgente ? "rgba(230,126,34,.08)" : "rgba(39,174,96,.08)", border: "1px solid " + (vencida ? "rgba(192,57,43,.3)" : urgente ? "rgba(230,126,34,.3)" : "rgba(39,174,96,.3)"), borderRadius: 8, padding: "12px 14px" }}>
+                      <div style={{ background: bgColor, border: "1px solid " + borderColor, borderRadius: 8, padding: "12px 14px" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: vencida ? "var(--q1)" : urgente ? "#E67E22" : "#27AE60" }}>
-                              {vencida ? "🚫 Garantia vencida" : urgente ? ("⚠️ Vence em " + diasRestantes + " dia" + (diasRestantes !== 1 ? "s" : "")) : ("✅ " + diasRestantes + " dias restantes")}
-                            </div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: mainColor }}>{label}</div>
                             <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 2 }}>Sessão concluída em {dataConclusao} · D+{diasPassados}/37</div>
                           </div>
                           <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--dk4)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
-                            <span style={{ fontSize: 16, fontWeight: 700, color: vencida ? "var(--q1)" : urgente ? "#E67E22" : "#27AE60", lineHeight: 1 }}>{Math.min(diasPassados, 37)}</span>
+                            <span style={{ fontSize: 16, fontWeight: 700, color: mainColor, lineHeight: 1 }}>{Math.min(diasPassados, 37)}</span>
                             <span style={{ fontSize: 8, color: "var(--tx3)" }}>de 37</span>
                           </div>
                         </div>
                         <div style={{ marginTop: 8, width: "100%", background: "var(--dk4)", borderRadius: 4, height: 6, overflow: "hidden" }}>
-                          <div style={{ height: "100%", borderRadius: 4, background: vencida ? "var(--q1)" : urgente ? "#E67E22" : "#27AE60", width: Math.min(diasPassados / 37 * 100, 100) + "%" }} />
+                          <div style={{ height: "100%", borderRadius: 4, background: mainColor, width: pct + "%" }} />
                         </div>
                       </div>
                     </div>
