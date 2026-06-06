@@ -302,6 +302,7 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 .tag-bl{background:rgba(192,57,43,.15);color:var(--q1);border:1px solid rgba(192,57,43,.25);font-size:9px;font-weight:700;padding:2px 4px;border-radius:3px;}
 .tag-wl{background:rgba(74,158,191,.15);color:var(--ab);border:1px solid rgba(74,158,191,.25);font-size:9px;font-weight:700;padding:2px 4px;border-radius:3px;}
 @keyframes resetBar{from{width:100%}to{width:0%}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 `;
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -1026,6 +1027,7 @@ export default function CRM() {
   const [undoSessaoTimer, setUndoSessaoTimer] = useState<any>(null);
   const [confirmAgForm, setConfirmAgForm] = useState(false);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
+  const [sessoesExtras, setSessoesExtras] = useState<{date: string; start: number; end: number}[]>([]);
 
   const [dbReady, setDbReady] = useState(false);
 
@@ -1528,7 +1530,7 @@ export default function CRM() {
         updated_at: new Date().toISOString()
       }).select().single();
       if (error) {
-        setShowAviso("Erro ao salvar cliente: " + (error.message || "Tente novamente."));
+        setShowAviso(traduzirErro(error.message || "Tente novamente."));
         return;
       }
       if (data) {
@@ -1583,7 +1585,21 @@ export default function CRM() {
     addLog(`Artista "${artForm.nome}" cadastrado`);
   };
 
+  const traduzirErro = (msg: string): string => {
+    if (msg.includes("invalid input syntax for type date")) return "Informe a data do agendamento antes de salvar.";
+    if (msg.includes("null value in column")) return "Preencha todos os campos obrigatórios.";
+    if (msg.includes("duplicate key")) return "Este registro já existe no sistema.";
+    if (msg.includes("violates not-null")) return "Preencha todos os campos obrigatórios.";
+    if (msg.includes("violates foreign key")) return "Referência inválida. Verifique os dados e tente novamente.";
+    if (msg.includes("JWT")) return "Sessão expirada. Recarregue a página.";
+    return "Algo deu errado. Tente novamente.";
+  };
+
   const saveAgEvent = async () => {
+    if (!agForm.date && !agForm.tipo.startsWith("bloq")) {
+      setShowAviso("Informe a data do agendamento antes de salvar.");
+      return;
+    }
     const row: any = {
       titulo: agForm.title,
       artista: agForm.tipo.replace("cons_","").replace("sess_","").replace("bloq_","") || "abraao",
@@ -1600,7 +1616,7 @@ export default function CRM() {
 
     if (editingEvent) {
       const { data, error } = await sb.from("agenda").update(row).eq("id", editingEvent.id).select().single();
-      if (error) { setShowAviso("Erro ao atualizar agendamento: " + error.message); return; }
+      if (error) { setShowAviso(traduzirErro(error.message)); return; }
       setAgEvents(p => p.map(e => e.id === editingEvent.id ? {
         ...data, title: data.titulo, date: data.data,
         start: parseInt(data.hora?.split(":")[0] || "9"),
@@ -1648,7 +1664,7 @@ export default function CRM() {
     }
 
     const { data, error } = await sb.from("agenda").insert(row).select().single();
-    if (error) { setShowAviso("Erro ao salvar agendamento: " + error.message); return; }
+    if (error) { setShowAviso(traduzirErro(error.message)); return; }
     setAgEvents(p => [...p, {
       ...data, title: data.titulo || agForm.title, date: data.data || agForm.date,
       start: parseInt(data.hora?.split(":")[0] || String(agForm.start)),
@@ -1713,6 +1729,27 @@ export default function CRM() {
         }).select().single();
         if (errSinal) console.error("financeiro insert (sinal):", errSinal);
         if (fdSinal) setFin(p => [...p, { ...fdSinal, cliente: agClientVinc.nome }]);
+      }
+      // Salvar sessões extras (2ª, 3ª...)
+      if (sessoesExtras.length > 0) {
+        const artId = agForm.tipo.replace("cons_","").replace("sess_","") || "abraao";
+        for (let i = 0; i < sessoesExtras.length; i++) {
+          const sx = sessoesExtras[i];
+          if (!sx.date) continue;
+          const numSessao = i + 2;
+          const titulo = agClientVinc.nome + " — " + numSessao + "ª Sessão";
+          const rowSx: any = {
+            titulo, cliente_id: agClientVinc.id, cliente_nome: agClientVinc.nome,
+            artista: artId, data: sx.date,
+            hora: String(sx.start).padStart(2,"0") + ":00",
+            hora_fim: String(sx.end).padStart(2,"0") + ":00",
+            tipo: "sess_" + artId, obs: numSessao + "ª sessão do projeto"
+          };
+          const { data: dSx } = await sb.from("agenda").insert(rowSx).select().single();
+          if (dSx) setAgEvents(p => [...p, { ...dSx, title: titulo, date: dSx.data, start: sx.start, end: sx.end, tipo: "sess_" + artId }]);
+        }
+        setSessoesExtras([]);
+        addLog(`Agenda: ${sessoesExtras.length} sessão(ões) extra(s) criadas para ${agClientVinc.nome}`);
       }
     }
   };
@@ -5203,6 +5240,33 @@ export default function CRM() {
                 })()}
 
               </div>
+              {/* Sessões extras */}
+              {!editingEvent && agClientVinc && !agForm.tipo.startsWith("bloq") && (
+                <div style={{ borderTop: "1px solid var(--br)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                  {sessoesExtras.map((s, i) => (
+                    <div key={i} style={{ background: "var(--dk3)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", textTransform: "uppercase", letterSpacing: ".05em" }}>{i + 2}ª Sessão</span>
+                        <button onClick={() => setSessoesExtras(p => p.filter((_,j) => j !== i))}
+                          style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 16, padding: 0 }}>×</button>
+                      </div>
+                      <div className="ff">
+                        <label className="fl">Data</label>
+                        <input className="fi" type="date" value={s.date}
+                          onChange={e => setSessoesExtras(p => p.map((x,j) => j===i ? {...x, date: e.target.value} : x))} />
+                      </div>
+                      <div className="fr">
+                        <TimeScroller label="Início" value={s.start} onChange={(h) => setSessoesExtras(p => p.map((x,j) => j===i ? {...x, start: h} : x))} />
+                        <TimeScroller label="Fim" value={s.end} onChange={(h) => setSessoesExtras(p => p.map((x,j) => j===i ? {...x, end: h} : x))} />
+                      </div>
+                    </div>
+                  ))}
+                  <button onClick={() => setSessoesExtras(p => [...p, { date: "", start: 9, end: 11 }])}
+                    style={{ background: "none", border: "1px dashed var(--br)", borderRadius: 7, padding: "8px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", textAlign: "left" }}>
+                    + Nova Sessão
+                  </button>
+                </div>
+              )}
               <div className="fmf" style={{ justifyContent: "space-between" }}>
                 <div style={{ display: "flex", gap: 6 }}>
                   {editingEvent && (
@@ -5233,7 +5297,7 @@ export default function CRM() {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 7 }}>
-                  <button className="btn-c" onClick={() => { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); }}>Cancelar</button>
+                  <button className="btn-c" onClick={() => { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); }}>Cancelar</button>
                   <button className="btn-s" onClick={() => {
                     if (!agClientVinc && !agForm.tipo.startsWith("bloq")) {
                       setShowAviso("Apenas clientes cadastrados podem ser agendados. Cadastre o cliente primeiro na aba Clientes.");
@@ -5662,7 +5726,7 @@ export default function CRM() {
                         <span style={{ fontWeight: 600 }}>{e.date ? e.date.split("-").reverse().join("/") : "—"}</span>
                         <span style={{ color: "var(--tx2)", marginLeft: 8 }}>{String(e.start).padStart(2,"0")}h — {getEventLabel(e.tipo, artists)}</span>
                       </div>
-                      <button title="Altere a data ou horário. Será movido automaticamente no pipeline ao salvar." onClick={() => {
+                      <button title="Altere a data ou horário." onClick={() => {
                         setConfirmMover(null);
                         setEditingEvent(e);
                         const cv = clients.find(c => c.id === e.cliente_id) || null;
@@ -5682,10 +5746,16 @@ export default function CRM() {
                   ⚠️ Nenhum agendamento encontrado para este cliente.
                 </div>
               )}
-              {/* Botão + Agendar — aparece sempre que não há agendamento, ou em sessão agendada */}
+              {/* Aviso inline quando tenta confirmar sem agendamento correto */}
+              {confirmMover._aviso && (
+                <div style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 7, padding: "10px 14px", fontSize: 12, color: "var(--q1)", fontWeight: 600 }}>
+                  ⚠️ {confirmMover._aviso}
+                </div>
+              )}
+              {/* Botão + Agendar */}
               {(confirmMover.agEvents.length === 0 || confirmMover.stage.id === "sessao_agend") && (
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button title="Cria um novo agendamento para este cliente. O tipo escolhido move o pipeline automaticamente." onClick={() => {
+                  <button onClick={() => {
                     const cli = clients.find(c => c.id === confirmMover.cid);
                     const artId = cli?.artista || artists[0]?.id || "abraao";
                     const tipoDefault = confirmMover.stage.id === "cons_agendada" ? "cons_" + artId : "sess_" + artId;
@@ -5695,7 +5765,7 @@ export default function CRM() {
                     setAgClientSearch("");
                     setAgForm({ title: cli?.nome || "", desc: "", tipo: tipoDefault, date: "", start: 9, end: 11, sinal: "", sinalPago: false } as any);
                     setShowAgForm(true);
-                  }} style={{ flex: 1, background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 6, padding: "7px 10px", fontSize: 11, fontWeight: 600, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                  }} style={{ flex: 1, background: confirmMover._aviso ? "rgba(201,168,76,.2)" : "var(--dk3)", border: "2px solid var(--gold)", borderRadius: 6, padding: "9px 10px", fontSize: 12, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", animation: confirmMover._aviso ? "pulse 1s ease-in-out 3" : "none" }}>
                     + Agendar
                   </button>
                 </div>
@@ -5709,7 +5779,7 @@ export default function CRM() {
                     const temAgCorreto = confirmMover.agEvents.some((e: any) => e.tipo?.startsWith(tipoEsperado) || (tipoEsperado === "sess" && e.tipo === "piercing"));
                     if (!temAgCorreto) {
                       const nomeEtapa = tipoEsperado === "cons" ? "consulta" : "sessão";
-                      setShowAviso("Defina um agendamento de " + nomeEtapa + " antes de confirmar. Use o botão + Agendar.");
+                      setConfirmMover(p => p ? { ...p, _aviso: "Defina um agendamento de " + nomeEtapa + " antes de confirmar." } : p);
                       return;
                     }
                   }
