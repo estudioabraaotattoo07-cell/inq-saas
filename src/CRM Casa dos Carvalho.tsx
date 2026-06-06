@@ -399,7 +399,7 @@ const SEGS = [
   { id: "q2", label: "Q2 - Quentes", desc: "Prontos para avancar", icon: "🟡", f: (c: any) => c.qual === "Q2" },
   { id: "tatuados", label: "Tatuados", desc: "Ja fizeram sessao", icon: "🖤", f: (c: any) => c.etapa === "tatuado" || c.etapa === "pos_venda" },
   { id: "primeira", label: "Primeira Tattoo", desc: "Primeira vez", icon: "✨", f: (c: any) => c.primeira },
-  { id: "abraao", label: "Clientes Abraao", desc: "Direcionados ao Abraao", icon: "🔵", f: (c: any) => c.artista === "abraao" },
+  { id: "abraao", label: "Clientes Abraão", desc: "Direcionados ao Abraão", icon: "🔵", f: (c: any) => c.artista === "abraao" },
   { id: "camilla", label: "Clientes Camilla", desc: "Direcionados a Camilla", icon: "🟣", f: (c: any) => c.artista === "camilla" },
   { id: "google", label: "Avaliacao Google", desc: "Tatuados sem avaliacao", icon: "⭐", f: (c: any) => (c.etapa === "tatuado" || c.etapa === "pos_venda") && !c.googleReview },
   { id: "retorno", label: "Retorno Sazonal", desc: "Tatuados ha mais de 6 meses", icon: "🔄", f: (c: any) => (c.etapa === "tatuado" || c.etapa === "pos_venda") && c.dias >= 180 },
@@ -560,7 +560,7 @@ Casa dos Carvalho - In-Quadra Ink System`;
 // ─── INITIAL DATA ─────────────────────────────────────────────────────────────
 const ARTISTS_INIT = [
   {
-    id: "abraao", nome: "Abraao Carvalho", role: "residente", com: 60,
+    id: "abraao", nome: "Abraão Carvalho", role: "residente", com: 60,
     cor: "#4A9EBF", ativo: true, insta: "@abraaotattoo",
     email: "abraao@casadoscarvalho.com", tel: "(27) 99999-0001"
   },
@@ -1024,6 +1024,7 @@ export default function CRM() {
   const [undoTimer, setUndoTimer] = useState<any>(null);
   const [undoSessao, setUndoSessao] = useState<{cid: any; etapaAnterior: string; finIds: any[]} | null>(null);
   const [undoSessaoTimer, setUndoSessaoTimer] = useState<any>(null);
+  const [confirmAgForm, setConfirmAgForm] = useState(false);
 
   const [dbReady, setDbReady] = useState(false);
 
@@ -4456,6 +4457,14 @@ export default function CRM() {
                         </select>
                       </div>
                       <div className="ff">
+                        <label className="fl">1ª Tattoo?</label>
+                        <select className="fs" value={(form as any).primeira ? "Sim" : "Não"} onChange={e => setForm({ ...form, primeira: e.target.value === "Sim" } as any)}>
+                          <option>Não</option><option>Sim</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="fr">
+                      <div className="ff">
                         <label className="fl">Valor Estimado do Projeto (R$)</label>
                         <input className="fi" placeholder="0,00" value={(form as any).valorProjeto || ""}
                           onChange={e => {
@@ -4463,6 +4472,11 @@ export default function CRM() {
                             const num = raw ? (Number(raw) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
                             setForm({ ...form, valorProjeto: num } as any);
                           }} />
+                      </div>
+                      <div className="ff">
+                        <label className="fl">Documento RG/CPF — Opcional</label>
+                        <input className="fi" placeholder="000.000.000-00" value={(form as any).documento || ""}
+                          onChange={e => setForm({ ...form, documento: e.target.value } as any)} />
                       </div>
                     </div>
                     <div className="ff"><label className="fl">Descrição do Projeto</label><textarea className="fta" placeholder="Descreva a ideia..." value={form.desc}
@@ -4567,7 +4581,14 @@ export default function CRM() {
                           {clients.filter(c => c.nome.toLowerCase().includes(agClientSearch.toLowerCase())).slice(0, 8).map(c => (
                             <div key={c.id}
                               style={{ padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                              onMouseDown={() => { setAgClientVinc(c); setAgForm({ ...agForm, title: c.nome }); setAgClientSearch(""); setAgClientDropdown(false); }}>
+                              onMouseDown={() => {
+                                const tipoBase = agForm.tipo.startsWith("sess") ? "sess_" : agForm.tipo.startsWith("cons") ? "cons_" : "sess_";
+                                const artId = c.artista || artists[0]?.id || "abraao";
+                                setAgClientVinc(c);
+                                setAgForm({ ...agForm, title: c.nome, tipo: tipoBase + artId });
+                                setAgClientSearch("");
+                                setAgClientDropdown(false);
+                              }}>
                               <div>
                                 <div style={{ fontSize: 13, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif", fontWeight: 600 }}>{c.nome}</div>
                                 <div style={{ fontSize: 11, color: "var(--tx2)" }}>{c.estilo || "—"}</div>
@@ -4804,9 +4825,56 @@ export default function CRM() {
                       setShowAviso("Apenas clientes cadastrados podem ser agendados. Cadastre o cliente primeiro na aba Clientes.");
                       return;
                     }
-                    saveAgEvent();
+                    setConfirmAgForm(true);
                   }}>Salvar</button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MODAL CONFIRMAR AGENDAMENTO ── */}
+        {confirmAgForm && (
+          <div className="ov" onClick={() => setConfirmAgForm(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(420px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>
+                Confirmar Agendamento
+              </div>
+              <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
+                {agClientVinc && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: "var(--tx3)" }}>Cliente</span>
+                    <span style={{ color: "var(--tx)", fontWeight: 600 }}>{agClientVinc.nome}</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "var(--tx3)" }}>Data</span>
+                  <span style={{ color: "var(--tx)", fontWeight: 600 }}>{agForm.date ? agForm.date.split("-").reverse().join("/") : "—"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "var(--tx3)" }}>Horário</span>
+                  <span style={{ color: "var(--tx)", fontWeight: 600 }}>{String(agForm.start).padStart(2,"0")}h — {String(agForm.end).padStart(2,"0")}h</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "var(--tx3)" }}>Tipo</span>
+                  <span style={{ color: "var(--tx)", fontWeight: 600 }}>{getEventLabel(agForm.tipo, artists)}</span>
+                </div>
+                {(agForm as any).sinal && parseFloat(String((agForm as any).sinal).replace(/\./g,"").replace(",",".")) > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: "var(--tx3)" }}>Sinal</span>
+                    <span style={{ color: "#27AE60", fontWeight: 600 }}>R$ {(agForm as any).sinal} {(agForm as any).sinalPago ? "✅ Recebido" : "⏳ Pendente"}</span>
+                  </div>
+                )}
+                {(agForm as any).desc && (
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                    <span style={{ color: "var(--tx3)", flexShrink: 0 }}>Obs.</span>
+                    <span style={{ color: "var(--tx2)", textAlign: "right" }}>{(agForm as any).desc}</span>
+                  </div>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+                <button className="btn-c" onClick={() => setConfirmAgForm(false)}>Cancelar</button>
+                <button className="btn-s" onClick={() => { setConfirmAgForm(false); saveAgEvent(); }}>Confirmar</button>
               </div>
             </div>
           </div>
@@ -5176,29 +5244,23 @@ export default function CRM() {
                   ⚠️ Nenhum agendamento encontrado para este cliente.
                 </div>
               )}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <button title="Use quando a tatuagem exige mais de uma sessão. Cria um novo agendamento vinculado ao mesmo projeto." onClick={() => {
-                  const cli = clients.find(c => c.id === confirmMover.cid);
-                  setConfirmMover(null);
-                  setEditingEvent(null);
-                  setAgClientVinc(cli || null);
-                  setAgClientSearch("");
-                  const tipoAg = confirmMover.stage.id === "cons_agendada" ? "cons_" : "sess_";
-                  const artId = cli?.artista || (artists[0]?.id || "abraao");
-                  setAgForm({ title: cli?.nome || "", desc: "", tipo: tipoAg + artId, date: new Date().toISOString().split("T")[0], start: 9, end: 11 } as any);
-                  setShowAgForm(true);
-                }} style={{ flex: 1, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 10px", fontSize: 11, fontWeight: 600, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                  + Nova Sessão
-                </button>
-                <button title="Cria várias sessões de uma vez com intervalo fixo entre elas. Ideal para fechamentos e projetos longos." onClick={() => {
-                  const cli = clients.find(c => c.id === confirmMover.cid);
-                  setConfirmMover(null);
-                  setRecorrenteForm(p => ({ ...p, artista: cli?.artista || artists[0]?.id || "abraao" }));
-                  setShowRecorrenteModal({ cid: confirmMover.cid });
-                }} style={{ flex: 1, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 10px", fontSize: 11, fontWeight: 600, color: "var(--ab)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                  📅 Sessões Recorrentes
-                </button>
-              </div>
+              {/* Botões de ação — contextuais por estágio */}
+              {confirmMover.stage.id !== "cons_agendada" && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button title="Use quando a tatuagem exige mais de uma sessão. Cria um novo agendamento vinculado ao mesmo projeto." onClick={() => {
+                    const cli = clients.find(c => c.id === confirmMover.cid);
+                    const artId = cli?.artista || artists[0]?.id || "abraao";
+                    setConfirmMover(null);
+                    setEditingEvent(null);
+                    setAgClientVinc(cli || null);
+                    setAgClientSearch("");
+                    setAgForm({ title: cli?.nome || "", desc: "", tipo: "sess_" + artId, date: "", start: 9, end: 11, sinal: "", sinalPago: false } as any);
+                    setShowAgForm(true);
+                  }} style={{ flex: 1, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 10px", fontSize: 11, fontWeight: 600, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                    + Nova Sessão
+                  </button>
+                </div>
+              )}
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button className="btn-c" onClick={() => setConfirmMover(null)}>Cancelar</button>
                 <button className="btn-s" onClick={() => { setConfirmMover(null); move(confirmMover.cid, confirmMover.stage.id); }}>
