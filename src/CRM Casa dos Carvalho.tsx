@@ -3090,59 +3090,140 @@ export default function CRM() {
                 </div>
               </div>
 
+
+            </>)}
+
+            {/* ════ DRE ════ */}
+            {finAbaAtiva === "dre" && (<>
+              <div className="ftable">
+                <div className="fth" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>Demonstrativo de Resultado — {finFiltroMes}</span>
+                  <button onClick={() => {
+                    const greenClass = lucroAntesProlabore >= 0 ? "green" : "red";
+                    const lucroClass = lucroLiquido >= 0 ? "green" : "red";
+                    const conteudo = [
+                      '<html><head><title>DRE ' + finFiltroMes + '</title>',
+                      '<style>body{font-family:sans-serif;padding:32px;color:#111;}h1{font-size:20px;margin-bottom:4px;}h2{font-size:13px;color:#666;margin-bottom:24px;font-weight:400;}table{width:100%;border-collapse:collapse;}tr{border-bottom:1px solid #eee;}td{padding:8px 4px;font-size:13px;}td:last-child{text-align:right;font-weight:600;}.bold{font-weight:700;font-size:15px;}.sep{border-bottom:2px solid #ccc;}.green{color:#27AE60;}.red{color:#C0392B;}.footer{margin-top:32px;font-size:11px;color:#aaa;}</style></head>',
+                      '<body>',
+                      '<h1>' + studioName + ' — DRE</h1>',
+                      '<h2>Competência: ' + finFiltroMes + ' · Gerado em ' + new Date().toLocaleDateString("pt-BR") + '</h2>',
+                      '<table>',
+                      '<tr><td>Receita Bruta</td><td class="green bold">' + fmtR(receitaBruta) + '</td></tr>',
+                      '<tr><td>&nbsp;&nbsp;(-) Repasses Artistas</td><td class="red">' + fmtR(totalRepasses) + '</td></tr>',
+                      '<tr><td>&nbsp;&nbsp;(-) Depreciacao Equipamentos</td><td class="red">' + fmtR(deprMensal) + '</td></tr>',
+                      '<tr><td>&nbsp;&nbsp;(-) Despesas Operacionais</td><td class="red">' + fmtR(totalSaidas) + '</td></tr>',
+                      '<tr class="sep"><td class="bold">Resultado Antes do Pro-Labore</td><td class="' + greenClass + ' bold">' + fmtR(lucroAntesProlabore) + '</td></tr>',
+                      '<tr><td>&nbsp;&nbsp;(-) Pro-Labore</td><td class="red">' + fmtR(prolabore) + '</td></tr>',
+                      '<tr class="sep"><td class="bold">Lucro Liquido</td><td class="' + lucroClass + ' bold">' + fmtR(lucroLiquido) + '</td></tr>',
+                      '</table>',
+                      '<div class="footer">In-Quadra Ink System · ' + studioName + (cnpj ? ' · CNPJ ' + cnpj : '') + '</div>',
+                      '</body></html>'
+                    ].join('\n');
+                    const w = window.open("", "_blank");
+                    if (w) { w.document.write(conteudo); w.document.close(); setTimeout(() => w.print(), 400); }
+                  }} style={{ background: "var(--gold)", color: "#000", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                    📄 Exportar PDF
+                  </button>
+                </div>
+                <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 0 }}>
+                  {[
+                    { l: "Receita Bruta", v: receitaBruta, bold: true, color: "var(--q3)" },
+                    { l: "  (−) Repasses Artistas", v: -totalRepasses, color: "var(--q1)" },
+                    { l: "  (−) Depreciação Equipamentos", v: -deprMensal, color: "var(--q1)" },
+                    { l: "  (−) Despesas Operacionais", v: -totalSaidas, color: "var(--q1)" },
+                    { l: "Resultado Antes do Pró-Labore", v: lucroAntesProlabore, bold: true, color: lucroAntesProlabore >= 0 ? "var(--q3)" : "var(--q1)", sep: true },
+                    { l: "  (−) Pró-Labore", v: -prolabore, color: "var(--q1)" },
+                    { l: "Lucro Líquido", v: lucroLiquido, bold: true, color: lucroLiquido >= 0 ? "var(--q3)" : "var(--q1)", sep: true },
+                  ].map((row, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderBottom: row.sep ? "2px solid var(--br)" : "1px solid rgba(255,255,255,.04)" }}>
+                      <span style={{ fontSize: 13, color: row.bold ? "var(--tx)" : "var(--tx2)", fontWeight: row.bold ? 700 : 400, fontFamily: row.bold ? "'Cormorant Garamond',serif" : "inherit" }}>{row.l}</span>
+                      <span style={{ fontSize: row.bold ? 17 : 13, fontWeight: row.bold ? 700 : 600, color: row.color, fontFamily: row.bold ? "'Cormorant Garamond',serif" : "inherit" }}>{fmtR(Math.abs(row.v))}{row.v < 0 ? " (−)" : ""}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="ftable">
+                  <div className="fth">Saídas por Categoria</div>
+                  <div style={{ padding: "13px 15px" }}>
+                    {(() => {
+                      const m: Record<string,number> = {};
+                      saidasFiltradas.forEach(s => { m[s.categoria] = (m[s.categoria] || 0) + (Number(s.valor) || 0); });
+                      const max = Math.max(...Object.values(m), 1);
+                      return Object.entries(m).sort((a: any,b: any) => b[1]-a[1]).map(([cat, val]: any) => (
+                        <div className="br-row" key={cat}>
+                          <div className="br-lbl">{cat}</div>
+                          <div className="br-trk"><div className="br-fil" style={{ width: (val/max*100)+"%", background: "var(--q1)" }} /></div>
+                          <div style={{ fontSize: 11, color: "var(--tx)", width: 80, textAlign: "right", flexShrink: 0 }}>{fmtR(val)}</div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+                <div className="ftable">
+                  <div className="fth">Margem por Artista</div>
+                  <div style={{ padding: "13px 15px" }}>
+                    {artists.filter(a => a.ativo).map(a => {
+                      const fat = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada")).reduce((s, f) => s + (Number(f.val_a)||0), 0);
+                      const rep = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada")).reduce((s, f) => s + ((Number(f.val_a)||0) * (Number(f.com_sess)||0) / 100), 0);
+                      const margem = fat > 0 ? Math.round(((fat - rep) / fat) * 100) : 0;
+                      return (
+                        <div key={a.id} className="br-row">
+                          <div className="br-lbl"><span style={aStyle(a.id)}>{a.nome.split(" ")[0]}</span></div>
+                          <div className="br-trk"><div className="br-fil" style={{ width: margem+"%", background: a.cor || "var(--gold)" }} /></div>
+                          <div style={{ fontSize: 11, color: "var(--tx)", width: 50, textAlign: "right", flexShrink: 0 }}>{margem}%</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: "rgba(74,158,191,.08)", border: "1px solid rgba(74,158,191,.2)", borderRadius: 8, padding: "13px 16px" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ab)", marginBottom: 6 }}>💡 Para seu contador</div>
+                <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.7 }}>
+                  Este DRE é gerado automaticamente com base nos lançamentos do mês. Exporte os dados mensalmente e entregue ao seu contador junto com as notas fiscais emitidas.
+                </div>
+              </div>
+
               {/* Projeção de caixa */}
               {(() => {
-                const hoje = new Date();
-                // Sessões agendadas nos próximos 90 dias
-                const msDay = 86400000;
-                const ag30 = agEvents.filter(e => {
-                  if (!e.date) return false;
-                  const d = new Date(e.date + "T12:00:00");
-                  const diff = Math.floor((d.getTime() - hoje.getTime()) / msDay);
-                  return diff >= 0 && diff <= 30 && e.status !== "cancelado";
-                });
-                const ag60 = agEvents.filter(e => {
-                  if (!e.date) return false;
-                  const d = new Date(e.date + "T12:00:00");
-                  const diff = Math.floor((d.getTime() - hoje.getTime()) / msDay);
-                  return diff > 30 && diff <= 60 && e.status !== "cancelado";
-                });
-                const ag90 = agEvents.filter(e => {
-                  if (!e.date) return false;
-                  const d = new Date(e.date + "T12:00:00");
-                  const diff = Math.floor((d.getTime() - hoje.getTime()) / msDay);
-                  return diff > 60 && diff <= 90 && e.status !== "cancelado";
-                });
-                // Saldos devedores em aberto
+                const hojeMs = new Date().getTime();
+                const msDay = 1000 * 60 * 60 * 24;
+                const contarAg = (de: number, ate: number) => agEvents.filter(e => {
+                  if (!e.date || e.status === "cancelado") return false;
+                  const dMs = new Date(e.date + "T12:00:00").getTime();
+                  const diff = Math.floor((dMs - hojeMs) / msDay);
+                  return diff >= de && diff <= ate;
+                }).length;
+                const n30 = contarAg(0, 30);
+                const n60 = contarAg(31, 60);
+                const n90 = contarAg(61, 90);
+                const entradasCount = fin.filter((f: any) => !f.tipo || f.tipo === "entrada").length;
+                const ticket = entradasCount > 0 ? Math.round(totalEntradas / entradasCount) : 0;
                 const saldosAbertos = clients.reduce((s, c) => {
                   const projs = (c.projetos || []).filter((p: any) => p.status === "ativo" && p.valorTotal > 0);
                   const pago = fin.filter((f: any) => f.cliente_id === c.id && (!f.tipo || f.tipo === "entrada")).reduce((ss: number, f: any) => ss + (Number(f.val_a) || 0), 0);
                   const total = projs.reduce((ss: number, p: any) => ss + (Number(p.valorTotal) || 0), 0);
                   return s + Math.max(total - pago, 0);
                 }, 0);
-                const ticketAtual = totalEntradas > 0 && fin.filter(f => !f.tipo || f.tipo === "entrada").length > 0
-                  ? totalEntradas / fin.filter(f => !f.tipo || f.tipo === "entrada").length
-                  : 0;
                 return (
                   <div className="ftable" style={{ marginTop: 12 }}>
                     <div className="fth">📈 Projeção de Caixa</div>
                     <div style={{ padding: "13px 15px", display: "flex", flexDirection: "column", gap: 10 }}>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        {[
-                          { l: "Próximos 30 dias", ag: ag30, extra: "" },
-                          { l: "31 a 60 dias", ag: ag60, extra: "" },
-                          { l: "61 a 90 dias", ag: ag90, extra: "" },
-                        ].map(({ l, ag }) => (
+                        {[{l: "Próximos 30 dias", n: n30}, {l: "31 a 60 dias", n: n60}, {l: "61 a 90 dias", n: n90}].map(({ l, n }) => (
                           <div key={l} style={{ flex: 1, minWidth: 140, background: "var(--dk3)", borderRadius: 8, padding: "10px 12px", border: "1px solid var(--br)" }}>
                             <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>{l}</div>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--q3)", fontFamily: "'Cormorant Garamond',serif" }}>{fmtR(ag.length * ticketAtual)}</div>
-                            <div style={{ fontSize: 10, color: "var(--tx2)", marginTop: 2 }}>{ag.length} sessão{ag.length !== 1 ? "ões" : ""} agendada{ag.length !== 1 ? "s" : ""}</div>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--q3)", fontFamily: "'Cormorant Garamond',serif" }}>{fmtR(n * ticket)}</div>
+                            <div style={{ fontSize: 10, color: "var(--tx2)", marginTop: 2 }}>{n} sessão{n !== 1 ? "ões" : ""} agendada{n !== 1 ? "s" : ""}</div>
                           </div>
                         ))}
                       </div>
                       <div style={{ background: "rgba(74,158,191,.08)", border: "1px solid rgba(74,158,191,.2)", borderRadius: 6, padding: "8px 12px", fontSize: 11, color: "var(--tx2)" }}>
                         💰 Saldo devedor em aberto: <strong style={{ color: saldosAbertos > 0 ? "var(--q2)" : "var(--tx)" }}>{fmtR(saldosAbertos)}</strong>
-                        {ticketAtual > 0 && <span style={{ marginLeft: 12 }}>· Ticket médio atual: <strong style={{ color: "var(--tx)" }}>{fmtR(ticketAtual)}</strong></span>}
+                        {ticket > 0 && <span style={{ marginLeft: 12 }}>· Ticket médio: <strong style={{ color: "var(--tx)" }}>{fmtR(ticket)}</strong></span>}
                       </div>
                     </div>
                   </div>
@@ -3818,34 +3899,35 @@ export default function CRM() {
               {/* Alerta de sazonalidade */}
               {(() => {
                 const hoje = new Date();
-                const proximaData = DATAS.map(d => {
+                const hojeMs = hoje.getTime();
+                const meses: Record<string,number> = {Jan:0,Fev:1,Mar:2,Abr:3,Mai:4,Jun:5,Jul:6,Ago:7,Set:8,Out:9,Nov:10,Dez:11};
+                const msDay = 1000 * 60 * 60 * 24;
+                let proximaData: any = null;
+                let menorDiff = 999;
+                DATAS.forEach(d => {
                   const partes = d.data.split(" ");
-                  if (partes.length !== 2) return null;
-                  const meses: Record<string,number> = { Jan:0,Fev:1,Mar:2,Abr:3,Mai:4,Jun:5,Jul:6,Ago:7,Set:8,Out:9,Nov:10,Dez:11 };
+                  if (partes.length !== 2) return;
                   const m = meses[partes[1]];
-                  if (m === undefined) return null;
+                  if (m === undefined) return;
                   const dia = parseInt(partes[0]);
-                  let ano = hoje.getFullYear();
-                  const data = new Date(ano, m, dia);
-                  if (data < hoje) data.setFullYear(ano + 1);
-                  const msDay2 = 86400000;
-                  const diff = Math.floor((data.getTime() - hoje.getTime()) / msDay2);
-                  return { ...d, diff };
-                }).filter(Boolean).sort((a: any, b: any) => a.diff - b.diff)[0] as any;
+                  let data = new Date(hoje.getFullYear(), m, dia);
+                  if (data.getTime() < hojeMs) data = new Date(hoje.getFullYear() + 1, m, dia);
+                  const diff = Math.floor((data.getTime() - hojeMs) / msDay);
+                  if (diff < menorDiff) { menorDiff = diff; proximaData = { ...d, diff }; }
+                });
                 if (!proximaData || proximaData.diff > 30) return null;
-                const qtdNutricao = clients.filter(c => ["lead","qualificacao"].includes(c.etapa)).length;
+                const qtd = clients.filter(c => ["lead","qualificacao"].includes(c.etapa)).length;
                 return (
-                  <div style={{ background: "rgba(201,168,76,.08)", border: "1px solid rgba(201,168,76,.25)", borderRadius: 8, padding: "12px 14px", marginBottom: 12, display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <span style={{ fontSize: 20, flexShrink: 0 }}>{proximaData.icon}</span>
+                  <div style={{ background: "rgba(201,168,76,.08)", border: "1px solid rgba(201,168,76,.25)", borderRadius: 8, padding: "12px 14px", marginBottom: 12, display: "flex", gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>{proximaData.icon}</span>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--gold)" }}>📅 {proximaData.label} em {proximaData.diff} dia{proximaData.diff !== 1 ? "s" : ""}</div>
-                      <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 3, lineHeight: 1.6 }}>
-                        Você tem <strong style={{ color: "var(--tx)" }}>{qtdNutricao} clientes</strong> em nutrição que podem ser ativados. Selecione um segmento e programe um disparo temático.
-                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--gold)" }}>📅 {proximaData.label} em {proximaData.diff} dias</div>
+                      <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 3 }}>Você tem <strong style={{ color: "var(--tx)" }}>{qtd} clientes</strong> em nutrição que podem ser ativados.</div>
                     </div>
                   </div>
                 );
               })()}
+
               <div className="dsec">
                 <div className="dsh">
                   <div className="dst">📱 Preview da Mensagem</div>
@@ -3899,12 +3981,11 @@ export default function CRM() {
                   }
                 </div>
               </div>
-              {/* Histórico de disparos */}
               {disparosHist.length > 0 && (
-                <div className="dsec" style={{ marginTop: 0 }}>
+                <div className="dsec" style={{ marginTop: 12 }}>
                   <div className="dsh">
                     <div className="dst">📋 Histórico de Disparos</div>
-                    <div className="dss">Últimos programados nesta sessão</div>
+                    <div className="dss">Programados nesta sessão</div>
                   </div>
                   <div className="dsb">
                     {disparosHist.map((d, i) => (
@@ -3915,7 +3996,7 @@ export default function CRM() {
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontSize: 11, color: "var(--tx2)", fontStyle: "italic" }}>{d.preview}...</span>
-                          <span style={{ fontSize: 10, color: "var(--q3)", fontWeight: 600, flexShrink: 0, marginLeft: 8 }}>✓ {d.destinatarios} env.</span>
+                          <span style={{ fontSize: 10, color: "var(--q3)", fontWeight: 600, marginLeft: 8, flexShrink: 0 }}>✓ {d.destinatarios} env.</span>
                         </div>
                       </div>
                     ))}
@@ -4325,152 +4406,72 @@ export default function CRM() {
                   </div>
                 </div>
 
+
+
                 {/* GARANTIA */}
                 {["tatuado","pos_venda"].includes(sc.etapa) && (() => {
                   const proj = (sc.projetos || []).find((p: any) => p.status === "concluido");
-                  const dataConclusao = proj?.concluidoEm;
-                  if (!dataConclusao) return null;
-                  const sep = "/";
-                  const partes = dataConclusao.split(sep);
-                  const dataObj = partes.length === 3 ? new Date(Number(partes[2]), Number(partes[1])-1, Number(partes[0])) : null;
-                  if (!dataObj) return null;
+                  if (!proj?.concluidoEm) return null;
+                  const partes = (proj.concluidoEm as string).split("/");
+                  if (partes.length !== 3) return null;
+                  const dataObj = new Date(Number(partes[2]), Number(partes[1])-1, Number(partes[0]));
                   const hoje = new Date();
-                  const msPerDay = 86400000;
-                  const diff = hoje.getTime() - dataObj.getTime();
-                  const diasPassados = Math.floor(diff / msPerDay);
+                  const msDay = 1000 * 60 * 60 * 24;
+                  const diasPassados = Math.floor((hoje.getTime() - dataObj.getTime()) / msDay);
                   const diasRestantes = 37 - diasPassados;
                   const vencida = diasPassados > 37;
                   const urgente = !vencida && diasPassados >= 30;
-                  const bgColor = vencida ? "rgba(192,57,43,.08)" : urgente ? "rgba(230,126,34,.08)" : "rgba(39,174,96,.08)";
-                  const borderColor = vencida ? "rgba(192,57,43,.3)" : urgente ? "rgba(230,126,34,.3)" : "rgba(39,174,96,.3)";
-                  const mainColor = vencida ? "var(--q1)" : urgente ? "#E67E22" : "#27AE60";
-                  const pct = Math.min(diasPassados * 100 / 37, 100);
-                  const label = vencida ? "🚫 Garantia vencida" : urgente ? ("⚠️ Vence em " + diasRestantes + " dia" + (diasRestantes !== 1 ? "s" : "")) : ("✅ " + diasRestantes + " dias restantes");
+                  const cor = vencida ? "var(--q1)" : urgente ? "#E67E22" : "#27AE60";
+                  const bg = vencida ? "rgba(192,57,43,.08)" : urgente ? "rgba(230,126,34,.08)" : "rgba(39,174,96,.08)";
+                  const brd = vencida ? "rgba(192,57,43,.3)" : urgente ? "rgba(230,126,34,.3)" : "rgba(39,174,96,.3)";
+                  const txt = vencida ? "🚫 Garantia vencida" : urgente ? ("⚠️ Vence em " + diasRestantes + (diasRestantes === 1 ? " dia" : " dias")) : ("✅ " + diasRestantes + " dias restantes");
+                  const wPct = Math.min(diasPassados, 37) * 100;
+                  const wFull = 37 * 100;
                   return (
                     <div>
                       <div className="stit">🛡 Garantia de Retoque</div>
-                      <div style={{ background: bgColor, border: "1px solid " + borderColor, borderRadius: 8, padding: "12px 14px" }}>
+                      <div style={{ background: bg, border: "1px solid " + brd, borderRadius: 8, padding: "12px 14px" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: mainColor }}>{label}</div>
-                            <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 2 }}>Sessão concluída em {dataConclusao} · D+{diasPassados}/37</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: cor }}>{txt}</div>
+                            <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 2 }}>Concluída em {proj.concluidoEm} · D+{diasPassados}/37</div>
                           </div>
                           <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--dk4)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
-                            <span style={{ fontSize: 16, fontWeight: 700, color: mainColor, lineHeight: 1 }}>{Math.min(diasPassados, 37)}</span>
+                            <span style={{ fontSize: 16, fontWeight: 700, color: cor, lineHeight: 1 }}>{Math.min(diasPassados, 37)}</span>
                             <span style={{ fontSize: 8, color: "var(--tx3)" }}>de 37</span>
                           </div>
                         </div>
                         <div style={{ marginTop: 8, width: "100%", background: "var(--dk4)", borderRadius: 4, height: 6, overflow: "hidden" }}>
-                          <div style={{ height: "100%", borderRadius: 4, background: mainColor, width: pct + "%" }} />
+                          <div style={{ height: "100%", borderRadius: 4, background: cor, width: (wPct / wFull * 100) + "%" }} />
                         </div>
                       </div>
                     </div>
                   );
                 })()}
 
-                <div>
-                  <div className="stit">Faltas e Ocorrências</div>
-                      <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 2 }}>
-                        {(sc.faltas || 0) === 0 ? "Nenhuma falta registrada"
-                          : (sc.faltas || 0) === 1 ? "1ª falta — cobrança de R$100,00"
-                          : (sc.faltas || 0) === 2 ? "2ª falta — cobrança de 30% do valor"
-                          : "3ª falta — encaminhar para Blacklist"}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      {(sc.faltas || 0) > 0 && (
-                        <button className="btn-sm" onClick={() => removerFalta(sc.id, aName(sc.artista))}>− Remover</button>
-                      )}
-                      {(sc.faltas || 0) < 3 && (
-                        <button className="btn-sm red" onClick={() => {
-                          const novasFaltas = (sc.faltas || 0) + 1;
-                          // Registrar falta
-                          registrarFalta(sc.id, aName(sc.artista));
-                          // Aviso educado conforme política
-                          setTimeout(() => {
-                            if (novasFaltas === 1) {
-                              setShowAviso(`⚠️ No-show registrado para ${sc.nome}.\n\nPolítica do estúdio: 1ª falta gera cobrança de R$100,00, a ser abatida no valor final da tatuagem. Comunique o cliente com respeito.`);
-                            } else if (novasFaltas === 2) {
-                              setShowAviso(`⚠️ 2ª falta registrada para ${sc.nome}.\n\nPolítica do estúdio: 2ª falta gera cobrança de 30% do valor orçado. O cliente pode levar o desenho mediante pagamento.`);
-                            } else if (novasFaltas >= 3) {
-                              setShowAviso(`🚫 3ª falta registrada para ${sc.nome}.\n\nConforme política do estúdio, este cliente deve ser encaminhado para Blacklist.`);
-                            }
-                          }, 300);
-                        }}>+ Falta</button>
-                      )}
-                    </div>
-                  </div>
-                  {(sc.faltas || 0) > 0 && (
-                    <div style={{ marginTop: 6, padding: "8px 12px", background: "rgba(192,57,43,.08)", border: "1px solid rgba(192,57,43,.2)", borderRadius: 6, fontSize: 11, color: "var(--q1)" }}>
-                      {(sc.faltas || 0) === 1 ? "Taxa de R$100,00 será abatida no valor final da tatuagem."
-                        : (sc.faltas || 0) === 2 ? "30% do valor orçado cobrado. Cliente pode levar o desenho se pagar."
-                          : "3 faltas registradas. Encaminhe para Blacklist conforme política do estúdio."}
-                    </div>
-                  )}
-                  {sc.etapa === "blacklist" && (
-                    <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "rgba(192,57,43,.08)", border: "1px solid rgba(192,57,43,.2)", borderRadius: 6 }}>
-                      <span className="tag-bl">🚫 BLACKLIST</span>
-                      <button className="btn-sm" onClick={() => removerBlacklist(sc.id, aName(sc.artista))}>Remover da Blacklist</button>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <div className="stit">Programa de Fidelidade</div>
-                  <div style={{ padding: "12px 14px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                      <div style={{ fontSize: 13, color: "var(--tx)", fontWeight: 600 }}>Indicações: {sc.indicacoes || 0}/8</div>
-                      {(sc.credito || 0) > 0 && <div style={{ fontSize: 13, color: "var(--gold)", fontWeight: 700 }}>Crédito: R$ {(sc.credito || 0).toLocaleString("pt-BR")}</div>}
-                    </div>
-                    <div style={{ width: "100%", background: "var(--dk4)", borderRadius: 4, height: 8, overflow: "hidden", marginBottom: 8 }}>
-                      <div style={{ height: "100%", borderRadius: 4, background: "var(--gold)", width: Math.min((sc.indicacoes || 0) / 8 * 100, 100) + "%", transition: "width .4s" }} />
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ fontSize: 11, color: "var(--tx2)" }}>
-                        {(sc.indicacoes || 0) >= 8 ? "Meta atingida! Crédito disponível." : "Faltam " + (8 - (sc.indicacoes || 0)) + " indicações para o crédito"}
-                      </div>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {(sc.indicacoes || 0) > 0 && (
-                          <button className="btn-sm" onClick={() => removerIndicação(sc.id, aName(sc.artista))}>− Remover</button>
-                        )}
-                        {(sc.indicacoes || 0) < 8 && (
-                          <button className="btn-sm gold" onClick={() => registrarIndicação(sc.id, aName(sc.artista))}>+ Indicação</button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 {/* CHECKLIST DE SESSÃO */}
                 {["sessao_agend","tatuado"].includes(sc.etapa) && (() => {
+                  const temSinal = fin.some((f: any) => f.cliente_id === sc.id && f.pgto === "Sinal");
+                  const temValor = (sc.projetos || []).some((p: any) => p.valorTotal > 0);
                   const checks = [
-                    { id: "contrato", l: "Contrato enviado e confirmado", ok: sc.contrato },
-                    { id: "sinal", l: "Sinal recebido", ok: fin.some((f: any) => f.cliente_id === sc.id && f.pgto === "Sinal") },
-                    { id: "referencia", l: "Fotos de referência recebidas", ok: !!(sc as any).refsRecebidas },
-                    { id: "valor", l: "Valor do projeto registrado", ok: (sc.projetos || []).some((p: any) => p.valorTotal > 0) },
+                    { l: "Contrato enviado e confirmado", ok: !!sc.contrato },
+                    { l: "Sinal recebido", ok: temSinal },
+                    { l: "Valor do projeto registrado", ok: temValor },
                   ];
-                  const ok = checks.filter(c => c.ok).length;
+                  const okCount = checks.filter(c => c.ok).length;
+                  const allOk = okCount === checks.length;
                   return (
                     <div>
                       <div className="stit">✅ Checklist de Sessão</div>
-                      <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                          <span style={{ fontSize: 11, color: "var(--tx2)" }}>{ok}/{checks.length} itens concluídos</span>
-                          <div style={{ display: "flex", gap: 3 }}>
-                            {checks.map((c, i) => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: c.ok ? "#27AE60" : "var(--dk5)" }} />)}
-                          </div>
-                        </div>
-                        {checks.map(c => (
-                          <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12 }}>
-                            <span style={{ fontSize: 16, flexShrink: 0 }}>{c.ok ? "✅" : "⬜"}</span>
+                      <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px" }}>
+                        <div style={{ fontSize: 11, color: allOk ? "#27AE60" : "var(--tx2)", marginBottom: 8, fontWeight: 600 }}>{okCount}/{checks.length} itens concluídos{allOk ? " ✅" : ""}</div>
+                        {checks.map((c, i) => (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, marginBottom: 6 }}>
+                            <span style={{ fontSize: 14, flexShrink: 0 }}>{c.ok ? "✅" : "⬜"}</span>
                             <span style={{ color: c.ok ? "var(--tx2)" : "var(--tx)", textDecoration: c.ok ? "line-through" : "none" }}>{c.l}</span>
                           </div>
                         ))}
-                        {ok < checks.length && (
-                          <div style={{ marginTop: 4, fontSize: 11, color: "var(--q2)", background: "rgba(212,130,10,.08)", borderRadius: 6, padding: "6px 10px" }}>
-                            ⚠️ Confira os itens pendentes antes de iniciar a sessão.
-                          </div>
-                        )}
+                        {!allOk && <div style={{ marginTop: 6, fontSize: 11, color: "var(--q2)", background: "rgba(212,130,10,.08)", borderRadius: 6, padding: "6px 10px" }}>⚠️ Verifique os itens antes de iniciar a sessão.</div>}
                       </div>
                     </div>
                   );
