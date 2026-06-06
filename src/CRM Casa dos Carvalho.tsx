@@ -875,6 +875,10 @@ function maskTel(v: string) {
   if (v.length <= 11) return "(" + v.slice(0,2) + ") " + v.slice(2,7) + "-" + v.slice(7);
   return v;
 }
+function validarEmail(email: string): boolean {
+  if (!email) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function CRM() {
@@ -1634,7 +1638,7 @@ export default function CRM() {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
         if (tipoKey === "cons" && cli && ["lead", "qualificacao"].includes(cli.etapa)) {
           executarMove(agClientVinc.id, "cons_agendada");
-        } else if ((tipoKey === "sess" || tipoKey === "piercing") && cli && ["lead", "qualificacao", "cons_agendada", "hibernacao"].includes(cli.etapa)) {
+        } else if ((tipoKey === "sess" || tipoKey === "piercing") && cli && ["lead", "qualificacao", "cons_agendada", "hibernacao", "sessao_agend"].includes(cli.etapa)) {
           executarMove(agClientVinc.id, "sessao_agend");
         }
       }
@@ -1704,7 +1708,7 @@ export default function CRM() {
         }
       } else if (tipoKey === "sess" || tipoKey === "piercing") {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
-        if (cli && ["lead", "qualificacao", "cons_agendada", "hibernacao"].includes(cli.etapa)) {
+        if (cli && ["lead", "qualificacao", "cons_agendada", "hibernacao", "sessao_agend"].includes(cli.etapa)) {
           if (cli.etapa === "hibernacao" && (cli.faltas || 0) > 0) {
             setTimeout(() => setShowAviso(`⚠️ ${cli.nome} estava em hibernação por desmarcação. Lembre de cobrar R$100,00 de taxa — conforme política do estúdio.`), 500);
           }
@@ -2798,8 +2802,14 @@ export default function CRM() {
                 <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 11, color: "var(--tx3)" }}>Meta R$</span>
-                    <input type="number" value={metaMensal} onChange={e => setMetaMensal(Number(e.target.value))}
-                      style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 9px", fontSize: 12, color: "var(--tx)", outline: "none", width: 100 }} />
+                    <input type="text" value={metaMensal ? Number(metaMensal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
+                      placeholder="0,00"
+                      onChange={e => {
+                        const raw = e.target.value.replace(/\D/g, "");
+                        const num = raw ? Number(raw) / 100 : 0;
+                        setMetaMensal(num);
+                      }}
+                      style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 9px", fontSize: 12, color: "var(--tx)", outline: "none", width: 110 }} />
                   </div>
                 </div>
               </div>
@@ -3576,12 +3586,15 @@ export default function CRM() {
                       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                         <span style={{ fontSize: 10, color: "var(--tx3)" }}>Faturamento (R$)</span>
                         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <input className="ci" type="number" min={0} value={a.meta_faturamento || 0}
+                          <input className="ci" type="text" value={a.meta_faturamento ? Number(a.meta_faturamento).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
+                            placeholder="0,00"
                             onChange={e => {
-                              const updated = { ...a, meta_faturamento: Number(e.target.value) };
+                              const raw = e.target.value.replace(/\D/g, "");
+                              const num = raw ? Number(raw) / 100 : 0;
+                              const updated = { ...a, meta_faturamento: num };
                               setArtists(p => p.map(x => x.id === a.id ? updated : x));
-                              setTimeout(() => dbUpsert("artistas", { id: a.id, meta_faturamento: Number(e.target.value) }), 500);
-                            }} style={{ width: 72 }} />
+                              setTimeout(() => dbUpsert("artistas", { id: a.id, meta_faturamento: num }), 500);
+                            }} style={{ width: 90 }} />
                           {(() => {
                             const fatMes = fin.filter((f: any) => f.artista === a.id && f.competencia === new Date().toISOString().slice(0,7)).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
                             const meta = a.meta_faturamento || 0;
@@ -4102,7 +4115,10 @@ export default function CRM() {
                         <div className="fil">{fd.l}{(fd as any).w ? " ⚠" : ""}</div>
                         <input className="ef" value={(sc as any)[fd.f] || ""} placeholder={(fd as any).w ? "Clique para adicionar" : ""}
                           onChange={e => upC(sc.id, fd.f, e.target.value)}
-                          style={{ borderColor: (fd as any).w && !(sc as any)[fd.f] ? "var(--q2)" : "var(--br)" }} />
+                          style={{ borderColor: fd.f === "email" && (sc as any).email && !validarEmail((sc as any).email) ? "var(--q1)" : (fd as any).w && !(sc as any)[fd.f] ? "var(--q2)" : "var(--br)" }} />
+                        {fd.f === "email" && (sc as any).email && !validarEmail((sc as any).email) && (
+                          <span style={{ fontSize: 10, color: "var(--q1)", marginTop: 3, display: "block" }}>Email inválido</span>
+                        )}
                       </div>
                     ))}
                     <div className="fi2">
@@ -4781,7 +4797,15 @@ export default function CRM() {
                       <div className="ff"><label className="fl">Telefone *</label><input className="fi" placeholder="(99) 9 9999-9999" value={form.tel} onChange={e => setForm({ ...form, tel: maskTel(e.target.value) })} /></div>
                     </div>
                     <div className="fr">
-                      <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email@email.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+                      <div className="ff">
+                        <label className="fl">Email</label>
+                        <input className="fi" placeholder="email@email.com" value={form.email}
+                          onChange={e => setForm({ ...form, email: e.target.value })}
+                          style={{ borderColor: form.email && !validarEmail(form.email) ? "var(--q1)" : undefined }} />
+                        {form.email && !validarEmail(form.email) && (
+                          <span style={{ fontSize: 10, color: "var(--q1)", marginTop: 3, display: "block" }}>Email inválido</span>
+                        )}
+                      </div>
                       <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={form.insta} onChange={e => { const v = e.target.value; setForm({ ...form, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                     </div>
                     <div className="fr">
@@ -6300,7 +6324,7 @@ export default function CRM() {
                   <div>
                     <div className="stit">Metas Mensais</div>
                     <div className="fg2">
-                      <div className="fi2"><div className="fil">Meta de Faturamento (R$)</div><input className="ef" type="number" value={metaMensal} onChange={e => setMetaMensal(Number(e.target.value))} /></div>
+                      <div className="fi2"><div className="fil">Meta de Faturamento (R$)</div><input className="ef" type="text" placeholder="0,00" value={metaMensal ? Number(metaMensal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""} onChange={e => { const raw = e.target.value.replace(/\D/g, ""); setMetaMensal(raw ? Number(raw) / 100 : 0); }} /></div>
                       <div className="fi2"><div className="fil">Meta de Sessões</div><input className="ef" type="number" value={metaSessoes} onChange={e => setMetaSessoes(Number(e.target.value))} /></div>
                       <div className="fi2"><div className="fil">Meta de Leads</div><input className="ef" type="number" value={metaLeads} onChange={e => setMetaLeads(Number(e.target.value))} /></div>
                       <div className="fi2"><div className="fil">Meta NPS 9+</div><input className="ef" type="number" value={metaNPS} onChange={e => setMetaNPS(Number(e.target.value))} /></div>
