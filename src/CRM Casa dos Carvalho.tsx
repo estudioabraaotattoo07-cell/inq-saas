@@ -4339,11 +4339,11 @@ export default function CRM() {
                   return (
                     <div>
                       <div className="stit">🛡 Garantia de Retoque</div>
-                      <div style={{ background: vencida ? "rgba(192,57,43,.08)" : urgente ? "rgba(230,126,34,.08)" : "rgba(39,174,96,.08)", border: `1px solid ${vencida ? "rgba(192,57,43,.3)" : urgente ? "rgba(230,126,34,.3)" : "rgba(39,174,96,.3)"}`, borderRadius: 8, padding: "12px 14px" }}>
+                      <div style={{ background: vencida ? "rgba(192,57,43,.08)" : urgente ? "rgba(230,126,34,.08)" : "rgba(39,174,96,.08)", border: "1px solid " + (vencida ? "rgba(192,57,43,.3)" : urgente ? "rgba(230,126,34,.3)" : "rgba(39,174,96,.3)"), borderRadius: 8, padding: "12px 14px" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: vencida ? "var(--q1)" : urgente ? "#E67E22" : "#27AE60" }}>
-                              {vencida ? "🚫 Garantia vencida" : urgente ? `⚠️ Vence em ${diasRestantes} dia${diasRestantes !== 1 ? "s" : ""}` : `✅ ${diasRestantes} dias restantes`}
+                              {vencida ? "🚫 Garantia vencida" : urgente ? ("⚠️ Vence em " + diasRestantes + " dia" + (diasRestantes !== 1 ? "s" : "")) : ("✅ " + diasRestantes + " dias restantes")}
                             </div>
                             <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 2 }}>Sessão concluída em {dataConclusao} · D+{diasPassados}/37</div>
                           </div>
