@@ -2165,38 +2165,99 @@ export default function CRM() {
         </div>
         {/* ALERT DROPDOWN - fora do topbar para evitar overflow */}
         {showAlerts && alertas.length > 0 && (
-          <div style={{ position: "fixed", top: 64, right: 16, width: "min(360px, calc(100vw - 32px))", background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,.5)", zIndex: 9999 }}>
-            <div className="ad-hdr">Alertas - por prioridade</div>
-            <div className="ad-body">
-              {alertas.map(c => {
-                const m = miss(c); const ch = churn(c);
+          <div style={{ position: "fixed", top: 64, right: 16, width: "min(380px, calc(100vw - 32px))", background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,.5)", zIndex: 9999, maxHeight: "80vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <div className="ad-hdr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>Alertas — {alertas.length} clientes</span>
+              <button onClick={() => setShowAlerts(false)} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 16 }}>×</button>
+            </div>
+            {/* Seções de alertas por categoria */}
+            <div className="ad-body" style={{ overflowY: "auto" }}>
+              {/* 🎂 Aniversários */}
+              {(() => {
                 const hoje = new Date();
-                let aniversario = false;
-                if ((c as any).nascimento) {
+                const aniversariantes = alertas.filter(c => {
+                  if (!(c as any).nascimento) return false;
                   const nasc = new Date((c as any).nascimento);
                   for (let i = 0; i <= 7; i++) {
                     const d = new Date(hoje); d.setDate(d.getDate() + i);
-                    if (nasc.getMonth() === d.getMonth() && nasc.getDate() === d.getDate()) { aniversario = true; break; }
+                    if (nasc.getMonth() === d.getMonth() && nasc.getDate() === d.getDate()) return true;
                   }
-                }
-                const garantia = c.etapa === "tatuado" && c.dias >= 30 && c.dias <= 37;
-                const inativo = !["blacklist","tatuado","pos_venda","hibernacao"].includes(c.etapa) && c.dias >= 40;
-                const projSemValor = (c.projetos || []).some((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0)) && c.etapa !== "lead";
+                  return false;
+                });
+                if (aniversariantes.length === 0) return null;
                 return (
-                  <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); }}>
-                    <div className="ad-name">{c.nome}</div>
-                    <div className="ad-tags">
-                      {ch === "red" && <span className="co co-r">🔴 1a sem retorno</span>}
-                      {ch === "orange" && <span className="co co-o">🟠 6m sem retorno</span>}
-                      {projSemValor && <span className="atag">💰 Sem valor</span>}
-                      {aniversario && <span className="atag" style={{ color: "#C9A84C" }}>🎂 Aniversário</span>}
-                      {garantia && <span className="atag" style={{ color: "#E67E22" }}>🛡 Garantia D+{c.dias}</span>}
-                      {inativo && <span className="atag" style={{ color: "#888" }}>💤 Inativo {c.dias}d</span>}
-                      {m.map(x => <span key={x} className="atag">⚠ Sem {x}</span>)}
-                    </div>
+                  <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, color: "var(--gold)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>🎂 Aniversários nos próximos 7 dias</div>
+                    {aniversariantes.map(c => (
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); }}>
+                        <div className="ad-name">{c.nome}</div>
+                        <div className="ad-tags"><span className="atag" style={{ color: "var(--gold)" }}>🎂 {new Date((c as any).nascimento).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span></div>
+                      </div>
+                    ))}
                   </div>
                 );
-              })}
+              })()}
+              {/* 🛡 Garantias */}
+              {(() => {
+                const garantias = alertas.filter(c => c.etapa === "tatuado" && c.dias >= 30 && c.dias <= 37);
+                if (garantias.length === 0) return null;
+                return (
+                  <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, color: "#E67E22", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>🛡 Garantias vencendo (D+30 a D+37)</div>
+                    {garantias.map(c => (
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); }}>
+                        <div className="ad-name">{c.nome}</div>
+                        <div className="ad-tags"><span className="atag" style={{ color: "#E67E22" }}>D+{c.dias} — {37 - c.dias} dias restantes</span></div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+              {/* 💤 Inativos */}
+              {(() => {
+                const inativos = alertas.filter(c => !["blacklist","tatuado","pos_venda","hibernacao"].includes(c.etapa) && c.dias >= 40);
+                if (inativos.length === 0) return null;
+                return (
+                  <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, color: "#888", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>💤 Inativos há 40+ dias</div>
+                    {inativos.map(c => (
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); }}>
+                        <div className="ad-name">{c.nome}</div>
+                        <div className="ad-tags"><span className="atag" style={{ color: "#888" }}>Inativo há {c.dias}d</span></div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+              {/* ⚠ Demais alertas */}
+              {alertas.filter(c => {
+                const m = miss(c); const ch = churn(c);
+                const projSemValor = (c.projetos || []).some((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0)) && c.etapa !== "lead";
+                return ch || projSemValor || m.length > 0;
+              }).length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, color: "var(--q1)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>⚠ Outros alertas</div>
+                  {alertas.filter(c => {
+                    const m = miss(c); const ch = churn(c);
+                    const projSemValor = (c.projetos || []).some((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0)) && c.etapa !== "lead";
+                    return ch || projSemValor || m.length > 0;
+                  }).map(c => {
+                    const m = miss(c); const ch = churn(c);
+                    const projSemValor = (c.projetos || []).some((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0)) && c.etapa !== "lead";
+                    return (
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); }}>
+                        <div className="ad-name">{c.nome}</div>
+                        <div className="ad-tags">
+                          {ch === "red" && <span className="co co-r">🔴 1a sem retorno</span>}
+                          {ch === "orange" && <span className="co co-o">🟠 6m sem retorno</span>}
+                          {projSemValor && <span className="atag">💰 Sem valor</span>}
+                          {m.map(x => <span key={x} className="atag">⚠ Sem {x}</span>)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -3266,6 +3327,46 @@ export default function CRM() {
                       <span style={{ fontSize: 10, color: "var(--tx3)" }}>· Est: <strong style={{ color: "var(--gold)" }}>{100 - (a.com || 0)}%</strong></span>
                     </div>
                   </div>
+                  {/* Metas por artista */}
+                  <div className="af" style={{ flexDirection: "column", gap: 6 }}>
+                    <div className="afl">Metas do Mês</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <span style={{ fontSize: 10, color: "var(--tx3)" }}>Sessões</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <input className="ci" type="number" min={0} value={a.meta_sessoes || 0}
+                            onChange={e => {
+                              const updated = { ...a, meta_sessoes: Number(e.target.value) };
+                              setArtists(p => p.map(x => x.id === a.id ? updated : x));
+                              setTimeout(() => dbUpsert("artistas", { id: a.id, meta_sessoes: Number(e.target.value) }), 500);
+                            }} style={{ width: 56 }} />
+                          {(() => {
+                            const sessoesMes = fin.filter((f: any) => f.artista === a.id && f.competencia === new Date().toISOString().slice(0,7)).length;
+                            const meta = a.meta_sessoes || 0;
+                            const pct = meta > 0 ? Math.min(Math.round(sessoesMes / meta * 100), 100) : 0;
+                            return <span style={{ fontSize: 10, color: pct >= 100 ? "#27AE60" : "var(--tx3)" }}>{sessoesMes}/{meta} ({pct}%)</span>;
+                          })()}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <span style={{ fontSize: 10, color: "var(--tx3)" }}>Faturamento (R$)</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <input className="ci" type="number" min={0} value={a.meta_faturamento || 0}
+                            onChange={e => {
+                              const updated = { ...a, meta_faturamento: Number(e.target.value) };
+                              setArtists(p => p.map(x => x.id === a.id ? updated : x));
+                              setTimeout(() => dbUpsert("artistas", { id: a.id, meta_faturamento: Number(e.target.value) }), 500);
+                            }} style={{ width: 72 }} />
+                          {(() => {
+                            const fatMes = fin.filter((f: any) => f.artista === a.id && f.competencia === new Date().toISOString().slice(0,7)).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
+                            const meta = a.meta_faturamento || 0;
+                            const pct = meta > 0 ? Math.min(Math.round(fatMes / meta * 100), 100) : 0;
+                            return <span style={{ fontSize: 10, color: pct >= 100 ? "#27AE60" : "var(--tx3)" }}>R${fatMes.toLocaleString("pt-BR",{minimumFractionDigits:0})} ({pct}%)</span>;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -4074,7 +4175,10 @@ export default function CRM() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, color: "var(--tx)", fontWeight: 600 }}>Faltas registradas: {sc.faltas || 0}/3</div>
                       <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 2 }}>
-                        {(sc.faltas || 0) === 0 ? "Nenhuma falta registrada" : (sc.faltas || 0) === 1 ? "1ª falta — R$100 cobrado" : "2ª falta — 30% cobrado"}
+                        {(sc.faltas || 0) === 0 ? "Nenhuma falta registrada"
+                          : (sc.faltas || 0) === 1 ? "1ª falta — cobrança de R$100,00"
+                          : (sc.faltas || 0) === 2 ? "2ª falta — cobrança de 30% do valor"
+                          : "3ª falta — encaminhar para Blacklist"}
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 6 }}>
@@ -4082,15 +4186,29 @@ export default function CRM() {
                         <button className="btn-sm" onClick={() => removerFalta(sc.id, aName(sc.artista))}>− Remover</button>
                       )}
                       {(sc.faltas || 0) < 3 && (
-                        <button className="btn-sm red" onClick={() => registrarFalta(sc.id, aName(sc.artista))}>+ Falta</button>
+                        <button className="btn-sm red" onClick={() => {
+                          const novasFaltas = (sc.faltas || 0) + 1;
+                          // Registrar falta
+                          registrarFalta(sc.id, aName(sc.artista));
+                          // Aviso educado conforme política
+                          setTimeout(() => {
+                            if (novasFaltas === 1) {
+                              setShowAviso(`⚠️ No-show registrado para ${sc.nome}.\n\nPolítica do estúdio: 1ª falta gera cobrança de R$100,00, a ser abatida no valor final da tatuagem. Comunique o cliente com respeito.`);
+                            } else if (novasFaltas === 2) {
+                              setShowAviso(`⚠️ 2ª falta registrada para ${sc.nome}.\n\nPolítica do estúdio: 2ª falta gera cobrança de 30% do valor orçado. O cliente pode levar o desenho mediante pagamento.`);
+                            } else if (novasFaltas >= 3) {
+                              setShowAviso(`🚫 3ª falta registrada para ${sc.nome}.\n\nConforme política do estúdio, este cliente deve ser encaminhado para Blacklist.`);
+                            }
+                          }, 300);
+                        }}>+ Falta</button>
                       )}
                     </div>
                   </div>
                   {(sc.faltas || 0) > 0 && (
                     <div style={{ marginTop: 6, padding: "8px 12px", background: "rgba(192,57,43,.08)", border: "1px solid rgba(192,57,43,.2)", borderRadius: 6, fontSize: 11, color: "var(--q1)" }}>
-                      {(sc.faltas || 0) === 1 ? "Taxa de R$100 será abatida no valor final da tatuagem."
+                      {(sc.faltas || 0) === 1 ? "Taxa de R$100,00 será abatida no valor final da tatuagem."
                         : (sc.faltas || 0) === 2 ? "30% do valor orçado cobrado. Cliente pode levar o desenho se pagar."
-                          : "Cliente na Blacklist — atendimento encerrado."}
+                          : "3 faltas registradas. Encaminhe para Blacklist conforme política do estúdio."}
                     </div>
                   )}
                   {sc.etapa === "blacklist" && (
@@ -4139,7 +4257,7 @@ export default function CRM() {
                           <div key={e.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div>
                               <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>{(() => { try { const [y,m,d] = e.date.split("-"); return `${["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][new Date(e.date).getDay()]}, ${d} de ${["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][parseInt(m)-1]}`; } catch { return e.date; } })()}</div>
-                              <div style={{ fontSize: 11, color: "var(--tx2)" }}>{String(e.start).padStart(2,"0")}h — {CAL_LABELS[e.tipo] || e.tipo}</div>
+                              <div style={{ fontSize: 11, color: "var(--tx2)" }}>{String(e.start).padStart(2,"0")}h — {getEventLabel(e.tipo, artists)}</div>
                             </div>
                             <div style={{ width: 10, height: 10, borderRadius: "50%", background: getEventColor(e.tipo, artists, e.artista), flexShrink: 0 }} />
                           </div>
@@ -5223,7 +5341,7 @@ export default function CRM() {
                         <span style={{ fontWeight: 600 }}>{e.date ? e.date.split("-").reverse().join("/") : "—"}</span>
                         <span style={{ color: "var(--tx2)", marginLeft: 8 }}>{String(e.start).padStart(2,"0")}h — {getEventLabel(e.tipo, artists)}</span>
                       </div>
-                      <button title="Altere a data ou horário. Será movido para Sessão Agendada automaticamente." onClick={() => {
+                      <button title="Altere a data ou horário. Será movido automaticamente no pipeline ao salvar." onClick={() => {
                         setConfirmMover(null);
                         setEditingEvent(e);
                         const cv = clients.find(c => c.id === e.cliente_id) || null;
@@ -5232,10 +5350,9 @@ export default function CRM() {
                         const tipoCorreto = confirmMover.stage.id === "cons_agendada"
                           ? "cons_" + (cv?.artista || artists[0]?.id || "abraao")
                           : "sess_" + (cv?.artista || artists[0]?.id || "abraao");
-                        // Sinal em branco — não carrega valor anterior para evitar duplicata no financeiro
                         setAgForm({ title: e.title, tipo: tipoCorreto, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "", sinal: "", sinalPago: false } as any);
                         setShowAgForm(true);
-                      }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--gold)", borderRadius: 5, padding: "3px 9px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>📅 Remarcar</button>
+                      }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--gold)", borderRadius: 5, padding: "3px 9px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>📅 Definir Agendamento</button>
                     </div>
                   ))}
                 </div>
@@ -5244,26 +5361,35 @@ export default function CRM() {
                   ⚠️ Nenhum agendamento encontrado para este cliente.
                 </div>
               )}
-              {/* Botões de ação — contextuais por estágio */}
-              {confirmMover.stage.id !== "cons_agendada" && (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <button title="Use quando a tatuagem exige mais de uma sessão. Cria um novo agendamento vinculado ao mesmo projeto." onClick={() => {
+              {/* Botão + Agendar — aparece sempre que não há agendamento, ou em sessão agendada */}
+              {(confirmMover.agEvents.length === 0 || confirmMover.stage.id === "sessao_agend") && (
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button title="Cria um novo agendamento para este cliente. O tipo escolhido move o pipeline automaticamente." onClick={() => {
                     const cli = clients.find(c => c.id === confirmMover.cid);
                     const artId = cli?.artista || artists[0]?.id || "abraao";
+                    const tipoDefault = confirmMover.stage.id === "cons_agendada" ? "cons_" + artId : "sess_" + artId;
                     setConfirmMover(null);
                     setEditingEvent(null);
                     setAgClientVinc(cli || null);
                     setAgClientSearch("");
-                    setAgForm({ title: cli?.nome || "", desc: "", tipo: "sess_" + artId, date: "", start: 9, end: 11, sinal: "", sinalPago: false } as any);
+                    setAgForm({ title: cli?.nome || "", desc: "", tipo: tipoDefault, date: "", start: 9, end: 11, sinal: "", sinalPago: false } as any);
                     setShowAgForm(true);
-                  }} style={{ flex: 1, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 10px", fontSize: 11, fontWeight: 600, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                    + Nova Sessão
+                  }} style={{ flex: 1, background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 6, padding: "7px 10px", fontSize: 11, fontWeight: 600, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                    + Agendar
                   </button>
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button className="btn-c" onClick={() => setConfirmMover(null)}>Cancelar</button>
-                <button className="btn-s" onClick={() => { setConfirmMover(null); move(confirmMover.cid, confirmMover.stage.id); }}>
+                <button className="btn-s" onClick={() => {
+                  const precisaAg = ["cons_agendada", "sessao_agend"].includes(confirmMover.stage.id);
+                  if (precisaAg && confirmMover.agEvents.length === 0) {
+                    setShowAviso("Defina um horário antes de confirmar. Use o botão + Agendar para criar um agendamento.");
+                    return;
+                  }
+                  setConfirmMover(null);
+                  move(confirmMover.cid, confirmMover.stage.id);
+                }}>
                   Confirmar
                 </button>
               </div>
