@@ -3002,24 +3002,26 @@ export default function CRM() {
                 <div className="fth" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span>Demonstrativo de Resultado — {finFiltroMes}</span>
                   <button onClick={() => {
-                    const conteudo = `
-                      <html><head><title>DRE ${finFiltroMes}</title>
-                      <style>body{font-family:sans-serif;padding:32px;color:#111;}h1{font-size:20px;margin-bottom:4px;}h2{font-size:13px;color:#666;margin-bottom:24px;font-weight:400;}table{width:100%;border-collapse:collapse;}tr{border-bottom:1px solid #eee;}td{padding:8px 4px;font-size:13px;}td:last-child{text-align:right;font-weight:600;}.bold{font-weight:700;font-size:15px;}.sep{border-bottom:2px solid #ccc;}.green{color:#27AE60;}.red{color:#C0392B;}.footer{margin-top:32px;font-size:11px;color:#aaa;}</style></head>
-                      <body>
-                      <h1>${studioName} — DRE</h1>
-                      <h2>Competência: ${finFiltroMes} · Gerado em ${new Date().toLocaleDateString("pt-BR")}</h2>
-                      <table>
-                        <tr><td>Receita Bruta</td><td class="green bold">${fmtR(receitaBruta)}</td></tr>
-                        <tr><td>&nbsp;&nbsp;(−) Repasses Artistas</td><td class="red">${fmtR(totalRepasses)}</td></tr>
-                        <tr><td>&nbsp;&nbsp;(−) Depreciação Equipamentos</td><td class="red">${fmtR(deprMensal)}</td></tr>
-                        <tr><td>&nbsp;&nbsp;(−) Despesas Operacionais</td><td class="red">${fmtR(totalSaidas)}</td></tr>
-                        <tr class="sep"><td class="bold">Resultado Antes do Pró-Labore</td><td class="${lucroAntesProlabore >= 0 ? "green" : "red"} bold">${fmtR(lucroAntesProlabore)}</td></tr>
-                        <tr><td>&nbsp;&nbsp;(−) Pró-Labore</td><td class="red">${fmtR(prolabore)}</td></tr>
-                        <tr class="sep"><td class="bold">Lucro Líquido</td><td class="${lucroLiquido >= 0 ? "green" : "red"} bold">${fmtR(lucroLiquido)}</td></tr>
-                      </table>
-                      <div class="footer">In-Quadra Ink System · ${studioName}${cnpj ? " · CNPJ " + cnpj : ""}</div>
-                      </body></html>
-                    `;
+                    const greenClass = lucroAntesProlabore >= 0 ? "green" : "red";
+                    const lucroClass = lucroLiquido >= 0 ? "green" : "red";
+                    const conteudo = [
+                      '<html><head><title>DRE ' + finFiltroMes + '</title>',
+                      '<style>body{font-family:sans-serif;padding:32px;color:#111;}h1{font-size:20px;margin-bottom:4px;}h2{font-size:13px;color:#666;margin-bottom:24px;font-weight:400;}table{width:100%;border-collapse:collapse;}tr{border-bottom:1px solid #eee;}td{padding:8px 4px;font-size:13px;}td:last-child{text-align:right;font-weight:600;}.bold{font-weight:700;font-size:15px;}.sep{border-bottom:2px solid #ccc;}.green{color:#27AE60;}.red{color:#C0392B;}.footer{margin-top:32px;font-size:11px;color:#aaa;}</style></head>',
+                      '<body>',
+                      '<h1>' + studioName + ' — DRE</h1>',
+                      '<h2>Competência: ' + finFiltroMes + ' · Gerado em ' + new Date().toLocaleDateString("pt-BR") + '</h2>',
+                      '<table>',
+                      '<tr><td>Receita Bruta</td><td class="green bold">' + fmtR(receitaBruta) + '</td></tr>',
+                      '<tr><td>&nbsp;&nbsp;(-) Repasses Artistas</td><td class="red">' + fmtR(totalRepasses) + '</td></tr>',
+                      '<tr><td>&nbsp;&nbsp;(-) Depreciacao Equipamentos</td><td class="red">' + fmtR(deprMensal) + '</td></tr>',
+                      '<tr><td>&nbsp;&nbsp;(-) Despesas Operacionais</td><td class="red">' + fmtR(totalSaidas) + '</td></tr>',
+                      '<tr class="sep"><td class="bold">Resultado Antes do Pro-Labore</td><td class="' + greenClass + ' bold">' + fmtR(lucroAntesProlabore) + '</td></tr>',
+                      '<tr><td>&nbsp;&nbsp;(-) Pro-Labore</td><td class="red">' + fmtR(prolabore) + '</td></tr>',
+                      '<tr class="sep"><td class="bold">Lucro Liquido</td><td class="' + lucroClass + ' bold">' + fmtR(lucroLiquido) + '</td></tr>',
+                      '</table>',
+                      '<div class="footer">In-Quadra Ink System · ' + studioName + (cnpj ? ' · CNPJ ' + cnpj : '') + '</div>',
+                      '</body></html>'
+                    ].join('\n');
                     const w = window.open("", "_blank");
                     if (w) { w.document.write(conteudo); w.document.close(); setTimeout(() => w.print(), 400); }
                   }} style={{ background: "var(--gold)", color: "#000", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
