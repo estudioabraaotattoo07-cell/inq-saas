@@ -310,7 +310,7 @@ const STAGES = [
   { id: "lead", label: "Lead", color: "#5B8DEF", emoji: "🎯" },
   { id: "qualificacao", label: "Qualificação", color: "#C9A84C", emoji: "🔍" },
   { id: "cons_agendada", label: "Consulta Marcada", color: "#9B6BB5", emoji: "📅" },
-  { id: "sessao_agend", label: "Sessão Agendada", color: "#4A9EBF", emoji: "✏️" },
+  { id: "sessao_agend", label: "Sessão Marcada", color: "#4A9EBF", emoji: "✏️" },
   { id: "tatuado", label: "Sessão Realizada", color: "#27AE60", emoji: "✅" },
   { id: "pos_venda", label: "Pós-venda", color: "#E67E22", emoji: "💬" },
   { id: "lista_espera", label: "Lista de Espera", color: "#3498DB", emoji: "⏳" },
@@ -1280,7 +1280,7 @@ export default function CRM() {
       return;
     }
 
-    // Sessão Agendada — abre agendamento tipo Sessão
+    // Sessão Marcada — abre agendamento tipo Sessão
     if (ns === "sessao_agend") {
       executarMove(cid, ns);
       if (evs.length === 0) {
@@ -5726,18 +5726,6 @@ export default function CRM() {
                         <span style={{ fontWeight: 600 }}>{e.date ? e.date.split("-").reverse().join("/") : "—"}</span>
                         <span style={{ color: "var(--tx2)", marginLeft: 8 }}>{String(e.start).padStart(2,"0")}h — {getEventLabel(e.tipo, artists)}</span>
                       </div>
-                      <button title="Altere a data ou horário." onClick={() => {
-                        setConfirmMover(null);
-                        setEditingEvent(e);
-                        const cv = clients.find(c => c.id === e.cliente_id) || null;
-                        setAgClientVinc(cv);
-                        setAgClientSearch("");
-                        const tipoCorreto = confirmMover.stage.id === "cons_agendada"
-                          ? "cons_" + (cv?.artista || artists[0]?.id || "abraao")
-                          : "sess_" + (cv?.artista || artists[0]?.id || "abraao");
-                        setAgForm({ title: e.title, tipo: tipoCorreto, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "", sinal: "", sinalPago: false } as any);
-                        setShowAgForm(true);
-                      }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--gold)", borderRadius: 5, padding: "3px 9px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>📅 Definir Agendamento</button>
                     </div>
                   ))}
                 </div>
@@ -5766,7 +5754,7 @@ export default function CRM() {
                     setAgForm({ title: cli?.nome || "", desc: "", tipo: tipoDefault, date: "", start: 9, end: 11, sinal: "", sinalPago: false } as any);
                     setShowAgForm(true);
                   }} style={{ flex: 1, background: confirmMover._aviso ? "rgba(201,168,76,.2)" : "var(--dk3)", border: "2px solid var(--gold)", borderRadius: 6, padding: "9px 10px", fontSize: 12, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", animation: confirmMover._aviso ? "pulse 1s ease-in-out 3" : "none" }}>
-                    + Agendar
+                    + Agendar sessões para este procedimento
                   </button>
                 </div>
               )}
