@@ -6782,6 +6782,46 @@ export default function CRM() {
                       </div>
                     ))}
                   </div>
+                  <div>
+                    <div className="stit">Estilos & Regiões</div>
+                    <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 12 }}>Gerencie as opções que aparecem nos campos de estilo e região do corpo nos cadastros de clientes.</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                      <div style={{ background: "var(--dk3)", borderRadius: 8, padding: 14, border: "1px solid var(--br)" }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)", marginBottom: 10 }}>🎨 Estilos</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                          {estiloOpts.map((opt, i) => (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ flex: 1, fontSize: 12, color: "var(--tx)" }}>{opt}</span>
+                              <button onClick={() => setEstiloOpts(p => p.filter((_, j) => j !== i))}
+                                style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 14, padding: "0 4px", fontFamily: "'DM Sans',sans-serif" }}>✕</button>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <input className="ef" placeholder="Novo estilo..." id="new-estilo-input" style={{ flex: 1, fontSize: 12 }}
+                            onKeyDown={e => { if (e.key === "Enter") { const input = e.target as HTMLInputElement; const val = input.value.trim(); if (val && !estiloOpts.includes(val)) { setEstiloOpts(p => [...p, val]); input.value = ""; } } }} />
+                          <button className="btn-sm gold" onClick={() => { const input = document.getElementById("new-estilo-input") as HTMLInputElement; const val = input?.value.trim(); if (val && !estiloOpts.includes(val)) { setEstiloOpts(p => [...p, val]); if (input) input.value = ""; } }}>+</button>
+                        </div>
+                      </div>
+                      <div style={{ background: "var(--dk3)", borderRadius: 8, padding: 14, border: "1px solid var(--br)" }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)", marginBottom: 10 }}>📍 Regiões</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                          {regiaoOpts.map((opt, i) => (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ flex: 1, fontSize: 12, color: "var(--tx)" }}>{opt}</span>
+                              <button onClick={() => setRegiaoOpts(p => p.filter((_, j) => j !== i))}
+                                style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 14, padding: "0 4px", fontFamily: "'DM Sans',sans-serif" }}>✕</button>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <input className="ef" placeholder="Nova região..." id="new-regiao-input" style={{ flex: 1, fontSize: 12 }}
+                            onKeyDown={e => { if (e.key === "Enter") { const input = e.target as HTMLInputElement; const val = input.value.trim(); if (val && !regiaoOpts.includes(val)) { setRegiaoOpts(p => [...p, val]); input.value = ""; } } }} />
+                          <button className="btn-sm gold" onClick={() => { const input = document.getElementById("new-regiao-input") as HTMLInputElement; const val = input?.value.trim(); if (val && !regiaoOpts.includes(val)) { setRegiaoOpts(p => [...p, val]); if (input) input.value = ""; } }}>+</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </>}
 
                 {/* ── ABA DONO ── */}
@@ -6846,7 +6886,7 @@ export default function CRM() {
                             <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Quanto o estúdio precisa faturar para ser sustentável e crescer</div>
                           </div>
                         </div>
-                        <input className="ef" type="text" placeholder="R$ 0" value={metaMensal ? "R$ " + Number(metaMensal).toLocaleString("pt-BR") : ""} onChange={e => { const raw = e.target.value.replace(/\D/g, ""); setMetaMensal(raw ? Number(raw) : 0); }} style={{ fontSize: 16, fontWeight: 700, color: "var(--gold)" }} />
+                        <input className="ef" type="text" placeholder="R$ 0,00" value={metaMensal ? "R$ " + Number(metaMensal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""} onChange={e => { const raw = e.target.value.replace(/\D/g, ""); setMetaMensal(raw ? Number(raw) / 100 : 0); }} style={{ fontSize: 16, fontWeight: 700, color: "var(--gold)" }} />
                       </div>
                       <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "14px", border: "1px solid var(--br)" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
