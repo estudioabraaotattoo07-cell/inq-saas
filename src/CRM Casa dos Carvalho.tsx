@@ -1301,7 +1301,8 @@ export default function CRM() {
     const proj = c.projetos?.[0];
     if (proj && (!proj.valorTotal || proj.valorTotal === 0) && c.etapa !== "lead") m.push("Valor do projeto");
     // Forma de pagamento não definida em cliente com sessão agendada
-    if (!c.pgto && ["sessao_agend","tatuado","pos_venda"].includes(c.etapa)) m.push("Forma de pagamento");
+    const pgtoValido = c.pgto && c.pgto !== "A definir";
+    if (!pgtoValido && ["sessao_agend","tatuado","pos_venda"].includes(c.etapa)) m.push("Forma de pagamento");
     return m;
   };
   const churn = (c: any) => {
@@ -6454,8 +6455,10 @@ export default function CRM() {
                     setClients(p => {
                       const updated = p.map(c => {
                         if (c.id !== orcamentoModal.cid) return c;
-                        const projetos = (c.projetos || []).map((proj: any, idx: number) =>
-                          idx === 0 ? { ...proj, valorTotal: v } : proj
+                        const projetos = (c.projetos || []).map((proj: any) =>
+                          (proj.status !== "concluido" && proj.status !== "cancelado" && (!proj.valorTotal || proj.valorTotal === 0))
+                            ? { ...proj, valorTotal: v }
+                            : proj
                         );
                         return { ...c, val_a: v, orcamento: false, projetos,
                           hist: [...c.hist, { t: "Orçamento registrado: R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }), d: new Date().toLocaleString("pt-BR") }]
