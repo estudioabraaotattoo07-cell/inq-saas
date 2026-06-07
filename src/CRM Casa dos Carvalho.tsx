@@ -1100,7 +1100,6 @@ export default function CRM() {
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [novoEstiloModal, setNovoEstiloModal] = useState<{tipo: "estilo"|"regiao"; callback: (v: string) => void} | null>(null);
   const [novoEstiloInput, setNovoEstiloInput] = useState("");
-  const [gerenciarEstilo, setGerenciarEstilo] = useState<{tipo: "estilo"|"regiao"; valor: string; editando: string} | null>(null);
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
   const [sessoesExtras, setSessoesExtras] = useState<{date: string; start: number; end: number}[]>([]);
@@ -4468,11 +4467,11 @@ export default function CRM() {
                         </div>
                         <div className="fi2">
                           <div className="fil">Estilo</div>
-                          <select className="ef" value={novoProjetoForm.estilo} onChange={e => { if (e.target.value === "__novo_estilo__") { setNovoEstiloInput(""); setNovoEstiloModal({ tipo: "estilo", callback: (v) => setNovoProjetoForm(p => ({ ...p, estilo: v })) }); else { setNovoProjetoForm(p => ({ ...p, estilo: e.target.value })); } }}>
+                          <select className="ef" value={novoProjetoForm.estilo} onChange={e => { if (e.target.value === "__novo_estilo__") { setNovoEstiloInput(""); setNovoEstiloModal({ tipo: "estilo", callback: (v) => setNovoProjetoForm(p => ({ ...p, estilo: v })) }); } else { setNovoProjetoForm(p => ({ ...p, estilo: e.target.value })); } }}>
                             <option value="">Selecionar...</option>
                             {estiloOpts.map(o => <option key={o} value={o}>{o}</option>)}
                             <option value="__novo_estilo__">+ Adicionar novo estilo...</option>
-                            <option disabled value="" style={{ color: "var(--tx3)", fontSize: 10 }}>✎ Editar/excluir: Configurações → Estúdio</option>
+                            <option disabled value="">✎ Editar/excluir: Configurações → Estúdio</option>
                           </select>
                         </div>
                         <div className="fi2">
@@ -4593,7 +4592,7 @@ export default function CRM() {
                                   <option value="">Selecionar...</option>
                                   {estiloOpts.map(o => <option key={o} value={o}>{o}</option>)}
                                   <option value="__novo_estilo__">+ Adicionar novo estilo...</option>
-                                  <option disabled value="" style={{ color: "var(--tx3)", fontSize: 10 }}>✎ Editar/excluir: Configurações → Estúdio</option>
+                                  <option disabled value="">✎ Editar/excluir: Configurações → Estúdio</option>
                                 </select>
                               </div>
                               <div className="fi2">
@@ -6506,6 +6505,7 @@ export default function CRM() {
 
         {/* ── MODAL ORÇAMENTO ── */}
         {/* ── MODAL GERENCIAR ESTILO / REGIÃO ── */}
+
         {/* ── MODAL NOVO ESTILO / REGIÃO ── */}
         {novoEstiloModal && (
           <div className="ov" onClick={() => setNovoEstiloModal(null)}>
