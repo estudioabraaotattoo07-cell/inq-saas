@@ -435,40 +435,40 @@ const DATAS = [
   { id: "natal", label: "Natal", data: "25 Dez", icon: "🎄" },
   { id: "anoNovo", label: "Ano Novo", data: "01 Jan", icon: "🎆" },
   { id: "aniversario", label: "Aniversarios", data: "Mensal", icon: "🎂" },
-  { id: "aniAbraao", label: "Aniv. Abraao (30/Nov)", data: "30 Nov", icon: "🎉" },
+  { id: "aniAbraao", label: "Aniv. do Responsável", data: "—", icon: "🎉" },
   { id: "aniCamilla", label: "Aniv. Camilla (26/Jun)", data: "26 Jun", icon: "🎉" },
   { id: "diaTatuador", label: "Dia do Tatuador", data: "10 Dez", icon: "🖋️" },
 ];
 
 const MSGS: Record<string, string> = {
-  todos: "Olá, [Nome]\n\nA Casa dos Carvalho tem algo especial esperando por voce.\n\nSe a sua ideia ainda esta guardada, talvez seja hora de tira-la do papel.",
+  todos: "Olá, [Nome]\n\nO [ESTUDIO] tem algo especial esperando por voce.\n\nSe a sua ideia ainda esta guardada, talvez seja hora de tira-la do papel.",
   q0: "Olá, [Nome]\n\nQue bom ter te recebido aqui.\n\nA arte que voce viu sendo criada foi feita com muito cuidado. Se algum dia quiser criar a sua, será uma honra.",
-  q1: "Olá, [Nome]\n\nA Casa dos Carvalho não tem pressa - tem comprometimento com projetos que fazem sentido para quem os carrega na pele.",
+  q1: "Olá, [Nome]\n\nO [ESTUDIO] não tem pressa - tem comprometimento com projetos que fazem sentido para quem os carrega na pele.",
   q2: "Olá, [Nome]\n\nVoce chegou com uma ideia linda - e ela ficou guardada com a gente.\n\nSeria um prazer evoluir essa conversa juntos.",
   tatuados: "Olá, [Nome]\n\nEspero que sua arte esteja linda e bem cuidada. Se a proxima ideia ja esta nascendo, você sabe onde nos encontrar.",
   homenagem: "Olá, [Nome]\n\nNessa época especial, lembramos de voce e da arte que escolheu eternizar na sua pele.",
   primeira: "Olá, [Nome]\n\nTodo começo é especial - e o seu ficou guardado com muito carinho.\n\nSe a segunda ideia está surgindo, será uma honra.",
   abraao: "Olá, [Nome]\n\nO Abraão tem novidades no atelier e pensou em voce.\n\nQuando quiser conversar, e so chamar.",
   camilla: "Olá, [Nome]\n\nA Camilla tem algo especial se formando e pensou em voce.",
-  maes: "Olá, [Nome]\n\nFeliz Dia das Mães.\n\nAlgumas memorias merecem ser eternas. A Casa dos Carvalho esta aqui para transformar esse sentimento em arte.",
-  namorados: "Olá, [Nome]\n\nFeliz Dia dos Namorados.\n\nA Casa dos Carvalho transforma amor em arte.",
+  maes: "Olá, [Nome]\n\nFeliz Dia das Mães.\n\nAlgumas memorias merecem ser eternas. O [ESTUDIO] esta aqui para transformar esse sentimento em arte.",
+  namorados: "Olá, [Nome]\n\nFeliz Dia dos Namorados.\n\nO [ESTUDIO] transforma amor em arte.",
   pais: "Olá, [Nome]\n\nFeliz Dia dos Pais.\n\nSe existe uma homenagem guardada no coracao - talvez esse seja o momento certo.",
   natal: "Olá, [Nome]\n\nQue esse Natal seja cheio de momentos que voce vai querer guardar para sempre.",
-  anoNovo: "Olá, [Nome]\n\nUm novo ano carrega novas histórias. A Casa dos Carvalho esta pronta para fazer acontecer.",
-  aniAbraao: "Olá, [Nome]\n\nHoje é um dia muito especial para a Casa dos Carvalho - é o aniversário do Abraão.\n\nE como todo bom aniversario, quem ganha presente e voce.\n\nPreparamos uma condicao exclusiva para celebrar esse dia juntos. Quando quiser saber mais, e so me chamar.",
-  aniCamilla: "Olá, [Nome]\n\nHoje a Casa dos Carvalho celebra o aniversário da Camilla.\n\nE a melhor forma de comemorar e presentear quem faz parte da nossa historia.\n\nTemos algo especial reservado para voce. Quando quiser saber mais, e so me chamar.",
-  aniversario: "Olá, [Nome]\n\nHoje é um dia muito especial - e a Casa dos Carvalho quer fazer parte dele.\n\nComo presente: 50% de desconto na sua próxima tatuagem, válido por 15 dias.\n\nQuando quiser saber mais, e so chamar.",
-  google: "Olá, [Nome]\n\nEspero que sua tatuagem esteja linda e bem cuidada.\n\nSe sua experiencia na Casa dos Carvalho foi especial, sua avaliação no Google faz toda a diferença para nós crescermos juntos.\n\nLeva só 1 minutinho: [LINK_GOOGLE]\n\nObrigado de coração.",
-  diaTatuador: "Olá, [Nome]\n\nHoje é o Dia do Tatuador - e a Casa dos Carvalho tem muito a celebrar.\n\nObrigado por fazer parte dessa historia. Cada arte que criamos juntos e uma memoria que voce carrega para sempre.",
-  retorno: "Olá, [Nome]\n\nFaz um tempo que não nos vemos por aqui.\n\nA Casa dos Carvalho esta com novidades e seria uma honra continuar a sua historia com a gente. Quando quiser conversar, e so chamar.",
+  anoNovo: "Olá, [Nome]\n\nUm novo ano carrega novas histórias. O [ESTUDIO] esta pronto para fazer acontecer.",
+  aniAbraao: "Olá, [Nome]\n\nHoje é um dia muito especial para a Casa dos Carvalho - é um dia muito especial para o [ESTUDIO].\n\nPreparamos uma condicao exclusiva para celebrar esse dia juntos. Quando quiser saber mais, e so me chamar.",
+  aniCamilla: "Olá, [Nome]\n\nHoje o [ESTUDIO] celebra um aniversário especial.\n\nE a melhor forma de comemorar e presentear quem faz parte da nossa historia.\n\nTemos algo especial reservado para voce. Quando quiser saber mais, e so me chamar.",
+  aniversario: "Olá, [Nome]\n\nHoje é um dia muito especial - e o [ESTUDIO] quer fazer parte dele.\n\nComo presente: 50% de desconto na sua próxima tatuagem, válido por 15 dias.\n\nQuando quiser saber mais, e so chamar.",
+  google: "Olá, [Nome]\n\nEspero que sua tatuagem esteja linda e bem cuidada.\n\nSe sua experiencia no [ESTUDIO] foi especial, sua avaliação no Google faz toda a diferença para nós crescermos juntos.\n\nLeva só 1 minutinho: [LINK_GOOGLE]\n\nObrigado de coração.",
+  diaTatuador: "Olá, [Nome]\n\nHoje é o Dia do Tatuador - e o [ESTUDIO] tem muito a celebrar.\n\nObrigado por fazer parte dessa historia. Cada arte que criamos juntos e uma memoria que voce carrega para sempre.",
+  retorno: "Olá, [Nome]\n\nFaz um tempo que não nos vemos por aqui.\n\nO [ESTUDIO] esta com novidades e seria uma honra continuar a sua historia com a gente. Quando quiser conversar, e so chamar.",
 };
 
 // ─── POS-VENDA FLOW ───────────────────────────────────────────────────────────
 const PV_FLOW = [
-  { id: "d0", label: "Dia da sessao", dias: 0, msg: "Olá, [Nome]! Obrigado por confiar na Casa dos Carvalho. Como foi sua experiencia hoje? Estamos aqui se precisar de qualquer coisa." },
+  { id: "d0", label: "Dia da sessao", dias: 0, msg: "Olá, [Nome]! Obrigado por confiar no [ESTUDIO]. Como foi sua experiencia hoje? Estamos aqui se precisar de qualquer coisa." },
   { id: "d1", label: "D+1 Cicatrizacao", dias: 1, msg: "Olá, [Nome]! Como esta sua tatuagem hoje? Lembre-se: mantenha hidratada, evite sol direto e não fure as bolhas se aparecerem. Qualquer dúvida, e so chamar." },
   { id: "d7", label: "D+7 Saude", dias: 7, msg: "Olá, [Nome]! Uma semana ja! Como está cicatrizando? Se notar vermelhidão, inchaço ou secrecao, nos avise imediatamente." },
-  { id: "d7g", label: "D+7 Avaliacao Google", dias: 7, msg: "Olá, [Nome]! Se sua experiencia na Casa dos Carvalho foi especial, sua avaliação no Google faz toda a diferenca para nos. Leva só 1 minutinho: [LINK_GOOGLE]" },
+  { id: "d7g", label: "D+7 Avaliacao Google", dias: 7, msg: "Olá, [Nome]! Se sua experiencia no [ESTUDIO] foi especial, sua avaliação no Google faz toda a diferenca para nos. Leva só 1 minutinho: [LINK_GOOGLE]" },
   { id: "d30", label: "D+30 Garantia", dias: 30, msg: "Olá, [Nome]! Seu retoque gratuito vence em 7 dias. Se quiser agendar, e so nos chamar. Apos o dia 37, o retoque será cobrado normalmente." },
   { id: "d37", label: "D+37 Ultimo dia", dias: 37, msg: "Olá, [Nome]! Hoje é o último dia da sua garantia de retoque gratuito. Se precisar, nos chame agora. Depois disso, o retoque será cobrado a combinar." },
 ];
@@ -570,14 +570,14 @@ O desenho desenvolvido na consultoria pertence ao estudio. O cliente nao tem dir
 O retoque gratuito e garantido por 30 dias apos a sessao, com tolerancia de ate 37 dias. Em caso comprovado de dano intencional, o valor do retoque sera o dobro do valor original da sessao.
 
 5. USO DE IMAGEM
-O cliente autoriza o uso de fotos da tatuagem para portfolio e redes sociais da Casa dos Carvalho, salvo solicitacao contraria registrada formalmente.
+O cliente autoriza o uso de fotos da tatuagem para portfolio e redes sociais do estudio, salvo solicitacao contraria registrada formalmente.
 
 6. REAGENDAMENTO
 O cliente pode reagendar sem cobranca desde que avise com minimo de 24 horas de antecedencia.
 
 Ao responder CONFIRMO, o cliente declara estar de acordo com todos os termos acima.
 
-Casa dos Carvalho - In-Quadra Ink System`;
+In-Quadra Ink System`;
 }
 
 // ─── INITIAL DATA ─────────────────────────────────────────────────────────────
@@ -585,12 +585,12 @@ const ARTISTS_INIT = [
   {
     id: "abraao", nome: "Abraão Carvalho", role: "residente", com: 60,
     cor: "#4A9EBF", ativo: true, insta: "@abraaotattoo",
-    email: "abraao@casadoscarvalho.com", tel: "(27) 99999-0001"
+    email: "", tel: ""
   },
   {
     id: "camilla", nome: "Camilla Carvalho", role: "residente", com: 60,
     cor: "#9B6BB5", ativo: true, insta: "@camillatattoo",
-    email: "camilla@casadoscarvalho.com", tel: "(27) 99999-0002"
+    email: "", tel: ""
   },
 ];
 
@@ -955,38 +955,38 @@ export default function CRM() {
   const [showSplash, setShowSplash] = useState(() => !!localStorage.getItem("inq_onb"));
   const [onbStep, setOnbStep] = useState(0);
   const [dark, setDark] = useState(true);
-  const [studioName, setStudioName] = useState("Casa dos Carvalho");
+  const [studioName, setStudioName] = useState("");
   const [studioLogo, setStudioLogo] = useState<string>(() => localStorage.getItem("inq_logo") || "");
-  const [studioTel, setStudioTel] = useState("(27) 99999-0000");
-  const [studioOwner, setStudioOwner] = useState("Abraao Carvalho");
+  const [studioTel, setStudioTel] = useState("");
+  const [studioOwner, setStudioOwner] = useState("");
   const [studioEmail, setStudioEmail] = useState("");
-  const [studioCity, setStudioCity] = useState("Vitoria - ES");
-  const [studioInsta, setStudioInsta] = useState("@casadoscarvalho");
+  const [studioCity, setStudioCity] = useState("");
+  const [studioInsta, setStudioInsta] = useState("");
   const [studioEndereco, setStudioEndereco] = useState("");
   const [studioRua, setStudioRua] = useState("");
   const [studioNumero, setStudioNumero] = useState("");
   const [studioComplemento, setStudioComplemento] = useState("");
   const [studioBairro, setStudioBairro] = useState("");
   const [studioCep, setStudioCep] = useState("");
-  const [studioEstado, setStudioEstado] = useState("ES");
-  const [studioPais, setStudioPais] = useState("Brasil");
-  const [studioRedes, setStudioRedes] = useState<{plataforma: string; usuario: string}[]>([{ plataforma: "Instagram", usuario: "@casadoscarvalho" }]);
+  const [studioEstado, setStudioEstado] = useState("");
+  const [studioPais, setStudioPais] = useState("");
+  const [studioRedes, setStudioRedes] = useState<{plataforma: string; usuario: string}[]>([]);
   const [donoNome, setDonoNome] = useState("");
   const [donoWhats, setDonoWhats] = useState("");
   const [donoEmail, setDonoEmail] = useState("");
-  const [auraName, setAuraName] = useState("Aura");
-  const [auraFormalidade, setAuraFormalidade] = useState("Equilibrado");
-  const [auraIdioma, setAuraIdioma] = useState("Português");
+  const [auraName, setAuraName] = useState("");
+  const [auraFormalidade, setAuraFormalidade] = useState("");
+  const [auraIdioma, setAuraIdioma] = useState("");
   const [auraTracos, setAuraTracos] = useState<string[]>([]);
   const [auraRitmo, setAuraRitmo] = useState("");
   const [auraEmojis, setAuraEmojis] = useState("");
-  const [metaSessoes, setMetaSessoes] = useState(10);
-  const [metaLeads, setMetaLeads] = useState(20);
-  const [metaNPS, setMetaNPS] = useState(5);
+  const [metaSessoes, setMetaSessoes] = useState(0);
+  const [metaLeads, setMetaLeads] = useState(0);
+  const [metaNPS, setMetaNPS] = useState(0);
   const [settingsTab, setSettingsTab] = useState<"estudio"|"dono"|"metas"|"ia"|"sistema">("estudio");
   const [googleLink, setGoogleLink] = useState("");
   const [cnpj, setCnpj] = useState("");
-  const [metaMensal, setMetaMensal] = useState(15000);
+  const [metaMensal, setMetaMensal] = useState(0);
   const [descontoAniversario, setDescontoAniversario] = useState(5);
   const [saidas, setSaidas] = useState<any[]>([]);
   const [showSaidaForm, setShowSaidaForm] = useState(false);
@@ -4169,7 +4169,7 @@ export default function CRM() {
             <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, overflow: "hidden" }}>
               <div style={{ padding: "12px 16px", background: "var(--dk3)", borderBottom: "1px solid var(--br)" }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>📅 Datas Comemorativas</div>
-                <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Mensagens emocionais para toda a base — cada uma com a assinatura da Casa dos Carvalho</div>
+                <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Mensagens emocionais para toda a base — cada uma com a assinatura do estúdio</div>
               </div>
               <div style={{ display: "flex", flexDirection: "column" }}>
                 {DATAS.filter(d => d.id !== "aniversario").map((d, idx) => {
