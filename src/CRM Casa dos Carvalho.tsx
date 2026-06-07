@@ -963,6 +963,13 @@ export default function CRM() {
   const [studioCity, setStudioCity] = useState("Vitoria - ES");
   const [studioInsta, setStudioInsta] = useState("@casadoscarvalho");
   const [studioEndereco, setStudioEndereco] = useState("");
+  const [studioRua, setStudioRua] = useState("");
+  const [studioNumero, setStudioNumero] = useState("");
+  const [studioComplemento, setStudioComplemento] = useState("");
+  const [studioBairro, setStudioBairro] = useState("");
+  const [studioCep, setStudioCep] = useState("");
+  const [studioEstado, setStudioEstado] = useState("ES");
+  const [studioPais, setStudioPais] = useState("Brasil");
   const [studioRedes, setStudioRedes] = useState<{plataforma: string; usuario: string}[]>([{ plataforma: "Instagram", usuario: "@casadoscarvalho" }]);
   const [donoNome, setDonoNome] = useState("");
   const [donoWhats, setDonoWhats] = useState("");
@@ -1157,6 +1164,13 @@ export default function CRM() {
           if (cfg.studio_city) setStudioCity(cfg.studio_city);
           if (cfg.studio_insta) setStudioInsta(cfg.studio_insta);
           if (cfg.studio_endereco) setStudioEndereco(cfg.studio_endereco);
+          if (cfg.studio_rua) setStudioRua(cfg.studio_rua);
+          if (cfg.studio_numero) setStudioNumero(cfg.studio_numero);
+          if (cfg.studio_complemento) setStudioComplemento(cfg.studio_complemento);
+          if (cfg.studio_bairro) setStudioBairro(cfg.studio_bairro);
+          if (cfg.studio_cep) setStudioCep(cfg.studio_cep);
+          if (cfg.studio_estado) setStudioEstado(cfg.studio_estado);
+          if (cfg.studio_pais) setStudioPais(cfg.studio_pais);
           if (cfg.studio_redes) setStudioRedes(cfg.studio_redes);
           if (cfg.dono_nome) setDonoNome(cfg.dono_nome);
           if (cfg.dono_whats) setDonoWhats(cfg.dono_whats);
@@ -6675,7 +6689,25 @@ export default function CRM() {
                     <div className="fg2">
                       <div className="fi2"><div className="fil">Nome do Estúdio</div><input className="ef" value={studioName} onChange={e => setStudioName(e.target.value)} /></div>
                       <div className="fi2"><div className="fil">Cidade</div><input className="ef" value={studioCity} onChange={e => setStudioCity(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Endereço Completo</div><input className="ef" value={studioEndereco} placeholder="Rua, número, bairro" onChange={e => setStudioEndereco(e.target.value)} /></div>
+                    <div className="stit">Endereço</div>
+                    <div className="fg2">
+                      <div className="fi2" style={{ gridColumn: "1 / -1" }}><div className="fil">Rua / Logradouro</div><input className="ef" value={studioRua} placeholder="Rua Aristides Navarro" onChange={e => setStudioRua(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Número</div><input className="ef" value={studioNumero} placeholder="165" onChange={e => setStudioNumero(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Complemento</div><input className="ef" value={studioComplemento} placeholder="Sala 2, Loja A..." onChange={e => setStudioComplemento(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Bairro</div><input className="ef" value={studioBairro} placeholder="Centro" onChange={e => setStudioBairro(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">CEP</div><input className="ef" value={studioCep} placeholder="29000-000" maxLength={9} onChange={e => {
+                        const raw = e.target.value.replace(/\D/g,"").slice(0,8);
+                        const fmt = raw.length > 5 ? raw.slice(0,5) + "-" + raw.slice(5) : raw;
+                        setStudioCep(fmt);
+                      }} /></div>
+                      <div className="fi2"><div className="fil">Cidade</div><input className="ef" value={studioCity} onChange={e => setStudioCity(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Estado</div>
+                        <select className="ef" value={studioEstado} onChange={e => setStudioEstado(e.target.value)} style={{ fontFamily: "'DM Sans',sans-serif" }}>
+                          {["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"].map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                        </select>
+                      </div>
+                      <div className="fi2"><div className="fil">País</div><input className="ef" value={studioPais} onChange={e => setStudioPais(e.target.value)} /></div>
+                    </div>
                       <div className="fi2"><div className="fil">Email do Estúdio{!studioEmail && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={studioEmail} onChange={e => setStudioEmail(e.target.value)} style={{ borderColor: !studioEmail ? "rgba(212,130,10,.4)" : undefined }} /></div>
                       <div className="fi2"><div className="fil">CNPJ{!cnpj && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={cnpj} placeholder="00.000.000/0001-00" maxLength={18} onChange={e => {
                         const raw = e.target.value.replace(/\D/g,"").slice(0,14);
@@ -7010,6 +7042,10 @@ export default function CRM() {
                     studio_owner: studioOwner, studio_email: studioEmail,
                     studio_city: studioCity, studio_insta: studioInsta,
                     studio_endereco: studioEndereco,
+                    studio_rua: studioRua, studio_numero: studioNumero,
+                    studio_complemento: studioComplemento, studio_bairro: studioBairro,
+                    studio_cep: studioCep, studio_estado: studioEstado,
+                    studio_pais: studioPais,
                     studio_redes: studioRedes,
                     dono_nome: donoNome, dono_whats: donoWhats, dono_email: donoEmail,
                     aura_name: auraName, aura_formalidade: auraFormalidade,
@@ -7026,7 +7062,7 @@ export default function CRM() {
                   if (existing?.id) {
                     await sb.from("configuracoes").update(cfg).eq("id", existing.id);
                   } else {
-                    await sb.from("configuracoes").insert({ id: 1, ...cfg });
+                    await sb.from("configuracoes").insert(cfg);
                   }
                   setShowSettings(false);
                   setShowAviso("Configurações salvas com sucesso.");
