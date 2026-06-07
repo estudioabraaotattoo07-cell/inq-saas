@@ -4006,6 +4006,43 @@ export default function CRM() {
                   ))}
                 </div>
               </div>
+              <div className="dsec">
+                <div className="dsh">
+                  <div className="dst">🎂 Programa Aniversariante</div>
+                  <div className="dss">Disparo automático no dia do aniversário</div>
+                </div>
+                <div className="dsb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ fontSize: 12, color: "var(--tx2)", lineHeight: 1.6 }}>
+                    Clientes que fazem aniversário recebem mensagem automática da Aura com oferta de desconto. O disparo ocorre às 9h do dia do aniversário.
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <label style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Desconto oferecido (%)</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <input type="number" min={0} max={50} value={descontoAniversario}
+                        onChange={e => setDescontoAniversario(Number(e.target.value))}
+                        style={{ background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 6, padding: "7px 11px", fontSize: 14, fontWeight: 700, color: "var(--gold)", outline: "none", width: 80, fontFamily: "'DM Sans',sans-serif" }} />
+                      <span style={{ fontSize: 12, color: "var(--tx2)" }}>% de desconto na próxima sessão</span>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <label style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Instrução para a Aura</label>
+                    <textarea
+                      defaultValue={"Enviar no dia do aniversário do cliente. Usar o nome do cliente. Parabenizar pelo aniversário de forma calorosa e personalizada. Mencionar o estilo de tatuagem favorito do cliente se disponível. Oferecer " + descontoAniversario + "% de desconto em qualquer sessão realizada durante o mês do aniversário. Tom: caloroso e pessoal, não promocional. Finalizar com convite para agendar."}
+                      style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", fontSize: 11, color: "var(--tx2)", fontFamily: "'DM Sans',sans-serif", resize: "vertical", minHeight: 100, outline: "none", lineHeight: 1.6 }} />
+                    <div style={{ fontSize: 10, color: "var(--tx3)" }}>A Aura usa estas instruções para compor a mensagem — cada envio é personalizado com os dados do cliente.</div>
+                  </div>
+                  <div style={{ background: "rgba(201,168,76,.08)", border: "1px solid rgba(201,168,76,.2)", borderRadius: 7, padding: "10px 12px", fontSize: 11, color: "var(--tx2)" }}>
+                    {(() => {
+                      const anivMes = clients.filter(c => isAniversMes((c as any).nascimento || ""));
+                      const anivHoje = clients.filter(c => isAniversHoje((c as any).nascimento || ""));
+                      return <>
+                        <div>🎂 <strong style={{ color: "var(--gold)" }}>{anivMes.length}</strong> cliente{anivMes.length !== 1 ? "s" : ""} fazem aniversário este mês</div>
+                        {anivHoje.length > 0 && <div style={{ marginTop: 4, color: "var(--gold)", fontWeight: 600 }}>🎉 Hoje: {anivHoje.map(c => c.nome.split(" ")[0]).join(", ")}</div>}
+                      </>;
+                    })()}
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="disr">
               {/* Alerta de sazonalidade */}
@@ -4125,12 +4162,13 @@ export default function CRM() {
             <div className="modal">
               <div className="mh" style={{ position: "relative" }}>
                 <div style={{ flex: 1 }}>
-                  <div className="mn">{sc.nome}</div>
+                  <div className="mn">{isAniversMes((sc as any).nascimento || "") ? "🎂 " : ""}{sc.nome}</div>
                   <div className="ms">
                     <span className={"qb " + QC[sc.qual]}>{sc.qual}{sc.qual === "Q0" ? " - Presencial" : ""}</span>
                     <span className={("at " + aClass(sc.artista)) || ""} style={aStyle(sc.artista)}>{aName(sc.artista).split(" ")[0]}</span>
                     {sc.etapa === "blacklist" && <span className="tag-bl">🚫</span>}
                     {sc.etapa === "lista_espera" && <span className="tag-wl">⏳</span>}
+                    {isAniversHoje((sc as any).nascimento || "") && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--gold)", background: "rgba(201,168,76,.15)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 4, padding: "1px 6px" }}>🎂 Aniversário hoje!</span>}
                     <span style={{ color: "var(--tx3)", fontSize: 11 }}>Entrou em {sc.data}</span>
                     {(() => { const s = calcScore(sc); return <span style={{ fontSize: 10, fontWeight: 700, color: s.cor, background: s.cor + "22", border: `1px solid ${s.cor}44`, borderRadius: 4, padding: "1px 6px", letterSpacing: ".04em" }}>⭐ {s.label} {s.score}</span>; })()}
                     {miss(sc).map((m: string) => <span key={m} className="atag">⚠ Sem {m}</span>)}
@@ -6164,7 +6202,7 @@ export default function CRM() {
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(192,57,43,.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>⚠️</div>
                 <div>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: "#C0392B", fontFamily: "'Cormorant Garamond',serif" }}>Reset para Configurações Originais</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: "#C0392B", fontFamily: "'Cormorant Garamond',serif" }}>Apagar Dados Operacionais</div>
                   <div style={{ fontSize: 12, color: "var(--tx2)", marginTop: 3 }}>Esta ação é irreversível</div>
                 </div>
               </div>
@@ -6491,10 +6529,18 @@ export default function CRM() {
                       <div className="fi2"><div className="fil">Responsável</div><input className="ef" value={studioOwner} onChange={e => setStudioOwner(e.target.value)} /></div>
                       <div className="fi2"><div className="fil">Cidade</div><input className="ef" value={studioCity} onChange={e => setStudioCity(e.target.value)} /></div>
                       <div className="fi2"><div className="fil">WhatsApp</div><input className="ef" value={studioTel} onChange={e => setStudioTel(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Instagram</div><input className="ef" value={studioInsta} onChange={e => setStudioInsta(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Email</div><input className="ef" value={studioEmail} onChange={e => setStudioEmail(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">CNPJ</div><input className="ef" value={cnpj} onChange={e => setCnpj(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Link Google Meu Negócio</div><input className="ef" value={googleLink} onChange={e => setGoogleLink(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Instagram{!studioInsta && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={studioInsta} onChange={e => setStudioInsta(e.target.value)} style={{ borderColor: !studioInsta ? "rgba(212,130,10,.4)" : undefined }} /></div>
+                      <div className="fi2"><div className="fil">Email{!studioEmail && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={studioEmail} onChange={e => setStudioEmail(e.target.value)} style={{ borderColor: !studioEmail ? "rgba(212,130,10,.4)" : undefined }} /></div>
+                      <div className="fi2"><div className="fil">CNPJ{!cnpj && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={cnpj} placeholder="00.000.000/0001-00" maxLength={18} onChange={e => {
+                        const raw = e.target.value.replace(/\D/g,"").slice(0,14);
+                        let fmt = raw;
+                        if (raw.length > 2) fmt = raw.slice(0,2) + "." + raw.slice(2);
+                        if (raw.length > 5) fmt = raw.slice(0,2) + "." + raw.slice(2,5) + "." + raw.slice(5);
+                        if (raw.length > 8) fmt = raw.slice(0,2) + "." + raw.slice(2,5) + "." + raw.slice(5,8) + "/" + raw.slice(8);
+                        if (raw.length > 12) fmt = raw.slice(0,2) + "." + raw.slice(2,5) + "." + raw.slice(5,8) + "/" + raw.slice(8,12) + "-" + raw.slice(12);
+                        setCnpj(fmt);
+                      }} style={{ borderColor: !cnpj ? "rgba(212,130,10,.4)" : undefined }} /></div>
+                      <div className="fi2"><div className="fil">Link Google Meu Negócio{!googleLink && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={googleLink} onChange={e => setGoogleLink(e.target.value)} style={{ borderColor: !googleLink ? "rgba(212,130,10,.4)" : undefined }} /></div>
                     </div>
                   </div>
                   <div>
@@ -6504,16 +6550,6 @@ export default function CRM() {
                       <div className="fi2"><div className="fil">Meta de Sessões</div><input className="ef" type="number" value={metaSessoes} onChange={e => setMetaSessoes(Number(e.target.value))} /></div>
                       <div className="fi2"><div className="fil">Meta de Leads</div><input className="ef" type="number" value={metaLeads} onChange={e => setMetaLeads(Number(e.target.value))} /></div>
                       <div className="fi2"><div className="fil">Meta NPS 9+</div><input className="ef" type="number" value={metaNPS} onChange={e => setMetaNPS(Number(e.target.value))} /></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="stit">🎂 Programa Aniversariante</div>
-                    <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 10 }}>Clientes que fazem aniversário no mês recebem desconto automático sugerido no pagamento.</div>
-                    <div className="fg2">
-                      <div className="fi2">
-                        <div className="fil">Desconto Aniversariante (%)</div>
-                        <input className="ef" type="number" min={0} max={50} value={descontoAniversario} onChange={e => setDescontoAniversario(Number(e.target.value))} />
-                      </div>
                     </div>
                   </div>
                   <div>
@@ -6537,21 +6573,6 @@ export default function CRM() {
                         )}
                       </div>
                     ))}
-                  </div>
-                  <div>
-                    <div className="stit">Manutenção</div>
-                    <button style={{ background: "rgba(52,152,219,.12)", border: "1px solid rgba(52,152,219,.3)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "#3498DB", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
-                      onClick={async () => {
-                        let corrigidos = 0;
-                        for (const c of clients) {
-                          const nomeCorrigido = c.nome?.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase());
-                          if (nomeCorrigido !== c.nome) { await sb.from("clientes").update({ nome: nomeCorrigido }).eq("id", c.id); corrigidos++; }
-                        }
-                        setClients(p => p.map(c => ({ ...c, nome: c.nome?.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase()) })));
-                        setShowAviso(`${corrigidos} nome(s) corrigido(s) com sucesso.`);
-                      }}>
-                      Aa Corrigir Capitalização dos Nomes
-                    </button>
                   </div>
                 </>}
 
@@ -6597,7 +6618,7 @@ export default function CRM() {
                       <div>
                         <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>Traços de Personalidade <span style={{ color: "var(--tx3)", fontWeight: 400 }}>(escolha até 3)</span></div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                          {["Acolhedora","Sofisticada","Empática","Direta","Entusiasmada","Objetiva"].map(op => {
+                          {["Acolhedora","Sofisticada","Empática","Direta","Entusiasmada"].map(op => {
                             const sel: string[] = (auraFormalidade as any).personalidade || [];
                             const isOn = sel.includes(op);
                             return (
@@ -6663,10 +6684,17 @@ export default function CRM() {
                   </div>
                   <div>
                     <div className="stit" style={{ color: "#C0392B" }}>Zona de Perigo</div>
-                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>Apaga todos os clientes, agendamentos e lançamentos financeiros. Artistas e configurações são mantidos.</div>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+                      <div style={{ fontSize: 12, color: "var(--tx2)", lineHeight: 1.6 }}>
+                        Remove clientes, agendamentos e financeiro. Artistas e configurações são preservados.
+                      </div>
+                      <div style={{ position: "relative", flexShrink: 0 }} title="Remove permanentemente todos os clientes, agendamentos e lançamentos financeiros cadastrados. As configurações do estúdio, artistas, metas e preferências da Aura são preservadas. Use antes de iniciar o uso real do sistema após testes.">
+                        <span style={{ width: 18, height: 18, borderRadius: "50%", background: "var(--dk4)", border: "1px solid var(--br)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "var(--tx3)", cursor: "help", fontWeight: 700 }}>ℹ</span>
+                      </div>
+                    </div>
                     <button style={{ background: "rgba(192,57,43,.12)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "#C0392B", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
                       onClick={() => setConfirmReset(true)}>
-                      🗑 Reset para Configurações Originais
+                      🗑 Apagar Dados Operacionais
                     </button>
                   </div>
                 </>}
