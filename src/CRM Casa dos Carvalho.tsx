@@ -3038,7 +3038,7 @@ export default function CRM() {
                           <td><span style={aStyle(f.artista || f.artista_id)}>{aName(f.artista || f.artista_id).split(" ")[0]}</span></td>
                           <td style={{ fontSize: 11, color: "var(--tx2)" }}>{dataFmt}</td>
                           <td style={{ fontWeight: 600, color: "var(--q3)" }}>{fmtR(Number(f.val_a) || 0)}</td>
-                          <td style={{ fontSize: 11, fontWeight: 600, color: saldoDev > 0 ? "var(--q1)" : "#27AE60" }}>
+                          <td style={{ fontSize: 11, fontWeight: 600, color: saldoDev > 0 ? "var(--gold)" : "#27AE60" }}>
                             {valorTotal > 0 ? (saldoDev > 0 ? fmtR(saldoDev) : "✅") : "—"}
                           </td>
                           <td style={{ fontSize: 11 }}>{f.forma_pgto || f.pgto || "—"}</td>
@@ -4516,7 +4516,7 @@ export default function CRM() {
                                 <div style={{ display: "flex", gap: 12, padding: "6px 10px", background: "var(--dk4)", borderRadius: 6, fontSize: 12 }}>
                                   <span style={{ color: "var(--tx2)" }}>Total: <strong style={{ color: "var(--tx)" }}>R$ {valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
                                   <span style={{ color: "var(--tx2)" }}>Pago: <strong style={{ color: "#27AE60" }}>R$ {pago.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
-                                  {saldo > 0 && <span style={{ color: "var(--tx2)" }}>Saldo: <strong style={{ color: "var(--q1)" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
+                                  {saldo > 0 && <span style={{ color: "var(--tx2)" }}>Saldo: <strong style={{ color: "var(--gold)" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
                                   {saldo <= 0 && pago > 0 && <span style={{ color: "#27AE60", fontWeight: 700 }}>✅ Quitado</span>}
                                 </div>
                               ) : null;
@@ -4642,7 +4642,7 @@ export default function CRM() {
                           </div>
                           <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", textAlign: "center" }}>
                             <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Saldo Devedor</div>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: totalDevedor > 0 ? "var(--q1)" : "#27AE60", fontFamily: "'Cormorant Garamond',serif" }}>{totalDevedor > 0 ? "R$ " + totalDevedor.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "Quitado"}</div>
+                            <div style={{ fontSize: 16, fontWeight: 700, color: totalDevedor > 0 ? "var(--gold)" : "#27AE60", fontFamily: "'Cormorant Garamond',serif" }}>{totalDevedor > 0 ? "R$ " + totalDevedor.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "Quitado"}</div>
                           </div>
                           <div style={{ background: "var(--dk3)", border: credito > 0 ? "1px solid rgba(201,168,76,.4)" : "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", textAlign: "center" }}>
                             <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Crédito</div>
@@ -5368,7 +5368,7 @@ export default function CRM() {
                           <div key={p.id} style={{ fontSize: 12, padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,.04)", display: "flex", justifyContent: "space-between" }}>
                             <span style={{ color: "var(--tx)" }}>{p.estilo || "Sem estilo"} — {p.tam}</span>
                             <span>
-                              {p.valorTotal > 0 && <span style={{ color: saldo > 0 ? "var(--q1)" : "#27AE60", fontWeight: 600 }}>R$ {saldo > 0 ? saldo.toLocaleString("pt-BR",{minimumFractionDigits:2}) + " a pagar" : "Quitado"}</span>}
+                              {p.valorTotal > 0 && <span style={{ color: saldo > 0 ? "var(--gold)" : "#27AE60", fontWeight: 600 }}>R$ {saldo > 0 ? saldo.toLocaleString("pt-BR",{minimumFractionDigits:2}) + " a pagar" : "Quitado"}</span>}
                             </span>
                           </div>
                         );
@@ -6028,7 +6028,7 @@ export default function CRM() {
                             }, 400);
                           }
                         }} style={{ flex: 1, background: "rgba(74,158,191,.15)", border: "1px solid rgba(74,158,191,.3)", borderRadius: 7, padding: "9px 12px", fontSize: 12, fontWeight: 600, color: "var(--ab)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                          📅 Agendar Próxima Sessão
+                          📅 Agendar Nova Sessão
                         </button>
                         <button title="Encerra o projeto mesmo com saldo pendente." onClick={() => {
                           const etapaAnterior = clients.find(c => c.id === confirmPagamento?.cid)?.etapa || "sessao_agend";
