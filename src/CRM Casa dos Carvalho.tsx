@@ -5544,20 +5544,19 @@ export default function CRM() {
                   const cli = clients.find(c => c.id === agClientVinc.id);
                   if (!cli) return null;
                   const stage = STAGES.find(s => s.id === cli.etapa);
-                  const [pipelineOpen, setPipelineOpen] = React.useState(false);
                   return (
                     <div className="ff">
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
-                        onClick={() => setPipelineOpen(p => !p)}>
+                        onClick={() => setAgPipelineOpen(p => !p)}>
                         <label className="fl" style={{ cursor: "pointer", margin: 0 }}>Pipeline</label>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ fontSize: 11, color: stage?.color || "var(--tx2)", background: (stage?.color || "#888") + "22", border: "1px solid " + (stage?.color || "var(--br)"), borderRadius: 12, padding: "2px 8px", fontWeight: 600 }}>
                             {stage?.emoji} {stage?.label}
                           </span>
-                          <span style={{ fontSize: 11, color: "var(--tx3)" }}>{pipelineOpen ? "▲ ocultar" : "▼ alterar"}</span>
+                          <span style={{ fontSize: 11, color: "var(--tx3)" }}>{agPipelineOpen ? "▲ ocultar" : "▼ alterar"}</span>
                         </div>
                       </div>
-                      {pipelineOpen && (
+                      {agPipelineOpen && (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                           {STAGES.filter(s => !["blacklist"].includes(s.id)).map(s => (
                             <div key={s.id}
