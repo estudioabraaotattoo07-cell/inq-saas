@@ -1053,6 +1053,8 @@ export default function CRM() {
   const [undoSessao, setUndoSessao] = useState<{cid: any; etapaAnterior: string; finIds: any[]} | null>(null);
   const [undoSessaoTimer, setUndoSessaoTimer] = useState<any>(null);
   const [confirmAgForm, setConfirmAgForm] = useState(false);
+  const [confirmPresenca, setConfirmPresenca] = useState<{event: any} | null>(null);
+  const [presencaMotivo, setPresencaMotivo] = useState("");
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
   const [sessoesExtras, setSessoesExtras] = useState<{date: string; start: number; end: number}[]>([]);
 
@@ -2477,6 +2479,9 @@ export default function CRM() {
                               {c.orcamento && <span className="atag">💰</span>}
                               {c.etapa === "blacklist" && <span className="tag-bl">🚫</span>}
                               {c.etapa === "lista_espera" && <span className="tag-wl">⏳</span>}
+                              {c.etapa === "cons_agendada" && agEvents.some(e => e.cliente_id === c.id && e.tipo?.startsWith("cons") && e.status === "concluido") && (
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(39,174,96,.15)", color: "#27AE60", border: "1px solid rgba(39,174,96,.3)" }}>✓ Consulta Realizada</span>
+                              )}
                             </div>
                           )}
                         </div>
@@ -2619,7 +2624,7 @@ export default function CRM() {
                           const anivHoje = cliEv ? isAniversHoje((cliEv as any).nascimento || "") : false;
                           return (
                             <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista), cursor: "pointer", opacity: e.status === "concluido" ? 0.45 : 1 }}
-                              onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
+                              onClick={ev => { ev.stopPropagation(); const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
                               {e.status === "concluido" && "✅ "}{anivHoje && "🎂 "}{e.start}h {e.title}
                             </div>
                           );
@@ -2668,7 +2673,7 @@ export default function CRM() {
                                 opacity: e.status === "concluido" ? 0.45 : e.status === "cancelado" ? 0.55 : 1,
                                 textDecoration: e.status === "cancelado" ? "line-through" : "none"
                               }}
-                              onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
+                              onClick={ev => { ev.stopPropagation(); const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
                                 <span style={{overflow:"hidden",flex:1,minWidth:0}}>
                                   {e.status === "concluido" && <span style={{ fontSize: 10, marginRight: 3 }}>✅</span>}
                                   {(() => {
@@ -5414,6 +5419,19 @@ export default function CRM() {
                     <span style={{ color: "var(--tx2)", textAlign: "right" }}>{(agForm as any).desc}</span>
                   </div>
                 )}
+                {sessoesExtras.length > 0 && (
+                  <div style={{ borderTop: "1px solid var(--br)", paddingTop: 8, marginTop: 4, display: "flex", flexDirection: "column", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Sessões extras</span>
+                    {sessoesExtras.map((s, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "var(--tx3)" }}>{i + 2}ª Sessão</span>
+                        <span style={{ color: "var(--tx)", fontWeight: 600 }}>
+                          {s.date ? s.date.split("-").reverse().join("/") : "—"} · {String(s.start).padStart(2,"0")}h — {String(s.end).padStart(2,"0")}h
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
                 <button className="btn-c" onClick={() => setConfirmAgForm(false)}>Cancelar</button>
@@ -5467,6 +5485,84 @@ export default function CRM() {
                   ⊘ Confirmar Cancelamento
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+
+        {/* ── MODAL CONFIRMAÇÃO DE PRESENÇA ── */}
+        {confirmPresenca && (
+          <div className="ov" onClick={() => setConfirmPresenca(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(460px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>
+                📋 {confirmPresenca.event.title}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--tx2)", background: "var(--dk3)", borderRadius: 7, padding: "8px 12px" }}>
+                {confirmPresenca.event.date?.split("-").reverse().join("/")} · {confirmPresenca.event.start}h — {getEventLabel(confirmPresenca.event.tipo, artists)}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)" }}>Este agendamento foi cumprido?</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={async () => {
+                  const ev = confirmPresenca.event;
+                  await sb.from("agenda").update({ status: "concluido" }).eq("id", ev.id);
+                  setAgEvents(p => p.map(x => x.id === ev.id ? { ...x, status: "concluido" } : x));
+                  const cliPres = ev.cliente_id ? clients.find(c => c.id === ev.cliente_id) : null;
+                  if (cliPres) {
+                    setClients(p => p.map(c => c.id !== cliPres.id ? c : {
+                      ...c, hist: [...c.hist, { t: "Presenca confirmada: " + (ev.date || "").split("-").reverse().join("/") + " as " + ev.start + "h", d: new Date().toLocaleString("pt-BR") }]
+                    }));
+                  }
+                  addLog("Agenda: presenca confirmada — " + ev.title);
+                  setConfirmPresenca(null);
+                }} style={{ flex: 1, background: "rgba(39,174,96,.15)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 7, padding: "10px", fontSize: 13, fontWeight: 700, color: "#27AE60", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                  Sim, compareceu
+                </button>
+                <button onClick={() => setPresencaMotivo("abrirMotivos")} style={{ flex: 1, background: "rgba(192,57,43,.12)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 7, padding: "10px", fontSize: 13, fontWeight: 700, color: "var(--q1)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                  Nao compareceu
+                </button>
+              </div>
+              {presencaMotivo === "abrirMotivos" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Motivo da falta</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {["Faltou sem aviso", "Compromisso familiar", "Problema de saude", "Questao financeira", "Outro"].map(m => (
+                      <button key={m} onClick={() => setPresencaMotivo(m)}
+                        style={{ padding: "5px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
+                          background: presencaMotivo === m ? "rgba(192,57,43,.2)" : "var(--dk3)",
+                          border: presencaMotivo === m ? "1px solid var(--q1)" : "1px solid var(--br)",
+                          color: presencaMotivo === m ? "var(--q1)" : "var(--tx2)" }}>
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                  <button disabled={presencaMotivo === "abrirMotivos"}
+                    onClick={async () => {
+                      const ev = confirmPresenca.event;
+                      await sb.from("agenda").update({ status: "cancelado" }).eq("id", ev.id);
+                      setAgEvents(p => p.map(x => x.id === ev.id ? { ...x, status: "cancelado" } : x));
+                      const cliPres = ev.cliente_id ? clients.find(c => c.id === ev.cliente_id) : null;
+                      if (cliPres) {
+                        const novasFaltas = (cliPres.faltas || 0) + 1;
+                        const novoEtapa = novasFaltas >= 3 ? "blacklist" : cliPres.etapa;
+                        const updated = { ...cliPres, faltas: novasFaltas, etapa: novoEtapa,
+                          hist: [...cliPres.hist,
+                            { t: "Falta registrada: " + (ev.date || "").split("-").reverse().join("/") + " as " + ev.start + "h", d: new Date().toLocaleString("pt-BR") },
+                            { t: "Motivo: " + presencaMotivo, d: new Date().toLocaleString("pt-BR") }
+                          ]};
+                        setClients(p => p.map(c => c.id !== cliPres.id ? c : updated));
+                        setTimeout(() => saveClientDb(updated), 100);
+                        const msg = novasFaltas === 1 ? "1a falta registrada — taxa R$100 notificada." : novasFaltas === 2 ? "2a falta — cobrar 30% do orcamento." : "3a falta — cliente movido para Blacklist.";
+                        setTimeout(() => setShowAviso(msg), 300);
+                      }
+                      addLog("Agenda: falta registrada — " + ev.title + " — " + presencaMotivo);
+                      setConfirmPresenca(null); setPresencaMotivo("");
+                    }}
+                    style={{ background: presencaMotivo === "abrirMotivos" ? "var(--dk4)" : "rgba(192,57,43,.8)", color: "#fff", border: "none", borderRadius: 7, padding: "9px", fontSize: 12, fontWeight: 700, cursor: presencaMotivo === "abrirMotivos" ? "not-allowed" : "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                    Confirmar Falta
+                  </button>
+                </div>
+              )}
+              <button className="btn-c" style={{ alignSelf: "flex-start" }} onClick={() => { setConfirmPresenca(null); setPresencaMotivo(""); }}>Cancelar</button>
             </div>
           </div>
         )}
@@ -6154,8 +6250,21 @@ export default function CRM() {
                     const artista = cliente?.artista || "abraao";
                     const artObj = artists.find(a => a.id === artista);
                     const comPct = artObj?.com || 60;
-                    upC(orcamentoModal.cid, "val_a", v);
-                    upC(orcamentoModal.cid, "orcamento", false);
+                    // Atualiza val_a e valorTotal dentro do projeto ativo
+                    setClients(p => {
+                      const updated = p.map(c => {
+                        if (c.id !== orcamentoModal.cid) return c;
+                        const projetos = (c.projetos || []).map((proj: any, idx: number) =>
+                          idx === 0 ? { ...proj, valorTotal: v } : proj
+                        );
+                        return { ...c, val_a: v, orcamento: false, projetos,
+                          hist: [...c.hist, { t: "Orçamento registrado: R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }), d: new Date().toLocaleString("pt-BR") }]
+                        };
+                      });
+                      const c = updated.find(c => c.id === orcamentoModal.cid);
+                      if (c) setTimeout(() => saveClientDb(c), 100);
+                      return updated;
+                    });
                     // Lança no financeiro como orçamento registrado
                     const finRow = {
                       cliente_id: orcamentoModal.cid,
@@ -6174,7 +6283,6 @@ export default function CRM() {
                     };
                     const { data: fd } = await sb.from("financeiro").insert(finRow).select().single();
                     if (fd) setFin(p => [...p, { ...finRow, id: fd.id, cliente: cliente?.nome }]);
-                    setClients(p => p.map(c => c.id !== orcamentoModal.cid ? c : { ...c, hist: [...c.hist, { t: "Orçamento registrado: R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }), d: new Date().toLocaleString("pt-BR") }] }));
                     setOrcamentoModal(null);
                   }
                 }}>Confirmar</button>
