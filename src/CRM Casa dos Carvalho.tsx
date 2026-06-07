@@ -2,8 +2,8 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
-const SUPA_URL = "https://rajophuwwxynkdpxjzey.supabase.co";
-const SUPA_KEY = "sb_publishable_YxW3K62M-aYXetcPxBqwtA_JUFMSaG4";
+const SUPA_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPA_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const sb = createClient(SUPA_URL, SUPA_KEY);
 
 async function dbGet(table: string) {
