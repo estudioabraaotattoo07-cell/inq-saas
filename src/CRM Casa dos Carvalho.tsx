@@ -5525,8 +5525,8 @@ export default function CRM() {
                           onChange={e => setSessoesExtras(p => p.map((x,j) => j===i ? {...x, date: e.target.value} : x))} />
                       </div>
                       <div className="fr">
-                        <TimeScroller label="Início" value={s.start} onChange={(h) => setSessoesExtras(p => p.map((x,j) => j===i ? {...x, start: h} : x))} />
-                        <TimeScroller label="Fim" value={s.end} onChange={(h) => setSessoesExtras(p => p.map((x,j) => j===i ? {...x, end: h} : x))} />
+                        <TimeScroller label="Início" value={s.start ?? 9} onChange={(h) => setSessoesExtras(p => p.map((x,j) => j===i ? {...x, start: h} : x))} />
+                        <TimeScroller label="Fim" value={s.end ?? 11} onChange={(h) => setSessoesExtras(p => p.map((x,j) => j===i ? {...x, end: h} : x))} />
                       </div>
                     </div>
                   ))}
