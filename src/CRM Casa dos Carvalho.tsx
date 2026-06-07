@@ -2525,7 +2525,7 @@ export default function CRM() {
                       return (
                         <tr key={c.id} data-letter={c.nome[0]?.toUpperCase()} onClick={() => { setSel(c); setSelCtx("clientes"); }}>
                           <td>
-                            <div className="tdn">{c.nome}</div>
+                            <div className="tdn">{isAniversMes((c as any).nascimento || "") ? "🎂 " : ""}{c.nome}</div>
                             <div className="tdd">{c.insta || <span style={{ color: "var(--q2)" }}>⚠ Instagram</span>}</div>
                           </td>
                           <td>
