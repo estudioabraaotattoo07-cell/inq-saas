@@ -1956,7 +1956,7 @@ export default function CRM() {
 
   // ── LOGIN ──
   if (!logado) {
-    const senha = import.meta.env.VITE_APP_PASSWORD || "casa2026";
+    const senha = import.meta.env.VITE_APP_PASSWORD || "";
     return (
       <div style={{ minHeight: "100vh", background: "#0E0E0E", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 32, fontFamily: "'DM Sans',sans-serif" }}>
         <style>{S}</style>
