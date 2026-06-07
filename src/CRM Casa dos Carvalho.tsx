@@ -1100,6 +1100,7 @@ export default function CRM() {
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [novoEstiloModal, setNovoEstiloModal] = useState<{tipo: "estilo"|"regiao"; callback: (v: string) => void} | null>(null);
   const [novoEstiloInput, setNovoEstiloInput] = useState("");
+  const [gerenciarEstilo, setGerenciarEstilo] = useState<{tipo: "estilo"|"regiao"; valor: string; editando: string} | null>(null);
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
   const [sessoesExtras, setSessoesExtras] = useState<{date: string; start: number; end: number}[]>([]);
@@ -1916,7 +1917,14 @@ export default function CRM() {
   }, [clients]);
   const estilos = useMemo(() => {
     const m: Record<string, number> = {};
-    clients.filter(c => c.estilo).forEach(c => { m[c.estilo] = (m[c.estilo] || 0) + 1; });
+    clients.forEach(c => {
+      const projs = (c.projetos || []).filter((p: any) => p && p.status !== "cancelado" && p.estilo);
+      if (projs.length > 0) {
+        projs.forEach((p: any) => { m[p.estilo] = (m[p.estilo] || 0) + 1; });
+      } else if (c.estilo) {
+        m[c.estilo] = (m[c.estilo] || 0) + 1;
+      }
+    });
     return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [clients]);
   const maxO = origC[0]?.[1] || 1;
@@ -4460,10 +4468,11 @@ export default function CRM() {
                         </div>
                         <div className="fi2">
                           <div className="fil">Estilo</div>
-                          <select className="ef" value={novoProjetoForm.estilo} onChange={e => { if (e.target.value === "__novo_estilo__") { setNovoEstiloInput(""); setNovoEstiloModal({ tipo: "estilo", callback: (v) => setNovoProjetoForm(p => ({ ...p, estilo: v })) }); } else { setNovoProjetoForm(p => ({ ...p, estilo: e.target.value })); } }}>
+                          <select className="ef" value={novoProjetoForm.estilo} onChange={e => { if (e.target.value === "__novo_estilo__") { setNovoEstiloInput(""); setNovoEstiloModal({ tipo: "estilo", callback: (v) => setNovoProjetoForm(p => ({ ...p, estilo: v })) }); } else if (e.target.value === "__gerenciar_estilo__") { setGerenciarEstilo({ tipo: "estilo", valor: novoProjetoForm.estilo, editando: novoProjetoForm.estilo }); } else { setNovoProjetoForm(p => ({ ...p, estilo: e.target.value })); } }}>
                             <option value="">Selecionar...</option>
                             {estiloOpts.map(o => <option key={o} value={o}>{o}</option>)}
                             <option value="__novo_estilo__">+ Adicionar novo estilo...</option>
+                            {novoProjetoForm.estilo && <option value="__gerenciar_estilo__">✏️ Editar / Excluir "{novoProjetoForm.estilo}"</option>}
                           </select>
                         </div>
                         <div className="fi2">
@@ -4576,6 +4585,7 @@ export default function CRM() {
                                 <div className="fil">Estilo</div>
                                 <select className="ef" value={proj.estilo || ""} onChange={e => {
                                   if (e.target.value === "__novo_estilo__") { setNovoEstiloInput(""); setNovoEstiloModal({ tipo: "estilo", callback: (v) => { const projs2 = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }]; const idx2 = projs2.findIndex((p: any) => p.id === proj.id); if (idx2 >= 0) { projs2[idx2] = { ...projs2[idx2], estilo: v }; upC(sc.id, "projetos", projs2); } else upC(sc.id, "projetos", [{ ...proj, estilo: v }]); } }); return; }
+                                  if (e.target.value === "__gerenciar_estilo__") { setGerenciarEstilo({ tipo: "estilo", valor: proj.estilo || "", editando: proj.estilo || "" }); return; }
                                   const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
                                   const idx = projs.findIndex((p: any) => p.id === proj.id);
                                   if (idx >= 0) { projs[idx] = { ...projs[idx], estilo: e.target.value }; upC(sc.id, "projetos", projs); }
@@ -4584,6 +4594,7 @@ export default function CRM() {
                                   <option value="">Selecionar...</option>
                                   {estiloOpts.map(o => <option key={o} value={o}>{o}</option>)}
                                   <option value="__novo_estilo__">+ Adicionar novo estilo...</option>
+                                  {proj.estilo && <option value="__gerenciar_estilo__">✏️ Editar / Excluir "{proj.estilo}"</option>}
                                 </select>
                               </div>
                               <div className="fi2">
@@ -6495,6 +6506,84 @@ export default function CRM() {
         )}
 
         {/* ── MODAL ORÇAMENTO ── */}
+        {/* ── MODAL GERENCIAR ESTILO / REGIÃO ── */}
+        {gerenciarEstilo && (
+          <div className="ov" onClick={() => setGerenciarEstilo(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(380px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>
+                {gerenciarEstilo.tipo === "estilo" ? "🎨 Gerenciar Estilo" : "📍 Gerenciar Região"}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--tx2)" }}>
+                Alterações afetam <strong>todos os clientes</strong> que usam este valor.
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <label style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".07em" }}>Nome atual</label>
+                <input className="fi" value={gerenciarEstilo.editando}
+                  onChange={e => { const v = e.target.value; setGerenciarEstilo(p => p ? { ...p, editando: v } : null); }}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      const val = (gerenciarEstilo.editando || "").trim();
+                      if (!val) return;
+                      const cap = val.charAt(0).toUpperCase() + val.slice(1);
+                      const old = gerenciarEstilo.valor;
+                      if (gerenciarEstilo.tipo === "estilo") {
+                        setEstiloOpts(p => p.map(o => o === old ? cap : o));
+                        setClients(p => p.map(c => ({
+                          ...c,
+                          estilo: c.estilo === old ? cap : c.estilo,
+                          projetos: (c.projetos || []).map((pr: any) => pr.estilo === old ? { ...pr, estilo: cap } : pr)
+                        })));
+                      } else {
+                        setRegiaoOpts(p => p.map(o => o === old ? cap : o));
+                        setClients(p => p.map(c => ({ ...c, regiao: c.regiao === old ? cap : c.regiao })));
+                      }
+                      setGerenciarEstilo(null);
+                    }
+                  }} />
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "space-between" }}>
+                <button style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 7, padding: "8px 14px", fontSize: 12, fontWeight: 600, color: "var(--q1)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                  onClick={() => {
+                    const old = gerenciarEstilo.valor;
+                    if (gerenciarEstilo.tipo === "estilo") {
+                      setEstiloOpts(p => p.filter(o => o !== old));
+                      setClients(p => p.map(c => ({
+                        ...c,
+                        estilo: c.estilo === old ? "" : c.estilo,
+                        projetos: (c.projetos || []).map((pr: any) => pr.estilo === old ? { ...pr, estilo: "" } : pr)
+                      })));
+                    } else {
+                      setRegiaoOpts(p => p.filter(o => o !== old));
+                      setClients(p => p.map(c => ({ ...c, regiao: c.regiao === old ? "" : c.regiao })));
+                    }
+                    setGerenciarEstilo(null);
+                  }}>🗑 Excluir</button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn-c" onClick={() => setGerenciarEstilo(null)}>Cancelar</button>
+                  <button className="btn-s" onClick={() => {
+                    const val = (gerenciarEstilo.editando || "").trim();
+                    if (!val) return;
+                    const cap = val.charAt(0).toUpperCase() + val.slice(1);
+                    const old = gerenciarEstilo.valor;
+                    if (gerenciarEstilo.tipo === "estilo") {
+                      setEstiloOpts(p => p.map(o => o === old ? cap : o));
+                      setClients(p => p.map(c => ({
+                        ...c,
+                        estilo: c.estilo === old ? cap : c.estilo,
+                        projetos: (c.projetos || []).map((pr: any) => pr.estilo === old ? { ...pr, estilo: cap } : pr)
+                      })));
+                    } else {
+                      setRegiaoOpts(p => p.map(o => o === old ? cap : o));
+                      setClients(p => p.map(c => ({ ...c, regiao: c.regiao === old ? cap : c.regiao })));
+                    }
+                    setGerenciarEstilo(null);
+                  }}>Salvar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── MODAL NOVO ESTILO / REGIÃO ── */}
         {novoEstiloModal && (
           <div className="ov" onClick={() => setNovoEstiloModal(null)}>
@@ -6507,7 +6596,8 @@ export default function CRM() {
                 onChange={e => setNovoEstiloInput(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === "Enter") {
-                    const val = novoEstiloInput.trim();
+                    const raw = novoEstiloInput.trim();
+                    const val = raw.charAt(0).toUpperCase() + raw.slice(1);
                     if (!val) return;
                     if (novoEstiloModal.tipo === "estilo") { if (!estiloOpts.includes(val)) setEstiloOpts(p => [...p, val]); }
                     else { if (!regiaoOpts.includes(val)) setRegiaoOpts(p => [...p, val]); }
@@ -6518,7 +6608,8 @@ export default function CRM() {
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button className="btn-c" onClick={() => setNovoEstiloModal(null)}>Cancelar</button>
                 <button className="btn-s" onClick={() => {
-                  const val = novoEstiloInput.trim();
+                  const raw = novoEstiloInput.trim();
+                  const val = raw.charAt(0).toUpperCase() + raw.slice(1);
                   if (!val) return;
                   if (novoEstiloModal.tipo === "estilo") { if (!estiloOpts.includes(val)) setEstiloOpts(p => [...p, val]); }
                   else { if (!regiaoOpts.includes(val)) setRegiaoOpts(p => [...p, val]); }
