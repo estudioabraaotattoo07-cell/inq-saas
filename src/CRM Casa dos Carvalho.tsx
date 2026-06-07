@@ -4615,7 +4615,7 @@ export default function CRM() {
                             <span style={{ color: c.ok ? "var(--tx2)" : "var(--tx)", textDecoration: c.ok ? "line-through" : "none" }}>{c.l}</span>
                           </div>
                         ))}
-                        {!allOk && <div style={{ marginTop: 6, fontSize: 11, color: "var(--q2)", background: "rgba(212,130,10,.08)", borderRadius: 6, padding: "6px 10px" }}>⚠️ Verifique os itens antes de iniciar a sessão.</div>}
+                        {!allOk && <div style={{ marginTop: 6, fontSize: 11, color: "var(--q2)", background: "rgba(212,130,10,.08)", borderRadius: 6, padding: "6px 10px" }}>⚠️ Faltam: {checks.filter(c => !c.ok).map(c => c.l).join(", ")}</div>}
                       </div>
                     </div>
                   );
@@ -6159,12 +6159,12 @@ export default function CRM() {
 
         {/* ── MODAL RESET DE FÁBRICA ── */}
         {confirmReset && (
-          <div className="ov" onClick={() => setConfirmReset(false)}>
+          <div className="ov" style={{ zIndex: 99999 }} onClick={() => setConfirmReset(false)}>
             <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid rgba(192,57,43,.4)", borderRadius: 12, width: "min(480px, 92vw)", padding: "28px 28px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(192,57,43,.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>⚠️</div>
                 <div>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: "#C0392B", fontFamily: "'Cormorant Garamond',serif" }}>Reset de Fábrica</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: "#C0392B", fontFamily: "'Cormorant Garamond',serif" }}>Reset para Configurações Originais</div>
                   <div style={{ fontSize: 12, color: "var(--tx2)", marginTop: 3 }}>Esta ação é irreversível</div>
                 </div>
               </div>
@@ -6659,14 +6659,14 @@ export default function CRM() {
                   </div>
                   <div>
                     <div className="stit">Versão</div>
-                    <div style={{ fontSize: 12, color: "var(--tx3)" }}>In-Quadra Ink System <strong style={{ color: "var(--tx2)" }}>v1.5.0</strong></div>
+                    <div style={{ fontSize: 12, color: "var(--tx3)" }}>In-Quadra Ink System <strong style={{ color: "var(--tx2)" }}>v1.6.0</strong></div>
                   </div>
                   <div>
                     <div className="stit" style={{ color: "#C0392B" }}>Zona de Perigo</div>
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>Apaga todos os clientes, agendamentos e lançamentos financeiros. Artistas e configurações são mantidos.</div>
                     <button style={{ background: "rgba(192,57,43,.12)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "#C0392B", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
                       onClick={() => setConfirmReset(true)}>
-                      🗑 Limpar Dados de Teste
+                      🗑 Reset para Configurações Originais
                     </button>
                   </div>
                 </>}
