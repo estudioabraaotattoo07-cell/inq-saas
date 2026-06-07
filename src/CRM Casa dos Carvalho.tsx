@@ -885,6 +885,10 @@ function parseNascimento(nasc: string): Date | null {
     const p = nasc.split("/");
     if (p.length === 3) return new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0]));
   }
+  if (nasc.includes("-")) {
+    const p = nasc.split("-");
+    if (p.length === 3) return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  }
   const d = new Date(nasc);
   return isNaN(d.getTime()) ? null : d;
 }
@@ -4066,9 +4070,26 @@ export default function CRM() {
                           </div>
                           {isOpen && (
                             <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--br)", paddingTop: 14 }}>
-                              <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Instrução para a Aura</div>
-                              <textarea value={msgEdit || msg} onChange={e => setMsgEdit(e.target.value)}
-                                style={{ width: "100%", minHeight: 120, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", lineHeight: 1.7, outline: "none", resize: "vertical" }} />
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Instrução para a Aura</div>
+                                {segSel === item.id && !editing && (
+                                  <button onClick={() => { setEditing(true); setMsgEdit(msgEdit || msg); }}
+                                    style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 10px", fontSize: 11, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>✏️ Editar</button>
+                                )}
+                                {editing && segSel === item.id && (
+                                  <div style={{ display: "flex", gap: 6 }}>
+                                    <button onClick={() => { setEditing(false); setMsgEdit(""); }}
+                                      style={{ background: "none", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 10px", fontSize: 11, color: "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Cancelar</button>
+                                    <button onClick={() => setEditing(false)}
+                                      style={{ background: "var(--gold)", border: "none", borderRadius: 5, padding: "3px 10px", fontSize: 11, fontWeight: 700, color: "#000", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Salvar</button>
+                                  </div>
+                                )}
+                              </div>
+                              {editing && segSel === item.id
+                                ? <textarea value={msgEdit || msg} onChange={e => setMsgEdit(e.target.value)}
+                                    style={{ width: "100%", minHeight: 120, background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 7, padding: "10px 12px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", lineHeight: 1.7, outline: "none", resize: "vertical" }} />
+                                : <div style={{ background: "var(--dk3)", borderRadius: 7, padding: "10px 12px", fontSize: 12, color: "var(--tx2)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{msgEdit || msg}</div>
+                              }
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                                 <span style={{ fontSize: 11, color: "var(--tx3)" }}>
                                   📩 {cnt} destinatário{cnt !== 1 ? "s" : ""}{cnt > 0 ? " — " + clients.filter(item.f).map((c: any) => c.nome.split(" ")[0]).slice(0, 3).join(", ") + (cnt > 3 ? " +" + (cnt - 3) : "") : ""}
@@ -4078,7 +4099,7 @@ export default function CRM() {
                                   : <button onClick={() => { disparo(); setDisparosHist((p: any[]) => [{ data: new Date().toLocaleDateString("pt-BR"), hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), segmento: item.label, destinatarios: cnt, preview: (msgEdit || msg).slice(0, 60) }, ...p.slice(0, 19)]); }}
                                       disabled={cnt === 0}
                                       style={{ background: cnt === 0 ? "var(--dk4)" : "var(--gold)", color: cnt === 0 ? "var(--tx3)" : "#000", border: "none", borderRadius: 7, padding: "8px 18px", fontSize: 12, fontWeight: 700, cursor: cnt === 0 ? "not-allowed" : "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                                      📣 Disparar via Aura
+                                      📣 Disparar
                                     </button>
                                 }
                               </div>
@@ -4116,16 +4137,33 @@ export default function CRM() {
                       </div>
                       {isOpen && (
                         <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--br)", paddingTop: 14 }}>
-                          <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Mensagem via Aura</div>
-                          <textarea value={msgEdit || msg} onChange={e => setMsgEdit(e.target.value)}
-                            style={{ width: "100%", minHeight: 140, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", lineHeight: 1.7, outline: "none", resize: "vertical" }} />
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Mensagem via Aura</div>
+                            {dateSel === d.id && !editing && (
+                              <button onClick={() => { setEditing(true); setMsgEdit(msgEdit || msg); }}
+                                style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 10px", fontSize: 11, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>✏️ Editar</button>
+                            )}
+                            {editing && dateSel === d.id && (
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button onClick={() => { setEditing(false); setMsgEdit(""); }}
+                                  style={{ background: "none", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 10px", fontSize: 11, color: "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Cancelar</button>
+                                <button onClick={() => setEditing(false)}
+                                  style={{ background: "var(--gold)", border: "none", borderRadius: 5, padding: "3px 10px", fontSize: 11, fontWeight: 700, color: "#000", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Salvar</button>
+                              </div>
+                            )}
+                          </div>
+                          {editing && dateSel === d.id
+                            ? <textarea value={msgEdit || msg} onChange={e => setMsgEdit(e.target.value)}
+                                style={{ width: "100%", minHeight: 140, background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 7, padding: "10px 12px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", lineHeight: 1.7, outline: "none", resize: "vertical" }} />
+                            : <div style={{ background: "var(--dk3)", borderRadius: 7, padding: "10px 12px", fontSize: 12, color: "var(--tx2)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{msgEdit || msg}</div>
+                          }
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                             <span style={{ fontSize: 11, color: "var(--tx3)" }}>📩 {cnt} destinatário{cnt !== 1 ? "s" : ""}</span>
                             {sent && dateSel === d.id
                               ? <div style={{ fontSize: 12, color: "var(--q3)", fontWeight: 600 }}>✓ Disparo programado!</div>
                               : <button onClick={() => { disparo(); setDisparosHist((p: any[]) => [{ data: new Date().toLocaleDateString("pt-BR"), hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), segmento: d.label, destinatarios: cnt, preview: (msgEdit || msg).slice(0, 60) }, ...p.slice(0, 19)]); }}
                                   style={{ background: "var(--gold)", color: "#000", border: "none", borderRadius: 7, padding: "8px 18px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                                  📣 Disparar via Aura
+                                  📣 Disparar
                                 </button>
                             }
                           </div>
