@@ -879,6 +879,28 @@ function validarEmail(email: string): boolean {
   if (!email) return true;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
+function parseNascimento(nasc: string): Date | null {
+  if (!nasc) return null;
+  if (nasc.includes("/")) {
+    const p = nasc.split("/");
+    if (p.length === 3) return new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0]));
+  }
+  const d = new Date(nasc);
+  return isNaN(d.getTime()) ? null : d;
+}
+function isAniversHoje(nasc: string): boolean {
+  if (!nasc) return false;
+  const d = parseNascimento(nasc);
+  if (!d) return false;
+  const hoje = new Date();
+  return d.getMonth() === hoje.getMonth() && d.getDate() === hoje.getDate();
+}
+function isAniversMes(nasc: string): boolean {
+  if (!nasc) return false;
+  const d = parseNascimento(nasc);
+  if (!d) return false;
+  return d.getMonth() === new Date().getMonth();
+}
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function CRM() {
@@ -924,6 +946,7 @@ export default function CRM() {
   const [googleLink, setGoogleLink] = useState("");
   const [cnpj, setCnpj] = useState("");
   const [metaMensal, setMetaMensal] = useState(15000);
+  const [descontoAniversario, setDescontoAniversario] = useState(5);
   const [saidas, setSaidas] = useState<any[]>([]);
   const [showSaidaForm, setShowSaidaForm] = useState(false);
   const [saidaForm, setSaidaForm] = useState({ desc: "", categoria: "Material", valor: 0, data: new Date().toLocaleDateString("pt-BR") });
@@ -1104,6 +1127,7 @@ export default function CRM() {
           if (cfg.meta_sessoes) setMetaSessoes(cfg.meta_sessoes);
           if (cfg.meta_leads) setMetaLeads(cfg.meta_leads);
           if (cfg.meta_nps) setMetaNPS(cfg.meta_nps);
+          if (cfg.desconto_aniversario !== undefined) setDescontoAniversario(cfg.desconto_aniversario);
           if (cfg.horarios) setHorarios(cfg.horarios);
           if (cfg.estilo_opts?.length) setEstiloOpts(cfg.estilo_opts);
           if (cfg.regiao_opts?.length) setRegiaoOpts(cfg.regiao_opts);
@@ -1219,7 +1243,7 @@ export default function CRM() {
     const proj = c.projetos?.[0];
     if (proj && (!proj.valorTotal || proj.valorTotal === 0) && c.etapa !== "lead") m.push("Valor do projeto");
     // Forma de pagamento não definida em cliente com sessão agendada
-    if (!c.pgto && ["sessao_agendada","tatuado","pos_venda"].includes(c.etapa)) m.push("Forma de pagamento");
+    if (!c.pgto && ["sessao_agend","tatuado","pos_venda"].includes(c.etapa)) m.push("Forma de pagamento");
     return m;
   };
   const churn = (c: any) => {
@@ -1384,6 +1408,7 @@ export default function CRM() {
     setClients(p => {
       const updated = p.map(c => c.id !== cid ? c : {
         ...c,
+        pgto: pgtoTexto,
         hist: [...(c.hist || []), { t: `Pagamento confirmado: R$${totalPago.toFixed(2)} — ${formasTexto}`, d: new Date().toLocaleString("pt-BR") }]
       });
       const c = updated.find(c => c.id === cid);
@@ -2425,11 +2450,13 @@ export default function CRM() {
                     {sc2.length === 0 && <div className="ke">Nenhum cliente</div>}
                     {sc2.map(c => {
                       const m = miss(c); const ch = churn(c);
+                      const anivMes = isAniversMes((c as any).nascimento || "");
+                      const anivHoje = isAniversHoje((c as any).nascimento || "");
                       return (
                         <div key={c.id} className="card" onClick={() => { setSel(c); setSelCtx("clientes"); }}>
                           <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "3px", background: aColor(c.artista), borderRadius: "7px 0 0 7px" }} />
                           <div className="ctop">
-                            <div className="cname">{c.nome}</div>
+                            <div className="cname">{anivHoje ? "🎂 " : ""}{c.nome}</div>
                             <span className={"qb " + QC[c.qual]}>{c.qual}</span>
                           </div>
                           <div className="cst">{c.estilo || "Sem estilo"} {c.regiao || " - "}</div>
@@ -2441,8 +2468,9 @@ export default function CRM() {
                             <span className="cd">{c.data}</span>
                           </div>
                           <div className="cor">📍 {c.orig}</div>
-                          {(m.length > 0 || ch || c.orcamento || c.etapa === "blacklist" || c.etapa === "lista_espera") && (
+                          {(m.length > 0 || ch || c.orcamento || c.etapa === "blacklist" || c.etapa === "lista_espera" || anivMes) && (
                             <div className="ar">
+                              {anivMes && <span className="atag" style={{ background: "rgba(201,168,76,.2)", color: "var(--gold)", border: "1px solid rgba(201,168,76,.4)" }}>🎂 Aniversário</span>}
                               {m.map(x => <span key={x} className="atag">⚠ {x}</span>)}
                               {ch === "orange" && <span className="co co-o">🟠</span>}
                               {ch === "red" && <span className="co co-r">🔴</span>}
@@ -2586,12 +2614,16 @@ export default function CRM() {
                       <div key={i} className={"mday" + (item.cur ? "" : " om") + (ds === todayStr ? " today" : "")}
                         onClick={() => { setAgDate(item.date); setAgView("day"); }}>
                         <div className="mdn">{item.date.getDate()}</div>
-                        {evs.slice(0, 3).map(e => (
-                          <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista), cursor: "pointer" }}
-                            onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
-                            {e.status === "concluido" && "✅ "}{e.start}h {e.title}
-                          </div>
-                        ))}
+                        {evs.slice(0, 3).map(e => {
+                          const cliEv = e.cliente_id ? clients.find((c:any) => c.id === e.cliente_id) : null;
+                          const anivHoje = cliEv ? isAniversHoje((cliEv as any).nascimento || "") : false;
+                          return (
+                            <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista), cursor: "pointer", opacity: e.status === "concluido" ? 0.45 : 1 }}
+                              onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
+                              {e.status === "concluido" && "✅ "}{anivHoje && "🎂 "}{e.start}h {e.title}
+                            </div>
+                          );
+                        })}
                         {evs.length > 3 && <div style={{ fontSize: 10, color: "var(--tx2)" }}>+{evs.length - 3}</div>}
                       </div>
                     );
@@ -2633,12 +2665,17 @@ export default function CRM() {
                                 zIndex: 10, borderRadius: 4, padding: "3px 5px",
                                 overflow: "hidden", fontSize: 10, fontWeight: 600, color: e.status === "cancelado" ? "#aaa" : "#fff",
                                 cursor: "pointer", display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-                                opacity: e.status === "cancelado" ? 0.55 : 1,
+                                opacity: e.status === "concluido" ? 0.45 : e.status === "cancelado" ? 0.55 : 1,
                                 textDecoration: e.status === "cancelado" ? "line-through" : "none"
                               }}
                               onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
                                 <span style={{overflow:"hidden",flex:1,minWidth:0}}>
                                   {e.status === "concluido" && <span style={{ fontSize: 10, marginRight: 3 }}>✅</span>}
+                                  {(() => {
+                                    const cliEv = e.cliente_id ? clients.find((c:any) => c.id === e.cliente_id) : null;
+                                    const anivHoje = cliEv ? isAniversHoje((cliEv as any).nascimento || "") : false;
+                                    return anivHoje ? <span style={{ marginRight: 3 }}>🎂</span> : null;
+                                  })()}
                                   {e.tipo?.startsWith("bloq")
                                     ? <span style={{ color: e.tipo === "bloq_geral" ? "#C0392B" : (artists.find((a:any) => a.id === e.tipo?.replace("bloq_",""))?.cor || "#888"), fontWeight: 700 }}>
                                         🔒 {e.tipo === "bloq_geral" ? "TODOS" : (artists.find((a:any) => a.id === e.tipo?.replace("bloq_",""))?.nome?.split(" ")[0] || "Bloqueio")}
@@ -2683,11 +2720,15 @@ export default function CRM() {
                                   zIndex: 5, borderRadius: 5, padding: "5px 10px",
                                   display: "flex", alignItems: "flex-start", justifyContent: "space-between",
                                   cursor: "pointer",
-                                  opacity: e.status === "cancelado" ? 0.55 : 1
+                                  opacity: e.status === "concluido" ? 0.45 : e.status === "cancelado" ? 0.55 : 1
                                 }}
                                 onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.desc || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinalPago: !!e.sinal_pago } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
                                 <span style={{ fontWeight: 600 }}>
                                   {e.status === "concluido" && "✅ "}
+                                  {(() => {
+                                    const cliEv = e.cliente_id ? clients.find((c:any) => c.id === e.cliente_id) : null;
+                                    return cliEv && isAniversHoje((cliEv as any).nascimento || "") ? "🎂 " : "";
+                                  })()}
                                   {e.tipo?.startsWith("bloq")
                                     ? <span style={{ color: e.tipo === "bloq_geral" ? "#C0392B" : (artists.find((a:any) => a.id === e.tipo?.replace("bloq_",""))?.cor || "#888") }}>
                                         🔒 {e.tipo === "bloq_geral" ? "TODOS" : (artists.find((a:any) => a.id === e.tipo?.replace("bloq_",""))?.nome?.split(" ")[0] || "Bloqueio")}
@@ -5582,7 +5623,7 @@ export default function CRM() {
                     <span>💰 Projeto: <strong style={{ color: "var(--tx)" }}>R$ {valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
                     <span>Já pago: <strong style={{ color: "#27AE60" }}>R$ {pagoAntes.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
                     {pagandoAgora > 0 && <span>Esta sessão: <strong style={{ color: "var(--ab)" }}>R$ {pagandoAgora.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
-                    {saldo > 0 && <span>Saldo restante: <strong style={{ color: "var(--q1)" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
+                    {saldo > 0 && <span>Saldo restante: <strong style={{ color: "var(--gold)" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
                     {saldo <= 0 && totalPago > 0 && <span style={{ color: "#27AE60", fontWeight: 700 }}>✅ Quitado</span>}
                   </div>
                 );
@@ -5593,6 +5634,31 @@ export default function CRM() {
                   {confirmPagamento.agEvent.valor_previsto > 0 && ` — Previsto: R$${parseFloat(confirmPagamento.agEvent.valor_previsto).toFixed(2)}`}
                 </div>
               )}
+              {(() => {
+                const cliAniv = clients.find(c => c.id === confirmPagamento.cid);
+                if (!cliAniv || !isAniversMes((cliAniv as any).nascimento || "")) return null;
+                const proj = (cliAniv?.projetos || []).find((p: any) => p.status !== "concluido" && p.status !== "cancelado");
+                const valorTotal = Number(proj?.valorTotal) || 0;
+                if (valorTotal <= 0) return null;
+                const descValor = Math.round(valorTotal * descontoAniversario / 100 * 100) / 100;
+                const valorComDesc = valorTotal - descValor;
+                return (
+                  <div style={{ background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 12, color: "var(--gold)", fontWeight: 600 }}>
+                      🎂 Aniversariante do mês — {descontoAniversario}% de desconto disponível
+                      <div style={{ fontSize: 11, color: "var(--tx2)", fontWeight: 400, marginTop: 2 }}>
+                        De R$ {valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} → R$ {valorComDesc.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} (−R$ {descValor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
+                      </div>
+                    </div>
+                    <button onClick={() => {
+                      const descStr = valorComDesc.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                      setPagFormas([{ forma: "Pix", valor: descStr, parcelas: "1" }]);
+                    }} style={{ background: "rgba(201,168,76,.2)", border: "1px solid var(--gold)", borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", flexShrink: 0 }}>
+                      Aplicar desconto
+                    </button>
+                  </div>
+                );
+              })()}
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)" }}>Pagamento desta sessão</div>
               {pagFormas.map((f, i) => (
                 <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -5648,18 +5714,20 @@ export default function CRM() {
                       <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>Há saldo restante — o que fazer após esta sessão?</div>
                       <div style={{ display: "flex", gap: 8 }}>
                         <button title="A tatuagem terá mais sessões. Abre o formulário para agendar a próxima." onClick={() => {
-                          const etapaAnterior = clients.find(c => c.id === confirmPagamento?.cid)?.etapa || "sessao_agend";
+                          const cliLocal = clients.find(c => c.id === confirmPagamento?.cid);
+                          const etapaAnterior = cliLocal?.etapa || "sessao_agend";
                           confirmarPagamento();
                           if (undoSessaoTimer) clearTimeout(undoSessaoTimer);
                           const t = setTimeout(() => { setUndoSessao(null); setUndoSessaoTimer(null); }, 8000);
                           setUndoSessaoTimer(t);
                           setUndoSessao({ cid: confirmPagamento?.cid, etapaAnterior, finIds: [] });
-                          if (cli) {
+                          if (cliLocal) {
                             setTimeout(() => {
                               setEditingEvent(null);
-                              setAgClientVinc(cli);
+                              setAgClientVinc(cliLocal);
                               setAgClientSearch("");
-                              setAgForm({ title: cli.nome, desc: "", tipo: "sess_" + (cli.artista || "abraao"), date: "", start: 9, end: 11 } as any);
+                              setAgForm({ title: cliLocal.nome, desc: "", tipo: "sess_" + (cliLocal.artista || "abraao"), date: "", start: 9, end: 11 } as any);
+                              setSessoesExtras([]);
                               setShowAgForm(true);
                             }, 400);
                           }
@@ -6331,6 +6399,16 @@ export default function CRM() {
                     </div>
                   </div>
                   <div>
+                    <div className="stit">🎂 Programa Aniversariante</div>
+                    <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 10 }}>Clientes que fazem aniversário no mês recebem desconto automático sugerido no pagamento.</div>
+                    <div className="fg2">
+                      <div className="fi2">
+                        <div className="fil">Desconto Aniversariante (%)</div>
+                        <input className="ef" type="number" min={0} max={50} value={descontoAniversario} onChange={e => setDescontoAniversario(Number(e.target.value))} />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
                     <div className="stit">Horários de Funcionamento</div>
                     <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>A {auraName} atende 24h. Estes horários são para a agenda interna.</div>
                     {horarios.map((h, i) => (
@@ -6505,6 +6583,7 @@ export default function CRM() {
                     aura_idioma: auraIdioma, google_link: googleLink,
                     cnpj, meta_mensal: metaMensal,
                     meta_sessoes: metaSessoes, meta_leads: metaLeads, meta_nps: metaNPS,
+                    desconto_aniversario: descontoAniversario,
                     horarios, dark_mode: dark,
                     updated_at: new Date().toISOString()
                   };
