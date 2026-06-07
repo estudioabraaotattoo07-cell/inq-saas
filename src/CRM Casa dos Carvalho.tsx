@@ -4366,24 +4366,42 @@ export default function CRM() {
                     ))}
                     <div className="fi2">
                       <div className="fil">Data de Nascimento</div>
-                      <input className="ef" type="date"
-                        value={(() => {
-                          const nasc = (sc as any).nascimento;
-                          if (!nasc) return "";
-                          if (nasc.includes("-")) return nasc;
-                          const p = nasc.split("/");
-                          return p.length === 3 ? p[2] + "-" + p[1] + "-" + p[0] : "";
-                        })()}
-                        max={new Date().toISOString().split("T")[0]}
-                        min="1920-01-01"
-                        onChange={e => {
-                          const val = e.target.value;
-                          if (!val) { upC(sc.id, "nascimento", ""); return; }
-                          const ano = parseInt(val.split("-")[0]);
-                          if (ano < 1920 || ano > new Date().getFullYear()) return;
-                          const p = val.split("-");
-                          upC(sc.id, "nascimento", p[2] + "/" + p[1] + "/" + p[0]);
-                        }} />
+                      {(() => {
+                        const nasc = (sc as any).nascimento || "";
+                        const partes = nasc.includes("/") ? nasc.split("/") : nasc.includes("-") ? [nasc.split("-")[2], nasc.split("-")[1], nasc.split("-")[0]] : ["","",""];
+                        const diaV = partes[0] || "";
+                        const mesV = partes[1] || "";
+                        const anoV = partes[2] || "";
+                        const meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+                        const anoAtual = new Date().getFullYear();
+                        const anos = Array.from({ length: anoAtual - 1919 }, (_, i) => anoAtual - i);
+                        const salvar = (d: string, m: string, a: string) => {
+                          if (d && m && a) upC(sc.id, "nascimento", d.padStart(2,"0") + "/" + m.padStart(2,"0") + "/" + a);
+                          else if (!d && !m && !a) upC(sc.id, "nascimento", "");
+                        };
+                        return (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr", gap: 6 }}>
+                            <select className="ef" value={diaV} onChange={e => salvar(e.target.value, mesV, anoV)} style={{ fontFamily: "'DM Sans',sans-serif" }}>
+                              <option value="">Dia</option>
+                              {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                                <option key={d} value={String(d).padStart(2,"0")}>{d}</option>
+                              ))}
+                            </select>
+                            <select className="ef" value={mesV} onChange={e => salvar(diaV, e.target.value, anoV)} style={{ fontFamily: "'DM Sans',sans-serif" }}>
+                              <option value="">Mês</option>
+                              {meses.map((m, i) => (
+                                <option key={i} value={String(i+1).padStart(2,"0")}>{m}</option>
+                              ))}
+                            </select>
+                            <select className="ef" value={anoV} onChange={e => salvar(diaV, mesV, e.target.value)} style={{ fontFamily: "'DM Sans',sans-serif" }}>
+                              <option value="">Ano</option>
+                              {anos.map(a => (
+                                <option key={a} value={String(a)}>{a}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="fi2">
                       <div className="fil">Documento <span style={{ fontSize: 9, color: "var(--tx3)" }}>CPF — opcional</span></div>
