@@ -1097,7 +1097,6 @@ export default function CRM() {
   const [confirmPresenca, setConfirmPresenca] = useState<{event: any} | null>(null);
   const [presencaMotivo, setPresencaMotivo] = useState("");
   const [nascDraft, setNascDraft] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
-  const [agPipelineOpen, setAgPipelineOpen] = useState(false);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
   const [sessoesExtras, setSessoesExtras] = useState<{date: string; start: number; end: number}[]>([]);
 
@@ -5099,18 +5098,44 @@ export default function CRM() {
                           <option>Google</option><option>Presencial</option><option>Site</option>
                         </select>
                       </div>
-                      <div className="ff"><label className="fl">Data de Nascimento</label><input className="fi" type="date"
-                        value={(form as any).nascimento || ""}
-                        max={new Date().toISOString().split("T")[0]}
-                        min="1920-01-01"
-                        onChange={e => {
-                          const val = e.target.value;
-                          if (!val) { setForm({ ...form, nascimento: "" } as any); return; }
-                          const ano = parseInt(val.split("-")[0]);
-                          if (ano >= 1920 && ano <= new Date().getFullYear()) {
-                            setForm({ ...form, nascimento: val } as any);
-                          }
-                        }} /></div>
+                      <div className="ff">
+                        <label className="fl">Data de Nascimento</label>
+                        {(() => {
+                          const nasc = (form as any).nascimento || "";
+                          const partes = nasc.includes("/") ? nasc.split("/") : ["","",""];
+                          const diaV = partes[0] || "";
+                          const mesV = partes[1] || "";
+                          const anoV = partes[2] || "";
+                          const meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+                          const anoAtual = new Date().getFullYear();
+                          const anos = Array.from({ length: anoAtual - 1919 }, (_, i) => anoAtual - i);
+                          const salvar = (d: string, m: string, a: string) => {
+                            if (d && m && a) setForm({ ...form, nascimento: d.padStart(2,"0") + "/" + m.padStart(2,"0") + "/" + a } as any);
+                          };
+                          return (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr", gap: 6 }}>
+                              <select className="fi" value={diaV} onChange={e => salvar(e.target.value, mesV, anoV)} style={{ fontFamily: "'DM Sans',sans-serif" }}>
+                                <option value="">Dia</option>
+                                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                                  <option key={d} value={String(d).padStart(2,"0")}>{d}</option>
+                                ))}
+                              </select>
+                              <select className="fi" value={mesV} onChange={e => salvar(diaV, e.target.value, anoV)} style={{ fontFamily: "'DM Sans',sans-serif" }}>
+                                <option value="">Mês</option>
+                                {meses.map((m, i) => (
+                                  <option key={i} value={String(i+1).padStart(2,"0")}>{m}</option>
+                                ))}
+                              </select>
+                              <select className="fi" value={anoV} onChange={e => salvar(diaV, mesV, e.target.value)} style={{ fontFamily: "'DM Sans',sans-serif" }}>
+                                <option value="">Ano</option>
+                                {anos.map(a => (
+                                  <option key={a} value={String(a)}>{a}</option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </>
                 )}
@@ -5501,20 +5526,20 @@ export default function CRM() {
                   const cli = clients.find(c => c.id === agClientVinc.id);
                   if (!cli) return null;
                   const stage = STAGES.find(s => s.id === cli.etapa);
-
+                  const [pipelineOpen, setPipelineOpen] = React.useState(false);
                   return (
                     <div className="ff">
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
-                        onClick={() => setAgPipelineOpen(p => !p)}>
+                        onClick={() => setPipelineOpen(p => !p)}>
                         <label className="fl" style={{ cursor: "pointer", margin: 0 }}>Pipeline</label>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ fontSize: 11, color: stage?.color || "var(--tx2)", background: (stage?.color || "#888") + "22", border: "1px solid " + (stage?.color || "var(--br)"), borderRadius: 12, padding: "2px 8px", fontWeight: 600 }}>
                             {stage?.emoji} {stage?.label}
                           </span>
-                          <span style={{ fontSize: 11, color: "var(--tx3)" }}>{agPipelineOpen ? "▲ ocultar" : "▼ alterar"}</span>
+                          <span style={{ fontSize: 11, color: "var(--tx3)" }}>{pipelineOpen ? "▲ ocultar" : "▼ alterar"}</span>
                         </div>
                       </div>
-                      {agPipelineOpen && (
+                      {pipelineOpen && (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                           {STAGES.filter(s => !["blacklist"].includes(s.id)).map(s => (
                             <div key={s.id}
