@@ -127,6 +127,50 @@ export const CORES_ARTISTA = [
   "#E8E2D9", "#555045"
 ];
 
+// ─── TEMA ─────────────────────────────────────────────────────────────────────
+
+const DARK: Record<string, string> = {
+  "--dk": "#0E0E0E", "--dk2": "#161616", "--dk3": "#1E1E1E",
+  "--dk4": "#272727", "--dk5": "#303030", "--tx": "#E8E2D9",
+  "--tx2": "#8A8070", "--tx3": "#555045",
+  "--br": "rgba(201,168,76,0.12)", "--brh": "rgba(201,168,76,0.35)",
+  "--card": "#161616", "--card-border": "rgba(201,168,76,0.12)",
+  "--input-bg": "#1E1E1E", "--input-border": "rgba(201,168,76,0.18)"
+};
+
+const LIGHT: Record<string, string> = {
+  "--dk": "#F2EDE6", "--dk2": "#EAE3DA", "--dk3": "#E0D8CE",
+  "--dk4": "#D4C9BC", "--dk5": "#C8BAA9", "--tx": "#141210",
+  "--tx2": "#3A302A", "--tx3": "#6B5E54",
+  "--br": "rgba(80,55,30,0.22)", "--brh": "rgba(80,55,30,0.5)",
+  "--card": "#EEE7DF", "--card-border": "rgba(80,55,30,0.18)",
+  "--input-bg": "#E8E0D6", "--input-border": "rgba(80,55,30,0.25)"
+};
+
+export function applyTheme(dark: boolean) {
+  const v = dark ? DARK : LIGHT;
+  Object.entries(v).forEach(([k, val]) =>
+    document.documentElement.style.setProperty(k, val)
+  );
+  if (!dark) {
+    document.documentElement.style.setProperty("--ab", "#1A6F8F");
+    document.documentElement.style.setProperty("--ca", "#6B3A8F");
+    document.documentElement.style.setProperty("--q0", "#6B2F99");
+    document.documentElement.style.setProperty("--q1", "#A01E14");
+    document.documentElement.style.setProperty("--q2", "#9B5500");
+    document.documentElement.style.setProperty("--q3", "#1A7A40");
+    document.documentElement.style.setProperty("--gold", "#9A7428");
+  } else {
+    document.documentElement.style.setProperty("--ab", "#4A9EBF");
+    document.documentElement.style.setProperty("--ca", "#9B6BB5");
+    document.documentElement.style.setProperty("--q0", "#8E44AD");
+    document.documentElement.style.setProperty("--q1", "#C0392B");
+    document.documentElement.style.setProperty("--q2", "#D4820A");
+    document.documentElement.style.setProperty("--q3", "#27AE60");
+    document.documentElement.style.setProperty("--gold", "#C9A84C");
+  }
+}
+
 // ─── FUNÇÕES UTILITÁRIAS ──────────────────────────────────────────────────────
 
 export function maskTel(v: string): string {
