@@ -1700,6 +1700,13 @@ export default function CRM() {
       setShowAviso("Informe a data do agendamento antes de salvar.");
       return;
     }
+    if (agForm.date) {
+      const ano = parseInt(agForm.date.split("-")[0]);
+      if (isNaN(ano) || ano < 2020 || ano > 2099) {
+        setShowAviso("Data inválida. Verifique o ano informado.");
+        return;
+      }
+    }
     const row: any = {
       titulo: agForm.title,
       artista: agForm.tipo.replace("cons_","").replace("sess_","").replace("bloq_","") || "abraao",
@@ -5409,7 +5416,7 @@ export default function CRM() {
                 {/* 2. DATA */}
                 <div className="ff">
                   <label className="fl">Data</label>
-                  <input className="fi" type="date" min="1900-01-01" max="2099-12-31" value={agForm.date} onChange={e => setAgForm({ ...agForm, date: e.target.value })} />
+                  <input className="fi" type="date" min="2020-01-01" max="2099-12-31" value={agForm.date} onChange={e => { const val = e.target.value; const ano = parseInt(val.split("-")[0]); if (!val || (ano >= 2020 && ano <= 2099)) setAgForm({ ...agForm, date: val }); }} />
                 </div>
 
                 {/* 3. HORÁRIO */}
