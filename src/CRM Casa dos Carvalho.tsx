@@ -1100,6 +1100,11 @@ export default function CRM() {
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [novoEstiloModal, setNovoEstiloModal] = useState<{tipo: "estilo"|"regiao"; callback: (v: string) => void} | null>(null);
   const [novoEstiloInput, setNovoEstiloInput] = useState("");
+  const [editandoListas, setEditandoListas] = useState(false);
+  const [estiloOptsEdit, setEstiloOptsEdit] = useState<string[]>([]);
+  const [regiaoOptsEdit, setRegiaoOptsEdit] = useState<string[]>([]);
+  const [renomearEstilo, setRenomearEstilo] = useState<{tipo: "estilo"|"regiao"; idx: number; val: string} | null>(null);
+  const [confirmListas, setConfirmListas] = useState(false);
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
   const [sessoesExtras, setSessoesExtras] = useState<{date: string; start: number; end: number}[]>([]);
@@ -6506,6 +6511,38 @@ export default function CRM() {
         {/* ── MODAL ORÇAMENTO ── */}
         {/* ── MODAL GERENCIAR ESTILO / REGIÃO ── */}
 
+        {/* ── MODAL CONFIRMAR LISTAS ── */}
+        {confirmListas && (
+          <div className="ov" onClick={() => setConfirmListas(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(420px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>
+                Confirmar alterações
+              </div>
+              <div style={{ fontSize: 12, color: "var(--tx2)", lineHeight: 1.6 }}>
+                As listas de estilos e regiões serão atualizadas. Essa ação afeta todos os cadastros do sistema.
+              </div>
+              <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>Estilos após salvar</div>
+                <div style={{ fontSize: 12, color: "var(--tx)" }}>{estiloOptsEdit.join(", ") || "—"}</div>
+              </div>
+              <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>Regiões após salvar</div>
+                <div style={{ fontSize: 12, color: "var(--tx)" }}>{regiaoOptsEdit.join(", ") || "—"}</div>
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn-c" onClick={() => setConfirmListas(false)}>Cancelar</button>
+                <button className="btn-s" onClick={() => {
+                  setEstiloOpts(estiloOptsEdit);
+                  setRegiaoOpts(regiaoOptsEdit);
+                  setEditandoListas(false);
+                  setRenomearEstilo(null);
+                  setConfirmListas(false);
+                }}>Confirmar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── MODAL NOVO ESTILO / REGIÃO ── */}
         {novoEstiloModal && (
           <div className="ov" onClick={() => setNovoEstiloModal(null)}>
@@ -6907,44 +6944,103 @@ export default function CRM() {
                     ))}
                   </div>
                   <div>
-                    <div className="stit">Estilos & Regiões</div>
-                    <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 12 }}>Gerencie as opções que aparecem nos campos de estilo e região do corpo nos cadastros de clientes.</div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                      <div className="stit" style={{ margin: 0 }}>Estilos & Regiões</div>
+                      {!editandoListas && (
+                        <button className="btn-sm gold" onClick={() => { setEstiloOptsEdit([...estiloOpts]); setRegiaoOptsEdit([...regiaoOpts]); setRenomearEstilo(null); setEditandoListas(true); }}>
+                          ✏️ Editar
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 12, opacity: 0.7 }}>
+                      {editandoListas ? "Clique no nome para renomear. Use ✕ para excluir. Adicione novos abaixo." : "Visualização. Clique em Editar para modificar."}
+                    </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                      <div style={{ background: "var(--dk3)", borderRadius: 8, padding: 14, border: "1px solid var(--br)" }}>
+                      {/* ESTILOS */}
+                      <div style={{ background: "var(--dk3)", borderRadius: 8, padding: 14, border: editandoListas ? "1px solid var(--gold)" : "1px solid var(--br)" }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)", marginBottom: 10 }}>🎨 Estilos</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-                          {estiloOpts.map((opt, i) => (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: editandoListas ? 10 : 0 }}>
+                          {(editandoListas ? estiloOptsEdit : estiloOpts).map((opt, i) => (
                             <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ flex: 1, fontSize: 12, color: "var(--tx)" }}>{opt}</span>
-                              <button onClick={() => setEstiloOpts(p => p.filter((_, j) => j !== i))}
-                                style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 14, padding: "0 4px", fontFamily: "'DM Sans',sans-serif" }}>✕</button>
+                              {editandoListas && renomearEstilo?.tipo === "estilo" && renomearEstilo.idx === i ? (
+                                <input className="ef" autoFocus value={renomearEstilo.val} style={{ flex: 1, fontSize: 12 }}
+                                  onChange={e => setRenomearEstilo(p => p ? { ...p, val: e.target.value } : null)}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter") {
+                                      const v = renomearEstilo.val.trim();
+                                      if (v) setEstiloOptsEdit(p => p.map((o, j) => j === i ? v : o));
+                                      setRenomearEstilo(null);
+                                    }
+                                    if (e.key === "Escape") setRenomearEstilo(null);
+                                  }}
+                                  onBlur={() => { const v = renomearEstilo?.val?.trim(); if (v) setEstiloOptsEdit(p => p.map((o, j) => j === i ? v : o)); setRenomearEstilo(null); }} />
+                              ) : (
+                                <span style={{ flex: 1, fontSize: 12, color: "var(--tx)", cursor: editandoListas ? "text" : "default" }}
+                                  onClick={() => editandoListas && setRenomearEstilo({ tipo: "estilo", idx: i, val: opt })}>
+                                  {opt}
+                                </span>
+                              )}
+                              {editandoListas && (
+                                <button onClick={() => setEstiloOptsEdit(p => p.filter((_, j) => j !== i))}
+                                  style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 14, padding: "0 4px", fontFamily: "'DM Sans',sans-serif" }}>✕</button>
+                              )}
                             </div>
                           ))}
                         </div>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <input className="ef" placeholder="Novo estilo..." id="new-estilo-input" style={{ flex: 1, fontSize: 12 }}
-                            onKeyDown={e => { if (e.key === "Enter") { const input = e.target as HTMLInputElement; const val = input.value.trim(); if (val && !estiloOpts.includes(val)) { setEstiloOpts(p => [...p, val]); input.value = ""; } } }} />
-                          <button className="btn-sm gold" onClick={() => { const input = document.getElementById("new-estilo-input") as HTMLInputElement; const val = input?.value.trim(); if (val && !estiloOpts.includes(val)) { setEstiloOpts(p => [...p, val]); if (input) input.value = ""; } }}>+</button>
-                        </div>
+                        {editandoListas && (
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <input className="ef" placeholder="Novo estilo..." id="new-estilo-input" style={{ flex: 1, fontSize: 12 }}
+                              onKeyDown={e => { if (e.key === "Enter") { const input = e.target as HTMLInputElement; const raw = input.value.trim(); const val = raw.charAt(0).toUpperCase() + raw.slice(1); if (val && !estiloOptsEdit.includes(val)) { setEstiloOptsEdit(p => [...p, val]); input.value = ""; } } }} />
+                            <button className="btn-sm gold" onClick={() => { const input = document.getElementById("new-estilo-input") as HTMLInputElement; const raw = input?.value.trim(); const val = raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : ""; if (val && !estiloOptsEdit.includes(val)) { setEstiloOptsEdit(p => [...p, val]); if (input) input.value = ""; } }}>+</button>
+                          </div>
+                        )}
                       </div>
-                      <div style={{ background: "var(--dk3)", borderRadius: 8, padding: 14, border: "1px solid var(--br)" }}>
+                      {/* REGIÕES */}
+                      <div style={{ background: "var(--dk3)", borderRadius: 8, padding: 14, border: editandoListas ? "1px solid var(--gold)" : "1px solid var(--br)" }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)", marginBottom: 10 }}>📍 Regiões</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-                          {regiaoOpts.map((opt, i) => (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: editandoListas ? 10 : 0 }}>
+                          {(editandoListas ? regiaoOptsEdit : regiaoOpts).map((opt, i) => (
                             <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ flex: 1, fontSize: 12, color: "var(--tx)" }}>{opt}</span>
-                              <button onClick={() => setRegiaoOpts(p => p.filter((_, j) => j !== i))}
-                                style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 14, padding: "0 4px", fontFamily: "'DM Sans',sans-serif" }}>✕</button>
+                              {editandoListas && renomearEstilo?.tipo === "regiao" && renomearEstilo.idx === i ? (
+                                <input className="ef" autoFocus value={renomearEstilo.val} style={{ flex: 1, fontSize: 12 }}
+                                  onChange={e => setRenomearEstilo(p => p ? { ...p, val: e.target.value } : null)}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter") {
+                                      const v = renomearEstilo.val.trim();
+                                      if (v) setRegiaoOptsEdit(p => p.map((o, j) => j === i ? v : o));
+                                      setRenomearEstilo(null);
+                                    }
+                                    if (e.key === "Escape") setRenomearEstilo(null);
+                                  }}
+                                  onBlur={() => { const v = renomearEstilo?.val?.trim(); if (v) setRegiaoOptsEdit(p => p.map((o, j) => j === i ? v : o)); setRenomearEstilo(null); }} />
+                              ) : (
+                                <span style={{ flex: 1, fontSize: 12, color: "var(--tx)", cursor: editandoListas ? "text" : "default" }}
+                                  onClick={() => editandoListas && setRenomearEstilo({ tipo: "regiao", idx: i, val: opt })}>
+                                  {opt}
+                                </span>
+                              )}
+                              {editandoListas && (
+                                <button onClick={() => setRegiaoOptsEdit(p => p.filter((_, j) => j !== i))}
+                                  style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 14, padding: "0 4px", fontFamily: "'DM Sans',sans-serif" }}>✕</button>
+                              )}
                             </div>
                           ))}
                         </div>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <input className="ef" placeholder="Nova região..." id="new-regiao-input" style={{ flex: 1, fontSize: 12 }}
-                            onKeyDown={e => { if (e.key === "Enter") { const input = e.target as HTMLInputElement; const val = input.value.trim(); if (val && !regiaoOpts.includes(val)) { setRegiaoOpts(p => [...p, val]); input.value = ""; } } }} />
-                          <button className="btn-sm gold" onClick={() => { const input = document.getElementById("new-regiao-input") as HTMLInputElement; const val = input?.value.trim(); if (val && !regiaoOpts.includes(val)) { setRegiaoOpts(p => [...p, val]); if (input) input.value = ""; } }}>+</button>
-                        </div>
+                        {editandoListas && (
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <input className="ef" placeholder="Nova região..." id="new-regiao-input" style={{ flex: 1, fontSize: 12 }}
+                              onKeyDown={e => { if (e.key === "Enter") { const input = e.target as HTMLInputElement; const raw = input.value.trim(); const val = raw.charAt(0).toUpperCase() + raw.slice(1); if (val && !regiaoOptsEdit.includes(val)) { setRegiaoOptsEdit(p => [...p, val]); input.value = ""; } } }} />
+                            <button className="btn-sm gold" onClick={() => { const input = document.getElementById("new-regiao-input") as HTMLInputElement; const raw = input?.value.trim(); const val = raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : ""; if (val && !regiaoOptsEdit.includes(val)) { setRegiaoOptsEdit(p => [...p, val]); if (input) input.value = ""; } }}>+</button>
+                          </div>
+                        )}
                       </div>
                     </div>
+                    {editandoListas && (
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+                        <button className="btn-c" onClick={() => { setEditandoListas(false); setRenomearEstilo(null); }}>Cancelar</button>
+                        <button className="btn-s" onClick={() => setConfirmListas(true)}>Salvar alterações</button>
+                      </div>
+                    )}
                   </div>
                 </>}
 
