@@ -1098,6 +1098,8 @@ export default function CRM() {
   const [presencaMotivo, setPresencaMotivo] = useState("");
   const [nascDraft, setNascDraft] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
+  const [novoEstiloModal, setNovoEstiloModal] = useState<{tipo: "estilo"|"regiao"; callback: (v: string) => void} | null>(null);
+  const [novoEstiloInput, setNovoEstiloInput] = useState("");
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
   const [sessoesExtras, setSessoesExtras] = useState<{date: string; start: number; end: number}[]>([]);
@@ -4458,9 +4460,10 @@ export default function CRM() {
                         </div>
                         <div className="fi2">
                           <div className="fil">Estilo</div>
-                          <select className="ef" value={novoProjetoForm.estilo} onChange={e => setNovoProjetoForm(p => ({ ...p, estilo: e.target.value }))}>
+                          <select className="ef" value={novoProjetoForm.estilo} onChange={e => { if (e.target.value === "__novo_estilo__") { setNovoEstiloInput(""); setNovoEstiloModal({ tipo: "estilo", callback: (v) => setNovoProjetoForm(p => ({ ...p, estilo: v })) }); } else { setNovoProjetoForm(p => ({ ...p, estilo: e.target.value })); } }}>
                             <option value="">Selecionar...</option>
                             {estiloOpts.map(o => <option key={o} value={o}>{o}</option>)}
+                            <option value="__novo_estilo__">+ Adicionar novo estilo...</option>
                           </select>
                         </div>
                         <div className="fi2">
@@ -4572,6 +4575,7 @@ export default function CRM() {
                               <div className="fi2">
                                 <div className="fil">Estilo</div>
                                 <select className="ef" value={proj.estilo || ""} onChange={e => {
+                                  if (e.target.value === "__novo_estilo__") { setNovoEstiloInput(""); setNovoEstiloModal({ tipo: "estilo", callback: (v) => { const projs2 = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }]; const idx2 = projs2.findIndex((p: any) => p.id === proj.id); if (idx2 >= 0) { projs2[idx2] = { ...projs2[idx2], estilo: v }; upC(sc.id, "projetos", projs2); } else upC(sc.id, "projetos", [{ ...proj, estilo: v }]); } }); return; }
                                   const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
                                   const idx = projs.findIndex((p: any) => p.id === proj.id);
                                   if (idx >= 0) { projs[idx] = { ...projs[idx], estilo: e.target.value }; upC(sc.id, "projetos", projs); }
@@ -4579,6 +4583,7 @@ export default function CRM() {
                                 }}>
                                   <option value="">Selecionar...</option>
                                   {estiloOpts.map(o => <option key={o} value={o}>{o}</option>)}
+                                  <option value="__novo_estilo__">+ Adicionar novo estilo...</option>
                                 </select>
                               </div>
                               <div className="fi2">
@@ -6491,6 +6496,41 @@ export default function CRM() {
         )}
 
         {/* ── MODAL ORÇAMENTO ── */}
+        {/* ── MODAL NOVO ESTILO / REGIÃO ── */}
+        {novoEstiloModal && (
+          <div className="ov" onClick={() => setNovoEstiloModal(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(360px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>
+                {novoEstiloModal.tipo === "estilo" ? "🎨 Novo Estilo" : "📍 Nova Região"}
+              </div>
+              <input className="fi" autoFocus placeholder={novoEstiloModal.tipo === "estilo" ? "Ex: Neo Tradicional" : "Ex: Coxa"}
+                value={novoEstiloInput}
+                onChange={e => setNovoEstiloInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    const val = novoEstiloInput.trim();
+                    if (!val) return;
+                    if (novoEstiloModal.tipo === "estilo") { if (!estiloOpts.includes(val)) setEstiloOpts(p => [...p, val]); }
+                    else { if (!regiaoOpts.includes(val)) setRegiaoOpts(p => [...p, val]); }
+                    novoEstiloModal.callback(val);
+                    setNovoEstiloModal(null);
+                  }
+                }} />
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn-c" onClick={() => setNovoEstiloModal(null)}>Cancelar</button>
+                <button className="btn-s" onClick={() => {
+                  const val = novoEstiloInput.trim();
+                  if (!val) return;
+                  if (novoEstiloModal.tipo === "estilo") { if (!estiloOpts.includes(val)) setEstiloOpts(p => [...p, val]); }
+                  else { if (!regiaoOpts.includes(val)) setRegiaoOpts(p => [...p, val]); }
+                  novoEstiloModal.callback(val);
+                  setNovoEstiloModal(null);
+                }}>Confirmar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {orcamentoModal && (
           <div className="ov" onClick={() => setOrcamentoModal(null)}>
             <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(400px, 92vw)", padding: "28px 28px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
