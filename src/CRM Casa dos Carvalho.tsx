@@ -1096,6 +1096,7 @@ export default function CRM() {
   const [confirmAgForm, setConfirmAgForm] = useState(false);
   const [confirmPresenca, setConfirmPresenca] = useState<{event: any} | null>(null);
   const [presencaMotivo, setPresencaMotivo] = useState("");
+  const [nascDraft, setNascDraft] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
   const [sessoesExtras, setSessoesExtras] = useState<{date: string; start: number; end: number}[]>([]);
 
@@ -4369,31 +4370,41 @@ export default function CRM() {
                       {(() => {
                         const nasc = (sc as any).nascimento || "";
                         const partes = nasc.includes("/") ? nasc.split("/") : nasc.includes("-") ? [nasc.split("-")[2], nasc.split("-")[1], nasc.split("-")[0]] : ["","",""];
-                        const diaV = partes[0] || "";
-                        const mesV = partes[1] || "";
-                        const anoV = partes[2] || "";
+                        const diaDB = partes[0] || "";
+                        const mesDB = partes[1] || "";
+                        const anoDBv = partes[2] || "";
+                        const diaV = nascDraft.dia || diaDB;
+                        const mesV = nascDraft.mes || mesDB;
+                        const anoV = nascDraft.ano || anoDBv;
                         const meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
                         const anoAtual = new Date().getFullYear();
                         const anos = Array.from({ length: anoAtual - 1919 }, (_, i) => anoAtual - i);
-                        const salvar = (d: string, m: string, a: string) => {
-                          if (d && m && a) upC(sc.id, "nascimento", d.padStart(2,"0") + "/" + m.padStart(2,"0") + "/" + a);
-                          else if (!d && !m && !a) upC(sc.id, "nascimento", "");
+                        const atualizar = (campo: string, valor: string) => {
+                          const novo = { ...nascDraft, [campo]: valor };
+                          setNascDraft(novo);
+                          const d = campo === "dia" ? valor : diaV;
+                          const m = campo === "mes" ? valor : mesV;
+                          const a = campo === "ano" ? valor : anoV;
+                          if (d && m && a) {
+                            upC(sc.id, "nascimento", d.padStart(2,"0") + "/" + m.padStart(2,"0") + "/" + a);
+                            setNascDraft({ dia: "", mes: "", ano: "" });
+                          }
                         };
                         return (
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 2fr", gap: 6 }}>
-                            <select className="ef" value={diaV} onChange={e => salvar(e.target.value, mesV, anoV)} style={{ fontFamily: "'DM Sans',sans-serif" }}>
+                            <select className="ef" value={diaV} onChange={e => atualizar("dia", e.target.value)} style={{ fontFamily: "'DM Sans',sans-serif" }}>
                               <option value="">Dia</option>
                               {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
                                 <option key={d} value={String(d).padStart(2,"0")}>{d}</option>
                               ))}
                             </select>
-                            <select className="ef" value={mesV} onChange={e => salvar(diaV, e.target.value, anoV)} style={{ fontFamily: "'DM Sans',sans-serif" }}>
+                            <select className="ef" value={mesV} onChange={e => atualizar("mes", e.target.value)} style={{ fontFamily: "'DM Sans',sans-serif" }}>
                               <option value="">Mês</option>
                               {meses.map((m, i) => (
                                 <option key={i} value={String(i+1).padStart(2,"0")}>{m}</option>
                               ))}
                             </select>
-                            <select className="ef" value={anoV} onChange={e => salvar(diaV, mesV, e.target.value)} style={{ fontFamily: "'DM Sans',sans-serif" }}>
+                            <select className="ef" value={anoV} onChange={e => atualizar("ano", e.target.value)} style={{ fontFamily: "'DM Sans',sans-serif" }}>
                               <option value="">Ano</option>
                               {anos.map(a => (
                                 <option key={a} value={String(a)}>{a}</option>
