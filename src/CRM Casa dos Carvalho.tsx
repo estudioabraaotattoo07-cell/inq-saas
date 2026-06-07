@@ -6588,7 +6588,7 @@ export default function CRM() {
               </div>
               <input className="fi" autoFocus placeholder={novoEstiloModal.tipo === "estilo" ? "Ex: Neo Tradicional" : "Ex: Coxa"}
                 value={novoEstiloInput}
-                onChange={e => setNovoEstiloInput(e.target.value)}
+                onChange={e => { const v = e.target.value; setNovoEstiloInput(v.charAt(0).toUpperCase() + v.slice(1)); }}
                 onKeyDown={async e => {
                   if (e.key === "Enter") {
                     const raw = novoEstiloInput.trim();
@@ -7046,6 +7046,7 @@ export default function CRM() {
                         {editandoListas && (
                           <div style={{ display: "flex", gap: 6 }}>
                             <input className="ef" placeholder="Novo estilo..." id="new-estilo-input" style={{ flex: 1, fontSize: 12 }}
+                              onChange={e => { const v = e.target.value; e.target.value = v.charAt(0).toUpperCase() + v.slice(1); }}
                               onKeyDown={e => { if (e.key === "Enter") { const input = e.target as HTMLInputElement; const raw = input.value.trim(); const val = raw.charAt(0).toUpperCase() + raw.slice(1); if (val && !estiloOptsEdit.includes(val)) { setEstiloOptsEdit(p => [...p, val]); input.value = ""; } } }} />
                             <button className="btn-sm gold" onClick={() => { const input = document.getElementById("new-estilo-input") as HTMLInputElement; const raw = input?.value.trim(); const val = raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : ""; if (val && !estiloOptsEdit.includes(val)) { setEstiloOptsEdit(p => [...p, val]); if (input) input.value = ""; } }}>+</button>
                           </div>
@@ -7085,6 +7086,7 @@ export default function CRM() {
                         {editandoListas && (
                           <div style={{ display: "flex", gap: 6 }}>
                             <input className="ef" placeholder="Nova região..." id="new-regiao-input" style={{ flex: 1, fontSize: 12 }}
+                              onChange={e => { const v = e.target.value; e.target.value = v.charAt(0).toUpperCase() + v.slice(1); }}
                               onKeyDown={e => { if (e.key === "Enter") { const input = e.target as HTMLInputElement; const raw = input.value.trim(); const val = raw.charAt(0).toUpperCase() + raw.slice(1); if (val && !regiaoOptsEdit.includes(val)) { setRegiaoOptsEdit(p => [...p, val]); input.value = ""; } } }} />
                             <button className="btn-sm gold" onClick={() => { const input = document.getElementById("new-regiao-input") as HTMLInputElement; const raw = input?.value.trim(); const val = raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : ""; if (val && !regiaoOptsEdit.includes(val)) { setRegiaoOptsEdit(p => [...p, val]); if (input) input.value = ""; } }}>+</button>
                           </div>
