@@ -6560,12 +6560,19 @@ export default function CRM() {
               })()}
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button className="btn-c" onClick={() => setConfirmListas(false)}>Cancelar</button>
-                <button className="btn-s" onClick={() => {
+                <button className="btn-s" onClick={async () => {
                   setEstiloOpts(estiloOptsEdit);
                   setRegiaoOpts(regiaoOptsEdit);
                   setEditandoListas(false);
                   setRenomearEstilo(null);
                   setConfirmListas(false);
+                  // Salvar no Supabase
+                  try {
+                    const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single();
+                    if (cfgEx?.id) {
+                      await sb.from("configuracoes").update({ estilo_opts: estiloOptsEdit, regiao_opts: regiaoOptsEdit }).eq("id", cfgEx.id);
+                    }
+                  } catch(e) { console.error("Erro ao salvar listas:", e); }
                 }}>Confirmar</button>
               </div>
             </div>
@@ -6987,7 +6994,7 @@ export default function CRM() {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                       {/* ESTILOS */}
                       <div style={{ background: "var(--dk3)", borderRadius: 8, padding: 14, border: editandoListas ? "1px solid var(--gold)" : "1px solid var(--br)" }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)", marginBottom: 10 }}>🎨 Estilos</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)", marginBottom: 10 }}>🎨 Estilos de Tatuagem</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: editandoListas ? 10 : 0 }}>
                           {(editandoListas ? estiloOptsEdit : estiloOpts).map((opt, i) => (
                             <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -7026,7 +7033,7 @@ export default function CRM() {
                       </div>
                       {/* REGIÕES */}
                       <div style={{ background: "var(--dk3)", borderRadius: 8, padding: 14, border: editandoListas ? "1px solid var(--gold)" : "1px solid var(--br)" }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)", marginBottom: 10 }}>📍 Regiões</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)", marginBottom: 10 }}>📍 Regiões do Corpo</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: editandoListas ? 10 : 0 }}>
                           {(editandoListas ? regiaoOptsEdit : regiaoOpts).map((opt, i) => (
                             <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
