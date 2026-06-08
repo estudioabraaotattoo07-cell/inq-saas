@@ -969,7 +969,7 @@ export default function CRM() {
   const [studioBairro, setStudioBairro] = useState("");
   const [studioCep, setStudioCep] = useState("");
   const [studioEstado, setStudioEstado] = useState("");
-  const [studioPais, setStudioPais] = useState("");
+  const [studioPais, setStudioPais] = useState("Brasil");
   const [studioRedes, setStudioRedes] = useState<{plataforma: string; usuario: string}[]>([]);
   const [donoNome, setDonoNome] = useState("");
   const [donoWhats, setDonoWhats] = useState("");
@@ -1142,11 +1142,7 @@ export default function CRM() {
         if (arts && arts.length > 0) {
           setArtists(arts);
         } else {
-          // Banco vazio — seed com artistas padrão e salva no Supabase
-          for (const a of ARTISTS_INIT) {
-            await sb.from("artistas").upsert({ ...a }, { onConflict: "id" });
-          }
-          setArtists(ARTISTS_INIT);
+          setArtists([]);
         }
         if (fins && fins.length > 0) setFin(fins.map((f: any) => ({
           ...f, cliente: f.cliente_nome
@@ -1671,8 +1667,7 @@ export default function CRM() {
       role: artForm.role,
       com: artForm.com,
       cor: artForm.cor,
-      insta: artForm.insta || "",
-      ativo: true
+      insta: artForm.insta || ""
     };
     const { data: artData, error: artError } = await sb.from("artistas").insert(row).select().single();
     if (artError) {
@@ -2113,7 +2108,7 @@ export default function CRM() {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Nome da IA de Atendimento</label>
-                  <input className="fi" value={auraName} onChange={e => setAuraName(e.target.value)} placeholder="Aura" />
+                  <input className="fi" value={auraName} onChange={e => setAuraName(e.target.value)} placeholder="Escolha o nome da sua agente" />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Link Google Meu Negócio</label>
@@ -2167,7 +2162,7 @@ export default function CRM() {
           {onbStep === 1 && (
             <div style={{ padding: "22px 28px", display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ fontSize: 14, color: "#E8E2D9", fontWeight: 600, marginBottom: 4 }}>Horarios de funcionamento</div>
-              <div style={{ fontSize: 11, color: "#555045", marginBottom: 6 }}>A Aura atende 24h. Estes horários são para a agenda interna.</div>
+              <div style={{ fontSize: 11, color: "#555045", marginBottom: 6 }}>A agente de IA trabalha 24 horas. Selecione os horários em que a agente pode marcar seus clientes.</div>
               {horarios.map((h, i) => (
                 <div key={h.dia} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid rgba(201,168,76,0.12)" }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: "#E8E2D9", width: 70, flexShrink: 0 }}>{h.dia}</div>
@@ -2209,7 +2204,7 @@ export default function CRM() {
               <div style={{ fontSize: 11, color: "#555045", marginBottom: 4 }}>Ela atende 24h e nunca se passa por humano. Ajuste o comportamento abaixo.</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Nome da IA</label>
-                <input className="fi" value={auraName} placeholder="Aura"
+                <input className="fi" value={auraName} placeholder="Escolha o nome da sua agente"
                   onChange={e => setAuraName(e.target.value.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase()))} />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -6939,13 +6934,26 @@ export default function CRM() {
                     <div className="stit">Endereço</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <div className="fg2">
-                        <div className="fi2" style={{ gridColumn: "1 / -1" }}><div className="fil">Rua / Logradouro</div><input className="ef" value={studioRua} placeholder="Rua Aristides Navarro" onChange={e => setStudioRua(e.target.value)} /></div>
+                        <div className="fi2" style={{ gridColumn: "1 / -1" }}><div className="fil">Rua / Logradouro</div><input className="ef" value={studioRua} placeholder="Rua Principal" onChange={e => { const v = e.target.value; setStudioRua(v.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase())); }} /></div>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 8 }}>
                         <div className="fi2"><div className="fil">Número</div><input className="ef" value={studioNumero} placeholder="165" onChange={e => setStudioNumero(e.target.value)} /></div>
-                        <div className="fi2"><div className="fil">CEP</div><input className="ef" value={studioCep} placeholder="29000-000" maxLength={9} onChange={e => {
+                        <div className="fi2"><div className="fil">CEP</div><input className="ef" value={studioCep} placeholder="00000-000" maxLength={9} onChange={async e => {
                           const raw = e.target.value.replace(/\D/g,"").slice(0,8);
-                          setStudioCep(raw.length > 5 ? raw.slice(0,5) + "-" + raw.slice(5) : raw);
+                          const masked = raw.length > 5 ? raw.slice(0,5) + "-" + raw.slice(5) : raw;
+                          setStudioCep(masked);
+                          if (raw.length === 8) {
+                            try {
+                              const res = await fetch("https://viacep.com.br/ws/" + raw + "/json/");
+                              const d = await res.json();
+                              if (!d.erro) {
+                                setStudioRua(d.logradouro || studioRua);
+                                setStudioBairro(d.bairro || studioBairro);
+                                setStudioCity(d.localidade || studioCity);
+                                setStudioEstado(d.uf || studioEstado);
+                              }
+                            } catch {}
+                          }
                         }} /></div>
                         <div className="fi2"><div className="fil">Bairro</div><input className="ef" value={studioBairro} placeholder="Centro" onChange={e => setStudioBairro(e.target.value)} /></div>
                       </div>
@@ -6971,8 +6979,14 @@ export default function CRM() {
                             style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", outline: "none", width: 130, flexShrink: 0 }}>
                             {["Instagram","TikTok","YouTube","Facebook","Pinterest","Behance","LinkedIn","X/Twitter"].map(p => <option key={p} value={p}>{p}</option>)}
                           </select>
-                          <input className="ef" value={rede.usuario} placeholder="@usuario ou URL"
-                            onChange={e => setStudioRedes(p => p.map((r, i) => i === idx ? { ...r, usuario: e.target.value } : r))}
+                          <input className="ef" value={rede.usuario} placeholder={["Instagram","TikTok","X/Twitter","Pinterest"].includes(rede.plataforma) ? "@usuario" : "URL ou usuário"}
+                            onChange={e => {
+                              let val = e.target.value;
+                              if (["Instagram","TikTok","X/Twitter","Pinterest"].includes(rede.plataforma)) {
+                                if (val && !val.startsWith("@")) val = "@" + val;
+                              }
+                              setStudioRedes(p => p.map((r, i) => i === idx ? { ...r, usuario: val } : r));
+                            }}
                             style={{ flex: 1 }} />
                           <button onClick={() => setStudioRedes(p => p.filter((_, i) => i !== idx))}
                             style={{ background: "none", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "5px 9px", fontSize: 12, color: "var(--q1)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", flexShrink: 0 }}>✕</button>
@@ -6986,7 +7000,7 @@ export default function CRM() {
                   </div>
                   <div>
                     <div className="stit">Horários de Funcionamento</div>
-                    <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>A {auraName} atende 24h. Estes horários são para a agenda interna.</div>
+                    <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>A agente de IA trabalha 24 horas. Selecione os horários em que a agente pode marcar seus clientes.</div>
                     {horarios.map((h, i) => (
                       <div key={h.dia} className="hr-row">
                         <div className="hr-dia">{h.dia}</div>
