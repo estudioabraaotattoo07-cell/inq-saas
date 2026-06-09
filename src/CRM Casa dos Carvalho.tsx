@@ -6758,7 +6758,8 @@ export default function CRM() {
                             ? { ...proj, valorTotal: v }
                             : proj
                         );
-                        return { ...c, val_a: v, orcamento: false, projetos,
+                        const pgtoAtual = c.pgto && c.pgto !== "" ? c.pgto : "A definir";
+                        return { ...c, val_a: v, orcamento: false, projetos, pgto: pgtoAtual,
                           hist: [...c.hist, { t: "Orçamento registrado: R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }), d: new Date().toLocaleString("pt-BR") }]
                         };
                       });
