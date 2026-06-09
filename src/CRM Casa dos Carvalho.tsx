@@ -353,39 +353,18 @@ const STAR_REASONS = [
   "Excelente"
 ];
 
-const CAL_COLORS: Record<string, string> = {
-  cons_abraao: "#4A9EBF",
-  sess_abraao: "#4A9EBF",
-  cons_camilla: "#9B6BB5",
-  sess_camilla: "#9B6BB5",
-  // Dynamic colors override below via getEventColor
-  bloq_abraao: "#C0392B",
-  bloq_camilla: "#C0392B",
-  bloq_geral: "#555",
-  piercing: "#E91E8C"
-};
-
-function getEventColor(tipo: string, artists: any[], artistaId?: string): string {
+const getEventColor = (tipo: string, artists: any[], artistaId?: string): string => {
   if (!tipo) return "#888";
   if (tipo === "bloq_geral") return "#555";
   if (tipo === "piercing") return "#E91E8C";
-  // Usa o campo artista do evento se disponível, senão extrai do tipo
-  const id = artistaId || tipo.replace("cons_", "").replace("sess_", "").replace("bloq_", "");
+  const parts = tipo.split("_");
+  const prefix = parts[0];
+  if (prefix === "bloq") return "#C0392B";
+  const id = artistaId || parts.slice(1).join("_");
   const artist = artists.find(a => a.id === id);
-  if (artist?.cor) return artist.cor;
-  return CAL_COLORS[tipo] || "#888";
-}
-
-const CAL_LABELS: Record<string, string> = {
-  cons_abraao: "Consulta Abraão",
-  sess_abraao: "Sessão Abraão",
-  cons_camilla: "Consulta Camilla",
-  sess_camilla: "Sessão Camilla",
-  bloq_abraao: "Bloq. Abraão",
-  bloq_camilla: "Bloq. Camilla",
-  bloq_geral: "Bloq. Geral",
-  piercing: "Piercing"
+  return artist?.cor || "#888";
 };
+
 const getBloqLabel = (tipo: string, artistsList: any[]) => {
   if (tipo === "bloq_geral") return "TODOS";
   if (tipo.startsWith("bloq_")) {
@@ -393,25 +372,22 @@ const getBloqLabel = (tipo: string, artistsList: any[]) => {
     const art = artistsList.find(a => a.id === artId);
     return art ? "Bloqueio " + art.nome.split(" ")[0] : "Bloqueio";
   }
-  return CAL_LABELS[tipo] || tipo;
+  return getEventLabel(tipo, artistsList);
 };
 const getBloqColor = (tipo: string, artistsList: any[]) => {
-  if (tipo === "bloq_geral") return "#C0392B";
-  if (tipo.startsWith("bloq_")) {
-    const artId = tipo.replace("bloq_","");
-    const art = artistsList.find(a => a.id === artId);
-    return art?.cor || "#888";
-  }
-  return "#888";
+  return getEventColor(tipo, artistsList);
 };
 const getEventLabel = (tipo: string, artistsList?: any[]) => {
-  if (CAL_LABELS[tipo]) return CAL_LABELS[tipo];
-  if (artistsList) {
-    const prefix = tipo.startsWith("cons_") ? "Consulta" : tipo.startsWith("sess_") ? "Sessão" : null;
-    const artId = tipo.replace("cons_","").replace("sess_","");
-    const art = artistsList.find(a => a.id === artId);
-    if (prefix && art) return `${prefix} ${art.nome.split(" ")[0]}`;
-  }
+  if (tipo === "bloq_geral") return "Bloq. Geral";
+  if (tipo === "piercing") return "Piercing";
+  const parts = tipo.split("_");
+  const prefix = parts[0];
+  const artistId = parts.slice(1).join("_");
+  const artist = artistsList ? artistsList.find(a => a.id === artistId) : null;
+  const nome = artist ? (artist.nome.split(" ")[0] || "") : "";
+  if (prefix === "cons") return "Consulta" + (nome ? " " + nome : "");
+  if (prefix === "sess") return "Sessão" + (nome ? " " + nome : "");
+  if (prefix === "bloq") return "Bloq." + (nome ? " " + nome : "");
   return tipo;
 };
 
@@ -453,7 +429,7 @@ const MSGS: Record<string, string> = {
   pais: "Olá, [Nome]\n\nFeliz Dia dos Pais.\n\nSe existe uma homenagem guardada no coracao - talvez esse seja o momento certo.",
   natal: "Olá, [Nome]\n\nQue esse Natal seja cheio de momentos que voce vai querer guardar para sempre.",
   anoNovo: "Olá, [Nome]\n\nUm novo ano carrega novas histórias. O [ESTUDIO] esta pronto para fazer acontecer.",
-  aniAbraao: "Olá, [Nome]\n\nHoje é um dia muito especial para a Casa dos Carvalho - é um dia muito especial para o [ESTUDIO].\n\nPreparamos uma condicao exclusiva para celebrar esse dia juntos. Quando quiser saber mais, e so me chamar.",
+  aniAbraao: "Olá, [Nome]\n\nHoje é um dia muito especial para o [ESTUDIO].\n\nPreparamos uma condicao exclusiva para celebrar esse dia juntos. Quando quiser saber mais, e so me chamar.",
   aniCamilla: "Olá, [Nome]\n\nHoje o [ESTUDIO] celebra um aniversário especial.\n\nE a melhor forma de comemorar e presentear quem faz parte da nossa historia.\n\nTemos algo especial reservado para voce. Quando quiser saber mais, e so me chamar.",
   aniversario: "Olá, [Nome]\n\nHoje é um dia muito especial - e o [ESTUDIO] quer fazer parte dele.\n\nComo presente: 50% de desconto na sua próxima tatuagem, válido por 15 dias.\n\nQuando quiser saber mais, e so chamar.",
   google: "Olá, [Nome]\n\nEspero que sua tatuagem esteja linda e bem cuidada.\n\nSe sua experiencia no [ESTUDIO] foi especial, sua avaliação no Google faz toda a diferença para nós crescermos juntos.\n\nLeva só 1 minutinho: [LINK_GOOGLE]\n\nObrigado de coração.",
@@ -795,6 +771,7 @@ export default function CRM() {
 
   const [onboardingDone, setOnboardingDone] = useState(() => !!localStorage.getItem("inq_onb"));
   const [showSplash, setShowSplash] = useState(() => !!localStorage.getItem("inq_onb"));
+  const [userId, setUserId] = useState<string>("");
   const [onbStep, setOnbStep] = useState(0);
   const [dark, setDark] = useState(true);
   const [studioName, setStudioName] = useState("");
@@ -968,10 +945,11 @@ export default function CRM() {
   // ─── SUPABASE AUTH ────────────────────────────────────────────────────────
   useEffect(() => {
     sb.auth.getSession().then(({ data: { session } }) => {
-      if (session) setLogado(true);
+      if (session) { setLogado(true); setUserId(session.user?.id || ""); }
     });
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
       setLogado(!!session);
+      setUserId(session?.user?.id || "");
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -982,9 +960,20 @@ export default function CRM() {
     async function loadAll() {
       if (!sb) { setDbReady(true); return; }
       try {
+        const { data: { user } } = await sb.auth.getUser();
+        const uid = user?.id || "";
+        if (uid) setUserId(uid);
+        const loadWithUser = async (table: string) => {
+          if (!uid) return await sb.from(table).select("*").then(r => r.data);
+          return await sb.from(table).select("*").eq("user_id", uid).then(r => r.data);
+        };
+        const loadCfg = async () => {
+          if (!uid) return await sb.from("configuracoes").select("*").limit(1).single().then(r => r.data ? [r.data] : null);
+          return await sb.from("configuracoes").select("*").eq("user_id", uid).limit(1).single().then(r => r.data ? [r.data] : null);
+        };
         const [cls, arts, fins, sds, ags, cfgs, eqs] = await Promise.all([
-          dbGet("clientes"), dbGet("artistas"), dbGet("financeiro"),
-          dbGet("saidas"), dbGet("agenda"), dbGet("configuracoes"), dbGet("equipamentos")
+          loadWithUser("clientes"), loadWithUser("artistas"), loadWithUser("financeiro"),
+          loadWithUser("saidas"), loadWithUser("agenda"), loadCfg(), loadWithUser("equipamentos")
         ]);
         if (eqs && eqs.length > 0) setEquipamentos(eqs);
         if (cls && cls.length > 0) setClients(cls.map((c: any) => ({
@@ -1057,8 +1046,17 @@ export default function CRM() {
           if (cfg.aura_formalidade) setAuraFormalidade(cfg.aura_formalidade);
           if (cfg.aura_idioma) setAuraIdioma(cfg.aura_idioma);
           setDark(cfg.dark_mode !== false);
-          setOnboardingDone(true);
-          localStorage.setItem("inq_onb", "1");
+          // [X2] onboarding_done from Supabase (source of truth); localStorage as cache
+          if (cfg.onboarding_done) {
+            setOnboardingDone(true);
+            setShowSplash(true);
+            localStorage.setItem("inq_onb", "1");
+          }
+          // [X3] studio_logo from Supabase
+          if (cfg.studio_logo) {
+            setStudioLogo(cfg.studio_logo);
+            localStorage.setItem("inq_logo", cfg.studio_logo);
+          }
         }
       } catch(e) { console.error("Load error", e); }
       setDbReady(true);
@@ -1088,9 +1086,10 @@ export default function CRM() {
       nascimento: c.nascimento || "",
       documento: (c as any).documento || "",
       projetos: c.projetos || [],
+      user_id: userId,
       updated_at: new Date().toISOString()
     }, (msg) => setShowAviso("Erro ao salvar dados do cliente: " + msg));
-  }, []);
+  }, [userId]);
 
   const addLog = useCallback(async (acao: string) => {
     const now = new Date();
@@ -1168,6 +1167,13 @@ export default function CRM() {
     // Forma de pagamento não definida em cliente com sessão agendada
     const pgtoValido = c.pgto && c.pgto !== "A definir";
     if (!pgtoValido && ["sessao_agend","tatuado","pos_venda"].includes(c.etapa)) m.push("Forma de pagamento");
+    // [X7] Sinal pendente
+    const temSinalPendente = agEvents.some(e =>
+      e.cliente_id === c.id &&
+      e.sinal > 0 &&
+      !e.sinal_pago
+    );
+    if (temSinalPendente) m.push("Sinal pendente");
     return m;
   };
   const churn = (c: any) => {
@@ -1323,9 +1329,10 @@ export default function CRM() {
         data: dataHojeISO,
         val_a: val,
         val_c: val,
-        pgto: f.forma === "Cartão" ? `Cartão ${f.parcelas}x` : f.forma,
+        pgto: f.forma === "Cartão" ? "Cartão " + f.parcelas + "x" : f.forma,
         com_base: comSess,
         com_sess: comSess,
+        user_id: userId,
       });
       if (error) console.error("financeiro insert (sessão):", error);
     }
@@ -1482,6 +1489,7 @@ export default function CRM() {
         projetos: nc.projetos || [],
         nascimento: (form as any).nascimento || "",
         documento: (form as any).documento || "",
+        user_id: userId,
         updated_at: new Date().toISOString()
       }).select().single();
       if (error) {
@@ -1501,7 +1509,8 @@ export default function CRM() {
             artista: nc.artista,
             data: formAg.data,
             hora: formAg.hora,
-            tipo: formAg.tipo === "cons" ? "cons_" + nc.artista : "sess_" + nc.artista
+            tipo: formAg.tipo === "cons" ? "cons_" + nc.artista : "sess_" + nc.artista,
+            user_id: userId
           });
           setAgEvents(p => [...p, {
             id: Date.now(), title: nc.nome,
@@ -1526,7 +1535,8 @@ export default function CRM() {
       role: artForm.role,
       com: artForm.com,
       cor: artForm.cor,
-      insta: artForm.insta || ""
+      insta: artForm.insta || "",
+      user_id: userId
     };
     const { data: artData, error: artError } = await sb.from("artistas").insert(row).select().single();
     if (artError) {
@@ -1572,6 +1582,7 @@ export default function CRM() {
       valor_previsto: parseFloat(String((agForm as any).valorPrevisto || "0").replace(/\./g, "").replace(",", ".")) || 0,
       sinal: parseFloat(String((agForm as any).sinal || "0").replace(/\./g, "").replace(",", ".")) || 0,
       sinal_pago: !!(agForm as any).sinalPago,
+      user_id: userId,
       ...(agClientVinc ? { cliente_id: agClientVinc.id, cliente_nome: agClientVinc.nome } : {})
     };
 
@@ -1617,6 +1628,7 @@ export default function CRM() {
           pgto: "Sinal",
           com_base: comSinalEdit,
           com_sess: comSinalEdit,
+          user_id: userId,
         }).select().single();
         if (errSinalEdit) console.error("financeiro insert (sinal edição):", errSinalEdit);
         if (fdSinalEdit) setFin(p => [...p, { ...fdSinalEdit, cliente: agClientVinc.nome }]);
@@ -1687,6 +1699,7 @@ export default function CRM() {
           pgto: "Sinal",
           com_base: comSinal,
           com_sess: comSinal,
+          user_id: userId,
         }).select().single();
         if (errSinal) console.error("financeiro insert (sinal):", errSinal);
         if (fdSinal) setFin(p => [...p, { ...fdSinal, cliente: agClientVinc.nome }]);
@@ -2158,7 +2171,7 @@ export default function CRM() {
                   {onbStep === 3 ? "Concluir" : "Continuar"}
                 </button>
               )}
-              {onbStep === 4 && <button className="btn-s" onClick={() => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); if (!localStorage.getItem("inq_tour")) { setTimeout(() => { if (showLogoCrop) return; setTourStep(0); setTourAtivo(true); }, 800); } }}>Entrar no Sistema →</button>}
+              {onbStep === 4 && <button className="btn-s" onClick={async () => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); try { const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single(); if (cfgEx?.id) { await sb.from("configuracoes").update({ onboarding_done: true }).eq("id", cfgEx.id); } else { await sb.from("configuracoes").insert({ onboarding_done: true, user_id: userId }); } } catch(e) { console.warn("onboarding save", e); } if (!localStorage.getItem("inq_tour")) { setTimeout(() => { if (showLogoCrop) return; setTourStep(0); setTourAtivo(true); }, 800); } }}>Entrar no Sistema →</button>}
             </div>
           </div>
         </div>
@@ -2782,7 +2795,7 @@ export default function CRM() {
           const projecao = diaAtual > 0 ? Math.round((totalEntradas / diaAtual) * 30) : 0;
 
           // ── depreciação mensal total ──
-          const deprMensal = equipamentos.filter(e => e.ativo).reduce((s, e) => s + (Number(e.valor_aquisicao) || 0) / (Number(e.vida_util_meses) || 48), 0);
+          const deprMensal = equipamentos.filter(e => e.ativo !== false).reduce((s, e) => s + (Number(e.valor_aquisicao) || 0) / (Number(e.vida_util_meses) || 48), 0);
 
           // ── DRE ──
           const receitaBruta = totalEntradas;
@@ -3498,7 +3511,7 @@ export default function CRM() {
                     <button className="btn-c" onClick={() => setShowEquipForm(false)}>Cancelar</button>
                     <button className="btn-s" disabled={!equipForm.nome || !equipForm.valor_aquisicao || !equipForm.data_compra} onClick={async () => {
                       const val = parseFloat(String(equipForm.valor_aquisicao).replace(/\./g,"").replace(",",".")) || 0;
-                      const row = { nome: equipForm.nome, valor_aquisicao: val, data_compra: equipForm.data_compra, vida_util_meses: equipForm.vida_util_meses, categoria: equipForm.categoria, artista_id: equipForm.artista_id, ativo: true };
+                      const row = { nome: equipForm.nome, valor_aquisicao: val, data_compra: equipForm.data_compra, vida_util_meses: equipForm.vida_util_meses, categoria: equipForm.categoria, artista_id: equipForm.artista_id, ativo: true, user_id: userId };
                       const saved = await dbInsert("equipamentos", row);
                       if (saved) setEquipamentos(p => [...p, saved]);
                       setShowEquipForm(false);
@@ -3525,7 +3538,7 @@ export default function CRM() {
                   <div className="fmf">
                     <button className="btn-c" onClick={() => setShowSaidaForm(false)}>Cancelar</button>
                     <button className="btn-s" disabled={!saidaForm.desc || saidaForm.valor <= 0} onClick={async () => {
-                      const row = { descricao: saidaForm.desc, categoria: saidaForm.categoria, valor: saidaForm.valor, data: saidaForm.data };
+                      const row = { descricao: saidaForm.desc, categoria: saidaForm.categoria, valor: saidaForm.valor, data: saidaForm.data, user_id: userId };
                       const saved = await dbInsert("saidas", row);
                       if (saved) setSaidas(p => [...p, { ...saved, desc: saved.descricao }]);
                       else setSaidas(p => [...p, { id: Date.now(), ...saidaForm }]);
@@ -4469,14 +4482,14 @@ export default function CRM() {
                             {/* Valor total do projeto + saldo devedor */}
                             {(() => {
                               const valorTotal = Number(proj.valorTotal) || 0;
-                              const pago = fin.filter((f: any) => f.cliente_id === sc.id && (!f.tipo || f.tipo === "entrada")).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
-                              const saldo = Math.max(valorTotal - pago, 0);
+                              const totalPagoReal = fin.filter((f: any) => f.cliente_id === sc.id && (!f.tipo || f.tipo === "entrada")).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
+                              const saldo = valorTotal - totalPagoReal;
                               return valorTotal > 0 ? (
                                 <div style={{ display: "flex", gap: 12, padding: "6px 10px", background: "var(--dk4)", borderRadius: 6, fontSize: 12 }}>
                                   <span style={{ color: "var(--tx2)" }}>Total: <strong style={{ color: "var(--tx)" }}>R$ {valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
-                                  <span style={{ color: "var(--tx2)" }}>Pago: <strong style={{ color: "#27AE60" }}>R$ {pago.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
-                                  {saldo > 0 && <span style={{ color: "var(--tx2)" }}>Saldo: <strong style={{ color: "var(--gold)" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
-                                  {saldo <= 0 && pago > 0 && <span style={{ color: "#27AE60", fontWeight: 700 }}>✅ Quitado</span>}
+                                  <span style={{ color: "var(--tx2)" }}>Pago: <strong style={{ color: "#27AE60" }}>R$ {totalPagoReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
+                                  {saldo > 0 && totalPagoReal > 0 && <span style={{ color: "var(--tx2)" }}>Saldo: <strong style={{ color: "var(--gold)" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
+                                  {saldo <= 0 && totalPagoReal > 0 && <span style={{ color: "#27AE60", fontWeight: 700 }}>✅ Quitado</span>}
                                 </div>
                               ) : null;
                             })()}
@@ -5100,19 +5113,19 @@ export default function CRM() {
                                 onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
                                 onMouseLeave={e => (e.currentTarget.style.background = "")}>{o}</div>
                             ))}
-                            {form.estilo && !estiloOpts.some(o => o.toLowerCase() === form.estilo.toLowerCase()) && (
+                            {form.estilo && !estiloOpts.some(o => o.toLowerCase() === form.estilo.toLowerCase()) ? (
                               <div onMouseDown={async () => {
                                 const novaLista = [...estiloOpts, form.estilo];
                                 setEstiloOpts(novaLista);
                                 setShowEstiloDD(false);
-                                const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single();
+                                const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
                                 if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id);
                               }}
                                 style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
                                 + Adicionar "{form.estilo}"
                               </div>
-                            )}
-                            {addingEstilo ? (
+                            ) : !form.estilo && (
+                              addingEstilo ? (
                               <div style={{ padding: "6px 8px", borderTop: "1px solid var(--br)", display: "flex", gap: 4 }}>
                                 <input autoFocus className="fi" style={{ flex: 1, padding: "4px 7px", fontSize: 12 }} placeholder="Novo estilo..." value={novoEstilo} onChange={e => setNovoEstilo(e.target.value)}
                                   onKeyDown={async e => {
@@ -5121,18 +5134,19 @@ export default function CRM() {
                                       setEstiloOpts(novaLista);
                                       setForm({ ...form, estilo: novoEstilo.trim() });
                                       setNovoEstilo(""); setAddingEstilo(false); setShowEstiloDD(false);
-                                      const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single();
+                                      const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
                                       if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id);
                                     } else if (e.key === "Escape") { setAddingEstilo(false); setNovoEstilo(""); }
                                   }} />
-                                <button onMouseDown={async e => { e.preventDefault(); if (novoEstilo.trim()) { const novaLista = [...estiloOpts, novoEstilo.trim()]; setEstiloOpts(novaLista); setForm({ ...form, estilo: novoEstilo.trim() }); setNovoEstilo(""); setAddingEstilo(false); setShowEstiloDD(false); const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single(); if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id); } }} style={{ background: "var(--gold)", border: "none", borderRadius: 4, padding: "4px 8px", fontSize: 11, fontWeight: 700, color: "#000", cursor: "pointer" }}>OK</button>
+                                <button onMouseDown={async e => { e.preventDefault(); if (novoEstilo.trim()) { const novaLista = [...estiloOpts, novoEstilo.trim()]; setEstiloOpts(novaLista); setForm({ ...form, estilo: novoEstilo.trim() }); setNovoEstilo(""); setAddingEstilo(false); setShowEstiloDD(false); const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single(); if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id); } }} style={{ background: "var(--gold)", border: "none", borderRadius: 4, padding: "4px 8px", fontSize: 11, fontWeight: 700, color: "#000", cursor: "pointer" }}>OK</button>
                                 <button onMouseDown={e => { e.preventDefault(); setAddingEstilo(false); setNovoEstilo(""); }} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 4, padding: "4px 8px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>✕</button>
                               </div>
-                            ) : (
+                              ) : (
                               <div onMouseDown={e => { e.preventDefault(); setAddingEstilo(true); setNovoEstilo(""); }}
                                 style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
                                 + Adicionar novo
                               </div>
+                              )
                             )}
                           </div>
                         )}
@@ -5154,19 +5168,19 @@ export default function CRM() {
                                 onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
                                 onMouseLeave={e => (e.currentTarget.style.background = "")}>{o}</div>
                             ))}
-                            {form.regiao && !regiaoOpts.some(o => o.toLowerCase() === form.regiao.toLowerCase()) && (
+                            {form.regiao && !regiaoOpts.some(o => o.toLowerCase() === form.regiao.toLowerCase()) ? (
                               <div onMouseDown={async () => {
                                 const novaLista = [...regiaoOpts, form.regiao];
                                 setRegiaoOpts(novaLista);
                                 setShowRegiaoDD(false);
-                                const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single();
+                                const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
                                 if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id);
                               }}
                                 style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
                                 + Adicionar "{form.regiao}"
                               </div>
-                            )}
-                            {addingRegiao ? (
+                            ) : !form.regiao && (
+                              addingRegiao ? (
                               <div style={{ padding: "6px 8px", borderTop: "1px solid var(--br)", display: "flex", gap: 4 }}>
                                 <input autoFocus className="fi" style={{ flex: 1, padding: "4px 7px", fontSize: 12 }} placeholder="Nova região..." value={novoRegiao} onChange={e => setNovoRegiao(e.target.value)}
                                   onKeyDown={async e => {
@@ -5175,18 +5189,19 @@ export default function CRM() {
                                       setRegiaoOpts(novaLista);
                                       setForm({ ...form, regiao: novoRegiao.trim() });
                                       setNovoRegiao(""); setAddingRegiao(false); setShowRegiaoDD(false);
-                                      const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single();
+                                      const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
                                       if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id);
                                     } else if (e.key === "Escape") { setAddingRegiao(false); setNovoRegiao(""); }
                                   }} />
-                                <button onMouseDown={async e => { e.preventDefault(); if (novoRegiao.trim()) { const novaLista = [...regiaoOpts, novoRegiao.trim()]; setRegiaoOpts(novaLista); setForm({ ...form, regiao: novoRegiao.trim() }); setNovoRegiao(""); setAddingRegiao(false); setShowRegiaoDD(false); const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single(); if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id); } }} style={{ background: "var(--gold)", border: "none", borderRadius: 4, padding: "4px 8px", fontSize: 11, fontWeight: 700, color: "#000", cursor: "pointer" }}>OK</button>
+                                <button onMouseDown={async e => { e.preventDefault(); if (novoRegiao.trim()) { const novaLista = [...regiaoOpts, novoRegiao.trim()]; setRegiaoOpts(novaLista); setForm({ ...form, regiao: novoRegiao.trim() }); setNovoRegiao(""); setAddingRegiao(false); setShowRegiaoDD(false); const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single(); if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id); } }} style={{ background: "var(--gold)", border: "none", borderRadius: 4, padding: "4px 8px", fontSize: 11, fontWeight: 700, color: "#000", cursor: "pointer" }}>OK</button>
                                 <button onMouseDown={e => { e.preventDefault(); setAddingRegiao(false); setNovoRegiao(""); }} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 4, padding: "4px 8px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>✕</button>
                               </div>
-                            ) : (
+                              ) : (
                               <div onMouseDown={e => { e.preventDefault(); setAddingRegiao(true); setNovoRegiao(""); }}
                                 style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
                                 + Adicionar novo
                               </div>
+                              )
                             )}
                           </div>
                         )}
@@ -6521,7 +6536,7 @@ export default function CRM() {
                   setConfirmListas(false);
                   // Salvar no Supabase
                   try {
-                    const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single();
+                    const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
                     if (cfgEx?.id) {
                       await sb.from("configuracoes").update({ estilo_opts: estiloOptsEdit, regiao_opts: regiaoOptsEdit }).eq("id", cfgEx.id);
                     }
@@ -6551,12 +6566,12 @@ export default function CRM() {
                     if (novoEstiloModal.tipo === "estilo") {
                       novaLista = estiloOpts.includes(val) ? estiloOpts : [...estiloOpts, val];
                       setEstiloOpts(novaLista);
-                      const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single();
+                      const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
                       if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id);
                     } else {
                       novaLista = regiaoOpts.includes(val) ? regiaoOpts : [...regiaoOpts, val];
                       setRegiaoOpts(novaLista);
-                      const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single();
+                      const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
                       if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id);
                     }
                     novoEstiloModal.callback(val);
@@ -6573,12 +6588,12 @@ export default function CRM() {
                   if (novoEstiloModal.tipo === "estilo") {
                     novaLista = estiloOpts.includes(val) ? estiloOpts : [...estiloOpts, val];
                     setEstiloOpts(novaLista);
-                    const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single();
+                    const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
                     if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id);
                   } else {
                     novaLista = regiaoOpts.includes(val) ? regiaoOpts : [...regiaoOpts, val];
                     setRegiaoOpts(novaLista);
-                    const { data: cfgEx } = await sb.from("configuracoes").select("id").limit(1).single();
+                    const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
                     if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id);
                   }
                   novoEstiloModal.callback(val);
@@ -6652,7 +6667,8 @@ export default function CRM() {
                       com_base: comPct,
                       com_sess: comPct,
                       data: new Date().toLocaleDateString("pt-BR"),
-                      status: "pendente"
+                      status: "pendente",
+                      user_id: userId
                     };
                     const { data: fd } = await sb.from("financeiro").insert(finRow).select().single();
                     if (fd) setFin(p => [...p, { ...finRow, id: fd.id, cliente: cliente?.nome }]);
@@ -7376,7 +7392,7 @@ export default function CRM() {
                   )}
                   <button className="btn-s" disabled={editandoListas} title={editandoListas ? "Salve ou cancele as alterações de Estilos & Regiões primeiro" : ""} style={{ opacity: editandoListas ? 0.4 : 1, cursor: editandoListas ? "not-allowed" : "pointer" }} onClick={async () => {
                   if (editandoListas) return;
-                  const cfg = {
+                  const cfg: any = {
                     studio_name: studioName, studio_tel: studioTel,
                     studio_owner: studioOwner, studio_email: studioEmail,
                     studio_city: studioCity, studio_insta: studioInsta,
@@ -7395,9 +7411,11 @@ export default function CRM() {
                     meta_sessoes: metaSessoes, meta_leads: metaLeads, meta_nps: metaNPS,
                     desconto_aniversario: descontoAniversario,
                     horarios, dark_mode: dark,
+                    studio_logo: studioLogo,
+                    user_id: userId,
                     updated_at: new Date().toISOString()
                   };
-                  const { data: existing } = await sb.from("configuracoes").select("id").limit(1).single();
+                  const { data: existing } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
                   if (existing?.id) {
                     await sb.from("configuracoes").update(cfg).eq("id", existing.id);
                   } else {
