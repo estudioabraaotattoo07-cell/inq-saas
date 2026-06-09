@@ -159,7 +159,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .pvp{background:rgba(212,130,10,.15);color:var(--q2);border:1px solid rgba(212,130,10,.25);}
 .pvf{background:var(--dk4);color:var(--tx3);border:1px solid var(--br);}
 .fw{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:13px;}
-.fsum{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.fsum{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
 .fsc{background:var(--dk2);border:1px solid var(--br);border-radius:9px;padding:13px;}
 .fsl{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--tx2);margin-bottom:4px;}
 .fsv{font-size:24px;font-weight:600;font-family:'Cormorant Garamond',serif;}
@@ -621,6 +621,94 @@ function TimeScroller({ value, onChange, label }: { value: number; onChange: (h:
   );
 }
 
+// ─── DATE SCROLLER ────────────────────────────────────────────────────────────
+function DateScroller({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+  const curYear = new Date().getFullYear();
+  const parseVal = (v: string) => {
+    if (!v) return { d: 1, m: 1, y: curYear };
+    const parts = v.split("-");
+    if (parts.length === 3) return { y: parseInt(parts[0]) || curYear, m: parseInt(parts[1]) || 1, d: parseInt(parts[2]) || 1 };
+    return { d: 1, m: 1, y: curYear };
+  };
+  const pv = parseVal(value);
+  const [open, setOpen] = useState(false);
+  const [selD, setSelD] = useState(pv.d);
+  const [selM, setSelM] = useState(pv.m);
+  const [selY, setSelY] = useState(pv.y);
+  useEffect(() => {
+    const pv2 = parseVal(value);
+    setSelD(pv2.d); setSelM(pv2.m); setSelY(pv2.y);
+  }, [value]);
+  const daysInMonth = (m: number, y: number) => new Date(y, m, 0).getDate();
+  const maxD = daysInMonth(selM, selY);
+  const DAYS = Array.from({ length: maxD }, (_, i) => i + 1);
+  const MNAMES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  const YEARS = [curYear, curYear + 1];
+  const safeD = Math.min(selD, maxD);
+  const confirm = (d: number, m: number, y: number) => {
+    const safe = Math.min(d, daysInMonth(m, y));
+    const str = y + "-" + String(m).padStart(2,"0") + "-" + String(safe).padStart(2,"0");
+    onChange(str);
+    setOpen(false);
+  };
+  const display = value ? (value.split("-").reverse().join("/")) : "DD/MM/AAAA";
+  return (
+    <div style={{ position: "relative", flex: 1 }}>
+      {label && <label className="fl">{label}</label>}
+      <div onClick={() => setOpen(v => !v)} className="fi"
+        style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", userSelect: "none" }}>
+        <span style={{ color: value ? "var(--tx)" : "var(--tx3)" }}>{display}</span>
+        <span style={{ fontSize: 10, color: "var(--tx3)" }}>▾</span>
+      </div>
+      {open && (
+        <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, zIndex: 9999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 8, boxShadow: "0 8px 32px rgba(0,0,0,.6)", marginTop: 4, padding: "8px 4px", width: 210 }}>
+          <div style={{ display: "flex", gap: 4 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, color: "var(--tx3)", textAlign: "center", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 4 }}>Dia</div>
+              <div style={{ height: 160, overflowY: "auto", scrollbarWidth: "thin" }}>
+                {DAYS.map(d => (
+                  <div key={d} onClick={() => setSelD(d)}
+                    style={{ padding: "6px 4px", textAlign: "center", fontSize: 13, borderRadius: 4, cursor: "pointer", fontWeight: d === safeD ? 700 : 400, color: d === safeD ? "var(--gold)" : "var(--tx)", background: d === safeD ? "rgba(201,168,76,.1)" : "" }}>
+                    {String(d).padStart(2,"0")}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ width: 1, background: "var(--br)" }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, color: "var(--tx3)", textAlign: "center", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 4 }}>Mês</div>
+              <div style={{ height: 160, overflowY: "auto", scrollbarWidth: "thin" }}>
+                {MNAMES.map((mn, i) => (
+                  <div key={i} onClick={() => setSelM(i + 1)}
+                    style={{ padding: "6px 4px", textAlign: "center", fontSize: 12, borderRadius: 4, cursor: "pointer", fontWeight: (i + 1) === selM ? 700 : 400, color: (i + 1) === selM ? "var(--gold)" : "var(--tx)", background: (i + 1) === selM ? "rgba(201,168,76,.1)" : "" }}>
+                    {mn}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ width: 1, background: "var(--br)" }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, color: "var(--tx3)", textAlign: "center", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 4 }}>Ano</div>
+              <div style={{ height: 160, overflowY: "auto", scrollbarWidth: "thin" }}>
+                {YEARS.map(y => (
+                  <div key={y} onClick={() => setSelY(y)}
+                    style={{ padding: "6px 4px", textAlign: "center", fontSize: 13, borderRadius: 4, cursor: "pointer", fontWeight: y === selY ? 700 : 400, color: y === selY ? "var(--gold)" : "var(--tx)", background: y === selY ? "rgba(201,168,76,.1)" : "" }}>
+                    {y}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <button onClick={() => confirm(safeD, selM, selY)}
+            style={{ width: "100%", marginTop: 8, background: "var(--gold)", border: "none", borderRadius: 6, padding: "6px 0", fontSize: 12, fontWeight: 700, color: "#1a1a1a", cursor: "pointer" }}>
+            OK
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── COLOR PICKER ─────────────────────────────────────────────────────────────
 function hexToHsv(hex: string): [number, number, number] {
   const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
@@ -781,7 +869,6 @@ export default function CRM() {
   const [studioEmail, setStudioEmail] = useState("");
   const [studioCity, setStudioCity] = useState("");
   const [studioInsta, setStudioInsta] = useState("");
-  const [studioEndereco, setStudioEndereco] = useState("");
   const [studioRua, setStudioRua] = useState("");
   const [studioNumero, setStudioNumero] = useState("");
   const [studioComplemento, setStudioComplemento] = useState("");
@@ -931,6 +1018,7 @@ export default function CRM() {
   const [confirmListas, setConfirmListas] = useState(false);
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
+  const [alertaConfig, setAlertaConfig] = useState({ alerta_nova_mensagem: true, alerta_sessao_proxima: true, alerta_sessao_antecedencia: "2h", alerta_falta: true, alerta_aniversario: true, alerta_sem_retorno: true, alerta_sem_retorno_dias: "30", alerta_sinal_pendente: true, alerta_projeto_sem_valor: true, alerta_novo_cliente_aura: true });
   const [sessoesExtras, setSessoesExtras] = useState<{date: string; start: number; end: number}[]>([]);
 
   const [dbReady, setDbReady] = useState(false);
@@ -1017,7 +1105,6 @@ export default function CRM() {
           if (cfg.studio_email) setStudioEmail(cfg.studio_email);
           if (cfg.studio_city) setStudioCity(cfg.studio_city);
           if (cfg.studio_insta) setStudioInsta(cfg.studio_insta);
-          if (cfg.studio_endereco) setStudioEndereco(cfg.studio_endereco);
           if (cfg.studio_rua) setStudioRua(cfg.studio_rua);
           if (cfg.studio_numero) setStudioNumero(cfg.studio_numero);
           if (cfg.studio_complemento) setStudioComplemento(cfg.studio_complemento);
@@ -1043,6 +1130,7 @@ export default function CRM() {
           if (cfg.horarios) setHorarios(cfg.horarios);
           if (cfg.estilo_opts?.length) setEstiloOpts(cfg.estilo_opts);
           if (cfg.regiao_opts?.length) setRegiaoOpts(cfg.regiao_opts);
+          if (cfg.alerta_config) setAlertaConfig(prev => ({ ...prev, ...cfg.alerta_config }));
           if (cfg.aura_formalidade) setAuraFormalidade(cfg.aura_formalidade);
           if (cfg.aura_idioma) setAuraIdioma(cfg.aura_idioma);
           setDark(cfg.dark_mode !== false);
@@ -1547,6 +1635,7 @@ export default function CRM() {
     setShowArtForm(false);
     setArtForm({ nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "@", email: "", tel: "" });
     addLog(`Artista "${artForm.nome}" cadastrado`);
+    if (!onboardingDone) { setOnbStep(s => s + 1); }
   };
 
   const traduzirErro = (msg: string): string => {
@@ -1717,7 +1806,8 @@ export default function CRM() {
             artista: artId, data: sx.date,
             hora: String(sx.start).padStart(2,"0") + ":00",
             hora_fim: String(sx.end).padStart(2,"0") + ":00",
-            tipo: "sess_" + artId, obs: numSessao + "ª sessão do projeto"
+            tipo: "sess_" + artId, obs: numSessao + "ª sessão do projeto",
+            user_id: userId
           };
           const { data: dSx } = await sb.from("agenda").insert(rowSx).select().single();
           if (dSx) setAgEvents(p => [...p, { ...dSx, title: titulo, date: dSx.data, start: sx.start, end: sx.end, tipo: "sess_" + artId }]);
@@ -2171,7 +2261,7 @@ export default function CRM() {
                   {onbStep === 3 ? "Concluir" : "Continuar"}
                 </button>
               )}
-              {onbStep === 4 && <button className="btn-s" onClick={async () => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); try { const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single(); if (cfgEx?.id) { await sb.from("configuracoes").update({ onboarding_done: true }).eq("id", cfgEx.id); } else { await sb.from("configuracoes").insert({ onboarding_done: true, user_id: userId }); } } catch(e) { console.warn("onboarding save", e); } if (!localStorage.getItem("inq_tour")) { setTimeout(() => { if (showLogoCrop) return; setTourStep(0); setTourAtivo(true); }, 800); } }}>Entrar no Sistema →</button>}
+              {onbStep === 4 && <button className="btn-s" onClick={async () => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); try { const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single(); if (cfgEx?.id) { await sb.from("configuracoes").update({ onboarding_done: true }).eq("id", cfgEx.id); } else { await sb.from("configuracoes").insert({ onboarding_done: true, user_id: userId }); } } catch(e) { console.warn("onboarding save", e); } if (!localStorage.getItem("inq_tour")) { setTimeout(() => { if (!showLogoCrop) { setTourStep(0); setTourAtivo(true); } }, 800); } }}>Entrar no Sistema →</button>}
             </div>
           </div>
         </div>
@@ -2866,13 +2956,20 @@ export default function CRM() {
             {finAbaAtiva === "livrocaixa" && (<>
 
               {/* cards resumo */}
-              <div className="fsum" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
-                {[
-                  { l: "Entradas", v: fmtR(totalEntradas), s: "no período filtrado", c: "var(--q3)" },
-                  { l: "Saídas", v: fmtR(totalSaidas), s: "despesas do estúdio", c: "var(--q1)" },
-                  { l: "Repasses", v: fmtR(totalRepasses), s: "a pagar aos artistas", c: "var(--ab)" },
-                  { l: "Saldo Líquido", v: fmtR(saldoLiquido), s: "entradas − saídas − repasses", c: saldoLiquido >= 0 ? "var(--q3)" : "var(--q1)" },
-                ].map((s, i) => (
+              <div className="fsum" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
+                {(() => {
+                  const receitaPrevista = clients.reduce((acc: number, c: any) => {
+                    const projs = c.projetos || [];
+                    return acc + projs.filter((p: any) => p.status !== "concluido" && p.status !== "cancelado").reduce((s: number, p: any) => s + (Number(p.valorTotal) || 0), 0);
+                  }, 0);
+                  return [
+                    { l: "Entradas", v: fmtR(totalEntradas), s: "no período filtrado", c: "var(--q3)" },
+                    { l: "Saídas", v: fmtR(totalSaidas), s: "despesas do estúdio", c: "var(--q1)" },
+                    { l: "Comissões", v: fmtR(totalRepasses), s: "a pagar aos artistas", c: "var(--ab)" },
+                    { l: "Saldo Líquido", v: fmtR(saldoLiquido), s: "entradas − saídas − repasses", c: saldoLiquido >= 0 ? "var(--q3)" : "var(--q1)" },
+                    { l: "Previsto", v: fmtR(receitaPrevista), s: "projetos em andamento", c: "var(--gold)" },
+                  ];
+                })().map((s, i) => (
                   <div className="fsc" key={i}>
                     <div className="fsl">{s.l}</div>
                     <div className="fsv" style={{ color: s.c }}>{s.v}</div>
@@ -2885,6 +2982,9 @@ export default function CRM() {
               <div className="ftable">
                 <div className="fth">Meta Mensal</div>
                 <div style={{ padding: "13px 15px" }}>
+                  {metaMensal === 0 ? (
+                    <div style={{ fontSize: 12, color: "var(--tx3)", fontStyle: "italic", padding: "8px 0" }}>Meta não definida — configure em Configurações →</div>
+                  ) : (<>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ fontSize: 12, color: "var(--tx2)" }}>{fmtR(totalEntradas)} de {fmtR(metaMensal)}</span>
                     <span style={{ fontSize: 12, fontWeight: 600, color: progressoMeta >= 100 ? "var(--q3)" : "var(--gold)" }}>{Math.round(progressoMeta)}%</span>
@@ -2895,7 +2995,7 @@ export default function CRM() {
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
                     <span style={{ fontSize: 11, color: "var(--tx3)" }}>Projeção: <strong style={{ color: "var(--tx)" }}>{fmtR(projecao)}</strong></span>
                     <span style={{ fontSize: 11, color: "var(--tx3)" }}>Faltam: <strong style={{ color: "var(--gold)" }}>{fmtR(Math.max(metaMensal - totalEntradas, 0))}</strong></span>
-                  </div>
+                  </div></>)}
                 </div>
               </div>
 
@@ -4374,7 +4474,7 @@ export default function CRM() {
                   <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span>Projetos Artísticos</span>
                     {novoProjetoAberto !== sc.id && (
-                      <button onClick={() => {
+                      <button title="Cada projeto representa uma tatuagem ou trabalho artístico do cliente. Você pode ter múltiplos projetos por cliente." onClick={() => {
                         setNovoProjetoAberto(sc.id);
                         setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "" });
                       }} style={{ fontSize: 11, fontWeight: 600, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 10px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
@@ -4506,7 +4606,7 @@ export default function CRM() {
                                   }} />
                               </div>
                             </div>
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
                               <div className="fi2">
                                 <div className="fil">Estilo</div>
                                 <select className="ef" value={proj.estilo || ""} onChange={e => {
@@ -4520,6 +4620,18 @@ export default function CRM() {
                                   {estiloOpts.map(o => <option key={o} value={o}>{o}</option>)}
                                   <option value="__novo_estilo__">+ Adicionar novo estilo...</option>
                                   <option disabled value="">✎ Editar/excluir: Configurações → Estúdio</option>
+                                </select>
+                              </div>
+                              <div className="fi2">
+                                <div className="fil">Região</div>
+                                <select className="ef" value={proj.regiao || ""} onChange={e => {
+                                  const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+                                  const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                  if (idx >= 0) { projs[idx] = { ...projs[idx], regiao: e.target.value }; upC(sc.id, "projetos", projs); }
+                                  else upC(sc.id, "projetos", [{ ...proj, regiao: e.target.value }]);
+                                }}>
+                                  <option value="">Não informada</option>
+                                  {regiaoOpts.map(o => <option key={o} value={o}>{o}</option>)}
                                 </select>
                               </div>
                               <div className="fi2">
@@ -4795,7 +4907,7 @@ export default function CRM() {
                           <div key={e.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div>
                               <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>{(() => { try { const [y,m,d] = e.date.split("-"); return `${["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][new Date(e.date).getDay()]}, ${d} de ${["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][parseInt(m)-1]}`; } catch { return e.date; } })()}</div>
-                              <div style={{ fontSize: 11, color: "var(--tx2)" }}>{String(e.start).padStart(2,"0")}h — {getEventLabel(e.tipo, artists)}</div>
+                              <div style={{ fontSize: 11, color: "var(--tx2)" }}>{String(e.start).padStart(2,"0")}h — {getEventLabel(e.tipo, artists)}{e.artista && !e.tipo?.startsWith("bloq") ? " · " + aName(e.artista).split(" ")[0] : ""}</div>
                             </div>
                             <div style={{ width: 10, height: 10, borderRadius: "50%", background: getEventColor(e.tipo, artists, e.artista), flexShrink: 0 }} />
                           </div>
@@ -5106,27 +5218,29 @@ export default function CRM() {
                             onMouseDown={e => { e.preventDefault(); setShowEstiloDD(v => !v); }}>▾</button>
                         </div>
                         {showEstiloDD && (
-                          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 7, boxShadow: "0 6px 24px rgba(0,0,0,.5)", maxHeight: 200, overflowY: "auto" }}>
-                            {estiloOpts.filter(o => !form.estilo || o.toLowerCase().includes(form.estilo.toLowerCase())).map(o => (
-                              <div key={o} onMouseDown={() => { setForm({ ...form, estilo: o }); setShowEstiloDD(false); }}
-                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--tx)" }}
-                                onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
-                                onMouseLeave={e => (e.currentTarget.style.background = "")}>{o}</div>
-                            ))}
-                            {form.estilo && !estiloOpts.some(o => o.toLowerCase() === form.estilo.toLowerCase()) ? (
-                              <div onMouseDown={async () => {
-                                const novaLista = [...estiloOpts, form.estilo];
-                                setEstiloOpts(novaLista);
-                                setShowEstiloDD(false);
-                                const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                                if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id);
-                              }}
-                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
-                                + Adicionar "{form.estilo}"
-                              </div>
-                            ) : !form.estilo && (
-                              addingEstilo ? (
-                              <div style={{ padding: "6px 8px", borderTop: "1px solid var(--br)", display: "flex", gap: 4 }}>
+                          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 7, boxShadow: "0 6px 24px rgba(0,0,0,.5)", display: "flex", flexDirection: "column", maxHeight: 220 }}>
+                            <div style={{ overflowY: "auto", flex: 1 }}>
+                              {estiloOpts.filter(o => !form.estilo || o.toLowerCase().includes(form.estilo.toLowerCase())).map(o => (
+                                <div key={o} onMouseDown={() => { setForm({ ...form, estilo: o }); setShowEstiloDD(false); }}
+                                  style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--tx)" }}
+                                  onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
+                                  onMouseLeave={e => (e.currentTarget.style.background = "")}>{o}</div>
+                              ))}
+                            </div>
+                            <div style={{ borderTop: "1px solid var(--br)", flexShrink: 0 }}>
+                              {form.estilo && !estiloOpts.some(o => o.toLowerCase() === form.estilo.toLowerCase()) ? (
+                                <div onMouseDown={async () => {
+                                  const novaLista = [...estiloOpts, form.estilo];
+                                  setEstiloOpts(novaLista);
+                                  setShowEstiloDD(false);
+                                  const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
+                                  if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id);
+                                }}
+                                  style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", fontWeight: 600 }}>
+                                  + Adicionar "{form.estilo}"
+                                </div>
+                              ) : addingEstilo ? (
+                              <div style={{ padding: "6px 8px", display: "flex", gap: 4 }}>
                                 <input autoFocus className="fi" style={{ flex: 1, padding: "4px 7px", fontSize: 12 }} placeholder="Novo estilo..." value={novoEstilo} onChange={e => setNovoEstilo(e.target.value)}
                                   onKeyDown={async e => {
                                     if (e.key === "Enter" && novoEstilo.trim()) {
@@ -5143,11 +5257,11 @@ export default function CRM() {
                               </div>
                               ) : (
                               <div onMouseDown={e => { e.preventDefault(); setAddingEstilo(true); setNovoEstilo(""); }}
-                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
+                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", fontWeight: 600 }}>
                                 + Adicionar novo
                               </div>
-                              )
-                            )}
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -5161,27 +5275,29 @@ export default function CRM() {
                             onMouseDown={e => { e.preventDefault(); setShowRegiaoDD(v => !v); }}>▾</button>
                         </div>
                         {showRegiaoDD && (
-                          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 7, boxShadow: "0 6px 24px rgba(0,0,0,.5)", maxHeight: 200, overflowY: "auto" }}>
-                            {regiaoOpts.filter(o => !form.regiao || o.toLowerCase().includes(form.regiao.toLowerCase())).map(o => (
-                              <div key={o} onMouseDown={() => { setForm({ ...form, regiao: o }); setShowRegiaoDD(false); }}
-                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--tx)" }}
-                                onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
-                                onMouseLeave={e => (e.currentTarget.style.background = "")}>{o}</div>
-                            ))}
-                            {form.regiao && !regiaoOpts.some(o => o.toLowerCase() === form.regiao.toLowerCase()) ? (
-                              <div onMouseDown={async () => {
-                                const novaLista = [...regiaoOpts, form.regiao];
-                                setRegiaoOpts(novaLista);
-                                setShowRegiaoDD(false);
-                                const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                                if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id);
-                              }}
-                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
-                                + Adicionar "{form.regiao}"
-                              </div>
-                            ) : !form.regiao && (
-                              addingRegiao ? (
-                              <div style={{ padding: "6px 8px", borderTop: "1px solid var(--br)", display: "flex", gap: 4 }}>
+                          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 7, boxShadow: "0 6px 24px rgba(0,0,0,.5)", display: "flex", flexDirection: "column", maxHeight: 220 }}>
+                            <div style={{ overflowY: "auto", flex: 1 }}>
+                              {regiaoOpts.filter(o => !form.regiao || o.toLowerCase().includes(form.regiao.toLowerCase())).map(o => (
+                                <div key={o} onMouseDown={() => { setForm({ ...form, regiao: o }); setShowRegiaoDD(false); }}
+                                  style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--tx)" }}
+                                  onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
+                                  onMouseLeave={e => (e.currentTarget.style.background = "")}>{o}</div>
+                              ))}
+                            </div>
+                            <div style={{ borderTop: "1px solid var(--br)", flexShrink: 0 }}>
+                              {form.regiao && !regiaoOpts.some(o => o.toLowerCase() === form.regiao.toLowerCase()) ? (
+                                <div onMouseDown={async () => {
+                                  const novaLista = [...regiaoOpts, form.regiao];
+                                  setRegiaoOpts(novaLista);
+                                  setShowRegiaoDD(false);
+                                  const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
+                                  if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id);
+                                }}
+                                  style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", fontWeight: 600 }}>
+                                  + Adicionar "{form.regiao}"
+                                </div>
+                              ) : addingRegiao ? (
+                              <div style={{ padding: "6px 8px", display: "flex", gap: 4 }}>
                                 <input autoFocus className="fi" style={{ flex: 1, padding: "4px 7px", fontSize: 12 }} placeholder="Nova região..." value={novoRegiao} onChange={e => setNovoRegiao(e.target.value)}
                                   onKeyDown={async e => {
                                     if (e.key === "Enter" && novoRegiao.trim()) {
@@ -5198,11 +5314,11 @@ export default function CRM() {
                               </div>
                               ) : (
                               <div onMouseDown={e => { e.preventDefault(); setAddingRegiao(true); setNovoRegiao(""); }}
-                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", borderTop: "1px solid var(--br)", fontWeight: 600 }}>
+                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", fontWeight: 600 }}>
                                 + Adicionar novo
                               </div>
-                              )
-                            )}
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -5376,8 +5492,7 @@ export default function CRM() {
                 )}
                 {/* 2. DATA */}
                 <div className="ff">
-                  <label className="fl">Data</label>
-                  <input className="fi" type="date" min="2020-01-01" max="2099-12-31" value={agForm.date} onChange={e => { const val = e.target.value; const ano = parseInt(val.split("-")[0]); if (!val || (ano >= 2020 && ano <= 2099)) setAgForm({ ...agForm, date: val }); }} />
+                  <DateScroller label="Data" value={agForm.date} onChange={val => { const ano = parseInt(val.split("-")[0]); if (!val || (ano >= 2020 && ano <= 2099)) setAgForm({ ...agForm, date: val }); }} />
                 </div>
 
                 {/* 3. HORÁRIO */}
@@ -5578,9 +5693,7 @@ export default function CRM() {
                           style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 16, padding: 0 }}>×</button>
                       </div>
                       <div className="ff">
-                        <label className="fl">Data</label>
-                        <input className="fi" type="date" min="1900-01-01" max="2099-12-31" value={s.date}
-                          onChange={e => setSessoesExtras(p => p.map((x,j) => j===i ? {...x, date: e.target.value} : x))} />
+                        <DateScroller label="Data" value={s.date} onChange={val => setSessoesExtras(p => p.map((x,j) => j===i ? {...x, date: val} : x))} />
                       </div>
                       <div className="fr">
                         <TimeScroller label="Início" value={s.start ?? 9} onChange={(h) => setSessoesExtras(p => p.map((x,j) => j===i ? {...x, start: h} : x))} />
@@ -5831,8 +5944,8 @@ export default function CRM() {
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>📅 Sessões Recorrentes</div>
               <div style={{ fontSize: 12, color: "var(--tx2)" }}>Configure as sessões e o sistema cria todos os agendamentos de uma vez.</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <div className="ff"><label className="fl">Data da 1ª Sessão</label>
-                  <input className="fi" type="date" value={recorrenteForm.dataInicio} onChange={e => setRecorrenteForm(p => ({ ...p, dataInicio: e.target.value }))} />
+                <div className="ff">
+                  <DateScroller label="Data da 1ª Sessão" value={recorrenteForm.dataInicio} onChange={val => setRecorrenteForm(p => ({ ...p, dataInicio: val }))} />
                 </div>
                 <div className="ff"><label className="fl">Artista</label>
                   <select className="fs" value={recorrenteForm.artista} onChange={e => setRecorrenteForm(p => ({ ...p, artista: e.target.value }))}>
@@ -6876,15 +6989,15 @@ export default function CRM() {
                   <div>
                     <div className="stit">Identidade</div>
                     <div className="fg2">
-                      <div className="fi2"><div className="fil">Nome do Estúdio</div><input className="ef" value={studioName} onChange={e => setStudioName(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Responsável</div><input className="ef" value={studioOwner} onChange={e => setStudioOwner(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Nome do Estúdio</div><input className="ef" value={studioName} onChange={e => { const v = e.target.value; setStudioName(v.charAt(0).toUpperCase() + v.slice(1)); }} /></div>
+                      <div className="fi2"><div className="fil">Responsável</div><input className="ef" value={studioOwner} onChange={e => { const v = e.target.value; setStudioOwner(v.charAt(0).toUpperCase() + v.slice(1)); }} /></div>
                     </div>
                   </div>
                   <div>
                     <div className="stit">Contato</div>
                     <div className="fg2">
                       <div className="fi2"><div className="fil">Email do Estúdio{!studioEmail && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={studioEmail} placeholder="contato@estudio.com" onChange={e => setStudioEmail(e.target.value)} style={{ borderColor: !studioEmail ? "rgba(212,130,10,.4)" : undefined }} /></div>
-                      <div className="fi2"><div className="fil">WhatsApp do Estúdio</div><input className="ef" value={studioTel} placeholder="(27) 99999-9999" onChange={e => setStudioTel(maskTel(e.target.value))} /></div>
+                      <div className="fi2"><div className="fil">WhatsApp do Estúdio</div><input className="ef" value={studioTel} placeholder="(99) 99999-9999" onChange={e => setStudioTel(maskTel(e.target.value))} /></div>
                       <div className="fi2"><div className="fil">CNPJ{!cnpj && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={cnpj} placeholder="00.000.000/0001-00" maxLength={18} onChange={e => {
                         const raw = e.target.value.replace(/\D/g,"").slice(0,14);
                         let fmt = raw;
@@ -6901,13 +7014,10 @@ export default function CRM() {
                     <div className="stit">Endereço</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <div className="fg2">
-                        <div className="fi2" style={{ gridColumn: "1 / -1" }}><div className="fil">Endereço Completo</div><input className="ef" value={studioEndereco} placeholder="Endereço completo" onChange={e => setStudioEndereco(e.target.value)} /></div>
-                      </div>
-                      <div className="fg2">
-                        <div className="fi2" style={{ gridColumn: "1 / -1" }}><div className="fil">Rua / Logradouro</div><input className="ef" value={studioRua} placeholder="Rua Principal" onChange={e => { const v = e.target.value; setStudioRua(v.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase())); }} /></div>
+                        <div className="fi2" style={{ gridColumn: "1 / -1" }}><div className="fil">Rua / Logradouro</div><input className="ef" value={studioRua} placeholder="Rua, Avenida..." onChange={e => { const v = e.target.value; setStudioRua(v.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase())); }} /></div>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 8 }}>
-                        <div className="fi2"><div className="fil">Número</div><input className="ef" value={studioNumero} placeholder="165" onChange={e => setStudioNumero(e.target.value)} /></div>
+                        <div className="fi2"><div className="fil">Número</div><input className="ef" value={studioNumero} placeholder="Nº" onChange={e => setStudioNumero(e.target.value)} /></div>
                         <div className="fi2"><div className="fil">CEP</div><input className="ef" value={studioCep} placeholder="00000-000" maxLength={9} onChange={async e => {
                           const raw = e.target.value.replace(/\D/g,"").slice(0,8);
                           const masked = raw.length > 5 ? raw.slice(0,5) + "-" + raw.slice(5) : raw;
@@ -6925,7 +7035,7 @@ export default function CRM() {
                             } catch {}
                           }
                         }} /></div>
-                        <div className="fi2"><div className="fil">Bairro</div><input className="ef" value={studioBairro} placeholder="Centro" onChange={e => { const v = e.target.value; setStudioBairro(v.charAt(0).toUpperCase() + v.slice(1)); }} /></div>
+                        <div className="fi2"><div className="fil">Bairro</div><input className="ef" value={studioBairro} placeholder="Bairro" onChange={e => { const v = e.target.value; setStudioBairro(v.charAt(0).toUpperCase() + v.slice(1)); }} /></div>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 80px 1fr", gap: 8 }}>
                         <div className="fi2"><div className="fil">Cidade</div><input className="ef" value={studioCity} onChange={e => { const v = e.target.value; setStudioCity(v.charAt(0).toUpperCase() + v.slice(1)); }} /></div>
@@ -6936,7 +7046,7 @@ export default function CRM() {
                           </select>
                         </div>
                         <div className="fi2"><div className="fil">País</div><input className="ef" value={studioPais} onChange={e => setStudioPais(e.target.value)} /></div>
-                        <div className="fi2"><div className="fil">Complemento</div><input className="ef" value={studioComplemento} placeholder="Sala 2, Loja A..." onChange={e => { const v = e.target.value; setStudioComplemento(v.charAt(0).toUpperCase() + v.slice(1)); }} /></div>
+                        <div className="fi2"><div className="fil">Complemento</div><input className="ef" value={studioComplemento} placeholder="Ex: Loja 2, Sala 3" onChange={e => { const v = e.target.value; setStudioComplemento(v.charAt(0).toUpperCase() + v.slice(1)); }} /></div>
                       </div>
                     </div>
                   </div>
@@ -7126,7 +7236,7 @@ export default function CRM() {
                     </div>
                     <div className="fg2">
                       <div className="fi2"><div className="fil">Nome Completo</div><input className="ef" value={donoNome || studioOwner} placeholder="Seu nome completo" onChange={e => setDonoNome(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">WhatsApp Pessoal{!donoWhats && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={donoWhats} placeholder="(27) 99999-9999" onChange={e => setDonoWhats(maskTel(e.target.value))} style={{ borderColor: !donoWhats ? "rgba(212,130,10,.4)" : undefined }} /></div>
+                      <div className="fi2"><div className="fil">WhatsApp Pessoal{!donoWhats && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={donoWhats} placeholder="(99) 99999-9999" onChange={e => setDonoWhats(maskTel(e.target.value))} style={{ borderColor: !donoWhats ? "rgba(212,130,10,.4)" : undefined }} /></div>
                       <div className="fi2"><div className="fil">Email Pessoal{!donoEmail && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={donoEmail} placeholder="seu@email.com" onChange={e => setDonoEmail(e.target.value)} style={{ borderColor: !donoEmail ? "rgba(212,130,10,.4)" : undefined }} /></div>
                     </div>
                   </div>
@@ -7136,22 +7246,100 @@ export default function CRM() {
                       A {auraName} pode enviar notificações diretamente para você via WhatsApp pessoal.
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {[
-                        { id: "alerta_nova_mensagem", label: "Nova mensagem recebida via Aura", desc: "Quando um cliente enviar mensagem fora do horário comercial" },
-                        { id: "alerta_sessao_proxima", label: "Sessão em 2h", desc: "Lembrete antes de cada sessão agendada" },
-                        { id: "alerta_falta", label: "Falta registrada", desc: "Quando um cliente não comparecer" },
-                        { id: "alerta_novo_cliente", label: "Novo cliente cadastrado", desc: "Quando um lead entrar pelo WhatsApp via Aura" },
-                      ].map(alerta => (
-                        <div key={alerta.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
-                          <div>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>{alerta.label}</div>
-                            <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>{alerta.desc}</div>
-                          </div>
-                          <div style={{ width: 36, height: 20, borderRadius: 10, background: "var(--q3)", flexShrink: 0, position: "relative", cursor: "pointer" }}>
-                            <div style={{ position: "absolute", right: 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff" }} />
-                          </div>
+                      {/* 1 */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>Nova mensagem recebida via Aura</div>
+                          <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Quando um cliente enviar mensagem fora do horário comercial</div>
                         </div>
-                      ))}
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_nova_mensagem: !p.alerta_nova_mensagem }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_nova_mensagem ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}>
+                          <div style={{ position: "absolute", left: alertaConfig.alerta_nova_mensagem ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+                        </div>
+                      </div>
+                      {/* 2 — Sessão em X com selector */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", display: "flex", alignItems: "center", gap: 6 }}>
+                            Sessão em{" "}
+                            <select value={alertaConfig.alerta_sessao_antecedencia} onChange={e => setAlertaConfig(p => ({ ...p, alerta_sessao_antecedencia: e.target.value }))} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--gold)", fontSize: 11, fontWeight: 700, padding: "1px 4px", cursor: "pointer" }}>
+                              <option value="2h">2h</option>
+                              <option value="4h">4h</option>
+                              <option value="24h">24h</option>
+                            </select>
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Lembrete antes de cada sessão agendada</div>
+                        </div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_sessao_proxima: !p.alerta_sessao_proxima }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_sessao_proxima ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}>
+                          <div style={{ position: "absolute", left: alertaConfig.alerta_sessao_proxima ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+                        </div>
+                      </div>
+                      {/* 3 */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>Falta registrada</div>
+                          <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Quando um cliente não comparecer</div>
+                        </div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_falta: !p.alerta_falta }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_falta ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}>
+                          <div style={{ position: "absolute", left: alertaConfig.alerta_falta ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+                        </div>
+                      </div>
+                      {/* 4 */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>Aniversário de cliente hoje</div>
+                          <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Disparo automático no dia do aniversário</div>
+                        </div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_aniversario: !p.alerta_aniversario }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_aniversario ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}>
+                          <div style={{ position: "absolute", left: alertaConfig.alerta_aniversario ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+                        </div>
+                      </div>
+                      {/* 5 — Cliente sem retorno há X dias */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", display: "flex", alignItems: "center", gap: 6 }}>
+                            Cliente sem retorno há{" "}
+                            <select value={alertaConfig.alerta_sem_retorno_dias} onChange={e => setAlertaConfig(p => ({ ...p, alerta_sem_retorno_dias: e.target.value }))} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--gold)", fontSize: 11, fontWeight: 700, padding: "1px 4px", cursor: "pointer" }}>
+                              <option value="30">30 dias</option>
+                              <option value="60">60 dias</option>
+                              <option value="90">90 dias</option>
+                            </select>
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Clientes inativos que precisam de recontato</div>
+                        </div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_sem_retorno: !p.alerta_sem_retorno }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_sem_retorno ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}>
+                          <div style={{ position: "absolute", left: alertaConfig.alerta_sem_retorno ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+                        </div>
+                      </div>
+                      {/* 6 */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>Sinal pendente confirmado</div>
+                          <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Quando o sinal de uma sessão ainda não foi recebido</div>
+                        </div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_sinal_pendente: !p.alerta_sinal_pendente }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_sinal_pendente ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}>
+                          <div style={{ position: "absolute", left: alertaConfig.alerta_sinal_pendente ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+                        </div>
+                      </div>
+                      {/* 7 */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>Projeto sem valor definido</div>
+                          <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Sessão agendada sem orçamento registrado</div>
+                        </div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_projeto_sem_valor: !p.alerta_projeto_sem_valor }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_projeto_sem_valor ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}>
+                          <div style={{ position: "absolute", left: alertaConfig.alerta_projeto_sem_valor ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+                        </div>
+                      </div>
+                      {/* 8 */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>Cliente novo cadastrado pela Aura</div>
+                          <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Quando um lead entrar pelo WhatsApp via Aura</div>
+                        </div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_novo_cliente_aura: !p.alerta_novo_cliente_aura }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_novo_cliente_aura ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}>
+                          <div style={{ position: "absolute", left: alertaConfig.alerta_novo_cliente_aura ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+                        </div>
+                      </div>
                     </div>
                     <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 10, fontStyle: "italic" }}>
                       💡 Os alertas para artistas são configurados individualmente na aba Artistas.
@@ -7309,18 +7497,30 @@ export default function CRM() {
                   <div>
                     <div className="stit">Status do Sistema</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {[
-                        { label: "Supabase", status: "Conectado", ok: true },
-                        { label: "In-Quadra Ink System", status: "v1.7.0", ok: true },
-                        { label: "Aura (WhatsApp)", status: "Verificar na Meta", ok: false },
-                      ].map(item => (
-                        <div key={item.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 12px", background: "var(--dk3)", borderRadius: 7, border: "1px solid var(--br)" }}>
-                          <span style={{ fontSize: 12, color: "var(--tx)" }}>{item.label}</span>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: item.ok ? "var(--q3)" : "var(--q2)", background: item.ok ? "rgba(39,174,96,.1)" : "rgba(212,130,10,.1)", border: "1px solid " + (item.ok ? "rgba(39,174,96,.2)" : "rgba(212,130,10,.2)"), borderRadius: 4, padding: "2px 8px" }}>
-                            {item.ok ? "✓ " : "⚠ "}{item.status}
-                          </span>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 12px", background: "var(--dk3)", borderRadius: 7, border: "1px solid var(--br)" }}>
+                        <div>
+                          <div style={{ fontSize: 12, color: "var(--tx)" }}>Supabase</div>
+                          <div style={{ fontSize: 10, opacity: 0.6, color: "var(--tx3)", marginTop: 2 }}>Banco de dados do sistema — armazena todos os seus clientes e agendamentos</div>
                         </div>
-                      ))}
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--q3)", background: "rgba(39,174,96,.1)", border: "1px solid rgba(39,174,96,.2)", borderRadius: 4, padding: "2px 8px", flexShrink: 0, marginLeft: 8 }}>✓ Conectado</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 12px", background: "var(--dk3)", borderRadius: 7, border: "1px solid var(--br)" }}>
+                        <div>
+                          <div style={{ fontSize: 12, color: "var(--tx)" }}>In-Quadra Ink System</div>
+                          <div style={{ fontSize: 10, opacity: 0.6, color: "var(--tx3)", marginTop: 2 }}>Versão atual do sistema</div>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--q3)", background: "rgba(39,174,96,.1)", border: "1px solid rgba(39,174,96,.2)", borderRadius: 4, padding: "2px 8px", flexShrink: 0, marginLeft: 8 }}>✓ v1.7.0</span>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "9px 12px", background: "var(--dk3)", borderRadius: 7, border: "1px solid var(--br)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <div style={{ fontSize: 12, color: "var(--tx)" }}>Aura (WhatsApp)</div>
+                            <div style={{ fontSize: 10, opacity: 0.6, color: "var(--tx3)", marginTop: 2 }}>Agente de IA conectada ao WhatsApp Business</div>
+                          </div>
+                          <a href="https://business.facebook.com" target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 700, color: "var(--q2)", background: "rgba(212,130,10,.1)", border: "1px solid rgba(212,130,10,.2)", borderRadius: 4, padding: "2px 8px", textDecoration: "none", flexShrink: 0, marginLeft: 8 }}>⚠ Configurar WhatsApp</a>
+                        </div>
+                        <div style={{ fontSize: 10, opacity: 0.6, color: "var(--tx3)", fontStyle: "italic" }}>Acesse business.facebook.com para conectar seu número</div>
+                      </div>
                     </div>
                   </div>
                   <div>
@@ -7396,7 +7596,6 @@ export default function CRM() {
                     studio_name: studioName, studio_tel: studioTel,
                     studio_owner: studioOwner, studio_email: studioEmail,
                     studio_city: studioCity, studio_insta: studioInsta,
-                    studio_endereco: studioEndereco,
                     studio_rua: studioRua, studio_numero: studioNumero,
                     studio_complemento: studioComplemento, studio_bairro: studioBairro,
                     studio_cep: studioCep, studio_estado: studioEstado,
@@ -7412,6 +7611,7 @@ export default function CRM() {
                     desconto_aniversario: descontoAniversario,
                     horarios, dark_mode: dark,
                     studio_logo: studioLogo,
+                    alerta_config: alertaConfig,
                     user_id: userId,
                     updated_at: new Date().toISOString()
                   };
@@ -7421,7 +7621,6 @@ export default function CRM() {
                   } else {
                     await sb.from("configuracoes").insert(cfg);
                   }
-                  setShowSettings(false);
                   setShowAviso("Configurações salvas com sucesso.");
                 }}>Salvar</button>
                 </div>
