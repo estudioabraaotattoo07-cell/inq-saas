@@ -2086,7 +2086,7 @@ export default function CRM() {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>WhatsApp da {auraName} *</label>
-                  <input className="fi" value={studioTel} onChange={e => setStudioTel(maskTel(e.target.value))} placeholder="(27) 99999-0000" />
+                  <input className="fi" value={studioTel} onChange={e => setStudioTel(maskTel(e.target.value))} placeholder="(99) 99999-9999" />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Email do Estudio</label>
@@ -3792,7 +3792,7 @@ export default function CRM() {
                     </div>
                     <div className="ff">
                       <label className="fl">Telefone (visivel apenas para o dono)</label>
-                      <input className="fi" placeholder="(27) 99999-9999" value={editingArtist.tel || ""} onChange={e => setEditingArtist({ ...editingArtist, tel: e.target.value })} />
+                      <input className="fi" placeholder="(99) 99999-9999" value={editingArtist.tel || ""} onChange={e => setEditingArtist({ ...editingArtist, tel: e.target.value })} />
                     </div>
                     <div className="ff">
                       <label className="fl">Cor</label>
