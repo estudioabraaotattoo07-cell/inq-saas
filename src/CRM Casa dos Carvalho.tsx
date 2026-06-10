@@ -920,6 +920,8 @@ export default function CRM() {
   const [showArtForm, setShowArtForm] = useState(false);
   const [showAgForm, setShowAgForm] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
+  const alertBtnRef = useRef<HTMLDivElement>(null);
+  const [alertPos, setAlertPos] = useState({ top: 64, right: 16 });
   const [showCtr, setShowCtr] = useState<any>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [ctrEdit, setCtrEdit] = useState<Record<string, string>>({});
@@ -1304,6 +1306,16 @@ export default function CRM() {
 
     // Cumpriu Evento — modal de pagamento
     if (ns === "tatuado") {
+      const hoje0 = new Date(); hoje0.setHours(0,0,0,0);
+      const sessoesCliente = evs.filter(e => !e.tipo?.startsWith("bloq") && !e.tipo?.startsWith("cons"));
+      const todasFuturas = sessoesCliente.length > 0 && sessoesCliente.every(e => {
+        const d = e.date ? new Date(e.date + "T12:00:00") : null;
+        return d && d > hoje0;
+      });
+      if (todasFuturas) {
+        setShowAviso("Esta sessão ainda não ocorreu. Só é possível confirmar sessões do dia atual ou passadas.");
+        return;
+      }
       const ev = evs.length > 0 ? evs[evs.length - 1] : null;
       const valorPrev = ev?.valor_previsto ? (Number(ev.valor_previsto)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
       setPagFormas([{ forma: "Pix", valor: valorPrev, parcelas: "1" }]);
@@ -2315,7 +2327,11 @@ export default function CRM() {
           <div className="tbr">
             {alertas.length > 0 && (
               <div style={{ position: "relative" }}>
-                <div className="alert-btn" onClick={() => setShowAlerts(v => !v)}>
+                <div ref={alertBtnRef} className="alert-btn" onClick={() => {
+                  const rect = alertBtnRef.current?.getBoundingClientRect();
+                  if (rect) setAlertPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+                  setShowAlerts(v => !v);
+                }}>
                   ⚠️ {alertas.length} alerta{alertas.length > 1 ? "s" : ""}
                 </div>
               </div>
@@ -2328,7 +2344,7 @@ export default function CRM() {
         </div>
         {/* ALERT DROPDOWN - fora do topbar para evitar overflow */}
         {showAlerts && alertas.length > 0 && (
-          <div style={{ position: "fixed", top: 64, right: 16, width: "min(380px, calc(100vw - 32px))", background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,.5)", zIndex: 9999, maxHeight: "80vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ position: "fixed", top: alertPos.top, right: alertPos.right, width: "min(380px, calc(100vw - 32px))", background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,.5)", zIndex: 9999, maxHeight: "80vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <div className="ad-hdr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>Alertas — {alertas.length} clientes</span>
               <button onClick={() => setShowAlerts(false)} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 16 }}>×</button>
@@ -2553,6 +2569,28 @@ export default function CRM() {
                             <span className={"qb " + QC[c.qual]}>{c.qual}</span>
                           </div>
                           <div className="cst">{c.estilo || "Sem estilo"} {c.regiao || " - "}</div>
+                          {(() => {
+                            const sessCli = agEvents.filter(e => e.cliente_id === c.id && !e.tipo?.startsWith("bloq") && !e.tipo?.startsWith("cons"));
+                            const total = sessCli.length;
+                            if (total < 2) return null;
+                            const hoje0 = new Date(); hoje0.setHours(0,0,0,0);
+                            const concluidas = sessCli.filter(e => e.status === "concluido").length;
+                            const exibir = total > 5 ? sessCli.slice(0, 4) : sessCli;
+                            return (
+                              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 10, color: "var(--tx2)" }}>
+                                {exibir.map((e, i) => {
+                                  const conc = e.status === "concluido";
+                                  const dEv = e.date ? new Date(e.date + "T12:00:00") : null;
+                                  const prox = !conc && dEv && dEv >= hoje0;
+                                  return (
+                                    <div key={e.id || i} style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: conc ? "#27AE60" : prox ? "var(--gold)" : "var(--dk5)", border: conc || prox ? "none" : "1px solid var(--br)" }} />
+                                  );
+                                })}
+                                {total > 5 && <span style={{ fontSize: 9 }}>…</span>}
+                                <span>{concluidas} de {total}</span>
+                              </div>
+                            );
+                          })()}
                           {agEvents.some(e => e.cliente_id === c.id && e.status === "cancelado") && (
                             <div style={{ fontSize: 10, color: "#E67E22", background: "rgba(230,126,34,.12)", border: "1px solid rgba(230,126,34,.25)", borderRadius: 4, padding: "2px 6px", display: "inline-flex", alignItems: "center", gap: 3, marginBottom: 2 }}>⊘ Evento cancelado</div>
                           )}
@@ -3064,7 +3102,7 @@ export default function CRM() {
                   <button className="btn-new" style={{ fontSize: 11, padding: "5px 12px" }} onClick={() => setShowEntradaForm(true)}>+ Lançar Manual</button>
                 </div>
                 <table className="ft">
-                  <thead><tr><th>Descrição</th><th>Artista</th><th>Data</th><th>Valor</th><th>Saldo</th><th>Forma</th><th>Categoria</th><th>Com %</th><th>Repasse</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Descrição</th><th>Artista</th><th>Data</th><th>Valor</th><th>Saldo Dev.</th><th>Forma</th><th>Categoria</th><th>Com %</th><th>Repasse</th><th>Status</th></tr></thead>
                   <tbody>
                     {finFiltrado.filter(f => !f.tipo || f.tipo === "entrada").length === 0 && (
                       <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--tx3)", fontSize: 12, padding: 16, fontStyle: "italic" }}>Nenhuma entrada no período.</td></tr>
@@ -5876,6 +5914,12 @@ export default function CRM() {
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={async () => {
                   const ev = confirmPresenca.event;
+                  const dataEv = ev.date ? new Date(ev.date + "T12:00:00") : null;
+                  const hoje0 = new Date(); hoje0.setHours(0,0,0,0);
+                  if (dataEv && dataEv > hoje0) {
+                    setShowAviso("Esta sessão ainda não ocorreu. Só é possível confirmar sessões do dia atual ou passadas.");
+                    return;
+                  }
                   await sb.from("agenda").update({ status: "concluido" }).eq("id", ev.id);
                   setAgEvents(p => p.map(x => x.id === ev.id ? { ...x, status: "concluido" } : x));
                   const cliPres = ev.cliente_id ? clients.find(c => c.id === ev.cliente_id) : null;
@@ -6196,7 +6240,7 @@ export default function CRM() {
                               setEditingEvent(null);
                               setAgClientVinc(cliLocal);
                               setAgClientSearch("");
-                              setAgForm({ title: cliLocal.nome, desc: "", tipo: "sess_" + (cliLocal.artista || artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11 } as any);
+                              setAgForm({ title: cliLocal.nome, desc: "", tipo: "sess_" + (cliLocal.artista || artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11, sinal: "", sinalPago: false } as any);
                               setSessoesExtras([]);
                               setShowAgForm(true);
                             }, 600);
