@@ -313,7 +313,9 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 .fmf{padding:13px 21px;border-top:1px solid var(--br);display:flex;gap:7px;justify-content:flex-end;}
 .btn-c{background:var(--dk3);border:1px solid var(--br);border-radius:5px;color:var(--tx2);padding:7px 15px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;}
 .btn-s{background:var(--gold);color:#000;border:none;border-radius:5px;padding:7px 17px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
-.settings-modal{background:var(--dk2);border:1px solid var(--br);border-radius:11px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;}
+.settings-modal{background:var(--dk2);border:1px solid var(--br);border-radius:11px;width:100%;max-width:560px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;}
+.settings-tabs-bar{position:sticky;top:0;z-index:10;background:var(--dk2);}
+.settings-content{overflow-y:auto;flex:1;}
 .hr-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--br);}
 .hr-dia{font-size:12px;font-weight:600;color:var(--tx);width:70px;flex-shrink:0;}
 .hr-toggle{width:36px;height:20px;border-radius:10px;cursor:pointer;position:relative;flex-shrink:0;transition:background .2s;}
@@ -3708,7 +3710,7 @@ export default function CRM() {
                         forma_pgto: entradaForm.forma_pgto,
                         parcelas: entradaForm.forma_pgto === "Cartão" ? parseInt(entradaForm.parcelas) || 1 : 1,
                         data: entradaForm.data, competencia: compEntrada,
-                        com_base: isSinalCat ? 0 : com, com_sess: isSinalCat ? 0 : com,
+                        com_base: (isSinalCat || isPiercingCat) ? 0 : com, com_sess: (isSinalCat || isPiercingCat) ? 0 : com,
                         val_aplicador: isPiercingCat ? (entradaForm.val_aplicador || 0) : 0,
                         val_studio: isPiercingCat ? (entradaForm.val_studio || 0) : 0,
                         user_id: userId
@@ -6059,10 +6061,16 @@ export default function CRM() {
               {(() => {
                 const isConsulta = confirmPresenca.event.tipo?.startsWith("cons");
                 const isSessao = confirmPresenca.event.tipo?.startsWith("sess");
+                const isPiercing = confirmPresenca.event.tipo === "piercing";
                 const evStatus = confirmPresenca.event.status;
+                const isHojeOuPassado = (() => {
+                  const dataEv = confirmPresenca.event.date ? new Date(confirmPresenca.event.date + "T12:00:00") : null;
+                  const hoje0 = new Date(); hoje0.setHours(0,0,0,0);
+                  return !dataEv || dataEv <= hoje0;
+                })();
                 return (
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {isConsulta && evStatus !== "concluido" ? (
+                    {isConsulta && evStatus !== "concluido" && isHojeOuPassado ? (
                       <button onClick={async () => {
                         const ev = confirmPresenca.event;
                         await sb.from("agenda").update({ status: "concluido" }).eq("id", ev.id);
@@ -6091,6 +6099,16 @@ export default function CRM() {
                         setConfirmPresenca(null); setPresencaMotivo("");
                       }} style={{ flex: 1, background: "rgba(39,174,96,.15)", border: "1px solid rgba(39,174,96,.35)", borderRadius: 7, padding: "10px", fontSize: 13, fontWeight: 700, color: "#27AE60", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                         ✓ Cumpriu Sessão
+                      </button>
+                    ) : isPiercing && isHojeOuPassado && evStatus !== "concluido" ? (
+                      <button onClick={() => {
+                        const ev = confirmPresenca.event;
+                        const valorPrev = ev.valor_previsto ? Number(ev.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "";
+                        setPagFormas([{ forma: "Pix", valor: valorPrev, parcelas: "1" }]);
+                        setConfirmPagamento({ cid: ev.cliente_id, agEvent: ev });
+                        setConfirmPresenca(null); setPresencaMotivo("");
+                      }} style={{ flex: 1, background: "rgba(233,30,140,.15)", border: "1px solid rgba(233,30,140,.35)", borderRadius: 7, padding: "10px", fontSize: 13, fontWeight: 700, color: "#E91E8C", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                        ✓ Cumpriu Aplicação
                       </button>
                     ) : (
                       <button onClick={async () => {
@@ -6921,7 +6939,9 @@ export default function CRM() {
                           await sb.from("financeiro").delete().neq("id", "00000000-0000-0000-0000-000000000000");
                           await sb.from("agenda").delete().neq("id", "00000000-0000-0000-0000-000000000000");
                           await sb.from("clientes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-                          setClients([]); setAgEvents([]); setFin([]); setSaidas([]);
+                          await sb.from("artistas").delete().eq("user_id", userId);
+                          await sb.from("historico").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+                          setClients([]); setAgEvents([]); setFin([]); setSaidas([]); setArtists([]); setHistorico([]);
                           setResetUndo(false); setConfirmReset(false); setShowSettings(false);
                           setShowAviso("Reset concluído. Sistema limpo e pronto para uso real. 🖤");
                         }
@@ -7300,7 +7320,7 @@ export default function CRM() {
                 <button className="mc" onClick={() => { if (!editandoListas) setShowSettings(false); }}>✕</button>
               </div>
               {/* ABAS */}
-              <div style={{ display: "flex", borderBottom: "1px solid var(--br)" }}>
+              <div className="settings-tabs-bar" style={{ display: "flex", borderBottom: "1px solid var(--br)" }}>
                 {([["estudio","🏠 Estúdio"],["dono","👤 Dono"],["metas","🎯 Metas"],["ia","🤖 IA"],["sistema","⚙️ Sistema"]] as const).map(([id, label]) => (
                   <div key={id} onClick={() => setSettingsTab(id)}
                     style={{ flex: 1, padding: "10px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, cursor: "pointer", letterSpacing: ".04em",
@@ -7312,7 +7332,7 @@ export default function CRM() {
                 ))}
               </div>
 
-              <div className="mb">
+              <div className="settings-content"><div className="mb">
 
                 {/* ── ABA ESTÚDIO ── */}
                 {settingsTab === "estudio" && <>
@@ -7986,6 +8006,7 @@ export default function CRM() {
                 }}>Salvar</button>
                 </div>
               </div>
+              </div>{/* end settings-content */}
             </div>
           </div>
           );
