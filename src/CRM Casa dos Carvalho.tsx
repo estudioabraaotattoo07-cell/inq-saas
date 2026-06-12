@@ -1032,6 +1032,7 @@ export default function CRM() {
   const [confirmAgForm, setConfirmAgForm] = useState(false);
   const [confirmPresenca, setConfirmPresenca] = useState<{event: any} | null>(null);
   const [presencaMotivo, setPresencaMotivo] = useState("");
+  const [confirmTrocarProfissional, setConfirmTrocarProfissional] = useState<{clienteId: any; novoArtista: string; antigoArtista: string} | null>(null);
   const [nascDraft, setNascDraft] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [editandoListas, setEditandoListas] = useState(false);
@@ -1221,6 +1222,14 @@ export default function CRM() {
     sb.from("historico").select("*").order("id", { ascending: false }).limit(500)
       .then(({ data }) => { if (data) setHistorico(data); });
   }, []);
+
+  useEffect(() => {
+    if (tab === "agenda") {
+      const horaAtual = new Date().getHours();
+      const el = document.querySelector(".wt[data-hora='" + horaAtual + "']");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [tab]);
 
   useMemo(() => applyTheme(dark), [dark]);
   useMemo(() => {
@@ -2045,67 +2054,62 @@ export default function CRM() {
       setAuthLoading(false);
     };
     return (
-      <div style={{ minHeight: "100vh", background: "#0E0E0E", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 32, fontFamily: "'DM Sans',sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #0A0A0A 0%, #111008 50%, #0A0A0A 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", fontFamily: "'DM Sans',sans-serif" }}>
         <style>{S}</style>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-          <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#C9A84C", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond',serif", fontSize: 36, fontWeight: 700, color: "#000", boxShadow: "0 0 40px rgba(201,168,76,.25)" }}>
-            {studioName ? studioName[0].toUpperCase() : "S"}
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "#C9A84C", letterSpacing: ".08em" }}>{studioName}</div>
-            <div style={{ fontSize: 10, color: "#555045", letterSpacing: ".18em", textTransform: "uppercase", marginTop: 4 }}>In-Quadra Ink System</div>
-          </div>
-        </div>
-        <div style={{ background: "#161616", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 12, padding: "28px 32px", width: "min(360px, 90vw)", display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#E8E2D9", textAlign: "center" }}>
-            {authMode === "login" ? "Acesso Restrito" : "Criar Conta"}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>E-mail</label>
-              <input
-                className="fi"
-                type="email"
-                placeholder="seu@email.com"
-                value={authEmail}
-                onChange={e => { setAuthEmail(e.target.value); setAuthError(""); }}
-                onKeyDown={e => { if (e.key === "Enter") handleAuth(); }}
-                autoFocus
-                style={{ fontSize: 14 }}
-              />
+        <div style={{ width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
+          {/* Logo/Avatar */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+            {studioLogo
+              ? <img src={studioLogo} alt="logo" style={{ width: 88, height: 88, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(201,168,76,0.4)", boxShadow: "0 0 32px rgba(201,168,76,0.15)" }} />
+              : <div style={{ width: 88, height: 88, borderRadius: "50%", background: "linear-gradient(135deg, #C9A84C, #a07830)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 700, color: "#1a1a1a", boxShadow: "0 0 32px rgba(201,168,76,0.2)", fontFamily: "'Cormorant Garamond',serif" }}>
+                  {studioName ? studioName[0].toUpperCase() : "S"}
+                </div>
+            }
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 700, color: "#C9A84C", letterSpacing: ".04em" }}>{studioName || "INK SYSTEM"}</div>
+              <div style={{ fontSize: 10, color: "#4a4235", letterSpacing: ".18em", textTransform: "uppercase", marginTop: 3 }}>Sistema de Gestão</div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Senha</label>
-              <input
-                className="fi"
-                type="password"
-                placeholder="••••••••"
-                value={authPassword}
-                onChange={e => { setAuthPassword(e.target.value); setAuthError(""); }}
-                onKeyDown={e => { if (e.key === "Enter") handleAuth(); }}
-                style={{ fontSize: 16, letterSpacing: ".1em" }}
-              />
+          </div>
+
+          {/* Card de login */}
+          <div style={{ width: "100%", background: "rgba(22,22,22,0.95)", border: "1px solid rgba(201,168,76,0.12)", borderRadius: 16, padding: "32px 28px", backdropFilter: "blur(10px)", boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#8A7A60", textAlign: "center", textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 24 }}>
+              {authMode === "login" ? "Acesso Restrito" : "Criar Conta"}
             </div>
-            {authError && (
-              <div style={{ fontSize: 11, color: authError.includes("Verifique") ? "#27AE60" : "#C0392B", marginTop: 2 }}>
-                {authError}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#6A6050" }}>E-mail</label>
+                <input className="fi" type="email" placeholder="seu@email.com" value={authEmail}
+                  onChange={e => { setAuthEmail(e.target.value); setAuthError(""); }}
+                  onKeyDown={e => { if (e.key === "Enter") handleAuth(); }}
+                  autoFocus style={{ fontSize: 14, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: "12px 14px", color: "#E8E2D9" }} />
               </div>
-            )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#6A6050" }}>Senha</label>
+                <input className="fi" type="password" placeholder="••••••••" value={authPassword}
+                  onChange={e => { setAuthPassword(e.target.value); setAuthError(""); }}
+                  onKeyDown={e => { if (e.key === "Enter") handleAuth(); }}
+                  style={{ fontSize: 16, letterSpacing: ".1em", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: "12px 14px", color: "#E8E2D9" }} />
+              </div>
+              {authError && (
+                <div style={{ fontSize: 11, color: authError.includes("Verifique") ? "#27AE60" : "#C0392B", background: authError.includes("Verifique") ? "rgba(39,174,96,0.08)" : "rgba(192,57,43,0.08)", padding: "8px 12px", borderRadius: 6, lineHeight: 1.5 }}>
+                  {authError}
+                </div>
+              )}
+              <button onClick={handleAuth} disabled={authLoading}
+                style={{ background: authLoading ? "rgba(201,168,76,0.3)" : "linear-gradient(135deg, #C9A84C, #a07830)", color: authLoading ? "#888" : "#0A0A0A", border: "none", borderRadius: 8, padding: "13px 0", fontSize: 13, fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", letterSpacing: ".06em", textTransform: "uppercase", marginTop: 4, transition: "all .2s", fontFamily: "inherit" }}>
+                {authLoading ? "Aguarde..." : authMode === "login" ? "Entrar →" : "Criar Conta →"}
+              </button>
+              <div style={{ textAlign: "center", marginTop: 4 }}>
+                <button onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}
+                  style={{ background: "none", border: "none", fontSize: 11, color: "#4a4235", cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>
+                  {authMode === "login" ? "Criar nova conta" : "Já tenho conta — entrar"}
+                </button>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={handleAuth}
-            disabled={authLoading}
-            style={{ background: authLoading ? "#666" : "#C9A84C", color: "#000", border: "none", borderRadius: 8, padding: "11px 0", fontSize: 13, fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", fontFamily: "'DM Sans',sans-serif", letterSpacing: ".04em" }}>
-            {authLoading ? "Aguarde..." : authMode === "login" ? "Entrar →" : "Criar Conta →"}
-          </button>
-          <div style={{ textAlign: "center" }}>
-            <button onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}
-              style={{ background: "none", border: "none", fontSize: 12, color: "#8A8070", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", textDecoration: "underline" }}>
-              {authMode === "login" ? "Criar nova conta" : "Já tenho conta — entrar"}
-            </button>
-          </div>
+          <div style={{ fontSize: 10, color: "#1e1e1e", letterSpacing: ".1em", textTransform: "uppercase" }}>© {new Date().getFullYear()} INK SYSTEM</div>
         </div>
-        <div style={{ fontSize: 10, color: "#303030", letterSpacing: ".1em", textTransform: "uppercase" }}>© {new Date().getFullYear()} {studioName}</div>
       </div>
     );
   }
@@ -2251,9 +2255,9 @@ export default function CRM() {
                   {h.aberto ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <input className="fi" type="time" value={h.ini} onChange={e => setHorarios(p => p.map((x, j) => j === i ? { ...x, ini: e.target.value } : x))} style={{ width: 90, padding: "4px 7px" }} />
-                        <span style={{ fontSize: 12, color: "#8A8070" }}>as</span>
-                        <input className="fi" type="time" value={h.fim} onChange={e => setHorarios(p => p.map((x, j) => j === i ? { ...x, fim: e.target.value } : x))} style={{ width: 90, padding: "4px 7px" }} />
+                        <TimeScroller value={h.ini ? parseInt(h.ini.split(":")[0]) : 8} onChange={v => setHorarios(p => p.map((x, j) => j === i ? { ...x, ini: String(v).padStart(2,"0") + ":00" } : x))} />
+                        <span style={{ fontSize: 12, color: "#8A8070" }}>às</span>
+                        <TimeScroller value={h.fim ? parseInt(h.fim.split(":")[0]) : 18} onChange={v => setHorarios(p => p.map((x, j) => j === i ? { ...x, fim: String(v).padStart(2,"0") + ":00" } : x))} />
                         <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: 8 }}>
                           <div style={{ width: 30, height: 16, borderRadius: 8, cursor: "pointer", position: "relative", flexShrink: 0, transition: "background .2s", background: h.almoco ? "#C9A84C" : "#303030" }}
                             onClick={() => setHorarios(p => p.map((x, j) => j === i ? { ...x, almoco: !x.almoco } : x))}>
@@ -2859,7 +2863,7 @@ export default function CRM() {
                     </div>
                   ))}
                   {HOURS.map(h => [
-                    <div key={"t" + h} className="wt">{h}:00</div>,
+                    <div key={"t" + h} className="wt" data-hora={h}>{h}:00</div>,
                     ...wDates.map((d, di) => {
                       const ds = fmtDate(d);
                       const evs = agEvents.filter(e => e.date === ds && e.start === h);
@@ -2921,7 +2925,7 @@ export default function CRM() {
                     const evs = agEvents.filter(e => e.date === ds && e.start === h);
                     const occupied = agEvents.some(e => e.date === ds && e.start < h && e.end > h);
                     return (
-                      <div key={h} className="dr">
+                      <div key={h} className="dr" data-hora={h}>
                         <div className="dtime">{h}:00</div>
                         <div className="dslot" style={{ position: "relative", minHeight: 46 }}
                           onClick={() => { if (!evs.length && !occupied) { setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); setAgForm({ title: "", desc: "", tipo: "cons_" + (artists[0]?.id || ""), date: ds, start: h, end: h + 2, sinal: "", sinalPago: false } as any); setShowAgForm(true); } }}>
@@ -4685,7 +4689,18 @@ export default function CRM() {
                     ))}
                     <div className="fi2">
                       <div className="fil">Profissional Responsável</div>
-                      <select className="ef" value={sc.artista || ""} onChange={e => upC(sc.id, "artista", e.target.value)}>
+                      <select className="ef" value={sc.artista || ""} onChange={e => {
+                        const novoArtista = e.target.value;
+                        const antigoArtista = sc.artista || "";
+                        if (novoArtista !== antigoArtista) {
+                          const hoje = new Date().toISOString().split("T")[0];
+                          const eventosFuturos = agEvents.filter(ev => ev.cliente_id === sc.id && ev.date >= hoje && ev.status !== "concluido" && ev.status !== "cancelado" && ev.tipo?.includes(antigoArtista));
+                          upC(sc.id, "artista", novoArtista);
+                          if (eventosFuturos.length > 0) {
+                            setConfirmTrocarProfissional({ clienteId: sc.id, novoArtista, antigoArtista });
+                          }
+                        }
+                      }}>
                         {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
                       </select>
                     </div>
@@ -6399,6 +6414,33 @@ export default function CRM() {
 
         {/* ── AVISO GENÉRICO ── */}
         {/* ── MODAL DATA PASSADA ── */}
+        {confirmTrocarProfissional && (
+          <div className="ov" style={{ zIndex: 9999 }} onClick={() => setConfirmTrocarProfissional(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(420px, 90vw)", padding: "24px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>Trocar Profissional</div>
+              <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>
+                Existem agendamentos futuros com o profissional anterior.<br/>
+                <span style={{ color: "var(--tx2)", fontSize: 12 }}>Deseja atualizar também os agendamentos futuros para o novo profissional?</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn-c" onClick={() => setConfirmTrocarProfissional(null)}>Não, manter agenda</button>
+                <button className="btn-s" onClick={async () => {
+                  const { clienteId, novoArtista, antigoArtista } = confirmTrocarProfissional;
+                  const hoje = new Date().toISOString().split("T")[0];
+                  const eventosFuturos = agEvents.filter(e => e.cliente_id === clienteId && e.date >= hoje && e.status !== "concluido" && e.tipo?.includes(antigoArtista));
+                  for (const ev of eventosFuturos) {
+                    const novoTipo = ev.tipo.replace(antigoArtista, novoArtista);
+                    await sb.from("agenda").update({ tipo: novoTipo }).eq("id", ev.id);
+                    setAgEvents(p => p.map(e => e.id === ev.id ? { ...e, tipo: novoTipo } : e));
+                  }
+                  addLog("Cliente: profissional atualizado em " + eventosFuturos.length + " agendamentos futuros");
+                  setConfirmTrocarProfissional(null);
+                  setShowAviso("Profissional atualizado em " + eventosFuturos.length + " agendamentos.");
+                }}>Sim, atualizar agenda</button>
+              </div>
+            </div>
+          </div>
+        )}
         {showAvisoPastDate && (
           <div className="ov" style={{ zIndex: 9999 }} onClick={() => setShowAvisoPastDate(false)}>
             <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(420px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
