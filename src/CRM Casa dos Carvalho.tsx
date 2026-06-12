@@ -5710,6 +5710,7 @@ export default function CRM() {
                     </button>
                   )}
                   {editingEvent && editingEvent.status !== "cancelado" && !editingEvent.tipo?.startsWith("bloq") && (
+                    <>
                     <button className="btn-c" style={{ color: "#E67E22", borderColor: "rgba(230,126,34,.3)" }}
                       onClick={() => setConfirmCancelarEvento({ event: editingEvent, motivo: "" })}>
                       ⊘ Cliente Desmarcou
@@ -5718,6 +5719,7 @@ export default function CRM() {
                       onClick={() => setConfirmCancelarEvento({ event: editingEvent, motivo: "Profissional desmarcou" })}>
                       ⊘ Profissional Desmarcou
                     </button>
+                    </>
                   )}
                   {editingEvent && editingEvent.tipo?.startsWith("bloq") && (
                     <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)" }}
