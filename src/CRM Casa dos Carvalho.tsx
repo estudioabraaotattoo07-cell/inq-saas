@@ -4192,7 +4192,7 @@ export default function CRM() {
                     <div>
                       <div className="pvn">{c.nome}</div>
                       <div className="pvm">
-                        <span className={("at " + aClass(c.artista)) || ""} style={aStyle(c.artista)} style={{ marginRight: 7 }}>{aName(c.artista).split(" ")[0]}</span>
+                        <span className={("at " + aClass(c.artista)) || ""} style={{ ...aStyle(c.artista), marginRight: 7 }}>{aName(c.artista).split(" ")[0]}</span>
                         {c.estilo}
                         {c.nps && <span style={{ marginLeft: 9, color: "var(--gold)", fontWeight: 600 }}>NPS: {c.nps}/10</span>}
                       </div>
@@ -5580,8 +5580,8 @@ export default function CRM() {
                         <div key={svc.id} onMouseDown={() => {
                           const artist = artists.find(a => agForm.tipo.includes(a.id))?.id || (artists[0]?.id || "");
                           const nomeLower = svc.nome.toLowerCase();
-                          const novoTipo = nomeLower.includes("piercing") ? "piercing" : nomeLower.includes("consulta") ? "cons_" + artist : "sess_" + artist;
-                          const novaEtapa = nomeLower.includes("consulta") ? "cons_agendada" : nomeLower.includes("piercing") ? "sessao_agend" : null;
+                          const novoTipo = nomeLower.includes("piercing") ? "piercing" : nomeLower.includes("consulta") ? "cons_" + artist : (nomeLower.includes("sess") ? "sess_" + artist : "sess_" + artist);
+                          const novaEtapa = nomeLower.includes("consulta") ? "cons_agendada" : (nomeLower.includes("sess") || nomeLower.includes("piercing")) ? "sessao_agend" : null;
                           setAgForm({ ...agForm, servico: svc.nome, tipo: novoTipo } as any);
                           if (novaEtapa && agClientVinc) {
                             const cli = clients.find(c => c.id === agClientVinc.id);
@@ -5595,40 +5595,15 @@ export default function CRM() {
                         </div>
                       );
                     })}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {["cons", "sess", "piercing"].map(t => {
-                      const labels: Record<string,string> = { cons: "Consulta", sess: "Sessão", piercing: "Piercing" };
-                      const active = agForm.tipo.startsWith(t);
-                      return (
-                        <div key={t} onMouseDown={() => {
-                          const artist = artists.find(a => agForm.tipo.includes(a.id))?.id || (artists[0]?.id || "");
-                          const novoTipo = t === "piercing" ? "piercing" : t + "_" + artist;
-                          const novaEtapa = t === "cons" ? "cons_agendada" : t === "sess" ? "sessao_agend" : null;
-                          setAgForm({ ...agForm, tipo: novoTipo });
-                          if (novaEtapa && agClientVinc) {
-                            const cli = clients.find(c => c.id === agClientVinc.id);
-                            if (cli && cli.etapa !== novaEtapa) executarMove(agClientVinc.id, novaEtapa);
-                          }
-                        }} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
-                          background: active ? "rgba(201,168,76,.15)" : "var(--dk3)",
-                          border: `1px solid ${active ? "var(--gold)" : "var(--br)"}`,
-                          color: active ? "var(--gold)" : "var(--tx2)" }}>
-                          {labels[t]}
-                        </div>
-                      );
-                    })}
-                    {/* Bloqueio — mostra opções por artista */}
-                    <div style={{ position: "relative" }}>
-                      <div onMouseDown={() => {
-                        const isBloq = agForm.tipo.startsWith("bloq");
-                        if (!isBloq) setAgForm({ ...agForm, tipo: "bloq_geral" });
-                      }} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
-                        background: agForm.tipo.startsWith("bloq") ? "rgba(192,57,43,.15)" : "var(--dk3)",
-                        border: `1px solid ${agForm.tipo.startsWith("bloq") ? "var(--q1)" : "var(--br)"}`,
-                        color: agForm.tipo.startsWith("bloq") ? "var(--q1)" : "var(--tx2)" }}>
-                        🔒 Bloqueio
-                      </div>
+                    {/* Bloqueio */}
+                    <div onMouseDown={() => {
+                      const isBloq = agForm.tipo.startsWith("bloq");
+                      if (!isBloq) setAgForm({ ...agForm, tipo: "bloq_geral" });
+                    }} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                      background: agForm.tipo.startsWith("bloq") ? "rgba(192,57,43,.15)" : "var(--dk3)",
+                      border: "1px solid " + (agForm.tipo.startsWith("bloq") ? "var(--q1)" : "var(--br)"),
+                      color: agForm.tipo.startsWith("bloq") ? "var(--q1)" : "var(--tx2)" }}>
+                      🔒 Bloqueio
                     </div>
                   </div>
                   {/* Sub-opções de bloqueio */}
