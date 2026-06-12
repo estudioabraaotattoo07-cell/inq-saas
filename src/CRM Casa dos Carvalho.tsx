@@ -1000,6 +1000,7 @@ export default function CRM() {
   const [projParaConcluir, setProjParaConcluir] = useState<{clienteId: any; projetoId: any} | null>(null);
   const [pipelineMotivo, setPipelineMotivo] = useState<{cid: any; stage: any; motivo: string; dias?: string} | null>(null);
   const [confirmCancelarEvento, setConfirmCancelarEvento] = useState<{event: any; motivo: string} | null>(null);
+  const [showHistoricoModal, setShowHistoricoModal] = useState(false);
   const [proximaSessaoModal, setProximaSessaoModal] = useState<{cid: any} | null>(null);
   const [cancelProjetoModal, setCancelProjetoModal] = useState<{clienteId: any; projetoId: any; motivo: string} | null>(null);
   const [cancelMotivos, setCancelMotivos] = useState<string[]>(["Cliente desistiu", "Questão financeira", "Mudança de projeto", "Sem resposta do cliente", "Outro"]);
@@ -5716,7 +5717,7 @@ export default function CRM() {
                       ⊘ Cliente Desmarcou
                     </button>
                     <button className="btn-c" style={{ color: "#9B59B6", borderColor: "rgba(155,89,182,.3)" }}
-                      onClick={() => setConfirmCancelarEvento({ event: editingEvent, motivo: "Profissional desmarcou" })}>
+                      onClick={() => setConfirmCancelarEvento({ event: editingEvent, motivo: "", quem: "profissional" } as any)}>
                       ⊘ Profissional Desmarcou
                     </button>
                     </>
@@ -5811,18 +5812,44 @@ export default function CRM() {
           </div>
         )}
 
+        {/* ── MODAL HISTÓRICO DE ATIVIDADES ── */}
+        {showHistoricoModal && (
+          <div className="ov" onClick={() => setShowHistoricoModal(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(560px, 95vw)", maxHeight: "80vh", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 700, color: "var(--gold)" }}>📋 Histórico de Atividades</div>
+                <button className="mc" onClick={() => setShowHistoricoModal(false)}>✕</button>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--tx3)" }}>{historico.length} ação{historico.length !== 1 ? "ões" : ""} registrada{historico.length !== 1 ? "s" : ""}</div>
+              <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+                {historico.length === 0 ? (
+                  <div style={{ fontSize: 12, color: "var(--tx3)", textAlign: "center", padding: "30px 0" }}>Nenhuma ação registrada ainda.</div>
+                ) : historico.map((h: any) => (
+                  <div key={h.id || h.hora} style={{ display: "flex", gap: 10, padding: "8px 12px", background: "var(--dk3)", borderRadius: 6, alignItems: "flex-start" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 80 }}>
+                      <span style={{ fontSize: 10, color: "var(--tx3)", whiteSpace: "nowrap" }}>{h.data}</span>
+                      <span style={{ fontSize: 10, color: "var(--tx3)", whiteSpace: "nowrap" }}>{h.hora}</span>
+                    </div>
+                    <span style={{ fontSize: 12, color: "var(--tx2)", flex: 1, lineHeight: 1.5 }}>{h.acao}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── MODAL CONFIRMAR CANCELAR EVENTO ── */}
         {confirmCancelarEvento && (
           <div className="ov" onClick={() => setConfirmCancelarEvento(null)}>
             <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid rgba(230,126,34,.4)", borderRadius: 12, width: "min(460px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "#E67E22" }}>⊘ Cliente Desmarcou</div>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: (confirmCancelarEvento as any).quem === "profissional" ? "#9B59B6" : "#E67E22" }}>{(confirmCancelarEvento as any).quem === "profissional" ? "⊘ Profissional Desmarcou" : "⊘ Cliente Desmarcou"}</div>
               <div style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.6 }}>
-                Ao cancelar, o cliente será movido automaticamente para <strong style={{ color: "#888" }}>Hibernação</strong> e o motivo ficará registrado no histórico — disponível para a Aura usar no recontato.
+                {(confirmCancelarEvento as any).quem === "profissional" ? "O profissional desmarcou este evento." : "O cliente desmarcou este evento."} O cliente será movido para <strong style={{ color: "#888" }}>Hibernação</strong> e o motivo ficará registrado no histórico.
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <label style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Motivo do cancelamento *</label>
                 <textarea
-                  placeholder="Ex: cliente desmarcou, problema de saúde, questão financeira..."
+                  placeholder={(confirmCancelarEvento as any).quem === "profissional" ? "Ex: conflito de agenda, emergência, indisposição..." : "Ex: problema de saúde, questão financeira, mudança de planos..."}
                   value={confirmCancelarEvento.motivo}
                   onChange={e => setConfirmCancelarEvento(p => p ? { ...p, motivo: e.target.value } : p)}
                   style={{ background: "var(--dk3)", border: `1px solid ${!confirmCancelarEvento.motivo ? "rgba(230,126,34,.4)" : "var(--br)"}`, borderRadius: 7, padding: "10px 12px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", resize: "vertical", minHeight: 70, outline: "none" }}
@@ -5841,14 +5868,15 @@ export default function CRM() {
                       setClients(p => p.map(c => c.id !== agClientVinc.id ? c : {
                         ...c,
                         hist: [...c.hist,
-                          { t: "⊘ Evento cancelado: " + (event.date || "").split("-").reverse().join("/"), d: new Date().toLocaleDateString("pt-BR") },
-                          { t: "Motivo cancelamento: " + motivo, d: new Date().toLocaleDateString("pt-BR") },
+                          { t: "⊘ " + ((confirmCancelarEvento as any).quem === "profissional" ? "Profissional desmarcou" : "Cliente desmarcou") + ": " + (event.date || "").split("-").reverse().join("/"), d: new Date().toLocaleDateString("pt-BR") },
+                          { t: "Motivo: " + motivo, d: new Date().toLocaleDateString("pt-BR") },
                           { t: "Aura: recontato sugerido em 30 dias", d: new Date().toLocaleDateString("pt-BR") },
                         ]
                       }));
                       executarMove(agClientVinc.id, "hibernacao");
                     }
-                    addLog(`Agenda: evento "${event.title}" cancelado — ${motivo}`);
+                    const quemDesmarcou = (confirmCancelarEvento as any).quem === "profissional" ? "Profissional desmarcou" : "Cliente desmarcou";
+                    addLog(`Agenda: ${quemDesmarcou} — "${event.title}" — ${motivo}`);
                     setConfirmCancelarEvento(null);
                     setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch("");
                   }}>
@@ -7575,17 +7603,10 @@ export default function CRM() {
                   </div>
                   <div>
                     <div className="stit">Histórico de Atividades</div>
-                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>Registro de todas as ações realizadas no sistema.</div>
-                    <div style={{ maxHeight: 280, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
-                      {historico.length === 0 ? (
-                        <div style={{ fontSize: 12, color: "var(--tx3)", textAlign: "center", padding: "20px 0" }}>Nenhuma ação registrada ainda.</div>
-                      ) : historico.slice(0, 100).map((h: any) => (
-                        <div key={h.id || h.hora} style={{ display: "flex", gap: 8, padding: "6px 10px", background: "var(--dk3)", borderRadius: 6, alignItems: "flex-start" }}>
-                          <span style={{ fontSize: 10, color: "var(--tx3)", whiteSpace: "nowrap", marginTop: 1 }}>{h.data} {h.hora}</span>
-                          <span style={{ fontSize: 11, color: "var(--tx2)", flex: 1 }}>{h.acao}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>Registro cronológico de todas as ações realizadas no sistema.</div>
+                    <button onClick={() => setShowHistoricoModal(true)} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "var(--tx)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", gap: 6 }}>
+                      📋 Ver Histórico de Atividades {historico.length > 0 && <span style={{ background: "var(--gold)", color: "#1a1a1a", borderRadius: 10, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>{historico.length}</span>}
+                    </button>
                   </div>
                   <div>
                     <div className="stit" style={{ color: "#C0392B" }}>Zona de Perigo</div>
