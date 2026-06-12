@@ -821,6 +821,7 @@ function maskCNPJ(v: string) {
   return v.slice(0,2)+"."+v.slice(2,5)+"."+v.slice(5,8)+"/"+v.slice(8,12)+"-"+v.slice(12);
 }
 function maskTel(v: string) {
+  if (!v) return "";
   v = v.replace(/\D/g, "").slice(0, 11);
   if (v.length <= 2) return v.length ? "(" + v : v;
   if (v.length <= 7) return "(" + v.slice(0,2) + ") " + v.slice(2);
@@ -1770,7 +1771,7 @@ export default function CRM() {
       addLog("✏️ Agendamento editado: " + agForm.title + " — " + servicoEdit + " em " + agForm.date + " às " + agForm.start + "h");
       // Mover pipeline ao editar agendamento vinculado a cliente
       if (agClientVinc) {
-        const tipoKey = agForm.tipo.split("_")[0];
+        const tipoKey = (agForm.tipo || "").split("_")[0];
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
         if (tipoKey === "cons" && cli && ["lead", "qualificacao"].includes(cli.etapa)) {
           executarMove(agClientVinc.id, "cons_agendada");
@@ -1829,11 +1830,11 @@ export default function CRM() {
     if (agClientVinc) {
       const dataFmt = agForm.date ? agForm.date.split("-").reverse().join("/") : agForm.date;
       const tipoLabel: Record<string,string> = { cons: "Consulta", sess: "Sessão", piercing: "Piercing", bloq: "Bloqueio" };
-      const tipoKey = agForm.tipo.split("_")[0];
+      const tipoKey = (agForm.tipo || "").split("_")[0];
       const tipoNome = tipoLabel[tipoKey] || agForm.tipo;
       const sinalVal = parseFloat(String((agForm as any).sinal || "0").replace(/\./g, "").replace(",", ".")) || 0;
       const sinalPago = !!(agForm as any).sinalPago;
-      const artistaId = agForm.tipo.split("_").slice(1).join("_") || agClientVinc?.artista || "";
+      const artistaId = (agForm.tipo || "").split("_").slice(1).join("_") || agClientVinc?.artista || "";
         const artistaNome = artists.find(a => a.id === artistaId)?.nome || artists.find(a => agForm.tipo.includes(a.id))?.nome || "";
         const servicoNome = (agForm as any).servico || tipoNome;
         const histEntries = [
