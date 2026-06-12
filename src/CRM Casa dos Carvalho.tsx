@@ -4638,6 +4638,7 @@ export default function CRM() {
                           <div className="fil">Estilo</div>
                           <input className="ef" placeholder="Ex: Fine Line, Realismo..." value={novoProjetoForm.estilo} onChange={e => setNovoProjetoForm(p => ({ ...p, estilo: e.target.value }))} />
                         </div>
+                      </div>
                       <div className="fi2">
                         <div className="fil">Descrição do Projeto</div>
                         <textarea className="ef" placeholder="Descreva o projeto..." value={novoProjetoForm.desc} onChange={e => setNovoProjetoForm(p => ({ ...p, desc: e.target.value }))}
