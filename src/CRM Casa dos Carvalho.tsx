@@ -2687,7 +2687,7 @@ export default function CRM() {
         )}
 
         {/* ── CLIENTES ── */}
-        {tab === "clientes" && (() => {
+        {tab === "clientes" ? (() => {
           const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
           const sorted = [...filtered].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
           const usedLetters = new Set(sorted.map(c => c.nome[0].toUpperCase()));
@@ -2762,7 +2762,7 @@ export default function CRM() {
             </div>
           </div>
           );
-        })()}
+        })() : null}
 
         {/* ── AGENDA ── */}
         {tab === "agenda" && (
@@ -2954,7 +2954,7 @@ export default function CRM() {
         )}
 
         {/* ── FINANCEIRO ── */}
-        {tab === "financeiro" && (() => {
+        {tab === "financeiro" ? (() => {
           // ── helpers ──
           const fmtR = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
           const parseDateISO = (d: string) => { if (!d) return ""; if (d.includes("-")) return d.slice(0,7); const p = d.split("/"); return p.length === 3 ? p[2]+"-"+p[1].padStart(2,"0") : ""; };
@@ -3807,9 +3807,12 @@ export default function CRM() {
                 </div>
               </div>
             )}
+          </div>
+          </div>
+          </div>
+          </div>
           );
-        })()
-        }
+        })() : null}
 
         {/* ── ARTISTAS ── */}
         {tab === "artistas" && (
@@ -4913,7 +4916,7 @@ export default function CRM() {
 
 
                 {/* GARANTIA */}
-                {["tatuado","pos_venda"].includes(sc.etapa) && (() => {
+                {["tatuado","pos_venda"].includes(sc.etapa) ? (() => {
                   const proj = (sc.projetos || []).find((p: any) => p.status === "concluido");
                   if (!proj?.concluidoEm) return null;
                   const partes = (proj.concluidoEm as string).split("/");
@@ -4951,10 +4954,10 @@ export default function CRM() {
                       </div>
                     </div>
                   );
-                })()}
+                })() : null}
 
                 {/* CHECKLIST DE SESSÃO */}
-                {["sessao_agend","tatuado"].includes(sc.etapa) && (() => {
+                {["sessao_agend","tatuado"].includes(sc.etapa) ? (() => {
                   const temSinal = fin.some((f: any) => f.cliente_id === sc.id && f.pgto === "Sinal");
                   const temValor = (sc.projetos || []).some((p: any) => p.valorTotal > 0);
                   const checks = [
@@ -4979,7 +4982,7 @@ export default function CRM() {
                       </div>
                     </div>
                   );
-                })()}
+                })() : null}
 
                 {/* AGENDAMENTOS DO CLIENTE */}
                 {(() => {
@@ -5523,7 +5526,7 @@ export default function CRM() {
                 )}
 
                 {/* 6. PROJETO VINCULADO — valor vem do projeto do cliente */}
-                {agClientVinc && (() => {
+                {agClientVinc ? (() => {
                   try {
                     const projs = (agClientVinc.projetos || []).filter((p: any) => p && p.status === "ativo");
                     if (projs.length === 0) return null;
@@ -5545,7 +5548,7 @@ export default function CRM() {
                       </div>
                     );
                   } catch { return null; }
-                })()}
+                })() : null}
 
                 {/* 6b. SINAL — oculto para bloqueio */}
                 {!agForm.tipo.startsWith("bloq") && <div className="fr" style={{ gap: 10 }}>
@@ -5642,7 +5645,7 @@ export default function CRM() {
                 </div>
 
                 {/* 8. PIPELINE DO CLIENTE — oculto para bloqueio */}
-                {agClientVinc && !agForm.tipo.startsWith("bloq") && (() => {
+                {agClientVinc && !agForm.tipo.startsWith("bloq") ? (() => {
                   const cli = clients.find(c => c.id === agClientVinc.id);
                   if (!cli) return null;
                   const stage = STAGES.find(s => s.id === cli.etapa);
@@ -5684,7 +5687,7 @@ export default function CRM() {
                       )}
                     </div>
                   );
-                })()}
+                })() : null}
 
               </div>
               {/* Sessões extras */}
@@ -6026,7 +6029,7 @@ export default function CRM() {
         )}
 
         {/* ── MODAL SELEÇÃO DE SESSÃO ── */}
-        {selSessaoModal && (() => {
+        {selSessaoModal ? (() => {
           const hoje0sel = new Date(); hoje0sel.setHours(0,0,0,0);
           return (
             <div className="ov" onClick={() => { setSelSessaoModal(null); setSessaoEscolhida(null); }}>
@@ -6075,7 +6078,7 @@ export default function CRM() {
               </div>
             </div>
           );
-        })()}
+        })() : null}
 
         {/* ── MODAL FORMA DE PAGAMENTO DO SINAL ── */}
         {sinalPgtoModal && (
@@ -6196,7 +6199,7 @@ export default function CRM() {
         )}
 
         {/* ── MODAL CANCELAR PROJETO ── */}
-        {cancelProjetoModal && (() => {
+        {cancelProjetoModal ? (() => {
           const cli = clients.find(c => c.id === cancelProjetoModal.clienteId);
           const proj = (cli?.projetos || []).find((p: any) => p.id === cancelProjetoModal.projetoId);
           const temDados = proj && (proj.estilo || proj.desc || proj.valorTotal > 0);
@@ -6255,7 +6258,7 @@ export default function CRM() {
               </div>
             </div>
           );
-        })()}
+        })() : null}
 
         {/* ── AVISO GENÉRICO ── */}
         {showAviso && (
@@ -6559,7 +6562,7 @@ export default function CRM() {
         )}
 
         {/* ── MODAL PIPELINE MOTIVO ── */}
-        {pipelineMotivo && (() => {
+        {pipelineMotivo ? (() => {
           const stage = pipelineMotivo.stage;
           const isBlacklist = stage?.id === "blacklist";
           const isHibernacao = stage?.id === "hibernacao";
@@ -6620,7 +6623,7 @@ export default function CRM() {
               </div>
             </div>
           );
-        })()}
+        })() : null}
 
         {/* ── MODAL CROP LOGO ── */}
         {showLogoCrop && (
@@ -6712,7 +6715,7 @@ export default function CRM() {
         )}
 
         {/* ── TOUR GUIADO ── */}
-        {tourAtivo && (() => {
+        {tourAtivo ? (() => {
           const step = TOUR_STEPS[tourStep];
           const el = document.querySelector(step.sel);
           const rect = el?.getBoundingClientRect();
@@ -6744,7 +6747,7 @@ export default function CRM() {
               </div>
             </>
           );
-        })()}
+        })() : null}
 
         {/* ── MODAL RESET DE FÁBRICA ── */}
         {confirmReset && (
@@ -7029,7 +7032,7 @@ export default function CRM() {
         )}
 
         {/* ── SETTINGS ── */}
-        {showSettings && (() => {
+        {showSettings ? (() => {
           // Snapshot para cancelar
           return (
           <div className="ov" onClick={e => { if (e.target === e.currentTarget) setShowSettings(false); }}>
@@ -7675,7 +7678,7 @@ export default function CRM() {
             </div>
           </div>
           );
-        })()}
+        })() : null}
       </div>
       </div>
       </div>
