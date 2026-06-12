@@ -5556,7 +5556,7 @@ export default function CRM() {
                   <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => { const v = e.target.value; setArtForm({ ...artForm, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                   <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email" value={artForm.email} onChange={e => setArtForm({ ...artForm, email: e.target.value })} /></div>
                 </div>
-                <div className="ff"><label className="fl">Telefone</label><input className="fi" placeholder="(99) 99999-9999" value={artForm.tel} onChange={e => setArtForm({ ...artForm, tel: maskTel(e.target.value) })} /></div>
+                <div className="ff"><label className="fl">Telefone</label><input className="fi" placeholder="(99) 99999-9999" value={maskTel(artForm.tel || "")} onChange={e => setArtForm({ ...artForm, tel: maskTel(e.target.value) })} maxLength={15} /></div>
                 <div className="ff">
                   <label className="fl">Cor</label>
                   <ColorPicker value={artForm.cor} onChange={cor => setArtForm({ ...artForm, cor })} />
