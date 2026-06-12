@@ -4638,11 +4638,18 @@ export default function CRM() {
                   {/* Formulário inline de novo projeto */}
                   {novoProjetoAberto === sc.id && (
                     <div style={{ background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 8, padding: "14px", marginBottom: 10, display: "flex", flexDirection: "column", gap: 10 }}>
-                      <div style={{ fontSize: 11, color: "var(--gold)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>Novo Projeto</div>
+                      <div style={{ fontSize: 11, color: "var(--gold)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>Nova Solicitação</div>
                       <div className="fi2">
                         <div className="fil">Valor Total do Projeto (R$)</div>
                         <input className="ef" type="text" placeholder="0,00" value={novoProjetoForm.valorTotal}
                           onChange={e => { const raw = e.target.value.replace(/[^0-9]/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setNovoProjetoForm(p => ({ ...p, valorTotal: num })); }} />
+                      </div>
+                      <div className="fi2">
+                        <div className="fil">Serviço</div>
+                        <select className="ef" value={novoProjetoForm.servico || ""} onChange={e => setNovoProjetoForm({ ...novoProjetoForm, servico: e.target.value })}>
+                          <option value="">Selecione o serviço...</option>
+                          {servicoOpts.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
+                        </select>
                       </div>
                       <div className="fi2">
                         <div className="fil">Descrição do Projeto</div>
@@ -5706,6 +5713,10 @@ export default function CRM() {
                     <button className="btn-c" style={{ color: "#E67E22", borderColor: "rgba(230,126,34,.3)" }}
                       onClick={() => setConfirmCancelarEvento({ event: editingEvent, motivo: "" })}>
                       ⊘ Cliente Desmarcou
+                    </button>
+                    <button className="btn-c" style={{ color: "#9B59B6", borderColor: "rgba(155,89,182,.3)" }}
+                      onClick={() => setConfirmCancelarEvento({ event: editingEvent, motivo: "Profissional desmarcou" })}>
+                      ⊘ Profissional Desmarcou
                     </button>
                   )}
                   {editingEvent && editingEvent.tipo?.startsWith("bloq") && (
@@ -7558,6 +7569,20 @@ export default function CRM() {
                       }} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                         📥 Exportar Financeiro
                       </button>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="stit">Histórico de Atividades</div>
+                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>Registro de todas as ações realizadas no sistema.</div>
+                    <div style={{ maxHeight: 280, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+                      {historico.length === 0 ? (
+                        <div style={{ fontSize: 12, color: "var(--tx3)", textAlign: "center", padding: "20px 0" }}>Nenhuma ação registrada ainda.</div>
+                      ) : historico.slice(0, 100).map((h: any) => (
+                        <div key={h.id || h.hora} style={{ display: "flex", gap: 8, padding: "6px 10px", background: "var(--dk3)", borderRadius: 6, alignItems: "flex-start" }}>
+                          <span style={{ fontSize: 10, color: "var(--tx3)", whiteSpace: "nowrap", marginTop: 1 }}>{h.data} {h.hora}</span>
+                          <span style={{ fontSize: 11, color: "var(--tx2)", flex: 1 }}>{h.acao}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                   <div>
