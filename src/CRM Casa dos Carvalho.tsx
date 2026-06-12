@@ -822,7 +822,7 @@ function maskCNPJ(v: string) {
 }
 function maskTel(v: string) {
   if (!v) return "";
-  v = v.replace(/\D/g, "").slice(0, 11);
+  v = String(v).replace(/\D/g, "").slice(0, 11);
   if (v.length <= 2) return v.length ? "(" + v : v;
   if (v.length <= 7) return "(" + v.slice(0,2) + ") " + v.slice(2);
   if (v.length <= 11) return "(" + v.slice(0,2) + ") " + v.slice(2,7) + "-" + v.slice(7);
@@ -1767,7 +1767,7 @@ export default function CRM() {
       setShowAgForm(false);
       setAgClientVinc(null);
       setAgClientSearch("");
-      const servicoEdit = (agForm as any).servico || agForm.tipo.split("_")[0];
+      const servicoEdit = (agForm as any).servico || (agForm.tipo || "").split("_")[0];
       addLog("✏️ Agendamento editado: " + agForm.title + " — " + servicoEdit + " em " + agForm.date + " às " + agForm.start + "h");
       // Mover pipeline ao editar agendamento vinculado a cliente
       if (agClientVinc) {
@@ -5557,7 +5557,7 @@ export default function CRM() {
                   <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => { const v = e.target.value; setArtForm({ ...artForm, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                   <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email" value={artForm.email} onChange={e => setArtForm({ ...artForm, email: e.target.value })} /></div>
                 </div>
-                <div className="ff"><label className="fl">Telefone</label><input className="fi" placeholder="(99) 99999-9999" value={maskTel(artForm.tel || "")} onChange={e => setArtForm({ ...artForm, tel: maskTel(e.target.value) })} maxLength={15} /></div>
+                <div className="ff"><label className="fl">Telefone</label><input className="fi" placeholder="(99) 99999-9999" value={artForm.tel} onChange={e => setArtForm({ ...artForm, tel: maskTel(e.target.value) })} /></div>
                 <div className="ff">
                   <label className="fl">Cor</label>
                   <ColorPicker value={artForm.cor} onChange={cor => setArtForm({ ...artForm, cor })} />
@@ -6284,7 +6284,7 @@ export default function CRM() {
                   setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch("");
                   const sinalValNum2 = parseFloat(String((agForm as any).sinal || "").replace(/\./g,"").replace(",",".")) || 0;
                   if (sinalValNum2 > 0 && agClientVinc) {
-                    const artSinal2 = agForm.tipo === "piercing" ? ((agForm as any).artista_exec || "") : (agForm.tipo.split("_").slice(1).join("_") || agClientVinc?.artista || "");
+                    const artSinal2 = agForm.tipo === "piercing" ? ((agForm as any).artista_exec || "") : ((agForm.tipo || "").split("_").slice(1).join("_") || agClientVinc?.artista || "");
                     const pgtoSinal2 = formaSinal === "Crédito" ? "Cartão " + parcelasSinal + "x" : formaSinal;
                     const finRowSinal2 = { cliente_id: agClientVinc.id, cliente_nome: agClientVinc.nome, artista: artSinal2, data: agForm.date, val_a: sinalValNum2, val_c: sinalValNum2, pgto: pgtoSinal2, com_base: 0, com_sess: 0, categoria: "sinal", tipo: "entrada", user_id: userId };
                   const { data: fdSinal2 } = await sb.from("financeiro").insert(finRowSinal2).select().single();
