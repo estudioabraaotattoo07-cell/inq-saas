@@ -401,6 +401,7 @@ const buildEventTitle = (e: any, allEvents: any[]) => {
 };
 
 const getEventLabel = (tipo: string, artistsList?: any[]) => {
+  if (!tipo) return "Evento";
   if (tipo === "bloq_geral") return "Bloq. Geral";
   if (tipo === "piercing") return "Piercing";
   const parts = tipo.split("_");
@@ -1671,7 +1672,7 @@ export default function CRM() {
           setAgEvents(p => [...p, {
             id: Date.now(), title: nc.nome,
             tipo: formAg.tipo === "cons" ? "cons_" + nc.artista : "sess_" + nc.artista,
-            date: formAg.data, start: parseInt(formAg.hora.split(":")[0]), end: parseInt(formAg.hora.split(":")[0]) + 2
+            date: formAg.data, start: parseInt((formAg.hora || "09:00").split(":")[0]), end: parseInt((formAg.hora || "09:00").split(":")[0]) + 2
           }]);
         }
       }
@@ -1717,7 +1718,7 @@ export default function CRM() {
   };
 
   const saveAgEvent = async (forceRetroativo = false) => {
-    if (!agForm.date && !agForm.tipo.startsWith("bloq")) {
+    if (!agForm.date && !(agForm.tipo || "").startsWith("bloq")) {
       setShowAviso("Informe a data do agendamento antes de salvar.");
       return;
     }
@@ -1728,7 +1729,7 @@ export default function CRM() {
         return;
       }
     }
-    if (!forceRetroativo && !agForm.tipo.startsWith("bloq") && agForm.date) {
+    if (!forceRetroativo && !(agForm.tipo || "").startsWith("bloq") && agForm.date) {
       const agDateStr = agForm.date + "T" + String(agForm.start).padStart(2,"0") + ":00:00";
       const agDateTime = new Date(agDateStr);
       const agora = new Date();
@@ -1784,7 +1785,7 @@ export default function CRM() {
       const sinalPagoEdit = !!(agForm as any).sinalPago;
       const sinalJaLancado = !!(editingEvent as any).sinal_pago;
       if (sinalValEdit > 0 && sinalPagoEdit && !sinalJaLancado && agClientVinc) {
-        const artistaSinalEdit = agForm.tipo.replace("cons_","").replace("sess_","").replace("bloq_","") || artists[0]?.id || "";
+        const artistaSinalEdit = (agForm.tipo || "").replace("cons_","").replace("sess_","").replace("bloq_","") || artists[0]?.id || "";
         const artistaObjEdit = artists.find(a => a.id === artistaSinalEdit);
         const comSinalEdit = artistaObjEdit?.com || 0;
         const { data: fdSinalEdit, error: errSinalEdit } = await sb.from("financeiro").insert({
@@ -1835,7 +1836,7 @@ export default function CRM() {
       const sinalVal = parseFloat(String((agForm as any).sinal || "0").replace(/\./g, "").replace(",", ".")) || 0;
       const sinalPago = !!(agForm as any).sinalPago;
       const artistaId = (agForm.tipo || "").split("_").slice(1).join("_") || agClientVinc?.artista || "";
-        const artistaNome = artists.find(a => a.id === artistaId)?.nome || artists.find(a => agForm.tipo.includes(a.id))?.nome || "";
+        const artistaNome = artists.find(a => a.id === artistaId)?.nome || artists.find(a => (agForm.tipo || "").includes(a.id))?.nome || "";
         const servicoNome = (agForm as any).servico || tipoNome;
         const histEntries = [
         { t: `📅 Agendamento: ${servicoNome} em ${dataFmt} às ${agForm.start}h${artistaNome ? " com " + artistaNome : ""}`, d: new Date().toLocaleString("pt-BR") },
@@ -1866,7 +1867,7 @@ export default function CRM() {
       }
       // Lançar sinal no financeiro se já pago
       if (sinalVal > 0 && sinalPago) {
-        const artistaSinal = agForm.tipo.replace("cons_","").replace("sess_","").replace("bloq_","") || artists[0]?.id || "";
+        const artistaSinal = (agForm.tipo || "").replace("cons_","").replace("sess_","").replace("bloq_","") || artists[0]?.id || "";
         const artistaObjSinal = artists.find(a => a.id === artistaSinal);
         const comSinal = artistaObjSinal?.com || 0;
         const { data: fdSinal, error: errSinal } = await sb.from("financeiro").insert({
@@ -1891,7 +1892,7 @@ export default function CRM() {
       }
       // Salvar sessões extras (2ª, 3ª...)
       if (sessoesExtras.length > 0) {
-        const artId = agForm.tipo.replace("cons_","").replace("sess_","") || artists[0]?.id || "";
+        const artId = (agForm.tipo || "").replace("cons_","").replace("sess_","") || artists[0]?.id || "";
         for (let i = 0; i < sessoesExtras.length; i++) {
           const sx = sessoesExtras[i];
           if (!sx.date) continue;
@@ -5582,7 +5583,7 @@ export default function CRM() {
               <div className="fmb">
 
                 {/* 1. CLIENTE — oculto para bloqueio */}
-                {!agForm.tipo.startsWith("bloq") && (
+                {!(agForm.tipo || "").startsWith("bloq") && (
                 <div className="ff" style={{ position: "relative" }}>
                   <label className="fl">Cliente *</label>
                   {agClientVinc ? (
@@ -5606,7 +5607,7 @@ export default function CRM() {
                             <div key={c.id}
                               style={{ padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between", alignItems: "center" }}
                               onMouseDown={() => {
-                                const tipoBase = agForm.tipo.startsWith("sess") ? "sess_" : agForm.tipo.startsWith("cons") ? "cons_" : "sess_";
+                                const tipoBase = (agForm.tipo || "").startsWith("sess") ? "sess_" : (agForm.tipo || "").startsWith("cons") ? "cons_" : "sess_";
                                 const artId = c.artista || artists[0]?.id || "";
                                 setAgClientVinc(c);
                                 setAgForm({ ...agForm, title: c.nome, tipo: tipoBase + artId });
@@ -5651,7 +5652,7 @@ export default function CRM() {
                 </div>
 
                 {/* 5. PROFISSIONAL — oculto para bloqueio (sub-opções já mostram profissionais) */}
-                {!agForm.tipo.startsWith("bloq") && (
+                {!(agForm.tipo || "").startsWith("bloq") && (
                 <div className="ff">
                   <label className="fl">Profissional</label>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -5662,7 +5663,7 @@ export default function CRM() {
                           if (agForm.tipo === "piercing" || agForm.tipo?.startsWith("bloq")) {
                             setAgForm({ ...agForm, artista_exec: a.id } as any);
                           } else {
-                            setAgForm({ ...agForm, tipo: agForm.tipo.includes("sess") ? "sess_" + a.id : "cons_" + a.id });
+                            setAgForm({ ...agForm, tipo: (agForm.tipo || "").includes("sess") ? "sess_" + a.id : "cons_" + a.id });
                           }
                         }}
                           style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
@@ -5703,7 +5704,7 @@ export default function CRM() {
                 })()}
 
                 {/* 6b. SINAL — oculto para bloqueio */}
-                {!agForm.tipo.startsWith("bloq") && <div className="fr" style={{ gap: 10 }}>
+                {!(agForm.tipo || "").startsWith("bloq") && <div className="fr" style={{ gap: 10 }}>
                   <div className="ff" style={{ flex: 1 }}>
                     <label className="fl">Sinal (R$)</label>
                     <input className="fi" type="text" placeholder="0,00"
@@ -5733,7 +5734,7 @@ export default function CRM() {
                       const active = (agForm as any).servico === svc.nome;
                       return (
                         <div key={svc.id} onMouseDown={() => {
-                          const artist = artists.find(a => agForm.tipo.includes(a.id))?.id || (artists[0]?.id || "");
+                          const artist = artists.find(a => (agForm.tipo || "").includes(a.id))?.id || (artists[0]?.id || "");
                           const nomeLower = svc.nome.toLowerCase();
                           const novoTipo = nomeLower.includes("piercing") ? "piercing" : nomeLower.includes("consulta") ? "cons_" + artist : (nomeLower.includes("sess") ? "sess_" + artist : "sess_" + artist);
                           const novaEtapa = nomeLower.includes("consulta") ? "cons_agendada" : (nomeLower.includes("sess") || nomeLower.includes("piercing")) ? "sessao_agend" : null;
@@ -5752,17 +5753,17 @@ export default function CRM() {
                     })}
                     {/* Bloqueio */}
                     <div onMouseDown={() => {
-                      const isBloq = agForm.tipo.startsWith("bloq");
+                      const isBloq = (agForm.tipo || "").startsWith("bloq");
                       if (!isBloq) setAgForm({ ...agForm, tipo: "bloq_geral" });
                     }} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
-                      background: agForm.tipo.startsWith("bloq") ? "rgba(192,57,43,.15)" : "var(--dk3)",
-                      border: "1px solid " + (agForm.tipo.startsWith("bloq") ? "var(--q1)" : "var(--br)"),
-                      color: agForm.tipo.startsWith("bloq") ? "var(--q1)" : "var(--tx2)" }}>
+                      background: (agForm.tipo || "").startsWith("bloq") ? "rgba(192,57,43,.15)" : "var(--dk3)",
+                      border: "1px solid " + ((agForm.tipo || "").startsWith("bloq") ? "var(--q1)" : "var(--br)"),
+                      color: (agForm.tipo || "").startsWith("bloq") ? "var(--q1)" : "var(--tx2)" }}>
                       🔒 Bloqueio
                     </div>
                   </div>
                   {/* Sub-opções de bloqueio */}
-                  {agForm.tipo.startsWith("bloq") && (
+                  {(agForm.tipo || "").startsWith("bloq") && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
                       <div onMouseDown={() => setAgForm({ ...agForm, tipo: "bloq_geral" })}
                         style={{ padding: "4px 12px", borderRadius: 20, cursor: "pointer", fontSize: 11, fontWeight: 700,
@@ -5785,7 +5786,7 @@ export default function CRM() {
                 </div>
 
                 {/* 8. PIPELINE DO CLIENTE — oculto para bloqueio */}
-                {agClientVinc && !agForm.tipo.startsWith("bloq") && (() => {
+                {agClientVinc && !(agForm.tipo || "").startsWith("bloq") && (() => {
                   const cli = clients.find(c => c.id === agClientVinc.id);
                   if (!cli) return null;
                   const stage = STAGES.find(s => s.id === cli.etapa);
@@ -5832,7 +5833,7 @@ export default function CRM() {
 
               </div>
               {/* Sessões extras */}
-              {!editingEvent && agClientVinc && !agForm.tipo.startsWith("bloq") && (
+              {!editingEvent && agClientVinc && !(agForm.tipo || "").startsWith("bloq") && (
                 <div style={{ borderTop: "1px solid var(--br)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
                   {sessoesExtras.map((s, i) => (
                     <div key={i} style={{ background: "var(--dk3)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -5894,7 +5895,7 @@ export default function CRM() {
                 <div style={{ display: "flex", gap: 7 }}>
                   <button className="btn-c" onClick={() => { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); }}>Cancelar</button>
                   <button className="btn-s" onClick={() => {
-                    if (!agClientVinc && !agForm.tipo.startsWith("bloq")) {
+                    if (!agClientVinc && !(agForm.tipo || "").startsWith("bloq")) {
                       setShowAviso("Apenas clientes cadastrados podem ser agendados. Cadastre o cliente primeiro na aba Clientes.");
                       return;
                     }
