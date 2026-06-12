@@ -1001,6 +1001,7 @@ export default function CRM() {
   const [pipelineMotivo, setPipelineMotivo] = useState<{cid: any; stage: any; motivo: string; dias?: string} | null>(null);
   const [confirmCancelarEvento, setConfirmCancelarEvento] = useState<{event: any; motivo: string} | null>(null);
   const [showHistoricoModal, setShowHistoricoModal] = useState(false);
+  const [showAvisoPastDate, setShowAvisoPastDate] = useState(false);
   const [proximaSessaoModal, setProximaSessaoModal] = useState<{cid: any} | null>(null);
   const [cancelProjetoModal, setCancelProjetoModal] = useState<{clienteId: any; projetoId: any; motivo: string} | null>(null);
   const [cancelMotivos, setCancelMotivos] = useState<string[]>(["Cliente desistiu", "Questão financeira", "Mudança de projeto", "Sem resposta do cliente", "Outro"]);
@@ -1691,7 +1692,7 @@ export default function CRM() {
     return "Algo deu errado. Tente novamente.";
   };
 
-  const saveAgEvent = async () => {
+  const saveAgEvent = async (forceRetroativo = false) => {
     if (!agForm.date && !agForm.tipo.startsWith("bloq")) {
       setShowAviso("Informe a data do agendamento antes de salvar.");
       return;
@@ -1703,13 +1704,13 @@ export default function CRM() {
         return;
       }
     }
-    if (!agForm.tipo.startsWith("bloq") && agForm.date) {
+    if (!forceRetroativo && !agForm.tipo.startsWith("bloq") && agForm.date) {
       const agDateStr = agForm.date + "T" + String(agForm.start).padStart(2,"0") + ":00:00";
       const agDateTime = new Date(agDateStr);
       const agora = new Date();
       agora.setMinutes(agora.getMinutes() - 30);
       if (agDateTime < agora) {
-        setShowAviso("Não é possível agendar para datas ou horários passados.");
+        setShowAvisoPastDate(true);
         return;
       }
     }
@@ -6283,6 +6284,30 @@ export default function CRM() {
         })()}
 
         {/* ── AVISO GENÉRICO ── */}
+        {/* ── MODAL DATA PASSADA ── */}
+        {showAvisoPastDate && (
+          <div className="ov" style={{ zIndex: 9999 }} onClick={() => setShowAvisoPastDate(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(420px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>⚠ Atenção</div>
+              <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>
+                Não é possível agendar para datas ou horários passados.<br />
+                <span style={{ fontSize: 12, color: "var(--tx3)", marginTop: 6, display: "block" }}>Se necessário, você pode registrar este agendamento retroativamente. Ele será marcado no histórico.</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn-c" onClick={() => setShowAvisoPastDate(false)}>Cancelar</button>
+                <button className="btn-s" style={{ background: "rgba(201,168,76,.2)", color: "var(--gold)", border: "1px solid rgba(201,168,76,.4)" }}
+                  onClick={() => {
+                    setShowAvisoPastDate(false);
+                    addLog("Agenda: agendamento retroativo registrado — " + agForm.title + " — " + agForm.date);
+                    saveAgEvent(true);
+                  }}>
+                  Agendar mesmo assim
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showAviso && (
           <div className="ov" style={{ zIndex: 9999 }} onClick={() => setShowAviso(null)}>
             <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(400px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
