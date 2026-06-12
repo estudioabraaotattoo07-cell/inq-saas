@@ -547,7 +547,7 @@ function makeContractClient(sName: string, nome: string, artista: string, proj: 
   return `CONFIRMACAO DE PROJETO ARTISTICO
 ${sName}
 
-Cliente: ${nome} | Artista: ${artista}
+Cliente: ${nome} | Profissional: ${artista}
 Data: ${new Date().toLocaleDateString("pt-BR")}
 Projeto: ${proj}
 Valor acordado: ${valor}
@@ -873,7 +873,7 @@ export default function CRM() {
   const [tourStep, setTourStep] = useState(0);
   const TOUR_STEPS = [
     { sel: ".topbar", title: "Topbar", desc: "Aqui ficam o logo do seu estúdio, o botão de alertas e o acesso às configurações." },
-    { sel: ".tabs", title: "Abas de Navegação", desc: "Pipeline, Clientes, Agenda, Financeiro, Artistas e mais. Clique para navegar entre as seções." },
+    { sel: ".tabs", title: "Abas de Navegação", desc: "Pipeline, Clientes, Agenda, Financeiro, Profissionais e mais. Clique para navegar entre as seções." },
     { sel: ".kw", title: "Pipeline Kanban", desc: "Cada coluna representa uma etapa do cliente. Arraste ou clique nos botões da ficha para mover." },
     { sel: ".btn-new", title: "Novo Cliente", desc: "Cadastre um novo cliente aqui. Preencha os dados básicos e ele entra automaticamente no Pipeline." },
     { sel: ".alert-btn", title: "Alertas", desc: "Notificações de clientes sem contato, orçamentos pendentes e garantias vencendo." },
@@ -1032,7 +1032,6 @@ export default function CRM() {
   const [nascDraft, setNascDraft] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [editandoListas, setEditandoListas] = useState(false);
-  const [confirmListas, setConfirmListas] = useState(false);
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
   const [alertaConfig, setAlertaConfig] = useState({ alerta_nova_mensagem: true, alerta_sessao_proxima: true, alerta_sessao_antecedencia: "2h", alerta_falta: true, alerta_aniversario: true, alerta_sem_retorno: true, alerta_sem_retorno_dias: "30", alerta_sinal_pendente: true, alerta_projeto_sem_valor: true, alerta_novo_cliente_aura: true });
@@ -1676,7 +1675,7 @@ export default function CRM() {
     setArtists(p => [...p, { ...row, id: artData.id }]);
     setShowArtForm(false);
     setArtForm({ nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "@", email: "", tel: "" });
-    addLog(`Artista "${artForm.nome}" cadastrado`);
+    addLog(`Profissional "${artForm.nome}" cadastrado`);
     if (!onboardingDone) { setOnbStep(s => s + 1); }
   };
 
@@ -2112,7 +2111,7 @@ export default function CRM() {
 
   // ── ONBOARDING ──
   if (!onboardingDone) {
-    const onbSteps = ["Estúdio", "Horários", "Artistas", "IA", "Concluído"];
+    const onbSteps = ["Estúdio", "Horários", "Profissionais", "IA", "Concluído"];
     return (
       <div style={{ minHeight: "100vh", background: "#0E0E0E", display: "flex", alignItems: "center", justifyContent: "center", padding: 18, fontFamily: "'DM Sans',sans-serif" }}>
         <style>{S}</style>
@@ -2254,7 +2253,7 @@ export default function CRM() {
           )}
           {onbStep === 2 && (
             <div style={{ padding: "22px 28px", display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontSize: 14, color: "#E8E2D9", fontWeight: 600, marginBottom: 4 }}>Artistas do estúdio</div>
+              <div style={{ fontSize: 14, color: "#E8E2D9", fontWeight: 600, marginBottom: 4 }}>Profissionais do estúdio</div>
               {artists.map(a => (
                 <div key={a.id} style={{ background: "#1E1E1E", border: "1px solid rgba(201,168,76,0.12)", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
@@ -2264,7 +2263,7 @@ export default function CRM() {
                   <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#27AE60" }} />
                 </div>
               ))}
-              <button className="btn-new" style={{ marginTop: 4, alignSelf: "flex-start" }} onClick={() => setShowArtForm(true)}>+ Adicionar Artista</button>
+              <button className="btn-new" style={{ marginTop: 4, alignSelf: "flex-start" }} onClick={() => setShowArtForm(true)}>+ Adicionar Profissional</button>
             </div>
           )}
           {onbStep === 3 && (
@@ -2324,7 +2323,7 @@ export default function CRM() {
         {showArtForm && (
           <div className="fov" onClick={e => { if (e.target === e.currentTarget) setShowArtForm(false); }}>
             <div className="fmod" style={{ maxWidth: 420 }}>
-              <div className="fmh"><div className="fmt">Adicionar Artista</div><button className="mc" onClick={() => setShowArtForm(false)}>✕</button></div>
+              <div className="fmh"><div className="fmt">Adicionar Profissional</div><button className="mc" onClick={() => setShowArtForm(false)}>✕</button></div>
               <div className="fmb">
                 <div className="ff"><label className="fl">Nome Completo *</label><input className="fi" placeholder="Nome do artista" value={artForm.nome} onChange={e => setArtForm({ ...artForm, nome: e.target.value.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()) })} /></div>
                 <div className="fr">
@@ -2334,7 +2333,7 @@ export default function CRM() {
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <input className="fi" type="number" min={0} max={100} value={artForm.com} onChange={e => setArtForm({ ...artForm, com: Number(e.target.value) })} style={{ width: 80 }} />
                       <span style={{ fontSize: 11, color: "var(--tx3)", display: "flex", gap: 10 }}>
-                        <span>Artista: <strong style={{ color: "var(--gold)" }}>{artForm.com}%</strong></span>
+                        <span>Profissional: <strong style={{ color: "var(--gold)" }}>{artForm.com}%</strong></span>
                         <span style={{ color: "var(--br)" }}>|</span>
                         <span>Estúdio: <strong style={{ color: "#27AE60" }}>{100 - artForm.com}%</strong></span>
                       </span>
@@ -2511,7 +2510,7 @@ export default function CRM() {
             { id: "clientes", l: "Clientes", i: "👥" },
             { id: "agenda", l: "Agenda", i: "📅" },
             { id: "financeiro", l: "Financeiro", i: "💰" },
-            { id: "artistas", l: "Artistas", i: "🎨" },
+            { id: "artistas", l: "Profissionais", i: "🎨" },
 
             { id: "dashboard", l: "Visão Geral", i: "📊" },
             { id: "posvenda", l: "Pós-venda", i: "💬" },
@@ -2686,7 +2685,7 @@ export default function CRM() {
                   <thead>
                     <tr>
                       <th>Cliente</th><th>Contato</th><th>Projeto</th>
-                      <th>Artista</th><th>Q</th><th>Etapa</th>
+                      <th>Profissional</th><th>Q</th><th>Etapa</th>
                       <th>Alertas</th><th>Origem</th>
                     </tr>
                   </thead>
@@ -3007,7 +3006,7 @@ export default function CRM() {
                     style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 9px", fontSize: 12, color: "var(--tx)", outline: "none" }} />
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 11, color: "var(--tx3)" }}>Artista</span>
+                  <span style={{ fontSize: 11, color: "var(--tx3)" }}>Profissional</span>
                   <select value={finFiltroArtista} onChange={e => setFinFiltroArtista(e.target.value)}
                     style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 9px", fontSize: 12, color: "var(--tx)", outline: "none" }}>
                     <option value="todos">Todos</option>
@@ -3088,7 +3087,7 @@ export default function CRM() {
 
               {/* desempenho artistas */}
               <div className="ftable">
-                <div className="fth">Desempenho por Artista</div>
+                <div className="fth">Desempenho por Profissional</div>
                 <div style={{ padding: "13px 15px", display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
                   {artists.filter(a => a.ativo).map(a => {
                     const ss = finFiltrado.filter(f => {
@@ -3149,7 +3148,7 @@ export default function CRM() {
                   <button className="btn-new" style={{ fontSize: 11, padding: "5px 12px" }} onClick={() => setShowEntradaForm(true)}>+ Lançar Manual</button>
                 </div>
                 <table className="ft">
-                  <thead><tr><th>Descrição</th><th>Artista</th><th>Data</th><th>Valor</th><th>Saldo Dev.</th><th>Forma</th><th>Categoria</th><th>Com %</th><th>Repasse</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Descrição</th><th>Profissional</th><th>Data</th><th>Valor</th><th>Saldo Dev.</th><th>Forma</th><th>Categoria</th><th>Com %</th><th>Repasse</th><th>Status</th></tr></thead>
                   <tbody>
                     {finFiltrado.filter(f => !f.tipo || f.tipo === "entrada").length === 0 && (
                       <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--tx3)", fontSize: 12, padding: 16, fontStyle: "italic" }}>Nenhuma entrada no período.</td></tr>
@@ -3316,7 +3315,7 @@ export default function CRM() {
                       '<h2>Competência: ' + finFiltroMes + ' · Gerado em ' + new Date().toLocaleDateString("pt-BR") + '</h2>',
                       '<table>',
                       '<tr><td>Receita Bruta</td><td class="green bold">' + fmtR(receitaBruta) + '</td></tr>',
-                      '<tr><td>&nbsp;&nbsp;(-) Repasses Artistas</td><td class="red">' + fmtR(totalRepasses) + '</td></tr>',
+                      '<tr><td>&nbsp;&nbsp;(-) Repasses Profissionais</td><td class="red">' + fmtR(totalRepasses) + '</td></tr>',
                       '<tr><td>&nbsp;&nbsp;(-) Depreciacao Equipamentos</td><td class="red">' + fmtR(deprMensal) + '</td></tr>',
                       '<tr><td>&nbsp;&nbsp;(-) Despesas Operacionais</td><td class="red">' + fmtR(totalSaidas) + '</td></tr>',
                       '<tr class="sep"><td class="bold">Resultado Antes do Pro-Labore</td><td class="' + greenClass + ' bold">' + fmtR(lucroAntesProlabore) + '</td></tr>',
@@ -3335,7 +3334,7 @@ export default function CRM() {
                 <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 0 }}>
                   {[
                     { l: "Receita Bruta", v: receitaBruta, bold: true, color: "var(--q3)" },
-                    { l: "  (−) Repasses Artistas", v: -totalRepasses, color: "var(--q1)" },
+                    { l: "  (−) Repasses Profissionais", v: -totalRepasses, color: "var(--q1)" },
                     { l: "  (−) Depreciação Equipamentos", v: -deprMensal, color: "var(--q1)" },
                     { l: "  (−) Despesas Operacionais", v: -totalSaidas, color: "var(--q1)" },
                     { l: "Resultado Antes do Pró-Labore", v: lucroAntesProlabore, bold: true, color: lucroAntesProlabore >= 0 ? "var(--q3)" : "var(--q1)", sep: true },
@@ -3369,7 +3368,7 @@ export default function CRM() {
                   </div>
                 </div>
                 <div className="ftable">
-                  <div className="fth">Margem por Artista</div>
+                  <div className="fth">Margem por Profissional</div>
                   <div style={{ padding: "13px 15px" }}>
                     {artists.filter(a => a.ativo).map(a => {
                       const fat = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada")).reduce((s, f) => s + (Number(f.val_a)||0), 0);
@@ -3413,7 +3412,7 @@ export default function CRM() {
                       '<h2>Competência: ' + finFiltroMes + ' · Gerado em ' + new Date().toLocaleDateString("pt-BR") + '</h2>',
                       '<table>',
                       '<tr><td>Receita Bruta</td><td class="green bold">' + fmtR(receitaBruta) + '</td></tr>',
-                      '<tr><td>&nbsp;&nbsp;(-) Repasses Artistas</td><td class="red">' + fmtR(totalRepasses) + '</td></tr>',
+                      '<tr><td>&nbsp;&nbsp;(-) Repasses Profissionais</td><td class="red">' + fmtR(totalRepasses) + '</td></tr>',
                       '<tr><td>&nbsp;&nbsp;(-) Depreciacao Equipamentos</td><td class="red">' + fmtR(deprMensal) + '</td></tr>',
                       '<tr><td>&nbsp;&nbsp;(-) Despesas Operacionais</td><td class="red">' + fmtR(totalSaidas) + '</td></tr>',
                       '<tr class="sep"><td class="bold">Resultado Antes do Pro-Labore</td><td class="' + greenClass + ' bold">' + fmtR(lucroAntesProlabore) + '</td></tr>',
@@ -3432,7 +3431,7 @@ export default function CRM() {
                 <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 0 }}>
                   {[
                     { l: "Receita Bruta", v: receitaBruta, bold: true, color: "var(--q3)" },
-                    { l: "  (−) Repasses Artistas", v: -totalRepasses, color: "var(--q1)" },
+                    { l: "  (−) Repasses Profissionais", v: -totalRepasses, color: "var(--q1)" },
                     { l: "  (−) Depreciação Equipamentos", v: -deprMensal, color: "var(--q1)" },
                     { l: "  (−) Despesas Operacionais", v: -totalSaidas, color: "var(--q1)" },
                     { l: "Resultado Antes do Pró-Labore", v: lucroAntesProlabore, bold: true, color: lucroAntesProlabore >= 0 ? "var(--q3)" : "var(--q1)", sep: true },
@@ -3466,7 +3465,7 @@ export default function CRM() {
                   </div>
                 </div>
                 <div className="ftable">
-                  <div className="fth">Margem por Artista</div>
+                  <div className="fth">Margem por Profissional</div>
                   <div style={{ padding: "13px 15px" }}>
                     {artists.filter(a => a.ativo).map(a => {
                       const fat = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada")).reduce((s, f) => s + (Number(f.val_a)||0), 0);
@@ -3546,7 +3545,7 @@ export default function CRM() {
                   <div style={{ padding: 24, textAlign: "center", color: "var(--tx3)", fontSize: 12, fontStyle: "italic" }}>Nenhum equipamento cadastrado. Cadastre suas máquinas, fontes e equipamentos para calcular a depreciação mensal.</div>
                 ) : (
                   <table className="ft">
-                    <thead><tr><th>Equipamento</th><th>Categoria</th><th>Artista</th><th>Valor Aquisição</th><th>Data Compra</th><th>Vida Útil</th><th>Depr. Mensal</th><th>Depr. Acumulada</th><th></th></tr></thead>
+                    <thead><tr><th>Equipamento</th><th>Categoria</th><th>Profissional</th><th>Valor Aquisição</th><th>Data Compra</th><th>Vida Útil</th><th>Depr. Mensal</th><th>Depr. Acumulada</th><th></th></tr></thead>
                     <tbody>
                       {equipamentos.map(e => {
                         const deprMes = (Number(e.valor_aquisicao)||0) / (Number(e.vida_util_meses)||48);
@@ -3620,7 +3619,7 @@ export default function CRM() {
                           ))}
                         </select>
                       </div>
-                      <div className="ff"><label className="fl">Artista</label>
+                      <div className="ff"><label className="fl">Profissional</label>
                         <select className="fs" value={entradaForm.artista_id} onChange={e => setEntradaForm({ ...entradaForm, artista_id: e.target.value })}>
                           <option value="">Sem artista</option>
                           {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome.split(" ")[0]}</option>)}
@@ -3732,7 +3731,7 @@ export default function CRM() {
                           {["maquina","fonte","autoclave","mobiliario","computador","iluminacao","outro"].map(c => <option key={c}>{c}</option>)}
                         </select>
                       </div>
-                      <div className="ff"><label className="fl">Artista</label>
+                      <div className="ff"><label className="fl">Profissional</label>
                         <select className="fs" value={equipForm.artista_id} onChange={e => setEquipForm({ ...equipForm, artista_id: e.target.value })}>
                           <option value="">Geral (estúdio)</option>
                           {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome.split(" ")[0]}</option>)}
@@ -3801,7 +3800,7 @@ export default function CRM() {
         {tab === "artistas" && (
           <div className="aw">
             <div className="aabar">
-              <button className="btn-aa" onClick={() => setShowArtForm(true)}>🎨 Adicionar Artista</button>
+              <button className="btn-aa" onClick={() => setShowArtForm(true)}>🎨 Adicionar Profissional</button>
             </div>
             {artists.map(a => (
               <div className="acard" key={a.id} style={{ opacity: a.ativo ? 1 : .55 }}>
@@ -3904,7 +3903,7 @@ export default function CRM() {
               <div className="fov" onClick={e => { if (e.target === e.currentTarget) setEditingArtist(null); }}>
                 <div className="fmod" style={{ maxWidth: 460 }}>
                   <div className="fmh">
-                    <div className="fmt">Editar Artista</div>
+                    <div className="fmt">Editar Profissional</div>
                     <button className="mc" onClick={() => setEditingArtist(null)}>✕</button>
                   </div>
                   <div className="fmb">
@@ -3922,7 +3921,7 @@ export default function CRM() {
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input className="fi" type="number" min={0} max={100} value={editingArtist.com} onChange={e => setEditingArtist({ ...editingArtist, com: Number(e.target.value) })} style={{ width: 80 }} />
                     <span style={{ fontSize: 11, color: "var(--tx3)", display: "flex", gap: 10 }}>
-                        <span>Artista: <strong style={{ color: "var(--gold)" }}>{editingArtist.com}%</strong></span>
+                        <span>Profissional: <strong style={{ color: "var(--gold)" }}>{editingArtist.com}%</strong></span>
                         <span style={{ color: "var(--br)" }}>|</span>
                         <span>Estúdio: <strong style={{ color: "#27AE60" }}>{100 - editingArtist.com}%</strong></span>
                     </span>
@@ -3972,7 +3971,7 @@ export default function CRM() {
             <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 9, overflow: "hidden" }}>
               <div style={{ padding: "13px 17px", background: "var(--dk3)", borderBottom: "1px solid var(--br)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 19, fontWeight: 600, color: "var(--tx)" }}>📄 Contrato de Artista</div>
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 19, fontWeight: 600, color: "var(--tx)" }}>📄 Contrato de Profissional</div>
                   <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 2 }}>Revisar com advogado antes de usar</div>
                 </div>
                 <div style={{ display: "flex", gap: 7 }}>
@@ -4092,7 +4091,7 @@ export default function CRM() {
                 </div>
               </div>
               <div className="dcard">
-                <div className="dch">👥 Desempenho por Artista</div>
+                <div className="dch">👥 Desempenho por Profissional</div>
                 <div className="dcb">
                   {artists.filter(a => a.ativo).map(a => {
                     const clts = clients.filter(c => c.artista === a.id);
@@ -4269,7 +4268,7 @@ export default function CRM() {
                   ]
                 },
                 {
-                  titulo: "🎨 Por Artista", subtitulo: "Comunicação personalizada de cada artista",
+                  titulo: "🎨 Por Profissional", subtitulo: "Comunicação personalizada de cada profissional",
                   itens: artists.map((a: any) => ({ id: a.id, icon: "🎨", label: "Clientes de " + a.nome, desc: "Mensagem com a voz de " + a.nome.split(" ")[0], f: (c: any) => c.artista === a.id }))
                 },
                 {
@@ -4540,7 +4539,7 @@ export default function CRM() {
                       </div>
                     ))}
                     <div className="fi2">
-                      <div className="fil">Artista Responsável</div>
+                      <div className="fil">Profissional Responsável</div>
                       <select className="ef" value={sc.artista || ""} onChange={e => upC(sc.id, "artista", e.target.value)}>
                         {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
                       </select>
@@ -5115,7 +5114,7 @@ export default function CRM() {
                   <>
                   <div className="fg2">
                     <div className="fi2">
-                      <div className="fil">Avaliação do Cliente pelo Artista</div>
+                      <div className="fil">Avaliação do Cliente pelo Profissional</div>
                       <div className="stars" style={{ marginTop: 4 }}>
                         {[1, 2, 3, 4, 5].map(n => (
                           <span key={n} className="star" style={{ opacity: n <= (sc.stars || 0) ? 1 : .25 }} onClick={() => setStars(sc.id, n)}>⭐</span>
@@ -5191,7 +5190,7 @@ export default function CRM() {
             <div className="modal" style={{ maxWidth: 640 }}>
               <div className="mh">
                 <div>
-                  <div className="mn">{showCtr.type === "artist" ? "Contrato de Artista" : "Confirmação de Projeto"}</div>
+                  <div className="mn">{showCtr.type === "artist" ? "Contrato de Profissional" : "Confirmação de Projeto"}</div>
                   <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 3 }}>Clique no texto para editar diretamente</div>
                 </div>
                 <button className="mc" onClick={() => setShowCtr(null)}>✕</button>
@@ -5274,7 +5273,7 @@ export default function CRM() {
                     </div>
                     <div className="fr">
                       <div className="ff">
-                        <label className="fl">Artista Responsável</label>
+                        <label className="fl">Profissional Responsável</label>
                         <select className="fs" value={form.artista} onChange={e => setForm({ ...form, artista: e.target.value })}>
                           {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
                         </select>
@@ -5414,7 +5413,7 @@ export default function CRM() {
           <div className="fov" onClick={e => { if (e.target === e.currentTarget) setShowArtForm(false); }}>
             <div className="fmod" style={{ maxWidth: 420 }}>
               <div className="fmh">
-                <div className="fmt">Adicionar Artista</div>
+                <div className="fmt">Adicionar Profissional</div>
                 <button className="mc" onClick={() => setShowArtForm(false)}>✕</button>
               </div>
               <div className="fmb">
@@ -5431,7 +5430,7 @@ export default function CRM() {
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input className="fi" type="number" min={0} max={100} value={artForm.com} onChange={e => setArtForm({ ...artForm, com: Number(e.target.value) })} style={{ width: 80 }} />
                     <span style={{ fontSize: 11, color: "var(--tx3)", display: "flex", gap: 10 }}>
-                      <span>Artista: <strong style={{ color: "var(--gold)" }}>{artForm.com}%</strong></span>
+                      <span>Profissional: <strong style={{ color: "var(--gold)" }}>{artForm.com}%</strong></span>
                       <span style={{ color: "var(--br)" }}>|</span>
                       <span>Estúdio: <strong style={{ color: "#27AE60" }}>{100 - artForm.com}%</strong></span>
                     </span>
@@ -5535,10 +5534,10 @@ export default function CRM() {
                     style={{ resize: "vertical", minHeight: 60, fontFamily: "inherit" }} />
                 </div>
 
-                {/* 5. ARTISTA — oculto para bloqueio (sub-opções já mostram artistas) */}
+                {/* 5. PROFISSIONAL — oculto para bloqueio (sub-opções já mostram profissionais) */}
                 {!agForm.tipo.startsWith("bloq") && (
                 <div className="ff">
-                  <label className="fl">Artista</label>
+                  <label className="fl">Profissional</label>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {artists.filter(a => a.ativo).map(a => {
                       const chipActive = agForm.tipo?.includes(a.id) || ((agForm as any).artista_exec === a.id);
@@ -5610,9 +5609,32 @@ export default function CRM() {
                   </div>
                 </div>}
 
-                {/* 7. TIPO SESSÃO */}
+                {/* 7. SERVIÇO */}
                 <div className="ff">
-                  <label className="fl">Tipo</label>
+                  <label className="fl">Serviço</label>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                    {servicoOpts.map(svc => {
+                      const active = (agForm as any).servico === svc.nome;
+                      return (
+                        <div key={svc.id} onMouseDown={() => {
+                          const artist = artists.find(a => agForm.tipo.includes(a.id))?.id || (artists[0]?.id || "");
+                          const nomeLower = svc.nome.toLowerCase();
+                          const novoTipo = nomeLower.includes("piercing") ? "piercing" : nomeLower.includes("consulta") ? "cons_" + artist : "sess_" + artist;
+                          const novaEtapa = nomeLower.includes("consulta") ? "cons_agendada" : nomeLower.includes("piercing") ? "sessao_agend" : null;
+                          setAgForm({ ...agForm, servico: svc.nome, tipo: novoTipo } as any);
+                          if (novaEtapa && agClientVinc) {
+                            const cli = clients.find(c => c.id === agClientVinc.id);
+                            if (cli && cli.etapa !== novaEtapa) executarMove(agClientVinc.id, novaEtapa);
+                          }
+                        }} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                          background: active ? svc.cor + "33" : "var(--dk3)",
+                          border: "1px solid " + (active ? svc.cor : "var(--br)"),
+                          color: active ? svc.cor : "var(--tx2)" }}>
+                          {svc.nome}
+                        </div>
+                      );
+                    })}
+                  </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {["cons", "sess", "piercing"].map(t => {
                       const labels: Record<string,string> = { cons: "Consulta", sess: "Sessão", piercing: "Piercing" };
@@ -6158,7 +6180,7 @@ export default function CRM() {
                 <div className="ff">
                   <DateScroller label="Data da 1ª Sessão" value={recorrenteForm.dataInicio} onChange={val => setRecorrenteForm(p => ({ ...p, dataInicio: val }))} />
                 </div>
-                <div className="ff"><label className="fl">Artista</label>
+                <div className="ff"><label className="fl">Profissional</label>
                   <select className="fs" value={recorrenteForm.artista} onChange={e => setRecorrenteForm(p => ({ ...p, artista: e.target.value }))}>
                     {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome.split(" ")[0]}</option>)}
                   </select>
@@ -6770,7 +6792,7 @@ export default function CRM() {
                 <strong style={{ color: "var(--tx)" }}>• Todos os clientes</strong><br />
                 <strong style={{ color: "var(--tx)" }}>• Todos os agendamentos</strong><br />
                 <strong style={{ color: "var(--tx)" }}>• Todos os lançamentos financeiros e saídas</strong><br /><br />
-                <span style={{ color: "var(--tx3)", fontSize: 12 }}>Artistas e configurações do estúdio serão mantidos.</span>
+                <span style={{ color: "var(--tx3)", fontSize: 12 }}>Profissionais e configurações do estúdio serão mantidos.</span>
               </div>
               {!resetUndo && (
                 <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center" }}>
@@ -6930,7 +6952,7 @@ export default function CRM() {
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(192,57,43,.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🎨</div>
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "var(--tx)" }}>Remover artista?</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "var(--tx)" }}>Remover profissional?</div>
                   <div style={{ fontSize: 12, color: "var(--tx2)", marginTop: 3 }}>{confirmRemoverArtista.nome}</div>
                 </div>
               </div>
@@ -6944,7 +6966,7 @@ export default function CRM() {
                   onClick={async () => {
                     setArtists(p => p.filter(x => x.id !== confirmRemoverArtista.id));
                     await dbDelete("artistas", confirmRemoverArtista.id);
-                    addLog(`Artista "${confirmRemoverArtista.nome}" removido`);
+                    addLog(`Profissional "${confirmRemoverArtista.nome}" removido`);
                     setConfirmRemoverArtista(null);
                   }}>
                   Remover
@@ -7034,14 +7056,14 @@ export default function CRM() {
         {showSettings && (() => {
           // Snapshot para cancelar
           return (
-          <div className="ov" onClick={e => { if (e.target === e.currentTarget && !editandoListas) setShowSettings(false); }}>
+          <div className="ov" onClick={e => { if (e.target === e.currentTarget) setShowSettings(false); }}>
             <div className="settings-modal">
               <div className="mh">
                 <div>
                   <div className="mn">{studioName}</div>
                   <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 3 }}>In-Quadra Ink System</div>
                 </div>
-                <button className="mc" onClick={() => { if (!editandoListas) setShowSettings(false); }}>✕</button>
+                <button className="mc" onClick={() => setShowSettings(false)}>✕</button>
               </div>
               {/* ABAS */}
               <div className="settings-tabs-bar" style={{ display: "flex", borderBottom: "1px solid var(--br)" }}>
@@ -7391,7 +7413,7 @@ export default function CRM() {
                       </div>
                     </div>
                     <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 10, fontStyle: "italic" }}>
-                      💡 Os alertas para artistas são configurados individualmente na aba Artistas.
+                      💡 Os alertas para profissionais são configurados individualmente na aba Profissionais.
                     </div>
                   </div>
                 </>}
@@ -7444,7 +7466,7 @@ export default function CRM() {
                       {[
                         { label: "Ticket Médio", desc: "Valor médio por sessão — calculado pelo financeiro", calc: true },
                         { label: "Taxa de Conversão", desc: "% de leads que viram sessão — calculado pelo pipeline", calc: true },
-                        { label: "Receita por Artista", desc: "Faturamento individual — calculado pelos artistas", calc: true },
+                        { label: "Receita por Profissional", desc: "Faturamento individual — calculado pelos profissionais", calc: true },
                       ].map(item => (
                         <div key={item.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "var(--dk3)", borderRadius: 7, border: "1px solid var(--br)", opacity: 0.7 }}>
                           <div>
@@ -7585,7 +7607,7 @@ export default function CRM() {
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>Baixe os dados do sistema em CSV para backup ou análise externa.</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <button onClick={() => {
-                        const rows = [["Nome","Telefone","Email","Artista","Etapa","Origem","Data"].join(","),
+                        const rows = [["Nome","Telefone","Email","Profissional","Etapa","Origem","Data"].join(","),
                           ...clients.map(c => [c.nome, c.tel, c.email, c.artista, c.etapa, c.orig, c.data].map(v => `"${v||""}"`).join(","))];
                         const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
                         const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "clientes.csv"; a.click();
@@ -7593,7 +7615,7 @@ export default function CRM() {
                         📥 Exportar Clientes
                       </button>
                       <button onClick={() => {
-                        const rows = [["Descrição","Artista","Data","Valor","Forma","Status"].join(","),
+                        const rows = [["Descrição","Profissional","Data","Valor","Forma","Status"].join(","),
                           ...fin.map((f: any) => [f.cliente_nome, f.artista, f.data, f.val_a, f.pgto, f.status].map((v: any) => `"${v||""}"`).join(","))];
                         const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
                         const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "financeiro.csv"; a.click();
@@ -7606,7 +7628,7 @@ export default function CRM() {
                     <div className="stit" style={{ color: "#C0392B" }}>Zona de Perigo</div>
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
                       <div style={{ fontSize: 12, color: "var(--tx2)", lineHeight: 1.6 }}>
-                        Remove clientes, agendamentos e financeiro. Artistas e configurações são preservados.
+                        Remove clientes, agendamentos e financeiro. Profissionais e configurações são preservados.
                       </div>
                       <div style={{ position: "relative", flexShrink: 0 }} title="Remove permanentemente todos os clientes, agendamentos e lançamentos financeiros cadastrados. As configurações do estúdio, artistas, metas e preferências da Aura são preservadas. Use antes de iniciar o uso real do sistema após testes.">
                         <span style={{ width: 18, height: 18, borderRadius: "50%", background: "var(--dk4)", border: "1px solid var(--br)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "var(--tx3)", cursor: "help", fontWeight: 700 }}>ℹ</span>
