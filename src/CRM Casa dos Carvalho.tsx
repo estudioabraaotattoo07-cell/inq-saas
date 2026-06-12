@@ -1039,8 +1039,11 @@ export default function CRM() {
   const [alertaConfig, setAlertaConfig] = useState({ alerta_nova_mensagem: true, alerta_sessao_proxima: true, alerta_sessao_antecedencia: "2h", alerta_falta: true, alerta_aniversario: true, alerta_sem_retorno: true, alerta_sem_retorno_dias: "30", alerta_sinal_pendente: true, alerta_projeto_sem_valor: true, alerta_novo_cliente_aura: true });
   const [sessoesExtras, setSessoesExtras] = useState<{date: string; start: number; end: number}[]>([]);
   const [entradaCats, setEntradaCats] = useState<string[]>(["sessao","sinal","prolabore","outro"]);
+  const [saidaCats, setSaidaCats] = useState<string[]>(["Material","Energia","Internet","Manutenção","Marketing","Pró-labore","Aluguel","Outro"]);
   const [showEditCats, setShowEditCats] = useState(false);
+  const [showEditSaidaCats, setShowEditSaidaCats] = useState(false);
   const [novaCatInput, setNovaCatInput] = useState("");
+  const [novaSaidaCatInput, setNovaSaidaCatInput] = useState("");
   const [servicoOpts, setServicoOpts] = useState<{id: string; nome: string; cor: string}[]>([{id:"svc1",nome:"Tatuagem",cor:"#a78bfa"},{id:"svc2",nome:"Piercing",cor:"#34d399"},{id:"svc3",nome:"Consulta",cor:"#60a5fa"}]);
   const [addingServico, setAddingServico] = useState(false);
   const [novoServico, setNovoServico] = useState("");
@@ -1157,6 +1160,7 @@ export default function CRM() {
           if (cfg.aura_formalidade) setAuraFormalidade(cfg.aura_formalidade);
           if (cfg.aura_idioma) setAuraIdioma(cfg.aura_idioma);
           if (cfg.entrada_cats && Array.isArray(cfg.entrada_cats) && cfg.entrada_cats.length) setEntradaCats(cfg.entrada_cats);
+          if (cfg.saida_cats && Array.isArray(cfg.saida_cats) && cfg.saida_cats.length) setSaidaCats(cfg.saida_cats);
           if (cfg.servico_opts && Array.isArray(cfg.servico_opts) && cfg.servico_opts.length) setServicoOpts(cfg.servico_opts);
           setDark(cfg.dark_mode !== false);
           // [X2] onboarding_done from Supabase (source of truth); localStorage as cache
@@ -1453,14 +1457,19 @@ export default function CRM() {
     for (const f of pagFormas) {
       const val = parseFloat(f.valor.replace(/\./g, "").replace(",", ".")) || 0;
       if (val <= 0) continue;
+      const taxaPct = f.forma === "Cartão" ? (parseFloat(((f as any).taxa || "0").replace(",", ".")) || 0) : 0;
+      const valLiquido = taxaPct > 0 ? val * (1 - taxaPct / 100) : val;
+      const nParcelas = f.forma === "Cartão" ? (parseInt(f.parcelas) || 1) : 1;
       const { error } = await sb.from("financeiro").insert({
         cliente_id: cid,
         cliente_nome: cliente?.nome || "",
         artista: artistaId,
         data: dataHojeISO,
         val_a: val,
-        val_c: val,
+        val_c: valLiquido,
         pgto: f.forma === "Cartão" ? "Cartão " + f.parcelas + "x" : f.forma,
+        taxa_maquina: taxaPct,
+        parcelas: nParcelas,
         com_base: comSess,
         com_sess: comSess,
         user_id: userId,
@@ -2965,7 +2974,7 @@ export default function CRM() {
           // ── helpers ──
           const fmtR = (v: number) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
           const parseDateISO = (d: string) => { if (!d) return ""; if (d.includes("-")) return d.slice(0,7); const p = d.split("/"); return p.length === 3 ? p[2]+"-"+p[1].padStart(2,"0") : ""; };
-          const categorias = ["Material","Energia","Internet","Manutencao","Marketing","Pro-labore","Aluguel","Saude","Impostos","Outros"];
+          const categorias = saidaCats;
           const catEntrada = ["sessao","sinal","prolabore","outro"];
 
           // ── entradas do financeiro (tudo de val_a) ──
@@ -3067,16 +3076,19 @@ export default function CRM() {
               {/* cards resumo */}
               <div className="fsum" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
                 {(() => {
-                  const receitaPrevista = clients.reduce((acc: number, c: any) => {
-                    const projs = c.projetos || [];
-                    return acc + projs.filter((p: any) => p.status !== "concluido" && p.status !== "cancelado").reduce((s: number, p: any) => s + (Number(p.valorTotal) || 0), 0);
+                  const totalAReceber = clients.reduce((acc: number, c: any) => {
+                    const projs = (c.projetos || []).filter((p: any) => p.status !== "concluido" && p.status !== "cancelado");
+                    const totalProj = projs.reduce((s: number, p: any) => s + (Number(p.valorTotal) || 0), 0);
+                    const totalPago = fin.filter((f: any) => f.cliente_id === c.id && (!f.tipo || f.tipo === "entrada")).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
+                    return acc + Math.max(totalProj - totalPago, 0);
                   }, 0);
                   return [
                     { l: "Entradas", v: fmtR(totalEntradas), s: "no período filtrado", c: "var(--q3)" },
                     { l: "Saídas", v: fmtR(totalSaidas), s: "despesas do estúdio", c: "var(--q1)" },
                     { l: "Comissões", v: fmtR(totalRepasses), s: "a pagar aos artistas", c: "var(--ab)" },
                     { l: "Saldo Líquido", v: fmtR(saldoLiquido), s: "entradas − saídas − repasses", c: saldoLiquido >= 0 ? "var(--q3)" : "var(--q1)" },
-                    { l: "Previsto", v: fmtR(receitaPrevista), s: "solicitações em andamento", c: "var(--gold)" },
+                    { l: "A Receber", v: fmtR(totalAReceber), s: "saldos em aberto dos clientes", c: "var(--gold)" },
+                    { l: "Projeção Total", v: fmtR(saldoLiquido + totalAReceber), s: "líquido + a receber", c: (saldoLiquido + totalAReceber) >= 0 ? "var(--q3)" : "var(--q1)" },
                   ];
                 })().map((s, i) => (
                   <div className="fsc" key={i}>
@@ -3171,7 +3183,7 @@ export default function CRM() {
                   <button className="btn-new" style={{ fontSize: 11, padding: "5px 12px" }} onClick={() => setShowEntradaForm(true)}>+ Lançar Manual</button>
                 </div>
                 <table className="ft">
-                  <thead><tr><th>Descrição</th><th>Profissional</th><th>Data</th><th>Valor</th><th>Saldo Dev.</th><th>Forma</th><th>Categoria</th><th>Com %</th><th>Repasse</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Descrição</th><th>Profissional</th><th>Data</th><th>Valor</th><th>Saldo Dev.</th><th>Forma</th><th>Taxa</th><th>Categoria</th><th>Com %</th><th>Repasse</th><th>Status</th></tr></thead>
                   <tbody>
                     {finFiltrado.filter(f => !f.tipo || f.tipo === "entrada").length === 0 && (
                       <tr><td colSpan={10} style={{ textAlign: "center", color: "var(--tx3)", fontSize: 12, padding: 16, fontStyle: "italic" }}>Nenhuma entrada no período.</td></tr>
@@ -3196,6 +3208,16 @@ export default function CRM() {
                             {valorTotal > 0 ? (saldoDev > 0 ? fmtR(saldoDev) : "✅") : "—"}
                           </td>
                           <td style={{ fontSize: 11 }}>{f.forma_pgto || f.pgto || "—"}</td>
+                          <td style={{ fontSize: 11 }}>
+                            {(f.taxa_maquina > 0) ? (
+                              <span style={{ color: "#E74C3C" }}>
+                                {f.taxa_maquina}%
+                                <span style={{ display: "block", fontSize: 10, color: "var(--tx3)" }}>
+                                  {"−" + fmtR((Number(f.val_a) || 0) - (Number(f.val_c) || Number(f.val_a) || 0))}
+                                </span>
+                              </span>
+                            ) : "—"}
+                          </td>
                           <td><span style={{ fontSize: 10, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 3, padding: "2px 6px", color: "var(--tx2)" }}>{f.categoria || "sessao"}</span></td>
                           <td>
                             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -3369,6 +3391,25 @@ export default function CRM() {
                       <span style={{ fontSize: row.bold ? 17 : 13, fontWeight: row.bold ? 700 : 600, color: row.color, fontFamily: row.bold ? "'Cormorant Garamond',serif" : "inherit" }}>{fmtR(Math.abs(row.v))}{row.v < 0 ? " (−)" : ""}</span>
                     </div>
                   ))}
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8 }}>Repasses por Profissional</div>
+                    {artists.map(a => {
+                      const lancArtista = finFiltrado.filter((f: any) => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada"));
+                      const totalBruto = lancArtista.reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
+                      const repasse = lancArtista.reduce((s: number, f: any) => s + ((Number(f.val_a) || 0) * ((Number(f.com_sess) || 0) / 100)), 0);
+                      if (totalBruto <= 0) return null;
+                      return (
+                        <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "var(--dk3)", borderRadius: 6, marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, ...aStyle(a.id) }}>{a.nome}</span>
+                          <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
+                            <span style={{ color: "var(--tx3)" }}>Gerou: <strong style={{ color: "var(--tx)" }}>{fmtR(totalBruto)}</strong></span>
+                            <span style={{ color: "var(--tx3)" }}>Repasse: <strong style={{ color: "var(--q1)" }}>{fmtR(repasse)}</strong></span>
+                            <span style={{ color: "var(--tx3)" }}>Comissão: <strong style={{ color: "var(--tx2)" }}>{a.com || 0}%</strong></span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -3466,6 +3507,25 @@ export default function CRM() {
                       <span style={{ fontSize: row.bold ? 17 : 13, fontWeight: row.bold ? 700 : 600, color: row.color, fontFamily: row.bold ? "'Cormorant Garamond',serif" : "inherit" }}>{fmtR(Math.abs(row.v))}{row.v < 0 ? " (−)" : ""}</span>
                     </div>
                   ))}
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8 }}>Repasses por Profissional</div>
+                    {artists.map(a => {
+                      const lancArtista = finFiltrado.filter((f: any) => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada"));
+                      const totalBruto = lancArtista.reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
+                      const repasse = lancArtista.reduce((s: number, f: any) => s + ((Number(f.val_a) || 0) * ((Number(f.com_sess) || 0) / 100)), 0);
+                      if (totalBruto <= 0) return null;
+                      return (
+                        <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "var(--dk3)", borderRadius: 6, marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, ...aStyle(a.id) }}>{a.nome}</span>
+                          <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
+                            <span style={{ color: "var(--tx3)" }}>Gerou: <strong style={{ color: "var(--tx)" }}>{fmtR(totalBruto)}</strong></span>
+                            <span style={{ color: "var(--tx3)" }}>Repasse: <strong style={{ color: "var(--q1)" }}>{fmtR(repasse)}</strong></span>
+                            <span style={{ color: "var(--tx3)" }}>Comissão: <strong style={{ color: "var(--tx2)" }}>{a.com || 0}%</strong></span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -6409,10 +6469,21 @@ export default function CRM() {
                     }}
                     style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 8px", fontSize: 12, color: "var(--tx)", width: 90 }} />
                   {f.forma === "Cartão" && (
-                    <select value={f.parcelas} onChange={e => setPagFormas(p => p.map((x,j) => j===i ? {...x, parcelas: e.target.value} : x))}
-                      style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 8px", fontSize: 12, color: "var(--tx)", width: 60 }}>
-                      {["1","2","3","4","5","6","7","8","9","10","11","12"].map(n => <option key={n}>{n}x</option>)}
-                    </select>
+                    <>
+                      <select value={f.parcelas} onChange={e => setPagFormas(p => p.map((x,j) => j===i ? {...x, parcelas: e.target.value} : x))}
+                        style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 8px", fontSize: 12, color: "var(--tx)", width: 60 }}>
+                        {["1","2","3","4","5","6","7","8","9","10","11","12"].map(n => <option key={n}>{n}x</option>)}
+                      </select>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <input type="text" placeholder="Taxa %" value={(f as any).taxa || ""}
+                          onChange={e => {
+                            const raw = e.target.value.replace(/[^0-9,.]/g, "");
+                            setPagFormas(p => p.map((x,j) => j===i ? {...x, taxa: raw} : x));
+                          }}
+                          style={{ width: 64, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "inherit" }} />
+                        <span style={{ fontSize: 11, color: "var(--tx3)" }}>%</span>
+                      </div>
+                    </>
                   )}
                   {pagFormas.length > 1 && (
                     <button onClick={() => setPagFormas(p => p.filter((_,j) => j!==i))}
@@ -7308,6 +7379,45 @@ export default function CRM() {
                       <button className="btn-sm gold" onClick={() => { setAddingServico(true); setNovoServico(""); setNovoServicoCor("#a78bfa"); }}>+ Adicionar Serviço</button>
                     )}
                   </div>
+                  <div>
+                    <div className="stit">Categorias de Despesa</div>
+                    <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 10, lineHeight: 1.6 }}>
+                      Categorias usadas no registro de saídas do estúdio.
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+                      {saidaCats.map(cat => (
+                        <div key={cat} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--dk3)", borderRadius: 7, padding: "8px 12px" }}>
+                          <span style={{ flex: 1, fontSize: 13, color: "var(--tx)" }}>{cat}</span>
+                          <button onClick={async () => {
+                            const updated = saidaCats.filter(c => c !== cat);
+                            setSaidaCats(updated);
+                            const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
+                            if (cfgEx?.id) await sb.from("configuracoes").update({ saida_cats: updated }).eq("id", cfgEx.id);
+                          }} style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 14 }}>🗑</button>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input className="ef" style={{ flex: 1 }} placeholder="Nova categoria..." value={novaSaidaCatInput}
+                        onChange={e => setNovaSaidaCatInput(e.target.value)}
+                        onKeyDown={async e => {
+                          if (e.key === "Enter" && novaSaidaCatInput.trim() && !saidaCats.includes(novaSaidaCatInput.trim())) {
+                            const updated = [...saidaCats, novaSaidaCatInput.trim()];
+                            setSaidaCats(updated); setNovaSaidaCatInput("");
+                            const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
+                            if (cfgEx?.id) await sb.from("configuracoes").update({ saida_cats: updated }).eq("id", cfgEx.id);
+                          }
+                        }} />
+                      <button className="btn-s" onClick={async () => {
+                        if (novaSaidaCatInput.trim() && !saidaCats.includes(novaSaidaCatInput.trim())) {
+                          const updated = [...saidaCats, novaSaidaCatInput.trim()];
+                          setSaidaCats(updated); setNovaSaidaCatInput("");
+                          const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
+                          if (cfgEx?.id) await sb.from("configuracoes").update({ saida_cats: updated }).eq("id", cfgEx.id);
+                        }
+                      }}>+</button>
+                    </div>
+                  </div>
                 </>}
 
                 {/* ── ABA DONO ── */}
@@ -7697,6 +7807,7 @@ export default function CRM() {
                     studio_logo: studioLogo,
                     alerta_config: alertaConfig,
                     entrada_cats: entradaCats,
+                    saida_cats: saidaCats,
                     servico_opts: servicoOpts,
                     user_id: userId,
                     updated_at: new Date().toISOString()
