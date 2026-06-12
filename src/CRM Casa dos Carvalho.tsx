@@ -1008,7 +1008,7 @@ export default function CRM() {
   const [cancelMotivos, setCancelMotivos] = useState<string[]>(["Cliente desistiu", "Questão financeira", "Mudança de projeto", "Sem resposta do cliente", "Outro"]);
   const [novoProjetoAberto, setNovoProjetoAberto] = useState<any>(null);
   const [showStats, setShowStats] = useState(false);
-  const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "" });
+  const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "" });
   const [showRecorrenteModal, setShowRecorrenteModal] = useState<{cid: any} | null>(null);
   const [recorrenteForm, setRecorrenteForm] = useState({ dataInicio: new Date().toISOString().split("T")[0], intervalo: 7, total: 4, hora: 9, duracao: 2, artista: "" });
   const [fichaRevelada, setFichaRevelada] = useState<Set<any>>(new Set());
@@ -1824,7 +1824,7 @@ export default function CRM() {
     setEditingEvent(null);
     setAgClientVinc(null);
     setAgClientSearch("");
-    addLog(`Agenda: evento "${agForm.title}" criado para ${agForm.date} às ${agForm.start}h`);
+    addLog("📅 Agendado: " + agForm.title + " — " + servicoNome + " em " + dataFmt + " às " + agForm.start + "h" + (artistaNome ? " com " + artistaNome : ""));
     // Registrar no histórico e mover pipeline automaticamente
     if (agClientVinc) {
       const dataFmt = agForm.date ? agForm.date.split("-").reverse().join("/") : agForm.date;
@@ -1833,7 +1833,8 @@ export default function CRM() {
       const tipoNome = tipoLabel[tipoKey] || agForm.tipo;
       const sinalVal = parseFloat(String((agForm as any).sinal || "0").replace(/\./g, "").replace(",", ".")) || 0;
       const sinalPago = !!(agForm as any).sinalPago;
-      const artistaNome = artists.find(a => agForm.tipo.includes(a.id))?.nome || "";
+      const artistaId = agForm.tipo.split("_").slice(1).join("_") || agClientVinc?.artista || "";
+        const artistaNome = artists.find(a => a.id === artistaId)?.nome || artists.find(a => agForm.tipo.includes(a.id))?.nome || "";
         const servicoNome = (agForm as any).servico || tipoNome;
         const histEntries = [
         { t: `📅 Agendamento: ${servicoNome} em ${dataFmt} às ${agForm.start}h${artistaNome ? " com " + artistaNome : ""}`, d: new Date().toLocaleString("pt-BR") },
@@ -4781,7 +4782,7 @@ export default function CRM() {
                     {novoProjetoAberto !== sc.id && (
                       <button title="Cada projeto representa uma tatuagem ou trabalho artístico do cliente. Você pode ter múltiplos projetos por cliente." onClick={() => {
                         setNovoProjetoAberto(sc.id);
-                        setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "" });
+                        setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "" });
                       }} style={{ fontSize: 11, fontWeight: 600, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 10px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                         + Nova Solicitação
                       </button>
@@ -5392,9 +5393,9 @@ export default function CRM() {
                       <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={form.insta} onChange={e => { const v = e.target.value; setForm({ ...form, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                     </div>
                     <div className="fr">
-                      <div className="ff">
+                      <div className="ff" key={"artdiv-" + artists.length}>
                         <label className="fl">Profissional Responsável</label>
-                        <select className="fs" key={"art-" + artists.length} value={form.artista} onChange={e => setForm({ ...form, artista: e.target.value })}>
+                        <select className="fs" value={form.artista} onChange={e => setForm({ ...form, artista: e.target.value })}>
                           <option value="">Selecione...</option>
                           {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
                         </select>
