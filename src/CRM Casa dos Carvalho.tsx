@@ -2626,7 +2626,17 @@ export default function CRM() {
                             <div className="cname">{anivHoje ? "🎂 " : ""}{c.nome}</div>
                             <span className={"qb " + QC[c.qual]}>{c.qual}</span>
                           </div>
-                          <div className="cst">{c.estilo || "Sem estilo"} {c.regiao || " - "}</div>
+                          {(() => {
+                            const s = calcScore(c);
+                            return (
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                                background: s.cor + "22", border: "1px solid " + s.cor + "55", color: s.cor,
+                                marginTop: 2, display: "inline-block" }}>
+                                {s.label}
+                              </span>
+                            );
+                          })()}
+                          {(c as any).servicoInteresse && <div className="cst">{(c as any).servicoInteresse}</div>}
                           {(() => {
                             const sessCli = agEvents.filter(e => e.cliente_id === c.id && !e.tipo?.startsWith("bloq") && !e.tipo?.startsWith("cons"));
                             const total = sessCli.length;
@@ -3662,7 +3672,7 @@ export default function CRM() {
                     <div className="fr">
                       <div className="ff"><label className="fl">Valor (R$) *</label>
                         <input className="fi" type="text" placeholder="0,00" value={entradaForm.valor}
-                          onChange={e => { const raw = e.target.value.replace(/\D/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEntradaForm({ ...entradaForm, valor: num }); }} />
+                          onChange={e => { const raw = e.target.value.replace(/[^0-9]/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEntradaForm({ ...entradaForm, valor: num }); }} />
                       </div>
                       <div className="ff"><label className="fl">Forma</label>
                         <select className="fs" value={entradaForm.forma_pgto} onChange={e => setEntradaForm({ ...entradaForm, forma_pgto: e.target.value })}>
@@ -3753,7 +3763,7 @@ export default function CRM() {
                     <div className="fr">
                       <div className="ff"><label className="fl">Valor de Aquisição (R$) *</label>
                         <input className="fi" type="text" placeholder="0,00" value={equipForm.valor_aquisicao}
-                          onChange={e => { const raw = e.target.value.replace(/\D/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEquipForm({ ...equipForm, valor_aquisicao: num }); }} />
+                          onChange={e => { const raw = e.target.value.replace(/[^0-9]/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEquipForm({ ...equipForm, valor_aquisicao: num }); }} />
                       </div>
                       <div className="ff"><DateScroller label="Data de Compra" value={equipForm.data_compra} onChange={val => setEquipForm({ ...equipForm, data_compra: val })} /></div>
                     </div>
@@ -4515,7 +4525,17 @@ export default function CRM() {
                     {sc.etapa === "lista_espera" && <span className="tag-wl">⏳</span>}
                     {isAniversHoje((sc as any).nascimento || "") && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--gold)", background: "rgba(201,168,76,.15)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 4, padding: "1px 6px" }}>🎂 Aniversário hoje!</span>}
                     <span style={{ color: "var(--tx3)", fontSize: 11 }}>Entrou em {sc.data}</span>
-                    {(() => { const s = calcScore(sc); return <span style={{ fontSize: 10, fontWeight: 700, color: s.cor, background: s.cor + "22", border: `1px solid ${s.cor}44`, borderRadius: 4, padding: "1px 6px", letterSpacing: ".04em" }}>⭐ {s.label} {s.score}</span>; })()}
+                    {(() => { const s = calcScore(sc); return <span style={{ fontSize: 10, fontWeight: 700, color: s.cor, background: s.cor + "22", border: "1px solid " + s.cor + "44", borderRadius: 4, padding: "1px 6px", letterSpacing: ".04em" }}>⭐ {s.label} {s.score}</span>; })()}
+                    {(() => {
+                      const projs = (sc.projetos || []).filter((p: any) => p.status !== "concluido" && p.status !== "cancelado" && p.valorTotal > 0);
+                      const totalProj = projs.reduce((acc: number, p: any) => acc + (Number(p.valorTotal) || 0), 0);
+                      const totalPago = fin.filter((f: any) => f.cliente_id === sc.id && f.tipo !== "saida").reduce((acc: number, f: any) => acc + (Number(f.val_a) || 0), 0);
+                      const saldo = totalProj - totalPago;
+                      if (totalProj <= 0) return null;
+                      return saldo > 0
+                        ? <span style={{ fontSize: 11, fontWeight: 700, color: "#E74C3C", background: "rgba(231,76,60,0.12)", padding: "2px 8px", borderRadius: 6 }}>Saldo: R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        : <span style={{ fontSize: 11, fontWeight: 700, color: "#27AE60", background: "rgba(39,174,96,0.12)", padding: "2px 8px", borderRadius: 6 }}>✓ Quitado</span>;
+                    })()}
                     {miss(sc).map((m: string) => <span key={m} className="atag">⚠ Sem {m}</span>)}
                   </div>
                 </div>
@@ -5814,7 +5834,7 @@ export default function CRM() {
 
         {/* ── MODAL HISTÓRICO DE ATIVIDADES ── */}
         {showHistoricoModal && (
-          <div className="ov" onClick={() => setShowHistoricoModal(false)}>
+          <div className="ov" onClick={() => setShowHistoricoModal(false)} style={{ zIndex: 9999 }}>
             <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(560px, 95vw)", maxHeight: "80vh", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 700, color: "var(--gold)" }}>📋 Histórico de Atividades</div>
@@ -5916,15 +5936,13 @@ export default function CRM() {
                         const ev = confirmPresenca.event;
                         await sb.from("agenda").update({ status: "concluido" }).eq("id", ev.id);
                         setAgEvents(p => p.map(x => x.id === ev.id ? { ...x, status: "concluido" } : x));
-                        const temSessaoFutura = agEvents.some(e2 => e2.cliente_id === ev.cliente_id && e2.tipo?.startsWith("sess_") && e2.status !== "concluido" && e2.status !== "cancelado" && e2.date > ev.date);
-                        if (temSessaoFutura) {
-                          executarMove(ev.cliente_id, "sessao_agend");
-                        } else {
-                          const histMsg = "Consulta realizada em " + (ev.date||"").split("-").reverse().join("/") + " — aguardando retorno";
-                          setClients(p => p.map(c => c.id !== ev.cliente_id ? c : {
-                            ...c, hist: [...(c.hist||[]), { t: histMsg, d: new Date().toLocaleString("pt-BR") }]
-                          }));
-                          executarMove(ev.cliente_id, "hibernacao");
+                        const histMsg = "✓ Consulta realizada em " + (ev.date||"").split("-").reverse().join("/");
+                        setClients(p => p.map(c => c.id !== ev.cliente_id ? c : {
+                          ...c, hist: [...(c.hist||[]), { t: histMsg, d: new Date().toLocaleString("pt-BR") }]
+                        }));
+                        const cliAtual = clients.find(c => c.id === ev.cliente_id);
+                        if (cliAtual) {
+                          await sb.from("clientes").update({ hist: [...(cliAtual.hist||[]), { t: histMsg, d: new Date().toLocaleString("pt-BR") }] }).eq("id", ev.cliente_id);
                         }
                         addLog("Agenda: consulta cumprida — " + ev.title);
                         setConfirmPresenca(null);
@@ -6545,18 +6563,10 @@ export default function CRM() {
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button className="btn-c" onClick={() => setConfirmMover(null)}>Cancelar</button>
                 <button className="btn-s" onClick={() => {
-                  const precisaAg = ["cons_agendada", "sessao_agend"].includes(confirmMover.stage.id);
-                  if (precisaAg) {
-                    const tipoEsperado = confirmMover.stage.id === "cons_agendada" ? "cons" : "sess";
-                    const temAgCorreto = confirmMover.agEvents.some((e: any) => e.tipo?.startsWith(tipoEsperado) || (tipoEsperado === "sess" && e.tipo === "piercing"));
-                    if (!temAgCorreto) {
-                      const nomeEtapa = tipoEsperado === "cons" ? "consulta" : "sessão";
-                      setConfirmMover(p => p ? { ...p, _aviso: "Defina um agendamento de " + nomeEtapa + " antes de confirmar." } : p);
-                      return;
-                    }
-                  }
+                  const cid = confirmMover.cid;
+                  const stageId = confirmMover.stage.id;
                   setConfirmMover(null);
-                  move(confirmMover.cid, confirmMover.stage.id);
+                  move(cid, stageId);
                 }}>
                   Confirmar
                 </button>
