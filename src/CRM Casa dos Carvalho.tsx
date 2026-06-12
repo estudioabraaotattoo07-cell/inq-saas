@@ -4614,7 +4614,7 @@ export default function CRM() {
 
                 <div>
                   <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>Projetos Artísticos</span>
+                    <span>Solicitações</span>
                     {novoProjetoAberto !== sc.id && (
                       <button title="Cada projeto representa uma tatuagem ou trabalho artístico do cliente. Você pode ter múltiplos projetos por cliente." onClick={() => {
                         setNovoProjetoAberto(sc.id);
@@ -4638,19 +4638,6 @@ export default function CRM() {
                           <div className="fil">Estilo</div>
                           <input className="ef" placeholder="Ex: Fine Line, Realismo..." value={novoProjetoForm.estilo} onChange={e => setNovoProjetoForm(p => ({ ...p, estilo: e.target.value }))} />
                         </div>
-                        <div className="fi2">
-                          <div className="fil">Tamanho</div>
-                          <select className="ef" value={novoProjetoForm.tam} onChange={e => setNovoProjetoForm(p => ({ ...p, tam: e.target.value }))}>
-                            <option>Discreto</option><option>Medio</option><option>Grande</option><option>Fechamento</option>
-                          </select>
-                        </div>
-                        <div className="fi2">
-                          <div className="fil">1ª Tattoo</div>
-                          <select className="ef" value={novoProjetoForm.primeira ? "Sim" : "Nao"} onChange={e => setNovoProjetoForm(p => ({ ...p, primeira: e.target.value === "Sim" }))}>
-                            <option value="Sim">Sim</option><option value="Nao">Não</option>
-                          </select>
-                        </div>
-                      </div>
                       <div className="fi2">
                         <div className="fil">Descrição do Projeto</div>
                         <textarea className="ef" placeholder="Descreva o projeto..." value={novoProjetoForm.desc} onChange={e => setNovoProjetoForm(p => ({ ...p, desc: e.target.value }))}
@@ -4753,30 +4740,6 @@ export default function CRM() {
                                   else upC(sc.id, "projetos", [{ ...proj, estilo: e.target.value }]);
                                 }} />
                               </div>
-                              <div className="fi2">
-                                <div className="fil">Tamanho</div>
-                                <select className="ef" value={proj.tam || ""} onChange={e => {
-                                  const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
-                                  const idx = projs.findIndex((p: any) => p.id === proj.id);
-                                  if (idx >= 0) { projs[idx] = { ...projs[idx], tam: e.target.value }; upC(sc.id, "projetos", projs); }
-                                  else upC(sc.id, "projetos", [{ ...proj, tam: e.target.value }]);
-                                }}>
-                                  <option value="">Não informado</option>
-                                  <option>Discreto</option><option>Medio</option><option>Grande</option><option>Fechamento</option>
-                                </select>
-                              </div>
-                              <div className="fi2">
-                                <div className="fil">1ª Tattoo</div>
-                                <select className="ef" value={proj.primeira ? "Sim" : "Nao"} onChange={e => {
-                                  const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
-                                  const idx = projs.findIndex((p: any) => p.id === proj.id);
-                                  if (idx >= 0) { projs[idx] = { ...projs[idx], primeira: e.target.value === "Sim" }; upC(sc.id, "projetos", projs); }
-                                  else upC(sc.id, "projetos", [{ ...proj, primeira: e.target.value === "Sim" }]);
-                                }}>
-                                  <option value="Sim">Sim</option><option value="Nao">Não</option>
-                                </select>
-                              </div>
-                            </div>
                             <div className="fi2">
                               <div className="fil">Descrição do Projeto</div>
                               <textarea className="ef" value={proj.desc || ""} onChange={e => {
@@ -5350,20 +5313,6 @@ export default function CRM() {
                 )}
                 {formStep === 2 && (
                   <>
-                    <div className="fr">
-                      <div className="ff">
-                        <label className="fl">Tamanho</label>
-                        <select className="fs" value={form.tam} onChange={e => setForm({ ...form, tam: e.target.value })}>
-                          <option>Discreto</option><option>Medio</option><option>Grande</option><option>Fechamento</option>
-                        </select>
-                      </div>
-                      <div className="ff">
-                        <label className="fl">1ª Tattoo?</label>
-                        <select className="fs" value={(form as any).primeira ? "Sim" : "Não"} onChange={e => setForm({ ...form, primeira: e.target.value === "Sim" } as any)}>
-                          <option>Não</option><option>Sim</option>
-                        </select>
-                      </div>
-                    </div>
                     <div className="fr">
                       <div className="ff">
                         <label className="fl">Valor Estimado do Projeto (R$)</label>
