@@ -1608,7 +1608,8 @@ export default function CRM() {
         email: nc.email || "",
         estilo: nc.estilo || "", regiao: nc.regiao || "",
         tam: nc.tam || "Medio",
-        intencao: nc.intencao || "", primeira: nc.primeira || false,
+        intencao: nc.intencao || "",
+        servico_interesse: (form as any).servicoInteresse || "",
         cob: nc.cob || false, descricao: nc.desc || "",
         stars: 0, consent: null, nps: null, obs: "",
         val_a: (form as any).valorProjeto ? Number(String((form as any).valorProjeto).replace(/\./g,"").replace(",",".")) : 0,
@@ -3659,7 +3660,7 @@ export default function CRM() {
                     <div className="fr">
                       <div className="ff"><label className="fl">Valor (R$) *</label>
                         <input className="fi" type="text" placeholder="0,00" value={entradaForm.valor}
-                          onChange={e => { const raw = e.target.value.replace(/\D/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEntradaForm({ ...entradaForm, valor: num }); }} />
+                          onChange={e => { const raw = e.target.value.replace(/[^0-9]/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEntradaForm({ ...entradaForm, valor: num }); }} />
                       </div>
                       <div className="ff"><label className="fl">Forma</label>
                         <select className="fs" value={entradaForm.forma_pgto} onChange={e => setEntradaForm({ ...entradaForm, forma_pgto: e.target.value })}>
@@ -3750,7 +3751,7 @@ export default function CRM() {
                     <div className="fr">
                       <div className="ff"><label className="fl">Valor de Aquisição (R$) *</label>
                         <input className="fi" type="text" placeholder="0,00" value={equipForm.valor_aquisicao}
-                          onChange={e => { const raw = e.target.value.replace(/\D/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEquipForm({ ...equipForm, valor_aquisicao: num }); }} />
+                          onChange={e => { const raw = e.target.value.replace(/[^0-9]/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEquipForm({ ...equipForm, valor_aquisicao: num }); }} />
                       </div>
                       <div className="ff"><DateScroller label="Data de Compra" value={equipForm.data_compra} onChange={val => setEquipForm({ ...equipForm, data_compra: val })} /></div>
                     </div>
@@ -4637,16 +4638,10 @@ export default function CRM() {
                   {novoProjetoAberto === sc.id && (
                     <div style={{ background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 8, padding: "14px", marginBottom: 10, display: "flex", flexDirection: "column", gap: 10 }}>
                       <div style={{ fontSize: 11, color: "var(--gold)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>Novo Projeto</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        <div className="fi2">
-                          <div className="fil">Valor Total do Projeto (R$)</div>
-                          <input className="ef" type="text" placeholder="0,00" value={novoProjetoForm.valorTotal}
-                            onChange={e => { const raw = e.target.value.replace(/\D/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setNovoProjetoForm(p => ({ ...p, valorTotal: num })); }} />
-                        </div>
-                        <div className="fi2">
-                          <div className="fil">Estilo</div>
-                          <input className="ef" placeholder="Ex: Fine Line, Realismo..." value={novoProjetoForm.estilo} onChange={e => setNovoProjetoForm(p => ({ ...p, estilo: e.target.value }))} />
-                        </div>
+                      <div className="fi2">
+                        <div className="fil">Valor Total do Projeto (R$)</div>
+                        <input className="ef" type="text" placeholder="0,00" value={novoProjetoForm.valorTotal}
+                          onChange={e => { const raw = e.target.value.replace(/[^0-9]/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setNovoProjetoForm(p => ({ ...p, valorTotal: num })); }} />
                       </div>
                       <div className="fi2">
                         <div className="fil">Descrição do Projeto</div>
@@ -4665,7 +4660,7 @@ export default function CRM() {
                           projs.push(proj);
                           upC(sc.id, "projetos", projs);
                           setNovoProjetoAberto(null);
-                          setClients(p => p.map(c => c.id !== sc.id ? c : { ...c, hist: [...c.hist, { t: `Projeto criado: ${proj.estilo || "sem estilo"} — R$${val.toLocaleString("pt-BR",{minimumFractionDigits:2})}`, d: new Date().toLocaleDateString("pt-BR") }] }));
+                          setClients(p => p.map(c => c.id !== sc.id ? c : { ...c, hist: [...c.hist, { t: "Projeto criado: R$" + val.toLocaleString("pt-BR",{minimumFractionDigits:2}), d: new Date().toLocaleDateString("pt-BR") }] }));
                         }} style={{ background: "var(--gold)", color: "#000", border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Salvar Projeto</button>
                       </div>
                     </div>
@@ -4727,7 +4722,7 @@ export default function CRM() {
                                 </div>
                               ) : null;
                             })()}
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 2 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: 2 }}>
                               <div className="fi2">
                                 <div className="fil">Valor Total do Projeto (R$)</div>
                                 <input className="ef" type="text" placeholder="0,00" value={proj.valorTotal ? Number(proj.valorTotal).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""}
@@ -4740,16 +4735,6 @@ export default function CRM() {
                                   }} />
                               </div>
                             </div>
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-                              <div className="fi2">
-                                <div className="fil">Estilo</div>
-                                <input className="ef" placeholder="Ex: Fine Line, Realismo..." value={proj.estilo || ""} onChange={e => {
-                                  const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
-                                  const idx = projs.findIndex((p: any) => p.id === proj.id);
-                                  if (idx >= 0) { projs[idx] = { ...projs[idx], estilo: e.target.value }; upC(sc.id, "projetos", projs); }
-                                  else upC(sc.id, "projetos", [{ ...proj, estilo: e.target.value }]);
-                                }} />
-                              </div>
                             <div className="fi2">
                               <div className="fil">Descrição do Projeto</div>
                               <textarea className="ef" value={proj.desc || ""} onChange={e => {
@@ -4768,7 +4753,7 @@ export default function CRM() {
                             {projetos.filter((p: any) => p.status === "cancelado").map((proj: any) => (
                               <div key={proj.id} style={{ background: "rgba(192,57,43,.05)", border: "1px solid rgba(192,57,43,.15)", borderRadius: 6, padding: "8px 12px", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <div>
-                                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx3)" }}>{proj.estilo || "Sem título"}</div>
+                                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx3)" }}>{proj.desc ? proj.desc.substring(0,30) : "Solicitação"}</div>
                                   <div style={{ fontSize: 11, color: "var(--tx3)" }}>Cancelado em {proj.canceladoEm || "—"}</div>
                                 </div>
                                 <span style={{ fontSize: 16 }}>🚫</span>
@@ -4782,7 +4767,7 @@ export default function CRM() {
                             {concluidos.map((proj: any) => (
                               <div key={proj.id} style={{ background: "rgba(39,174,96,.05)", border: "1px solid rgba(39,174,96,.15)", borderRadius: 6, padding: "8px 12px", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <div>
-                                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)" }}>{proj.estilo || "Sem título"} — {proj.tam}</div>
+                                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)" }}>{proj.desc ? proj.desc.substring(0,30) : "Solicitação"}</div>
                                   <div style={{ fontSize: 11, color: "var(--tx3)" }}>Concluído em {proj.concluidoEm || "—"}</div>
                                   {proj.desc && <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2, fontStyle: "italic" }}>{proj.desc.slice(0,60)}{proj.desc.length > 60 ? "..." : ""}</div>}
                                 </div>
@@ -5044,7 +5029,8 @@ export default function CRM() {
                           style={sc.etapa === s.id ? { borderColor: s.color, color: s.color, background: s.color + "18" } : {}}
                           onClick={() => {
                             if (critica && sc.etapa !== s.id) {
-                              const evs = agEvents.filter(e => e.cliente_id === sc.id && e.status !== "concluido" && e.status !== "cancelado");
+                              const tipoFiltro = s.id === "cons_agendada" ? "cons" : s.id === "sessao_agend" ? "sess" : null;
+                              const evs = agEvents.filter(e => e.cliente_id === sc.id && e.status !== "concluido" && e.status !== "cancelado" && (tipoFiltro ? e.tipo?.startsWith(tipoFiltro) : true));
                               setConfirmMover({ cid: sc.id, stage: s, agEvents: evs });
                             } else {
                               move(sc.id, s.id);
@@ -5325,6 +5311,13 @@ export default function CRM() {
                 )}
                 {formStep === 2 && (
                   <>
+                    <div className="ff">
+                      <label className="fl">Serviço de Interesse</label>
+                      <select className="fs" value={(form as any).servicoInteresse || ""} onChange={e => setForm({ ...form, servicoInteresse: e.target.value } as any)}>
+                        <option value="">Selecione...</option>
+                        {servicoOpts.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
+                      </select>
+                    </div>
                     <div className="fr">
                       <div className="ff">
                         <label className="fl">Valor Estimado do Projeto (R$)</label>
@@ -5652,7 +5645,8 @@ export default function CRM() {
                             <div key={s.id}
                               onMouseDown={() => {
                                 if (s.id !== cli.etapa) {
-                                  const evs = agEvents.filter(e => e.cliente_id === cli.id && e.status !== "concluido" && e.status !== "cancelado");
+                                  const tipoFiltro = s.id === "cons_agendada" ? "cons" : s.id === "sessao_agend" ? "sess" : null;
+                                  const evs = agEvents.filter(e => e.cliente_id === cli.id && e.status !== "concluido" && e.status !== "cancelado" && (tipoFiltro ? e.tipo?.startsWith(tipoFiltro) : true));
                                   const needsConfirm = ["cons_agendada","sessao_agend","tatuado"].includes(s.id);
                                   if (needsConfirm) {
                                     setConfirmMover({ cid: cli.id, stage: s, agEvents: evs });
@@ -6179,7 +6173,7 @@ export default function CRM() {
                 <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--q1)" }}>🗑 Cancelar Projeto</div>
                 {proj && (
                   <div style={{ background: "var(--dk3)", borderRadius: 7, padding: "10px 13px", fontSize: 12 }}>
-                    <div style={{ color: "var(--tx)", fontWeight: 600 }}>{proj.estilo || "Sem estilo"} — {proj.tam}</div>
+                    <div style={{ color: "var(--tx)", fontWeight: 600 }}>{proj.desc || "Sem descrição"}</div>
                     {proj.valorTotal > 0 && <div style={{ color: "var(--tx2)", marginTop: 3 }}>Valor total: R$ {Number(proj.valorTotal).toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>}
                     {pago > 0 && <div style={{ color: "#27AE60", marginTop: 2 }}>Valor já pago: R$ {pago.toLocaleString("pt-BR",{minimumFractionDigits:2})} → será registrado como crédito</div>}
                   </div>
