@@ -1496,7 +1496,7 @@ export default function CRM() {
       const updated = p.map(c => c.id !== cid ? c : {
         ...c,
         pgto: pgtoTexto,
-        hist: [...(c.hist || []), { t: `Pagamento confirmado: R$${totalPago.toFixed(2)} — ${formasTexto}`, d: new Date().toLocaleString("pt-BR") }]
+        hist: [...(c.hist || []), { t: "💰 Pagamento: R$" + totalPago.toFixed(2) + " — " + formasTexto + (pgtoTexto.includes("Cartão") ? " (taxa máquina pendente)" : ""), d: new Date().toLocaleString("pt-BR") }]
       });
       const c = updated.find(c => c.id === cid);
       if (c) setTimeout(() => saveClientDb(c), 100);
@@ -1766,7 +1766,8 @@ export default function CRM() {
       setShowAgForm(false);
       setAgClientVinc(null);
       setAgClientSearch("");
-      addLog(`Agenda: evento "${agForm.title}" editado (${agForm.date} ${agForm.start}h)`);
+      const servicoEdit = (agForm as any).servico || agForm.tipo.split("_")[0];
+      addLog("✏️ Agendamento editado: " + agForm.title + " — " + servicoEdit + " em " + agForm.date + " às " + agForm.start + "h");
       // Mover pipeline ao editar agendamento vinculado a cliente
       if (agClientVinc) {
         const tipoKey = agForm.tipo.split("_")[0];
@@ -1832,8 +1833,10 @@ export default function CRM() {
       const tipoNome = tipoLabel[tipoKey] || agForm.tipo;
       const sinalVal = parseFloat(String((agForm as any).sinal || "0").replace(/\./g, "").replace(",", ".")) || 0;
       const sinalPago = !!(agForm as any).sinalPago;
-      const histEntries = [
-        { t: `Agendamento criado: ${tipoNome} em ${dataFmt} às ${agForm.start}h`, d: new Date().toLocaleString("pt-BR") },
+      const artistaNome = artists.find(a => agForm.tipo.includes(a.id))?.nome || "";
+        const servicoNome = (agForm as any).servico || tipoNome;
+        const histEntries = [
+        { t: `📅 Agendamento: ${servicoNome} em ${dataFmt} às ${agForm.start}h${artistaNome ? " com " + artistaNome : ""}`, d: new Date().toLocaleString("pt-BR") },
         ...(sinalVal > 0 ? [{ t: `Sinal de R$${sinalVal.toFixed(2)} ${sinalPago ? "recebido" : "pendente"}`, d: new Date().toLocaleString("pt-BR") }] : [])
       ];
       setClients(p => {
@@ -4809,7 +4812,7 @@ export default function CRM() {
                         <button onClick={() => { setNovoProjetoAberto(null); }} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Descartar</button>
                         <button onClick={() => {
                           const val = parseFloat(novoProjetoForm.valorTotal.replace(/\./g,"").replace(",",".")) || 0;
-                          const proj = { id: Date.now(), estilo: novoProjetoForm.estilo, tam: novoProjetoForm.tam, primeira: novoProjetoForm.primeira, desc: novoProjetoForm.desc, valorTotal: val, status: "ativo", criadoEm: new Date().toLocaleDateString("pt-BR"), pagamentos: [] };
+                          const proj = { id: Date.now(), estilo: novoProjetoForm.estilo, tam: novoProjetoForm.tam, primeira: novoProjetoForm.primeira, desc: novoProjetoForm.desc, servico: (novoProjetoForm as any).servico || "", valorTotal: val, status: "ativo", criadoEm: new Date().toLocaleDateString("pt-BR"), pagamentos: [] };
                           const projs = [...(sc.projetos || [])];
                           if (projs.length === 0 && (sc.estilo || sc.desc)) {
                             projs.push({ id: Date.now()-1, estilo: sc.estilo||"", tam: sc.tam||"Medio", primeira: sc.primeira||false, desc: sc.desc||"", valorTotal: 0, status: "ativo", criadoEm: "—", pagamentos: [] });
@@ -4840,6 +4843,7 @@ export default function CRM() {
                           <div key={proj.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                               <span style={{ fontSize: 11, color: "var(--gold)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>Solicitação {pi + 1} Em andamento</span>
+                      {(proj as any).servico && <span style={{ fontSize: 10, background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 10, padding: "1px 8px", color: "var(--gold)", marginLeft: 6 }}>{(proj as any).servico}</span>}
                               <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={() => setCancelProjetoModal({ clienteId: sc.id, projetoId: proj.id, motivo: "" })}
                                   style={{ fontSize: 10, fontWeight: 600, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "3px 9px", color: "var(--q1)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
@@ -5390,7 +5394,7 @@ export default function CRM() {
                     <div className="fr">
                       <div className="ff">
                         <label className="fl">Profissional Responsável</label>
-                        <select className="fs" value={form.artista} onChange={e => setForm({ ...form, artista: e.target.value })}>
+                        <select className="fs" key={"art-" + artists.length} value={form.artista} onChange={e => setForm({ ...form, artista: e.target.value })}>
                           <option value="">Selecione...</option>
                           {artists.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
                         </select>
@@ -5551,7 +5555,7 @@ export default function CRM() {
                   <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => { const v = e.target.value; setArtForm({ ...artForm, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                   <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email" value={artForm.email} onChange={e => setArtForm({ ...artForm, email: e.target.value })} /></div>
                 </div>
-                <div className="ff"><label className="fl">Telefone</label><input className="fi" placeholder="(99) 9 9999-9999" value={artForm.tel} onChange={e => setArtForm({ ...artForm, tel: maskTel(e.target.value) })} /></div>
+                <div className="ff"><label className="fl">Telefone</label><input className="fi" placeholder="(99) 99999-9999" value={artForm.tel} onChange={e => setArtForm({ ...artForm, tel: maskTel(e.target.value) })} /></div>
                 <div className="ff">
                   <label className="fl">Cor</label>
                   <ColorPicker value={artForm.cor} onChange={cor => setArtForm({ ...artForm, cor })} />
@@ -6064,7 +6068,8 @@ export default function CRM() {
                         const ev = confirmPresenca.event;
                         await sb.from("agenda").update({ status: "concluido" }).eq("id", ev.id);
                         setAgEvents(p => p.map(x => x.id === ev.id ? { ...x, status: "concluido" } : x));
-                        const histMsg = "✓ Consulta realizada em " + (ev.date||"").split("-").reverse().join("/");
+                        const arNomeC = artists.find(a => ev.tipo?.includes(a.id))?.nome || "";
+        const histMsg = "✓ Consulta realizada em " + (ev.date||"").split("-").reverse().join("/") + (arNomeC ? " com " + arNomeC : "");
                         setClients(p => p.map(c => c.id !== ev.cliente_id ? c : {
                           ...c, hist: [...(c.hist||[]), { t: histMsg, d: new Date().toLocaleString("pt-BR") }]
                         }));
@@ -6072,7 +6077,8 @@ export default function CRM() {
                         if (cliAtual) {
                           await sb.from("clientes").update({ hist: [...(cliAtual.hist||[]), { t: histMsg, d: new Date().toLocaleString("pt-BR") }] }).eq("id", ev.cliente_id);
                         }
-                        addLog("Agenda: consulta cumprida — " + ev.title);
+                        const arNome = artists.find(a => ev.tipo?.includes(a.id))?.nome || "";
+        addLog("✅ Consulta cumprida: " + ev.title + (ev.date ? " em " + ev.date.split("-").reverse().join("/") : "") + (arNome ? " — " + arNome : ""));
                         setConfirmPresenca(null);
                       }} style={{ flex: 1, background: "rgba(201,168,76,.15)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 7, padding: "10px", fontSize: 13, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                         ✓ Cumpriu Consulta
