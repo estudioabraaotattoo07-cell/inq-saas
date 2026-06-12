@@ -3808,7 +3808,8 @@ export default function CRM() {
               </div>
             )}
           );
-        })()}
+        })()
+        }
 
         {/* ── ARTISTAS ── */}
         {tab === "artistas" && (
