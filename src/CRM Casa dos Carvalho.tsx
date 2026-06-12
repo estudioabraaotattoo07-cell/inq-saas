@@ -817,7 +817,7 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
 
 // ─── MÁSCARA TELEFONE ────────────────────────────────────────────────────────
 function maskCNPJ(v: string) {
-  v = v.replace(/\D/g,"").slice(0,14);
+  v = v.replace(/[^0-9]/g,"").slice(0,14);
   if (v.length <= 2) return v;
   if (v.length <= 5) return v.slice(0,2)+"."+v.slice(2);
   if (v.length <= 8) return v.slice(0,2)+"."+v.slice(2,5)+"."+v.slice(5);
@@ -825,7 +825,7 @@ function maskCNPJ(v: string) {
   return v.slice(0,2)+"."+v.slice(2,5)+"."+v.slice(5,8)+"/"+v.slice(8,12)+"-"+v.slice(12);
 }
 function maskTel(v: string) {
-  v = v.replace(/\D/g, "").slice(0, 11);
+  v = v.replace(/[^0-9]/g, "").slice(0, 11);
   if (v.length <= 2) return v.length ? "(" + v : v;
   if (v.length <= 7) return "(" + v.slice(0,2) + ") " + v.slice(2);
   if (v.length <= 11) return "(" + v.slice(0,2) + ") " + v.slice(2,7) + "-" + v.slice(7);
@@ -2380,7 +2380,7 @@ export default function CRM() {
             <div style={{ cursor: "pointer" }} onClick={() => setShowSettings(true)}>
               <div className="bname">{studioName}</div>
               <div className="bsub">In-Quadra Ink System</div>
-              {(() => { const cnpjDigits = (cnpj || "").replace(/\D/g,""); return cnpjDigits.length === 14 ? <div style={{ fontSize: 9, color: "var(--tx3)", letterSpacing: ".08em" }}>CNPJ: {cnpj}</div> : null; })()}
+              {(() => { const cnpjDigits = (cnpj || "").replace(/[^0-9]/g,""); return cnpjDigits.length === 14 ? <div style={{ fontSize: 9, color: "var(--tx3)", letterSpacing: ".08em" }}>CNPJ: {cnpj}</div> : null; })()}
             </div>
           </div>
           <div className="tbr">
@@ -3044,7 +3044,7 @@ export default function CRM() {
                     <input type="text" value={metaMensal ? Number(metaMensal).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : ""}
                       placeholder="0"
                       onChange={e => {
-                        const raw = e.target.value.replace(/\D/g, "");
+                        const raw = e.target.value.replace(/[^0-9]/g, "");
                         const num = raw ? Number(raw) : 0;
                         setMetaMensal(num);
                       }}
@@ -3666,7 +3666,7 @@ export default function CRM() {
                     <div className="fr">
                       <div className="ff"><label className="fl">Valor (R$) *</label>
                         <input className="fi" type="text" placeholder="0,00" value={entradaForm.valor}
-                          onChange={e => { const raw = e.target.value.replace(/\D/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEntradaForm({ ...entradaForm, valor: num }); }} />
+                          onChange={e => { const raw = e.target.value.replace(/[^0-9]/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEntradaForm({ ...entradaForm, valor: num }); }} />
                       </div>
                       <div className="ff"><label className="fl">Forma</label>
                         <select className="fs" value={entradaForm.forma_pgto} onChange={e => setEntradaForm({ ...entradaForm, forma_pgto: e.target.value })}>
@@ -3757,7 +3757,7 @@ export default function CRM() {
                     <div className="fr">
                       <div className="ff"><label className="fl">Valor de Aquisição (R$) *</label>
                         <input className="fi" type="text" placeholder="0,00" value={equipForm.valor_aquisicao}
-                          onChange={e => { const raw = e.target.value.replace(/\D/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEquipForm({ ...equipForm, valor_aquisicao: num }); }} />
+                          onChange={e => { const dRaw = e.target.value.replace(/[^0-9]/g,""); const dNum = dRaw ? (Number(dRaw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setEquipForm({ ...equipForm, valor_aquisicao: dNum }); }} />
                       </div>
                       <div className="ff"><DateScroller label="Data de Compra" value={equipForm.data_compra} onChange={val => setEquipForm({ ...equipForm, data_compra: val })} /></div>
                     </div>
@@ -3807,11 +3807,6 @@ export default function CRM() {
                 </div>
               </div>
             )}
-
-          </div>
-          </div>
-          </div>
-          </div>
           );
         })()}
 
@@ -3897,7 +3892,7 @@ export default function CRM() {
                           <input className="ci" type="text" value={a.meta_faturamento ? Number(a.meta_faturamento).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : ""}
                             placeholder="0"
                             onChange={e => {
-                              const raw = e.target.value.replace(/\D/g, "");
+                              const raw = e.target.value.replace(/[^0-9]/g, "");
                               const num = raw ? Number(raw) : 0;
                               const updated = { ...a, meta_faturamento: num };
                               setArtists(p => p.map(x => x.id === a.id ? updated : x));
@@ -4621,7 +4616,7 @@ export default function CRM() {
                       <input className="ef" placeholder="000.000.000-00" value={(sc as any).documento || ""}
                         maxLength={14}
                         onChange={e => {
-                          const raw = e.target.value.replace(/\D/g, "").slice(0, 11);
+                          const raw = e.target.value.replace(/[^0-9]/g, "").slice(0, 11);
                           const fmt = raw.length <= 3 ? raw
                             : raw.length <= 6 ? raw.slice(0,3) + "." + raw.slice(3)
                             : raw.length <= 9 ? raw.slice(0,3) + "." + raw.slice(3,6) + "." + raw.slice(6)
@@ -4652,7 +4647,7 @@ export default function CRM() {
                         <div className="fi2">
                           <div className="fil">Valor Total (R$)</div>
                           <input className="ef" type="text" placeholder="0,00" value={novoProjetoForm.valorTotal}
-                            onChange={e => { const raw = e.target.value.replace(/\D/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setNovoProjetoForm(p => ({ ...p, valorTotal: num })); }} />
+                            onChange={e => { const raw = e.target.value.replace(/[^0-9]/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setNovoProjetoForm(p => ({ ...p, valorTotal: num })); }} />
                         </div>
                       </div>
                       <div className="fi2">
@@ -4739,7 +4734,7 @@ export default function CRM() {
                                 <div className="fil">Valor Total do Projeto (R$)</div>
                                 <input className="ef" type="text" placeholder="0,00" value={proj.valorTotal ? Number(proj.valorTotal).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""}
                                   onChange={e => {
-                                    const raw = e.target.value.replace(/\D/g,""); const num = raw ? Number(raw)/100 : 0;
+                                    const raw = e.target.value.replace(/[^0-9]/g,""); const num = raw ? Number(raw)/100 : 0;
                                     const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
                                     const idx = projs.findIndex((p: any) => p.id === proj.id);
                                     if (idx >= 0) { projs[idx] = { ...projs[idx], valorTotal: num }; upC(sc.id, "projetos", projs); }
@@ -5334,7 +5329,7 @@ export default function CRM() {
                         <label className="fl">Valor Estimado do Projeto (R$)</label>
                         <input className="fi" placeholder="0,00" value={(form as any).valorProjeto || ""}
                           onChange={e => {
-                            const raw = e.target.value.replace(/\D/g, "");
+                            const raw = e.target.value.replace(/[^0-9]/g, "");
                             const num = raw ? (Number(raw) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
                             setForm({ ...form, valorProjeto: num } as any);
                           }} />
@@ -5344,7 +5339,7 @@ export default function CRM() {
                         <input className="fi" placeholder="000.000.000-00" value={(form as any).documento || ""}
                           maxLength={14}
                           onChange={e => {
-                            const raw = e.target.value.replace(/\D/g, "").slice(0, 11);
+                            const raw = e.target.value.replace(/[^0-9]/g, "").slice(0, 11);
                             const fmt = raw.length <= 3 ? raw
                               : raw.length <= 6 ? raw.slice(0,3) + "." + raw.slice(3)
                               : raw.length <= 9 ? raw.slice(0,3) + "." + raw.slice(3,6) + "." + raw.slice(6)
@@ -5558,7 +5553,7 @@ export default function CRM() {
                     <input className="fi" type="text" placeholder="0,00"
                       value={(agForm as any).sinal || ""}
                       onChange={e => {
-                        const raw = e.target.value.replace(/\D/g, "");
+                        const raw = e.target.value.replace(/[^0-9]/g, "");
                         const num = raw ? (Number(raw) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
                         setAgForm({ ...agForm, sinal: num } as any);
                       }} />
@@ -6357,7 +6352,7 @@ export default function CRM() {
                   </select>
                   <input type="text" placeholder="R$ 0,00" value={f.valor}
                     onChange={e => {
-                      const raw = e.target.value.replace(/\D/g, "");
+                      const raw = e.target.value.replace(/[^0-9]/g, "");
                       const num = raw ? (Number(raw) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
                       setPagFormas(p => p.map((x,j) => j===i ? {...x, valor: num} : x));
                     }}
@@ -6838,7 +6833,7 @@ export default function CRM() {
                   <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "var(--tx3)", fontWeight: 600 }}>R$</span>
                   <input className="fi" placeholder="0,00" value={orcamentoModal.valor}
                     onChange={e => {
-                      const raw = e.target.value.replace(/\D/g, "");
+                      const raw = e.target.value.replace(/[^0-9]/g, "");
                       const num = raw ? (Number(raw) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
                       setOrcamentoModal(p => p ? { ...p, valor: num } : null);
                     }}
@@ -7105,7 +7100,7 @@ export default function CRM() {
                       <div className="fi2"><div className="fil">Email do Estúdio{!studioEmail && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={studioEmail} placeholder="contato@estudio.com" onChange={e => setStudioEmail(e.target.value)} style={{ borderColor: !studioEmail ? "rgba(212,130,10,.4)" : undefined }} /></div>
                       <div className="fi2"><div className="fil">WhatsApp do Estúdio</div><input className="ef" value={studioTel} placeholder="(99) 99999-9999" onChange={e => setStudioTel(maskTel(e.target.value))} /></div>
                       <div className="fi2"><div className="fil">CNPJ{!cnpj && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={cnpj} placeholder="00.000.000/0001-00" maxLength={18} onChange={e => {
-                        const raw = e.target.value.replace(/\D/g,"").slice(0,14);
+                        const raw = e.target.value.replace(/[^0-9]/g,"").slice(0,14);
                         let fmt = raw;
                         if (raw.length > 2) fmt = raw.slice(0,2) + "." + raw.slice(2);
                         if (raw.length > 5) fmt = raw.slice(0,2) + "." + raw.slice(2,5) + "." + raw.slice(5);
@@ -7125,7 +7120,7 @@ export default function CRM() {
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 8 }}>
                         <div className="fi2"><div className="fil">Número</div><input className="ef" value={studioNumero} placeholder="Nº" onChange={e => setStudioNumero(e.target.value)} /></div>
                         <div className="fi2"><div className="fil">CEP</div><input className="ef" value={studioCep} placeholder="00000-000" maxLength={9} onChange={async e => {
-                          const raw = e.target.value.replace(/\D/g,"").slice(0,8);
+                          const raw = e.target.value.replace(/[^0-9]/g,"").slice(0,8);
                           const masked = raw.length > 5 ? raw.slice(0,5) + "-" + raw.slice(5) : raw;
                           setStudioCep(masked);
                           if (raw.length === 8) {
@@ -7421,7 +7416,7 @@ export default function CRM() {
                             <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Quanto o estúdio precisa faturar para ser sustentável e crescer</div>
                           </div>
                         </div>
-                        <input className="ef" type="text" placeholder="R$ 0,00" value={metaMensal ? "R$ " + Number(metaMensal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""} onChange={e => { const raw = e.target.value.replace(/\D/g, ""); setMetaMensal(raw ? Number(raw) / 100 : 0); }} style={{ fontSize: 16, fontWeight: 700, color: "var(--gold)" }} />
+                        <input className="ef" type="text" placeholder="R$ 0,00" value={metaMensal ? "R$ " + Number(metaMensal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""} onChange={e => { const raw = e.target.value.replace(/[^0-9]/g, ""); setMetaMensal(raw ? Number(raw) / 100 : 0); }} style={{ fontSize: 16, fontWeight: 700, color: "var(--gold)" }} />
                       </div>
                       <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "14px", border: "1px solid var(--br)" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
