@@ -967,7 +967,7 @@ export default function CRM() {
   ]);
   const [form, setForm] = useState({
     nome: "", tel: "", email: "", insta: "", artista: artists.find(a => a.ativo)?.id || "",
-    estilo: "", regiao: "", tam: "Medio", desc: "", orig: "Instagram Organico",
+    tam: "Medio", desc: "", orig: "Instagram Organico",
     qual: "Q2", primeira: false, cob: false, intencao: "", nascimento: ""
   });
   const [formAg, setFormAg] = useState({ agendar: false, data: "", hora: "09:00", tipo: "cons" });
@@ -975,20 +975,16 @@ export default function CRM() {
     nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "", email: "", tel: ""
   });
   const [agForm, setAgForm] = useState({
-    title: "", tipo: "cons_" + (artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11, desc: ""
+    title: "", tipo: "cons_" + (artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11, desc: "", servico: ""
   });
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [agClientSearch, setAgClientSearch] = useState("");
   const [agClientVinc, setAgClientVinc] = useState<any>(null);
   const [agClientDropdown, setAgClientDropdown] = useState(false);
   const [showQuickClient, setShowQuickClient] = useState(false);
-  const [quickClientForm, setQuickClientForm] = useState({ nome: "", tel: "", artista: artists[0]?.id || "", estilo: "", regiao: "" });
+  const [quickClientForm, setQuickClientForm] = useState({ nome: "", tel: "", artista: artists[0]?.id || "" });
   const [showPostAg, setShowPostAg] = useState(false);
   const [postAgNome, setPostAgNome] = useState("");
-  const [showEstiloDD, setShowEstiloDD] = useState(false);
-  const [showRegiaoDD, setShowRegiaoDD] = useState(false);
-  const [estiloOpts, setEstiloOpts] = useState<string[]>(["Fine Line", "Realismo", "Black Work", "Old School", "Aquarela", "Geometrico", "Surrealismo", "Tribal", "Fine Line Floral", "Fine Line Botanico"]);
-  const [regiaoOpts, setRegiaoOpts] = useState<string[]>(["Antebraço", "Braço Inteiro", "Costela", "Costas", "Ombro", "Panturrilha", "Clavícula", "Pescoço", "Mão", "Pé"]);
   const [showHistorico, setShowHistorico] = useState(false);
   const [historico, setHistorico] = useState<{id?:any; data:string; hora:string; acao:string}[]>([]);
   const [confirmExcluir, setConfirmExcluir] = useState<any>(null);
@@ -999,10 +995,6 @@ export default function CRM() {
   const [resetTimer, setResetTimer] = useState<any>(null);
   const [formStep, setFormStep] = useState(1);
   const [emailError, setEmailError] = useState("");
-  const [addingEstilo, setAddingEstilo] = useState(false);
-  const [novoEstilo, setNovoEstilo] = useState("");
-  const [addingRegiao, setAddingRegiao] = useState(false);
-  const [novoRegiao, setNovoRegiao] = useState("");
   const [confirmMover, setConfirmMover] = useState<{cid: any; stage: any; agEvents: any[]} | null>(null);
   const [confirmPagamento, setConfirmPagamento] = useState<{cid: any; agEvent: any} | null>(null);
   const [projParaConcluir, setProjParaConcluir] = useState<{clienteId: any; projetoId: any} | null>(null);
@@ -1039,12 +1031,7 @@ export default function CRM() {
   const [presencaMotivo, setPresencaMotivo] = useState("");
   const [nascDraft, setNascDraft] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
-  const [novoEstiloModal, setNovoEstiloModal] = useState<{tipo: "estilo"|"regiao"; callback: (v: string) => void} | null>(null);
-  const [novoEstiloInput, setNovoEstiloInput] = useState("");
   const [editandoListas, setEditandoListas] = useState(false);
-  const [estiloOptsEdit, setEstiloOptsEdit] = useState<string[]>([]);
-  const [regiaoOptsEdit, setRegiaoOptsEdit] = useState<string[]>([]);
-  const [renomearEstilo, setRenomearEstilo] = useState<{tipo: "estilo"|"regiao"; idx: number; val: string} | null>(null);
   const [confirmListas, setConfirmListas] = useState(false);
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
@@ -1053,6 +1040,10 @@ export default function CRM() {
   const [entradaCats, setEntradaCats] = useState<string[]>(["sessao","sinal","prolabore","outro"]);
   const [showEditCats, setShowEditCats] = useState(false);
   const [novaCatInput, setNovaCatInput] = useState("");
+  const [servicoOpts, setServicoOpts] = useState<{id: string; nome: string; cor: string}[]>([{id:"svc1",nome:"Tatuagem",cor:"#a78bfa"},{id:"svc2",nome:"Piercing",cor:"#34d399"},{id:"svc3",nome:"Consulta",cor:"#60a5fa"}]);
+  const [addingServico, setAddingServico] = useState(false);
+  const [novoServico, setNovoServico] = useState("");
+  const [novoServicoCor, setNovoServicoCor] = useState("#a78bfa");
 
   const [dbReady, setDbReady] = useState(false);
 
@@ -1161,12 +1152,11 @@ export default function CRM() {
           if (cfg.meta_nps) setMetaNPS(cfg.meta_nps);
           if (cfg.desconto_aniversario !== undefined) setDescontoAniversario(cfg.desconto_aniversario);
           if (cfg.horarios) setHorarios(cfg.horarios);
-          if (cfg.estilo_opts?.length) setEstiloOpts(cfg.estilo_opts);
-          if (cfg.regiao_opts?.length) setRegiaoOpts(cfg.regiao_opts);
           if (cfg.alerta_config) setAlertaConfig(prev => ({ ...prev, ...cfg.alerta_config }));
           if (cfg.aura_formalidade) setAuraFormalidade(cfg.aura_formalidade);
           if (cfg.aura_idioma) setAuraIdioma(cfg.aura_idioma);
           if (cfg.entrada_cats && Array.isArray(cfg.entrada_cats) && cfg.entrada_cats.length) setEntradaCats(cfg.entrada_cats);
+          if (cfg.servico_opts && Array.isArray(cfg.servico_opts) && cfg.servico_opts.length) setServicoOpts(cfg.servico_opts);
           setDark(cfg.dark_mode !== false);
           // [X2] onboarding_done from Supabase (source of truth); localStorage as cache
           if (cfg.onboarding_done) {
@@ -1193,7 +1183,6 @@ export default function CRM() {
       nome: c.nome, insta: c.insta || "", tel: c.tel || "",
       qual: c.qual, artista: c.artista, etapa: c.etapa,
       orig: c.orig || "", email: c.email || "",
-      estilo: c.estilo || "", regiao: c.regiao || "",
       tam: c.tam || "Medio", intencao: c.intencao || "", primeira: c.primeira || false,
       cob: c.cob || false, descricao: c.desc || "",
       stars: c.stars || 0, star_reason: c.starReason || "",
@@ -1246,7 +1235,6 @@ export default function CRM() {
     const q = srch.toLowerCase();
     const mS = !srch ||
       c.nome.toLowerCase().includes(q) ||
-      c.estilo.toLowerCase().includes(q) ||
       (c.tel || "").toLowerCase().includes(q) ||
       (c.email || "").toLowerCase().includes(q) ||
       (c.insta || "").toLowerCase().includes(q) ||
@@ -1721,6 +1709,7 @@ export default function CRM() {
       hora: String(agForm.start).padStart(2, "0") + ":00",
       hora_fim: String(agForm.end).padStart(2, "0") + ":00",
       tipo: agForm.tipo,
+      servico: (agForm as any).servico || "",
       obs: (agForm as any).desc || "",
       valor_previsto: parseFloat(String((agForm as any).valorPrevisto || "0").replace(/\./g, "").replace(",", ".")) || 0,
       sinal: parseFloat(String((agForm as any).sinal || "0").replace(/\./g, "").replace(",", ".")) || 0,
@@ -4648,12 +4637,7 @@ export default function CRM() {
                         </div>
                         <div className="fi2">
                           <div className="fil">Estilo</div>
-                          <select className="ef" value={novoProjetoForm.estilo} onChange={e => { if (e.target.value === "__novo_estilo__") { setNovoEstiloInput(""); setNovoEstiloModal({ tipo: "estilo", callback: (v) => setNovoProjetoForm(p => ({ ...p, estilo: v })) }); } else { setNovoProjetoForm(p => ({ ...p, estilo: e.target.value })); } }}>
-                            <option value="">Selecionar...</option>
-                            {estiloOpts.map(o => <option key={o} value={o}>{o}</option>)}
-                            <option value="__novo_estilo__">+ Adicionar novo estilo...</option>
-                            <option disabled value="">✎ Editar/excluir: Configurações → Estúdio</option>
-                          </select>
+                          <input className="ef" placeholder="Ex: Fine Line, Realismo..." value={novoProjetoForm.estilo} onChange={e => setNovoProjetoForm(p => ({ ...p, estilo: e.target.value }))} />
                         </div>
                         <div className="fi2">
                           <div className="fil">Tamanho</div>
@@ -4763,30 +4747,12 @@ export default function CRM() {
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
                               <div className="fi2">
                                 <div className="fil">Estilo</div>
-                                <select className="ef" value={proj.estilo || ""} onChange={e => {
-                                  if (e.target.value === "__novo_estilo__") { setNovoEstiloInput(""); setNovoEstiloModal({ tipo: "estilo", callback: (v) => { const projs2 = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }]; const idx2 = projs2.findIndex((p: any) => p.id === proj.id); if (idx2 >= 0) { projs2[idx2] = { ...projs2[idx2], estilo: v }; upC(sc.id, "projetos", projs2); } else upC(sc.id, "projetos", [{ ...proj, estilo: v }]); } }); return; }
+                                <input className="ef" placeholder="Ex: Fine Line, Realismo..." value={proj.estilo || ""} onChange={e => {
                                   const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
                                   const idx = projs.findIndex((p: any) => p.id === proj.id);
                                   if (idx >= 0) { projs[idx] = { ...projs[idx], estilo: e.target.value }; upC(sc.id, "projetos", projs); }
                                   else upC(sc.id, "projetos", [{ ...proj, estilo: e.target.value }]);
-                                }}>
-                                  <option value="">Selecionar...</option>
-                                  {estiloOpts.map(o => <option key={o} value={o}>{o}</option>)}
-                                  <option value="__novo_estilo__">+ Adicionar novo estilo...</option>
-                                  <option disabled value="">✎ Editar/excluir: Configurações → Estúdio</option>
-                                </select>
-                              </div>
-                              <div className="fi2">
-                                <div className="fil">Região</div>
-                                <select className="ef" value={proj.regiao || ""} onChange={e => {
-                                  const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
-                                  const idx = projs.findIndex((p: any) => p.id === proj.id);
-                                  if (idx >= 0) { projs[idx] = { ...projs[idx], regiao: e.target.value }; upC(sc.id, "projetos", projs); }
-                                  else upC(sc.id, "projetos", [{ ...proj, regiao: e.target.value }]);
-                                }}>
-                                  <option value="">Não informada</option>
-                                  {regiaoOpts.map(o => <option key={o} value={o}>{o}</option>)}
-                                </select>
+                                }} />
                               </div>
                               <div className="fi2">
                                 <div className="fil">Tamanho</div>
@@ -5386,122 +5352,6 @@ export default function CRM() {
                 {formStep === 2 && (
                   <>
                     <div className="fr">
-                      <div className="ff" style={{ position: "relative" }}>
-                        <label className="fl">Estilo</label>
-                        <div style={{ display: "flex", gap: 4 }}>
-                          <input className="fi" style={{ flex: 1 }} placeholder="Fine Line, Realismo..." value={form.estilo}
-                            onChange={e => { const v = e.target.value.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()); setForm({ ...form, estilo: v }); setShowEstiloDD(true); }}
-                            onFocus={() => setShowEstiloDD(true)} onBlur={() => setTimeout(() => setShowEstiloDD(false), 150)} />
-                          <button type="button" style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "0 8px", cursor: "pointer", color: "var(--tx2)", fontSize: 12 }}
-                            onMouseDown={e => { e.preventDefault(); setShowEstiloDD(v => !v); }}>▾</button>
-                        </div>
-                        {showEstiloDD && (
-                          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 7, boxShadow: "0 6px 24px rgba(0,0,0,.5)", display: "flex", flexDirection: "column", maxHeight: 220 }}>
-                            <div style={{ overflowY: "auto", flex: 1 }}>
-                              {estiloOpts.filter(o => !form.estilo || o.toLowerCase().includes(form.estilo.toLowerCase())).map(o => (
-                                <div key={o} onMouseDown={() => { setForm({ ...form, estilo: o }); setShowEstiloDD(false); }}
-                                  style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--tx)" }}
-                                  onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
-                                  onMouseLeave={e => (e.currentTarget.style.background = "")}>{o}</div>
-                              ))}
-                            </div>
-                            <div style={{ borderTop: "1px solid var(--br)", flexShrink: 0 }}>
-                              {form.estilo && !estiloOpts.some(o => o.toLowerCase() === form.estilo.toLowerCase()) ? (
-                                <div onMouseDown={async () => {
-                                  const novaLista = [...estiloOpts, form.estilo];
-                                  setEstiloOpts(novaLista);
-                                  setShowEstiloDD(false);
-                                  const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                                  if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id);
-                                }}
-                                  style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", fontWeight: 600 }}>
-                                  + Adicionar "{form.estilo}"
-                                </div>
-                              ) : addingEstilo ? (
-                              <div style={{ padding: "6px 8px", display: "flex", gap: 4 }}>
-                                <input autoFocus className="fi" style={{ flex: 1, padding: "4px 7px", fontSize: 12 }} placeholder="Novo estilo..." value={novoEstilo} onChange={e => setNovoEstilo(e.target.value)}
-                                  onKeyDown={async e => {
-                                    if (e.key === "Enter" && novoEstilo.trim()) {
-                                      const novaLista = [...estiloOpts, novoEstilo.trim()];
-                                      setEstiloOpts(novaLista);
-                                      setForm({ ...form, estilo: novoEstilo.trim() });
-                                      setNovoEstilo(""); setAddingEstilo(false); setShowEstiloDD(false);
-                                      const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                                      if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id);
-                                    } else if (e.key === "Escape") { setAddingEstilo(false); setNovoEstilo(""); }
-                                  }} />
-                                <button onMouseDown={async e => { e.preventDefault(); if (novoEstilo.trim()) { const novaLista = [...estiloOpts, novoEstilo.trim()]; setEstiloOpts(novaLista); setForm({ ...form, estilo: novoEstilo.trim() }); setNovoEstilo(""); setAddingEstilo(false); setShowEstiloDD(false); const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single(); if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id); } }} style={{ background: "var(--gold)", border: "none", borderRadius: 4, padding: "4px 8px", fontSize: 11, fontWeight: 700, color: "#000", cursor: "pointer" }}>OK</button>
-                                <button onMouseDown={e => { e.preventDefault(); setAddingEstilo(false); setNovoEstilo(""); }} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 4, padding: "4px 8px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>✕</button>
-                              </div>
-                              ) : (
-                              <div onMouseDown={e => { e.preventDefault(); setAddingEstilo(true); setNovoEstilo(""); }}
-                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", fontWeight: 600 }}>
-                                + Adicionar novo
-                              </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="ff" style={{ position: "relative" }}>
-                        <label className="fl">Região</label>
-                        <div style={{ display: "flex", gap: 4 }}>
-                          <input className="fi" style={{ flex: 1 }} placeholder="Antebraço, Costas..." value={form.regiao}
-                            onChange={e => { const v = e.target.value.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()); setForm({ ...form, regiao: v }); setShowRegiaoDD(true); }}
-                            onFocus={() => setShowRegiaoDD(true)} onBlur={() => setTimeout(() => setShowRegiaoDD(false), 150)} />
-                          <button type="button" style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "0 8px", cursor: "pointer", color: "var(--tx2)", fontSize: 12 }}
-                            onMouseDown={e => { e.preventDefault(); setShowRegiaoDD(v => !v); }}>▾</button>
-                        </div>
-                        {showRegiaoDD && (
-                          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 7, boxShadow: "0 6px 24px rgba(0,0,0,.5)", display: "flex", flexDirection: "column", maxHeight: 220 }}>
-                            <div style={{ overflowY: "auto", flex: 1 }}>
-                              {regiaoOpts.filter(o => !form.regiao || o.toLowerCase().includes(form.regiao.toLowerCase())).map(o => (
-                                <div key={o} onMouseDown={() => { setForm({ ...form, regiao: o }); setShowRegiaoDD(false); }}
-                                  style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--tx)" }}
-                                  onMouseEnter={e => (e.currentTarget.style.background = "var(--dk3)")}
-                                  onMouseLeave={e => (e.currentTarget.style.background = "")}>{o}</div>
-                              ))}
-                            </div>
-                            <div style={{ borderTop: "1px solid var(--br)", flexShrink: 0 }}>
-                              {form.regiao && !regiaoOpts.some(o => o.toLowerCase() === form.regiao.toLowerCase()) ? (
-                                <div onMouseDown={async () => {
-                                  const novaLista = [...regiaoOpts, form.regiao];
-                                  setRegiaoOpts(novaLista);
-                                  setShowRegiaoDD(false);
-                                  const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                                  if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id);
-                                }}
-                                  style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", fontWeight: 600 }}>
-                                  + Adicionar "{form.regiao}"
-                                </div>
-                              ) : addingRegiao ? (
-                              <div style={{ padding: "6px 8px", display: "flex", gap: 4 }}>
-                                <input autoFocus className="fi" style={{ flex: 1, padding: "4px 7px", fontSize: 12 }} placeholder="Nova região..." value={novoRegiao} onChange={e => setNovoRegiao(e.target.value)}
-                                  onKeyDown={async e => {
-                                    if (e.key === "Enter" && novoRegiao.trim()) {
-                                      const novaLista = [...regiaoOpts, novoRegiao.trim()];
-                                      setRegiaoOpts(novaLista);
-                                      setForm({ ...form, regiao: novoRegiao.trim() });
-                                      setNovoRegiao(""); setAddingRegiao(false); setShowRegiaoDD(false);
-                                      const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                                      if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id);
-                                    } else if (e.key === "Escape") { setAddingRegiao(false); setNovoRegiao(""); }
-                                  }} />
-                                <button onMouseDown={async e => { e.preventDefault(); if (novoRegiao.trim()) { const novaLista = [...regiaoOpts, novoRegiao.trim()]; setRegiaoOpts(novaLista); setForm({ ...form, regiao: novoRegiao.trim() }); setNovoRegiao(""); setAddingRegiao(false); setShowRegiaoDD(false); const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single(); if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id); } }} style={{ background: "var(--gold)", border: "none", borderRadius: 4, padding: "4px 8px", fontSize: 11, fontWeight: 700, color: "#000", cursor: "pointer" }}>OK</button>
-                                <button onMouseDown={e => { e.preventDefault(); setAddingRegiao(false); setNovoRegiao(""); }} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 4, padding: "4px 8px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>✕</button>
-                              </div>
-                              ) : (
-                              <div onMouseDown={e => { e.preventDefault(); setAddingRegiao(true); setNovoRegiao(""); }}
-                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: "var(--gold)", fontWeight: 600 }}>
-                                + Adicionar novo
-                              </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="fr">
                       <div className="ff">
                         <label className="fl">Tamanho</label>
                         <select className="fs" value={form.tam} onChange={e => setForm({ ...form, tam: e.target.value })}>
@@ -5624,7 +5474,6 @@ export default function CRM() {
                     <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 5, padding: "7px 10px" }}>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: aStyle(agClientVinc.artista).background || "var(--gold)", flexShrink: 0 }} />
                       <span style={{ flex: 1, fontSize: 13, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif", fontWeight: 600 }}>{agClientVinc.nome}</span>
-                      <span style={{ fontSize: 11, color: "var(--tx3)" }}>{agClientVinc.estilo || "—"}</span>
                       <button onClick={() => { setAgClientVinc(null); setAgClientSearch(""); setAgForm({ ...agForm, title: "" }); }}
                         style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 14 }}>✕</button>
                     </div>
@@ -5651,7 +5500,6 @@ export default function CRM() {
                               }}>
                               <div>
                                 <div style={{ fontSize: 13, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif", fontWeight: 600 }}>{c.nome}</div>
-                                <div style={{ fontSize: 11, color: "var(--tx2)" }}>{c.estilo || "—"}</div>
                               </div>
                               <span style={aStyle(c.artista)}>{aName(c.artista).split(" ")[0]}</span>
                             </div>
@@ -6971,130 +6819,6 @@ export default function CRM() {
         {/* ── MODAL ORÇAMENTO ── */}
         {/* ── MODAL GERENCIAR ESTILO / REGIÃO ── */}
 
-        {/* ── MODAL CONFIRMAR LISTAS ── */}
-        {confirmListas && (
-          <div className="ov" style={{ zIndex: 9999 }} onClick={() => setConfirmListas(false)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(420px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>
-                Confirmar alterações
-              </div>
-              {(() => {
-                const estilosAdicionados = estiloOptsEdit.filter(e => !estiloOpts.includes(e));
-                const estilosRemovidos = estiloOpts.filter(e => !estiloOptsEdit.includes(e));
-                const regioesAdicionadas = regiaoOptsEdit.filter(e => !regiaoOpts.includes(e));
-                const regioesRemovidas = regiaoOpts.filter(e => !regiaoOptsEdit.includes(e));
-                const temAlteracao = estilosAdicionados.length > 0 || estilosRemovidos.length > 0 || regioesAdicionadas.length > 0 || regioesRemovidas.length > 0;
-                if (!temAlteracao) return (
-                  <div style={{ fontSize: 12, color: "var(--tx2)", background: "var(--dk3)", borderRadius: 8, padding: "10px 14px" }}>
-                    Nenhuma alteração detectada.
-                  </div>
-                );
-                return (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {estilosRemovidos.length > 0 && (
-                      <div style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 8, padding: "10px 14px" }}>
-                        <div style={{ fontSize: 11, color: "var(--q1)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>🗑 Estilos removidos</div>
-                        <div style={{ fontSize: 12, color: "var(--tx)" }}>{estilosRemovidos.join(", ")}</div>
-                      </div>
-                    )}
-                    {estilosAdicionados.length > 0 && (
-                      <div style={{ background: "rgba(39,174,96,.1)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 8, padding: "10px 14px" }}>
-                        <div style={{ fontSize: 11, color: "#27AE60", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>✚ Estilos adicionados</div>
-                        <div style={{ fontSize: 12, color: "var(--tx)" }}>{estilosAdicionados.join(", ")}</div>
-                      </div>
-                    )}
-                    {regioesRemovidas.length > 0 && (
-                      <div style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 8, padding: "10px 14px" }}>
-                        <div style={{ fontSize: 11, color: "var(--q1)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>🗑 Regiões removidas</div>
-                        <div style={{ fontSize: 12, color: "var(--tx)" }}>{regioesRemovidas.join(", ")}</div>
-                      </div>
-                    )}
-                    {regioesAdicionadas.length > 0 && (
-                      <div style={{ background: "rgba(39,174,96,.1)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 8, padding: "10px 14px" }}>
-                        <div style={{ fontSize: 11, color: "#27AE60", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>✚ Regiões adicionadas</div>
-                        <div style={{ fontSize: 12, color: "var(--tx)" }}>{regioesAdicionadas.join(", ")}</div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button className="btn-c" onClick={() => setConfirmListas(false)}>Cancelar</button>
-                <button className="btn-s" onClick={async () => {
-                  setEstiloOpts(estiloOptsEdit);
-                  setRegiaoOpts(regiaoOptsEdit);
-                  setEditandoListas(false);
-                  setRenomearEstilo(null);
-                  setConfirmListas(false);
-                  // Salvar no Supabase
-                  try {
-                    const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                    if (cfgEx?.id) {
-                      await sb.from("configuracoes").update({ estilo_opts: estiloOptsEdit, regiao_opts: regiaoOptsEdit }).eq("id", cfgEx.id);
-                    }
-                  } catch(e) { console.error("Erro ao salvar listas:", e); }
-                }}>Confirmar</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── MODAL NOVO ESTILO / REGIÃO ── */}
-        {novoEstiloModal && (
-          <div className="ov" onClick={() => setNovoEstiloModal(null)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(360px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>
-                {novoEstiloModal.tipo === "estilo" ? "🎨 Novo Estilo" : "📍 Nova Região"}
-              </div>
-              <input className="fi" autoFocus placeholder={novoEstiloModal.tipo === "estilo" ? "Ex: Neo Tradicional" : "Ex: Coxa"}
-                value={novoEstiloInput}
-                onChange={e => { const v = e.target.value; setNovoEstiloInput(v.charAt(0).toUpperCase() + v.slice(1)); }}
-                onKeyDown={async e => {
-                  if (e.key === "Enter") {
-                    const raw = novoEstiloInput.trim();
-                    const val = raw.charAt(0).toUpperCase() + raw.slice(1);
-                    if (!val) return;
-                    let novaLista: string[];
-                    if (novoEstiloModal.tipo === "estilo") {
-                      novaLista = estiloOpts.includes(val) ? estiloOpts : [...estiloOpts, val];
-                      setEstiloOpts(novaLista);
-                      const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                      if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id);
-                    } else {
-                      novaLista = regiaoOpts.includes(val) ? regiaoOpts : [...regiaoOpts, val];
-                      setRegiaoOpts(novaLista);
-                      const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                      if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id);
-                    }
-                    novoEstiloModal.callback(val);
-                    setNovoEstiloModal(null);
-                  }
-                }} />
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button className="btn-c" onClick={() => setNovoEstiloModal(null)}>Cancelar</button>
-                <button className="btn-s" onClick={async () => {
-                  const raw = novoEstiloInput.trim();
-                  const val = raw.charAt(0).toUpperCase() + raw.slice(1);
-                  if (!val) return;
-                  let novaLista: string[];
-                  if (novoEstiloModal.tipo === "estilo") {
-                    novaLista = estiloOpts.includes(val) ? estiloOpts : [...estiloOpts, val];
-                    setEstiloOpts(novaLista);
-                    const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                    if (cfgEx?.id) await sb.from("configuracoes").update({ estilo_opts: novaLista }).eq("id", cfgEx.id);
-                  } else {
-                    novaLista = regiaoOpts.includes(val) ? regiaoOpts : [...regiaoOpts, val];
-                    setRegiaoOpts(novaLista);
-                    const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                    if (cfgEx?.id) await sb.from("configuracoes").update({ regiao_opts: novaLista }).eq("id", cfgEx.id);
-                  }
-                  novoEstiloModal.callback(val);
-                  setNovoEstiloModal(null);
-                }}>Confirmar</button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {orcamentoModal && (
           <div className="ov" onClick={() => setOrcamentoModal(null)}>
@@ -7505,104 +7229,49 @@ export default function CRM() {
                     ))}
                   </div>
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                      <div className="stit" style={{ margin: 0 }}>Estilos & Regiões</div>
-                      {!editandoListas && (
-                        <button className="btn-sm gold" onClick={() => { setEstiloOptsEdit([...estiloOpts]); setRegiaoOptsEdit([...regiaoOpts]); setRenomearEstilo(null); setEditandoListas(true); }}>
-                          ✏️ Editar
-                        </button>
-                      )}
+                    <div className="stit">Serviços</div>
+                    <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 10, lineHeight: 1.6 }}>
+                      Serviços oferecidos pelo estúdio. Aparecem no agendamento.
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 12, opacity: 0.7 }}>
-                      {editandoListas ? "Clique no nome para renomear. Use ✕ para excluir. Adicione novos abaixo." : "Visualização. Clique em Editar para modificar."}
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                      {/* ESTILOS */}
-                      <div style={{ background: "var(--dk3)", borderRadius: 8, padding: 14, border: editandoListas ? "1px solid var(--gold)" : "1px solid var(--br)" }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)", marginBottom: 10 }}>🎨 Estilos de Tatuagem</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: editandoListas ? 10 : 0 }}>
-                          {(editandoListas ? estiloOptsEdit : estiloOpts).map((opt, i) => (
-                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              {editandoListas && renomearEstilo?.tipo === "estilo" && renomearEstilo.idx === i ? (
-                                <input className="ef" autoFocus value={renomearEstilo.val} style={{ flex: 1, fontSize: 12 }}
-                                  onChange={e => setRenomearEstilo(p => p ? { ...p, val: e.target.value } : null)}
-                                  onKeyDown={e => {
-                                    if (e.key === "Enter") {
-                                      const v = renomearEstilo.val.trim();
-                                      if (v) setEstiloOptsEdit(p => p.map((o, j) => j === i ? v : o));
-                                      setRenomearEstilo(null);
-                                    }
-                                    if (e.key === "Escape") setRenomearEstilo(null);
-                                  }}
-                                  onBlur={() => { const v = renomearEstilo?.val?.trim(); if (v) setEstiloOptsEdit(p => p.map((o, j) => j === i ? v : o)); setRenomearEstilo(null); }} />
-                              ) : (
-                                <span style={{ flex: 1, fontSize: 12, color: "var(--tx)", cursor: editandoListas ? "text" : "default" }}
-                                  onClick={() => editandoListas && setRenomearEstilo({ tipo: "estilo", idx: i, val: opt })}>
-                                  {opt}
-                                </span>
-                              )}
-                              {editandoListas && (
-                                <button onClick={() => setEstiloOptsEdit(p => p.filter((_, j) => j !== i))}
-                                  style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 14, padding: "0 4px", fontFamily: "'DM Sans',sans-serif" }}>✕</button>
-                              )}
-                            </div>
-                          ))}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+                      {servicoOpts.map(svc => (
+                        <div key={svc.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--dk3)", borderRadius: 7, padding: "8px 12px" }}>
+                          <div style={{ width: 10, height: 10, borderRadius: "50%", background: svc.cor, flexShrink: 0 }} />
+                          <span style={{ flex: 1, fontSize: 13, color: "var(--tx)" }}>{svc.nome}</span>
+                          <button onClick={async () => {
+                            const updated = servicoOpts.filter(s => s.id !== svc.id);
+                            setServicoOpts(updated);
+                            const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
+                            if (cfgEx?.id) await sb.from("configuracoes").update({ servico_opts: updated }).eq("id", cfgEx.id);
+                          }} style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 14 }}>🗑</button>
                         </div>
-                        {editandoListas && (
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <input className="ef" placeholder="Novo estilo..." id="new-estilo-input" style={{ flex: 1, fontSize: 12 }}
-                              onChange={e => { const v = e.target.value; e.target.value = v.charAt(0).toUpperCase() + v.slice(1); }}
-                              onKeyDown={e => { if (e.key === "Enter") { const input = e.target as HTMLInputElement; const raw = input.value.trim(); const val = raw.charAt(0).toUpperCase() + raw.slice(1); if (val && !estiloOptsEdit.includes(val)) { setEstiloOptsEdit(p => [...p, val]); input.value = ""; } } }} />
-                            <button className="btn-sm gold" onClick={() => { const input = document.getElementById("new-estilo-input") as HTMLInputElement; const raw = input?.value.trim(); const val = raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : ""; if (val && !estiloOptsEdit.includes(val)) { setEstiloOptsEdit(p => [...p, val]); if (input) input.value = ""; } }}>+</button>
-                          </div>
-                        )}
-                      </div>
-                      {/* REGIÕES */}
-                      <div style={{ background: "var(--dk3)", borderRadius: 8, padding: 14, border: editandoListas ? "1px solid var(--gold)" : "1px solid var(--br)" }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--gold)", marginBottom: 10 }}>📍 Regiões do Corpo</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: editandoListas ? 10 : 0 }}>
-                          {(editandoListas ? regiaoOptsEdit : regiaoOpts).map((opt, i) => (
-                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              {editandoListas && renomearEstilo?.tipo === "regiao" && renomearEstilo.idx === i ? (
-                                <input className="ef" autoFocus value={renomearEstilo.val} style={{ flex: 1, fontSize: 12 }}
-                                  onChange={e => setRenomearEstilo(p => p ? { ...p, val: e.target.value } : null)}
-                                  onKeyDown={e => {
-                                    if (e.key === "Enter") {
-                                      const v = renomearEstilo.val.trim();
-                                      if (v) setRegiaoOptsEdit(p => p.map((o, j) => j === i ? v : o));
-                                      setRenomearEstilo(null);
-                                    }
-                                    if (e.key === "Escape") setRenomearEstilo(null);
-                                  }}
-                                  onBlur={() => { const v = renomearEstilo?.val?.trim(); if (v) setRegiaoOptsEdit(p => p.map((o, j) => j === i ? v : o)); setRenomearEstilo(null); }} />
-                              ) : (
-                                <span style={{ flex: 1, fontSize: 12, color: "var(--tx)", cursor: editandoListas ? "text" : "default" }}
-                                  onClick={() => editandoListas && setRenomearEstilo({ tipo: "regiao", idx: i, val: opt })}>
-                                  {opt}
-                                </span>
-                              )}
-                              {editandoListas && (
-                                <button onClick={() => setRegiaoOptsEdit(p => p.filter((_, j) => j !== i))}
-                                  style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 14, padding: "0 4px", fontFamily: "'DM Sans',sans-serif" }}>✕</button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                        {editandoListas && (
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <input className="ef" placeholder="Nova região..." id="new-regiao-input" style={{ flex: 1, fontSize: 12 }}
-                              onChange={e => { const v = e.target.value; e.target.value = v.charAt(0).toUpperCase() + v.slice(1); }}
-                              onKeyDown={e => { if (e.key === "Enter") { const input = e.target as HTMLInputElement; const raw = input.value.trim(); const val = raw.charAt(0).toUpperCase() + raw.slice(1); if (val && !regiaoOptsEdit.includes(val)) { setRegiaoOptsEdit(p => [...p, val]); input.value = ""; } } }} />
-                            <button className="btn-sm gold" onClick={() => { const input = document.getElementById("new-regiao-input") as HTMLInputElement; const raw = input?.value.trim(); const val = raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : ""; if (val && !regiaoOptsEdit.includes(val)) { setRegiaoOptsEdit(p => [...p, val]); if (input) input.value = ""; } }}>+</button>
-                          </div>
-                        )}
-                      </div>
+                      ))}
                     </div>
-                    {editandoListas && (
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
-                        <button className="btn-c" onClick={() => { setEditandoListas(false); setRenomearEstilo(null); }}>Cancelar</button>
-                        <button className="btn-s" onClick={() => setConfirmListas(true)}>Salvar alterações</button>
+                    {addingServico ? (
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", background: "var(--dk3)", borderRadius: 7, padding: "8px 12px", border: "1px solid var(--gold)" }}>
+                        <input style={{ width: 14, height: 14, cursor: "pointer", accentColor: novoServicoCor }} type="color" value={novoServicoCor} onChange={e => setNovoServicoCor(e.target.value)} />
+                        <input className="fi" style={{ flex: 1, padding: "4px 8px", fontSize: 12 }} placeholder="Nome do serviço..." value={novoServico}
+                          onChange={e => setNovoServico(e.target.value)}
+                          onKeyDown={async e => {
+                            if (e.key === "Enter" && novoServico.trim()) {
+                              const updated = [...servicoOpts, { id: "svc" + Date.now(), nome: novoServico.trim(), cor: novoServicoCor }];
+                              setServicoOpts(updated); setNovoServico(""); setAddingServico(false);
+                              const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
+                              if (cfgEx?.id) await sb.from("configuracoes").update({ servico_opts: updated }).eq("id", cfgEx.id);
+                            } else if (e.key === "Escape") { setAddingServico(false); setNovoServico(""); }
+                          }} />
+                        <button className="btn-s" style={{ padding: "4px 10px", fontSize: 11 }} onClick={async () => {
+                          if (novoServico.trim()) {
+                            const updated = [...servicoOpts, { id: "svc" + Date.now(), nome: novoServico.trim(), cor: novoServicoCor }];
+                            setServicoOpts(updated); setNovoServico(""); setAddingServico(false);
+                            const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
+                            if (cfgEx?.id) await sb.from("configuracoes").update({ servico_opts: updated }).eq("id", cfgEx.id);
+                          }
+                        }}>OK</button>
+                        <button className="btn-c" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => { setAddingServico(false); setNovoServico(""); }}>✕</button>
                       </div>
+                    ) : (
+                      <button className="btn-sm gold" onClick={() => { setAddingServico(true); setNovoServico(""); setNovoServicoCor("#a78bfa"); }}>+ Adicionar Serviço</button>
                     )}
                   </div>
                 </>}
@@ -7953,12 +7622,7 @@ export default function CRM() {
               </div>
 
               <div className="fmf" style={{ position: "relative" }}>
-                {editandoListas && (
-                  <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.7)", borderRadius: 8, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(2px)" }}>
-                    <span style={{ fontSize: 11, color: "var(--tx2)", fontStyle: "italic", textAlign: "center", padding: "0 16px" }}>Salve ou cancele as alterações de Estilos & Regiões primeiro</span>
-                  </div>
-                )}
-                <button className="btn-c" onClick={() => { if (!editandoListas) setShowSettings(false); }}>Cancelar</button>
+                <button className="btn-c" onClick={() => setShowSettings(false)}>Cancelar</button>
                 <div style={{ display: "flex", gap: 8 }}>
                   {settingsTab !== "sistema" && (
                     <button style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
@@ -7970,8 +7634,7 @@ export default function CRM() {
                       Próximo →
                     </button>
                   )}
-                  <button className="btn-s" disabled={editandoListas} title={editandoListas ? "Salve ou cancele as alterações de Estilos & Regiões primeiro" : ""} style={{ opacity: editandoListas ? 0.4 : 1, cursor: editandoListas ? "not-allowed" : "pointer" }} onClick={async () => {
-                  if (editandoListas) return;
+                  <button className="btn-s" onClick={async () => {
                   const cfg: any = {
                     studio_name: studioName, studio_tel: studioTel,
                     studio_owner: studioOwner, studio_email: studioEmail,
@@ -7993,6 +7656,7 @@ export default function CRM() {
                     studio_logo: studioLogo,
                     alerta_config: alertaConfig,
                     entrada_cats: entradaCats,
+                    servico_opts: servicoOpts,
                     user_id: userId,
                     updated_at: new Date().toISOString()
                   };
