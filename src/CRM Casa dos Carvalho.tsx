@@ -803,7 +803,7 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
         onMouseDown={e => { dragRef.current = "hue"; calcHue(e); }}
         style={{ width: "100%", height: 14, borderRadius: 7, cursor: "pointer", position: "relative",
           background: "linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)" }}>
-        <div style={{ position: "absolute", left: `calc(${hsv[0]/360*100}% - 7px)`, top: 0,
+        <div style={{ position: "absolute", left: "calc(" + Math.round(hsv[0]/360*100) + "% - 7px)", top: 0,
           width: 14, height: 14, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 0 2px rgba(0,0,0,.5)", background: `hsl(${hsv[0]},100%,50%)`, pointerEvents: "none" }} />
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -1814,7 +1814,7 @@ export default function CRM() {
       const sinalPago = !!(agForm as any).sinalPago;
       const histEntries = [
         { t: `Agendamento criado: ${tipoNome} em ${dataFmt} às ${agForm.start}h`, d: new Date().toLocaleString("pt-BR") },
-        ...(sinalVal > 0 ? [{ t: `Sinal de R$${sinalVal.toFixed(2)} ${sinalPago ? "recebido" : "pendente"}`, d: new Date().toLocaleString("pt-BR") }] : [])
+        ...(sinalVal > 0 ? [{ t: "Sinal de R$" + sinalVal.toFixed(2) + " " + (sinalPago ? "recebido" : "pendente"), d: new Date().toLocaleString("pt-BR") }] : [])
       ];
       setClients(p => {
         const updated = p.map(c => c.id !== agClientVinc.id ? c : {
@@ -2851,8 +2851,8 @@ export default function CRM() {
                             const eEnd = isNaN(e.end) || e.end == null ? eStart + 2 : Number(e.end);
                             const duration = Math.max(eEnd - eStart, 1);
                             const total = evs.length;
-                            const w = total > 1 ? `calc(${100/total}% - 3px)` : "calc(100% - 4px)";
-                            const left = total > 1 ? `calc(${(ei * 100/total)}% + 1px)` : "2px";
+                            const wPct = Math.round(100/total); const w = total > 1 ? "calc(" + wPct + "% - 3px)" : "calc(100% - 4px)";
+                            const leftPct = Math.round(ei * 100/total); const left = total > 1 ? "calc(" + leftPct + "% + 1px)" : "2px";
                             return (
                               <div key={e.id} className="we" style={{
                                 background: e.status === "cancelado" ? "#444" : e.tipo?.startsWith("bloq") ? "#2a2a2a" : getEventColor(e.tipo, artists, e.artista),
@@ -4667,7 +4667,7 @@ export default function CRM() {
                           projs.push(proj);
                           upC(sc.id, "projetos", projs);
                           setNovoProjetoAberto(null);
-                          setClients(p => p.map(c => c.id !== sc.id ? c : { ...c, hist: [...c.hist, { t: `Projeto criado: ${proj.estilo || "sem estilo"} — R$${val.toLocaleString("pt-BR",{minimumFractionDigits:2})}`, d: new Date().toLocaleDateString("pt-BR") }] }));
+                          setClients(p => p.map(c => c.id !== sc.id ? c : { ...c, hist: [...c.hist, { t: "Projeto criado: " + (proj.estilo || "sem estilo") + " — R$" + val.toLocaleString("pt-BR",{minimumFractionDigits:2}), d: new Date().toLocaleDateString("pt-BR") }] }));
                         }} style={{ background: "var(--gold)", color: "#000", border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Salvar Projeto</button>
                       </div>
                     </div>
@@ -6239,7 +6239,7 @@ export default function CRM() {
                         if (c.id !== clienteId) return c;
                         const projs = (c.projetos || []).filter((p: any) => p.id !== projetoId);
                         const hist = [...c.hist,
-                          { t: `Projeto excluído: ${proj?.estilo || "sem estilo"}${motivo ? " — " + motivo : ""}`, d: new Date().toLocaleDateString("pt-BR") },
+                          { t: "Projeto excluído: " + (proj?.estilo || "sem estilo") + (motivo ? " — " + motivo : ""), d: new Date().toLocaleDateString("pt-BR") },
                           ...(pago > 0 ? [{ t: `Crédito disponível: R$ ${pago.toLocaleString("pt-BR",{minimumFractionDigits:2})} (projeto cancelado)`, d: new Date().toLocaleDateString("pt-BR") }] : [])
                         ];
                         const updated = { ...c, projetos: projs, hist, credito: (c.credito || 0) + pago };
