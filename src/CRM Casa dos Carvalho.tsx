@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 const SUPA_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPA_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const sb = createClient(SUPA_URL, SUPA_KEY);
+const OWNER_EMAIL = "estudioabraaotattoo07@gmail.com";
 
 async function dbGet(table: string) {
   const { data, error } = await sb.from(table).select("*");
@@ -864,11 +865,20 @@ function isAniversMes(nasc: string): boolean {
 export default function CRM() {
   // ── LOGIN ──
   const [logado, setLogado] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+  const [showForgotPwd, setShowForgotPwd] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
+  // ── LICENÇA ──
+  const [licencaOk, setLicencaOk] = useState(true);
+  const [licencaMsg, setLicencaMsg] = useState("");
+  const [licencas, setLicencas] = useState<any[]>([]);
+  // ── PERFIL DE ACESSO ──
+  const [userRole, setUserRole] = useState<"admin"|"profissional">("admin");
+  const [userArtistId, setUserArtistId] = useState<string>("");
 
   // ── TOUR ──
   const [tourAtivo, setTourAtivo] = useState(false);
@@ -1063,13 +1073,48 @@ export default function CRM() {
   }, []);
 
   // ─── SUPABASE AUTH ────────────────────────────────────────────────────────
+  const verificarAcessoPos = async (uid: string, email: string) => {
+    // Dono do sistema: acesso irrestrito
+    if (email === OWNER_EMAIL) {
+      setUserRole("admin");
+      setLicencaOk(true);
+      // Carrega licencas para painel de gestão
+      const { data: lics } = await sb.from("licencas").select("*").order("created_at", { ascending: false });
+      if (lics) setLicencas(lics);
+      return;
+    }
+    // Verificar licença
+    const hoje = new Date().toISOString().split("T")[0];
+    const { data: lic } = await sb.from("licencas").select("*").eq("user_id", uid).limit(1).single();
+    if (!lic || lic.status !== "ativo" || lic.data_vencimento < hoje) {
+      const msg = !lic ? "Licença não encontrada para esta conta." : lic.status === "bloqueado" ? "Conta bloqueada. Entre em contato com o suporte." : "Licença expirada em " + (lic?.data_vencimento || "—") + ". Renove para continuar.";
+      setLicencaOk(false);
+      setLicencaMsg(msg);
+      return;
+    }
+    setLicencaOk(true);
+    // Verificar perfil: artista residente com email cadastrado?
+    const { data: artEncontrado } = await sb.from("artistas").select("id,email").eq("email", email).limit(1).single();
+    if (artEncontrado) {
+      setUserRole("profissional");
+      setUserArtistId(artEncontrado.id);
+    } else {
+      setUserRole("admin");
+    }
+  };
+
   useEffect(() => {
     sb.auth.getSession().then(({ data: { session } }) => {
-      if (session) { setLogado(true); setUserId(session.user?.id || ""); }
+      if (session) {
+        setLogado(true);
+        setUserId(session.user?.id || "");
+        verificarAcessoPos(session.user?.id || "", session.user?.email || "");
+      }
     });
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
       setLogado(!!session);
       setUserId(session?.user?.id || "");
+      if (session) verificarAcessoPos(session.user?.id || "", session.user?.email || "");
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -1215,15 +1260,16 @@ export default function CRM() {
     const now = new Date();
     const data = now.toLocaleDateString("pt-BR");
     const hora = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    const row = { data, hora, acao };
+    const row = { data, hora, acao, user_id: userId };
     setHistorico(p => [{ ...row, id: Date.now() }, ...p]);
     try { await sb.from("historico").insert(row); } catch(e) { console.warn("log error", e); }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
-    sb.from("historico").select("*").order("id", { ascending: false }).limit(500)
+    if (!userId) return;
+    sb.from("historico").select("*").eq("user_id", userId).order("id", { ascending: false }).limit(500)
       .then(({ data }) => { if (data) setHistorico(data); });
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (tab === "agenda") {
@@ -1247,7 +1293,9 @@ export default function CRM() {
     }
   }, [artists]);
 
-  const filtered = useMemo(() => clients.filter(c => {
+  const clientesVisiveis = useMemo(() => userRole === "profissional" ? clients.filter(c => c.artista === userArtistId) : clients, [clients, userRole, userArtistId]);
+
+  const filtered = useMemo(() => clientesVisiveis.filter(c => {
     const mA = fa === "todos" || c.artista === fa;
     const q = srch.toLowerCase();
     const mS = !srch ||
@@ -1693,6 +1741,7 @@ export default function CRM() {
       com: artForm.com,
       cor: artForm.cor,
       insta: artForm.insta || "",
+      email: artForm.email || "",
       user_id: userId
     };
     const { data: artData, error: artError } = await sb.from("artistas").insert(row).select().single();
@@ -2046,17 +2095,18 @@ export default function CRM() {
       setAuthError("");
       setAuthLoading(true);
       try {
-        if (authMode === "login") {
-          const { error } = await sb.auth.signInWithPassword({ email: authEmail, password: authPassword });
-          if (error) setAuthError(error.message);
-        } else {
-          const { error } = await sb.auth.signUp({ email: authEmail, password: authPassword });
-          if (error) setAuthError(error.message);
-          else setAuthError("Verifique seu e-mail para confirmar o cadastro.");
-        }
+        const { error } = await sb.auth.signInWithPassword({ email: authEmail, password: authPassword });
+        if (error) setAuthError("E-mail ou senha incorretos.");
       } catch (e: any) {
         setAuthError(e.message || "Erro inesperado.");
       }
+      setAuthLoading(false);
+    };
+    const handleForgot = async () => {
+      if (!forgotEmail.trim()) return;
+      setAuthLoading(true);
+      await sb.auth.resetPasswordForEmail(forgotEmail.trim());
+      setForgotSent(true);
       setAuthLoading(false);
     };
     return (
@@ -2079,42 +2129,95 @@ export default function CRM() {
 
           {/* Card de login */}
           <div style={{ width: "100%", background: "rgba(22,22,22,0.95)", border: "1px solid rgba(201,168,76,0.12)", borderRadius: 16, padding: "32px 28px", backdropFilter: "blur(10px)", boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#8A7A60", textAlign: "center", textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 24 }}>
-              {authMode === "login" ? "Acesso Restrito" : "Criar Conta"}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <label style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#6A6050" }}>E-mail</label>
-                <input className="fi" type="email" placeholder="seu@email.com" value={authEmail}
-                  onChange={e => { setAuthEmail(e.target.value); setAuthError(""); }}
-                  onKeyDown={e => { if (e.key === "Enter") handleAuth(); }}
-                  autoFocus style={{ fontSize: 14, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: "12px 14px", color: "#E8E2D9" }} />
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <label style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#6A6050" }}>Senha</label>
-                <input className="fi" type="password" placeholder="••••••••" value={authPassword}
-                  onChange={e => { setAuthPassword(e.target.value); setAuthError(""); }}
-                  onKeyDown={e => { if (e.key === "Enter") handleAuth(); }}
-                  style={{ fontSize: 16, letterSpacing: ".1em", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: "12px 14px", color: "#E8E2D9" }} />
-              </div>
-              {authError && (
-                <div style={{ fontSize: 11, color: authError.includes("Verifique") ? "#27AE60" : "#C0392B", background: authError.includes("Verifique") ? "rgba(39,174,96,0.08)" : "rgba(192,57,43,0.08)", padding: "8px 12px", borderRadius: 6, lineHeight: 1.5 }}>
-                  {authError}
+            {!showForgotPwd ? (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#8A7A60", textAlign: "center", textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 24 }}>Acesso Restrito</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <label style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#6A6050" }}>E-mail</label>
+                    <input className="fi" type="email" placeholder="seu@email.com" value={authEmail}
+                      onChange={e => { setAuthEmail(e.target.value); setAuthError(""); }}
+                      onKeyDown={e => { if (e.key === "Enter") handleAuth(); }}
+                      autoFocus style={{ fontSize: 14, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: "12px 14px", color: "#E8E2D9" }} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <label style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#6A6050" }}>Senha</label>
+                    <input className="fi" type="password" placeholder="••••••••" value={authPassword}
+                      onChange={e => { setAuthPassword(e.target.value); setAuthError(""); }}
+                      onKeyDown={e => { if (e.key === "Enter") handleAuth(); }}
+                      style={{ fontSize: 16, letterSpacing: ".1em", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: "12px 14px", color: "#E8E2D9" }} />
+                  </div>
+                  {authError && (
+                    <div style={{ fontSize: 11, color: "#C0392B", background: "rgba(192,57,43,0.08)", padding: "8px 12px", borderRadius: 6, lineHeight: 1.5 }}>
+                      {authError}
+                    </div>
+                  )}
+                  <button onClick={handleAuth} disabled={authLoading}
+                    style={{ background: authLoading ? "rgba(201,168,76,0.3)" : "linear-gradient(135deg, #C9A84C, #a07830)", color: authLoading ? "#888" : "#0A0A0A", border: "none", borderRadius: 8, padding: "13px 0", fontSize: 13, fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", letterSpacing: ".06em", textTransform: "uppercase", marginTop: 4, transition: "all .2s", fontFamily: "inherit" }}>
+                    {authLoading ? "Aguarde..." : "Entrar →"}
+                  </button>
+                  <div style={{ textAlign: "center", marginTop: 4 }}>
+                    <button onClick={() => { setShowForgotPwd(true); setForgotEmail(authEmail); setForgotSent(false); setAuthError(""); }}
+                      style={{ background: "none", border: "none", fontSize: 11, color: "#4a4235", cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>
+                      Esqueci minha senha
+                    </button>
+                  </div>
                 </div>
-              )}
-              <button onClick={handleAuth} disabled={authLoading}
-                style={{ background: authLoading ? "rgba(201,168,76,0.3)" : "linear-gradient(135deg, #C9A84C, #a07830)", color: authLoading ? "#888" : "#0A0A0A", border: "none", borderRadius: 8, padding: "13px 0", fontSize: 13, fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", letterSpacing: ".06em", textTransform: "uppercase", marginTop: 4, transition: "all .2s", fontFamily: "inherit" }}>
-                {authLoading ? "Aguarde..." : authMode === "login" ? "Entrar →" : "Criar Conta →"}
-              </button>
-              <div style={{ textAlign: "center", marginTop: 4 }}>
-                <button onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}
-                  style={{ background: "none", border: "none", fontSize: 11, color: "#4a4235", cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>
-                  {authMode === "login" ? "Criar nova conta" : "Já tenho conta — entrar"}
-                </button>
-              </div>
-            </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#8A7A60", textAlign: "center", textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 24 }}>Recuperar Senha</div>
+                {!forgotSent ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div style={{ fontSize: 12, color: "#6A6050", lineHeight: 1.6 }}>Informe seu e-mail para receber o link de redefinição de senha.</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <label style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#6A6050" }}>E-mail</label>
+                      <input className="fi" type="email" placeholder="seu@email.com" value={forgotEmail} autoFocus
+                        onChange={e => setForgotEmail(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") handleForgot(); }}
+                        style={{ fontSize: 14, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: "12px 14px", color: "#E8E2D9" }} />
+                    </div>
+                    <button onClick={handleForgot} disabled={authLoading}
+                      style={{ background: "linear-gradient(135deg, #C9A84C, #a07830)", color: "#0A0A0A", border: "none", borderRadius: 8, padding: "13px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", letterSpacing: ".06em", textTransform: "uppercase", fontFamily: "inherit" }}>
+                      {authLoading ? "Aguarde..." : "Enviar link →"}
+                    </button>
+                    <div style={{ textAlign: "center" }}>
+                      <button onClick={() => setShowForgotPwd(false)} style={{ background: "none", border: "none", fontSize: 11, color: "#4a4235", cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>
+                        Voltar ao login
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
+                    <div style={{ fontSize: 32 }}>✉️</div>
+                    <div style={{ fontSize: 13, color: "#6A9955", textAlign: "center", lineHeight: 1.6, background: "rgba(39,174,96,0.08)", padding: "12px 16px", borderRadius: 8 }}>
+                      Se este e-mail estiver cadastrado, você receberá um link em instantes.
+                    </div>
+                    <button onClick={() => { setShowForgotPwd(false); setForgotSent(false); }} style={{ background: "none", border: "none", fontSize: 11, color: "#4a4235", cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>
+                      Voltar ao login
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
           <div style={{ fontSize: 10, color: "#1e1e1e", letterSpacing: ".1em", textTransform: "uppercase" }}>© {new Date().getFullYear()} INK SYSTEM</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── LICENÇA INVÁLIDA ──
+  if (!licencaOk) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0A0A0A", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'DM Sans',sans-serif" }}>
+        <style>{S}</style>
+        <div style={{ maxWidth: 400, textAlign: "center", display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ fontSize: 48 }}>🔒</div>
+          <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 700, color: "#C9A84C" }}>Acesso Bloqueado</div>
+          <div style={{ fontSize: 13, color: "#8A8070", lineHeight: 1.7, background: "rgba(192,57,43,0.08)", border: "1px solid rgba(192,57,43,0.2)", borderRadius: 10, padding: "16px 20px" }}>{licencaMsg}</div>
+          <div style={{ fontSize: 11, color: "#4a4235" }}>Entre em contato com o suporte para renovar sua licença.</div>
+          <button onClick={() => sb.auth.signOut()} style={{ background: "none", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 8, padding: "10px 20px", color: "#8A7A60", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Sair da conta</button>
         </div>
       </div>
     );
@@ -2377,6 +2480,7 @@ export default function CRM() {
                     </div>
                   </div>
                 </div>
+                <div className="ff"><label className="fl">E-mail de acesso ao sistema</label><input className="fi" type="email" placeholder="email@exemplo.com" value={artForm.email} onChange={e => setArtForm({ ...artForm, email: e.target.value })} /></div>
                 <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => { const v = e.target.value; setArtForm({ ...artForm, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                 <div className="ff"><label className="fl">Cor</label><ColorPicker value={artForm.cor} onChange={cor => setArtForm({ ...artForm, cor })} /></div>
               </div>
@@ -2398,9 +2502,9 @@ export default function CRM() {
               ? <img src={studioLogo} alt="logo" style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--gold)" }} />
               : <div className="bmark">C</div>
             }
-            <div style={{ cursor: "pointer" }} onClick={() => setShowSettings(true)}>
+            <div style={{ cursor: userRole === "admin" ? "pointer" : "default" }} onClick={() => { if (userRole === "admin") setShowSettings(true); }}>
               <div className="bname">{studioName}</div>
-              <div className="bsub">In-Quadra Ink System</div>
+              <div className="bsub">{userRole === "profissional" ? "Acesso Profissional" : "In-Quadra Ink System"}</div>
               {(() => { const cnpjDigits = (cnpj || "").replace(/[^0-9]/g,""); return cnpjDigits.length === 14 ? <div style={{ fontSize: 9, color: "var(--tx3)", letterSpacing: ".08em" }}>CNPJ: {cnpj}</div> : null; })()}
             </div>
           </div>
@@ -2542,17 +2646,20 @@ export default function CRM() {
 
         {/* TABS */}
         <div className="tabs">
-          {[
-            { id: "kanban", l: "Pipeline", i: "📋" },
-            { id: "clientes", l: "Clientes", i: "👥" },
-            { id: "agenda", l: "Agenda", i: "📅" },
-            { id: "financeiro", l: "Financeiro", i: "💰" },
-            { id: "artistas", l: "Profissionais", i: "💼" },
-
-            { id: "dashboard", l: "Visão Geral", i: "📊" },
-            { id: "posvenda", l: "Pós-venda", i: "💬" },
-            { id: "disparos", l: "Disparos", i: "📣" },
-          ].map(t => (
+          {([
+            { id: "kanban", l: "Pipeline", i: "📋", roles: ["admin","profissional"] },
+            { id: "clientes", l: "Clientes", i: "👥", roles: ["admin","profissional"] },
+            { id: "agenda", l: "Agenda", i: "📅", roles: ["admin","profissional"] },
+            { id: "financeiro", l: "Financeiro", i: "💰", roles: ["admin"] },
+            { id: "artistas", l: "Profissionais", i: "💼", roles: ["admin"] },
+            { id: "dashboard", l: "Visão Geral", i: "📊", roles: ["admin","profissional"] },
+            { id: "posvenda", l: "Pós-venda", i: "💬", roles: ["admin","profissional"] },
+            { id: "disparos", l: "Disparos", i: "📣", roles: ["admin"] },
+            { id: "licencas", l: "Licenças", i: "🔑", roles: ["owner"] },
+          ] as {id:string;l:string;i:string;roles:string[]}[]).filter(t => {
+            if (t.id === "licencas") return authEmail === OWNER_EMAIL;
+            return t.roles.includes(userRole);
+          }).map(t => (
             <button key={t.id} className={"tab" + (tab === t.id ? " on" : "")} onClick={() => changeTab(t.id)}>
               {t.i} {t.l}
             </button>
@@ -7236,6 +7343,58 @@ export default function CRM() {
                   ));
                 })()}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── LICENÇAS (dono do sistema) ── */}
+        {tab === "licencas" && authEmail === OWNER_EMAIL && (
+          <div style={{ flex: 1, padding: "20px", overflowY: "auto" }}>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 700, color: "var(--tx)", marginBottom: 4 }}>Gestão de Licenças</div>
+            <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 20 }}>Todos os estúdios cadastrados no sistema.</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {licencas.length === 0 && <div style={{ fontSize: 13, color: "var(--tx3)" }}>Nenhuma licença cadastrada ainda.</div>}
+              {licencas.map(lic => {
+                const hoje = new Date().toISOString().split("T")[0];
+                const diasRestantes = lic.data_vencimento ? Math.ceil((new Date(lic.data_vencimento).getTime() - Date.now()) / 86400000) : -999;
+                const vencendo = diasRestantes >= 0 && diasRestantes <= 7;
+                const expirado = diasRestantes < 0 || lic.status !== "ativo";
+                const cor = expirado ? "#C0392B" : vencendo ? "#E67E22" : "#27AE60";
+                return (
+                  <div key={lic.id} style={{ background: "var(--dk2)", border: "1px solid " + (expirado ? "rgba(192,57,43,.3)" : vencendo ? "rgba(230,126,34,.3)" : "var(--br)"), borderRadius: 10, padding: "14px 18px", display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center" }}>
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--tx)" }}>{lic.email || lic.studio_id || lic.user_id}</div>
+                      <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 3 }}>
+                        Plano: <strong style={{ color: "var(--gold)" }}>{lic.plano || "—"}</strong>
+                        {" · "}Início: {lic.data_inicio || "—"}
+                        {" · "}Vence: {lic.data_vencimento || "—"}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: cor + "22", color: cor, border: "1px solid " + cor + "55" }}>
+                        {expirado ? "EXPIRADO" : vencendo ? ("VENCE EM " + diasRestantes + "d") : "ATIVO"}
+                      </span>
+                      <select style={{ fontSize: 11, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 8px", color: "var(--tx)", cursor: "pointer" }}
+                        value={lic.status}
+                        onChange={async e => {
+                          const novoStatus = e.target.value;
+                          await sb.from("licencas").update({ status: novoStatus }).eq("id", lic.id);
+                          setLicencas(p => p.map(l => l.id === lic.id ? { ...l, status: novoStatus } : l));
+                        }}>
+                        <option value="ativo">Ativo</option>
+                        <option value="expirado">Expirado</option>
+                        <option value="bloqueado">Bloqueado</option>
+                      </select>
+                      <input type="date" value={lic.data_vencimento || ""} style={{ fontSize: 11, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 8px", color: "var(--tx)", cursor: "pointer" }}
+                        onChange={async e => {
+                          const novaData = e.target.value;
+                          await sb.from("licencas").update({ data_vencimento: novaData, status: "ativo" }).eq("id", lic.id);
+                          setLicencas(p => p.map(l => l.id === lic.id ? { ...l, data_vencimento: novaData, status: "ativo" } : l));
+                        }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
