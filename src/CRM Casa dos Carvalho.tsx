@@ -1074,6 +1074,7 @@ export default function CRM() {
 
   // ─── SUPABASE AUTH ────────────────────────────────────────────────────────
   const verificarAcessoPos = async (uid: string, email: string) => {
+    setAuthEmail(email);
     // Dono do sistema: acesso irrestrito
     if (email === OWNER_EMAIL) {
       setUserRole("admin");
