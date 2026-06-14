@@ -1061,7 +1061,6 @@ export default function CRM() {
   const [auraChatInput, setAuraChatInput] = useState("");
   const [auraChatLoading, setAuraChatLoading] = useState(false);
   const [auraToolPendente, setAuraToolPendente] = useState<{ tool: string; params: any; descricao: string } | null>(null);
-  const auraToolPendenteRef = useRef<{ tool: string; params: any; descricao: string } | null>(null);
   const [auraChatImagem, setAuraChatImagem] = useState<{ base64: string; mediaType: string } | null>(null);
   const [alertaConfig, setAlertaConfig] = useState({ alerta_nova_mensagem: true, alerta_sessao_proxima: true, alerta_sessao_antecedencia: "2h", alerta_falta: true, alerta_aniversario: true, alerta_sem_retorno: true, alerta_sem_retorno_dias: "30", alerta_sinal_pendente: true, alerta_projeto_sem_valor: true, alerta_novo_cliente_aura: true });
   const [sessoesExtras, setSessoesExtras] = useState<{date: string; start: number; end: number}[]>([]);
@@ -2246,6 +2245,28 @@ export default function CRM() {
     }
     setAuraChatInput("");
     setAuraChatImagem(null);
+
+    // ── INTERCEPTAR CONFIRMAÇÃO ANTES DA API ──
+    const toolAtualRef = auraToolPendenteRef.current;
+    if (toolAtualRef && !imagemBase64) {
+      const confirmacoes = ["sim", "pode", "confirmo", "ok", "vai", "faz", "execute", "confirmar", "positivo"];
+      const isConfirmacao = confirmacoes.some(c => userMsg.toLowerCase().includes(c));
+      if (isConfirmacao) {
+        setAuraChatMessages(prev => [...prev, { role: "user", content: userMsg }]);
+        setAuraChatMessages(prev => [...prev, { role: "assistant", content: "⏳ Executando..." }]);
+        setAuraChatLoading(true);
+        const resultado = await executarToolAura(toolAtualRef.tool, toolAtualRef.params);
+        auraToolPendenteRef.current = null;
+        setAuraToolPendente(null);
+        setAuraChatMessages(prev => {
+          const sem = prev.filter(m => m.content !== "⏳ Executando...");
+          return [...sem, { role: "assistant", content: resultado }];
+        });
+        setAuraChatLoading(false);
+        return;
+      }
+    }
+
     const hoje = new Date().toISOString().split("T")[0];
     let userContent: any;
     if (imagemBase64) {
@@ -2299,27 +2320,22 @@ export default function CRM() {
           else if (toolUseBlock.name === "disparar_email") descricao = "Enviar email para **" + p2.cliente_nome + "**\nAssunto: " + p2.assunto + "\n\n" + p2.mensagem;
           const msgAura = (textBlock?.text ? textBlock.text + "\n\n" : "") + "⚡ **Ação identificada:** " + descricao + "\n\n✅ Posso executar isso agora. Confirma?";
           setAuraChatMessages(prev => [...prev, { role: "assistant", content: msgAura }]);
-          const pendente = { tool: toolUseBlock.name, params: toolUseBlock.input, descricao };
-          setAuraToolPendente(pendente);
-          auraToolPendenteRef.current = pendente;
+          setAuraToolPendente({ tool: toolUseBlock.name, params: toolUseBlock.input, descricao });
         }
       } else {
         const reply = json.content?.find((b: any) => b.type === "text")?.text || "Não consegui processar sua mensagem.";
-        const toolAtual = auraToolPendenteRef.current;
-        if (toolAtual) {
+        if (auraToolPendente) {
           const confirmacoes = ["sim", "pode", "confirmo", "ok", "vai", "faz", "execute", "confirmar", "positivo"];
           const isConfirmacao = confirmacoes.some(c => userMsg.toLowerCase().includes(c));
           if (isConfirmacao) {
             setAuraChatMessages(prev => [...prev, { role: "assistant", content: "⏳ Executando..." }]);
-            const resultado = await executarToolAura(toolAtual.tool, toolAtual.params);
-            auraToolPendenteRef.current = null;
+            const resultado = await executarToolAura(auraToolPendente.tool, auraToolPendente.params);
             setAuraToolPendente(null);
             setAuraChatMessages(prev => {
               const sem = prev.filter(m => m.content !== "⏳ Executando...");
               return [...sem, { role: "assistant", content: resultado }];
             });
           } else {
-            auraToolPendenteRef.current = null;
             setAuraToolPendente(null);
             setAuraChatMessages(prev => [...prev, { role: "assistant", content: reply }]);
           }
