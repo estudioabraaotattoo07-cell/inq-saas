@@ -7970,13 +7970,13 @@ export default function CRM() {
                 {settingsTab === "ia" && <>
                   <div style={{ background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.15)", borderRadius: 8, padding: "12px 14px", marginBottom: 4 }}>
                     <div style={{ fontSize: 12, color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>🔒 Essência imutável</div>
-                    <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.6 }}>A {auraName} sempre será transparente sobre ser uma IA, nunca se passará por humano e manterá o padrão premium do estúdio. Estas configurações ajustam comportamentos secundários.</div>
+                    <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.6 }}>A assistente sempre será transparente sobre ser uma IA, nunca se passará por humano e manterá o padrão premium do estúdio. Estas configurações ajustam comportamentos secundários.</div>
                   </div>
                   <div>
                     <div className="stit">Identidade</div>
                     <div className="fi2">
                       <div className="fil">Nome da IA</div>
-                      <input className="ef" value={auraName} placeholder="Escolha o nome da sua agente"
+                      <input className="ef" value={(auraName && !auraName.includes("@")) ? auraName : ""} placeholder="Ex: Aura, Luna, Sofia..."
                         onChange={e => setAuraName(e.target.value.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase()))} />
                     </div>
                     <div className="fi2" style={{ marginTop: 8 }}>
