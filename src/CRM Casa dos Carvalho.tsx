@@ -7781,22 +7781,6 @@ export default function CRM() {
                       }}>+</button>
                     </div>
                   </div>
-                  <div>
-                    <div className="stit">Comunicação</div>
-                    <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 10, lineHeight: 1.6 }}>Credenciais para disparo real de Email e SMS. Cada estúdio usa suas próprias chaves.</div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)", marginBottom: 6, marginTop: 4 }}>Email — Resend</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>
-                      <div className="fi2"><div className="fil">Resend API Key</div><input className="ef" type="password" placeholder="re_..." value={resendApiKey} onChange={e => setResendApiKey(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Email Remetente</div><input className="ef" type="email" placeholder="aura@seuestudio.com" value={emailRemetente} onChange={e => setEmailRemetente(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Nome Remetente</div><input className="ef" placeholder="Casa dos Carvalho" value={nomeRemetente} onChange={e => setNomeRemetente(e.target.value)} /></div>
-                    </div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)", marginBottom: 6 }}>SMS — Twilio</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                      <div className="fi2"><div className="fil">Account SID</div><input className="ef" placeholder="ACxxxxxxxxxxxxxxx" value={twilioAccountSid} onChange={e => setTwilioAccountSid(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Auth Token</div><input className="ef" type="password" placeholder="••••••••••••••••" value={twilioAuthToken} onChange={e => setTwilioAuthToken(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Número de Envio</div><input className="ef" placeholder="+5527999998230" value={twilioNumero} onChange={e => setTwilioNumero(e.target.value)} /></div>
-                    </div>
-                  </div>
                 </>}
 
                 {/* ── ABA DONO ── */}
@@ -8000,6 +7984,22 @@ export default function CRM() {
                       <input className="ef" type="password" placeholder="sk-ant-..." value={auraApiKey} onChange={e => setAuraApiKey(e.target.value)} />
                     </div>
                     <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 4, lineHeight: 1.5 }}>Usada pelo chat flutuante da Aura dentro do CRM. Obtenha em console.anthropic.com.</div>
+                  </div>
+                  <div>
+                    <div className="stit">Comunicação</div>
+                    <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 10, lineHeight: 1.6 }}>Credenciais para disparo real de Email e SMS. Cada estúdio usa suas próprias chaves.</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)", marginBottom: 6, marginTop: 4 }}>Email — Resend</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>
+                      <div className="fi2"><div className="fil">Resend API Key</div><input className="ef" type="password" placeholder="re_..." value={resendApiKey} onChange={e => setResendApiKey(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Email Remetente</div><input className="ef" type="email" placeholder="aura@seuestudio.com" value={emailRemetente} onChange={e => setEmailRemetente(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Nome Remetente</div><input className="ef" placeholder="Casa dos Carvalho" value={nomeRemetente} onChange={e => setNomeRemetente(e.target.value)} /></div>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)", marginBottom: 6 }}>SMS — Twilio</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                      <div className="fi2"><div className="fil">Account SID</div><input className="ef" placeholder="ACxxxxxxxxxxxxxxx" value={twilioAccountSid} onChange={e => setTwilioAccountSid(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Auth Token</div><input className="ef" type="password" placeholder="••••••••••••••••" value={twilioAuthToken} onChange={e => setTwilioAuthToken(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Número de Envio</div><input className="ef" placeholder="+5527999998230" value={twilioNumero} onChange={e => setTwilioNumero(e.target.value)} /></div>
+                    </div>
                   </div>
                   <div>
                     <div className="stit">Tom de Comunicação</div>
@@ -8262,7 +8262,7 @@ export default function CRM() {
             <div style={{ width: "min(380px, 90vw)", height: 480, background: "var(--dk2)", border: "1px solid var(--gold)", borderRadius: 14, display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(0,0,0,.7)", overflow: "hidden" }}>
               <div style={{ padding: "12px 16px", background: "var(--dk3)", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--gold)" }}>✦ {auraName || "Aura"} — Assistente INK SYSTEM</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--gold)" }}>✦ {(auraName && !auraName.includes("@")) ? auraName : "Aura"} — Assistente INK SYSTEM</div>
                   <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 1 }}>Contexto real do estúdio carregado</div>
                 </div>
                 <button onClick={() => setShowAuraChat(false)} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
@@ -8271,7 +8271,7 @@ export default function CRM() {
                 {auraChatMessages.length === 0 && (
                   <div style={{ fontSize: 12, color: "var(--tx3)", textAlign: "center", marginTop: 40, lineHeight: 1.8 }}>
                     <div style={{ fontSize: 28, marginBottom: 8 }}>✦</div>
-                    <div>Olá! Sou a {auraName || "Aura"}.</div>
+                    <div>Olá! Sou a {(auraName && !auraName.includes("@")) ? auraName : "Aura"}.</div>
                     <div>Posso analisar seus dados, gerar mensagens e sugerir ações.</div>
                   </div>
                 )}
@@ -8355,7 +8355,7 @@ export default function CRM() {
           <button
             onClick={() => setShowAuraChat(p => !p)}
             style={{ background: showAuraChat ? "var(--dk3)" : "var(--gold)", color: showAuraChat ? "var(--tx2)" : "#000", border: "1px solid var(--gold)", borderRadius: 50, padding: "12px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 20px rgba(201,168,76,.4)", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
-            ✦ {auraName || "Aura"}
+            ✦ {(auraName && !auraName.includes("@")) ? auraName : "Aura"}
           </button>
         </div>
 
