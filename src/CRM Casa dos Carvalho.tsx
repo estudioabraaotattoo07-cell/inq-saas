@@ -7991,14 +7991,14 @@ export default function CRM() {
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)", marginBottom: 6, marginTop: 4 }}>Email — Resend</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>
                       <div className="fi2"><div className="fil">Resend API Key</div><input className="ef" type="password" placeholder="re_..." value={resendApiKey} onChange={e => setResendApiKey(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Email Remetente</div><input className="ef" type="email" placeholder="aura@seuestudio.com" value={emailRemetente} onChange={e => setEmailRemetente(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Nome Remetente</div><input className="ef" placeholder="Casa dos Carvalho" value={nomeRemetente} onChange={e => setNomeRemetente(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Email Remetente</div><input className="ef" type="email" placeholder="ia@seuestudio.com.br" value={emailRemetente} onChange={e => setEmailRemetente(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Nome Remetente</div><input className="ef" placeholder="Nome do seu estúdio" value={nomeRemetente} onChange={e => setNomeRemetente(e.target.value)} /></div>
                     </div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)", marginBottom: 6 }}>SMS — Twilio</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                       <div className="fi2"><div className="fil">Account SID</div><input className="ef" placeholder="ACxxxxxxxxxxxxxxx" value={twilioAccountSid} onChange={e => setTwilioAccountSid(e.target.value)} /></div>
                       <div className="fi2"><div className="fil">Auth Token</div><input className="ef" type="password" placeholder="••••••••••••••••" value={twilioAuthToken} onChange={e => setTwilioAuthToken(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Número de Envio</div><input className="ef" placeholder="+5527999998230" value={twilioNumero} onChange={e => setTwilioNumero(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Número de Envio</div><input className="ef" placeholder="+55DDD999999999" value={twilioNumero} onChange={e => setTwilioNumero(e.target.value)} /></div>
                     </div>
                   </div>
                   <div>
@@ -8170,6 +8170,10 @@ export default function CRM() {
                     </button>
                   )}
                   <button className="btn-s" onClick={async () => {
+                  if (!studioName.trim()) {
+                    setShowAviso("Preencha ao menos o Nome do Estúdio para salvar.");
+                    return;
+                  }
                   const cfg: any = {
                     studio_name: studioName, studio_tel: studioTel,
                     studio_owner: studioOwner, studio_email: studioEmail,
@@ -8209,8 +8213,9 @@ export default function CRM() {
                   } else {
                     await sb.from("configuracoes").insert(cfg);
                   }
+                  setShowSettings(false);
                   setShowAviso("Configurações salvas com sucesso.");
-                }}>Salvar</button>
+                }}>Salvar e Continuar</button>
                 </div>
               </div>
               </div>{/* end settings-content */}
@@ -8355,7 +8360,7 @@ export default function CRM() {
           <button
             onClick={() => setShowAuraChat(p => !p)}
             style={{ background: showAuraChat ? "var(--dk3)" : "var(--gold)", color: showAuraChat ? "var(--tx2)" : "#000", border: "1px solid var(--gold)", borderRadius: 50, padding: "12px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 20px rgba(201,168,76,.4)", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
-            ✦ {(auraName && !auraName.includes("@")) ? auraName : "Aura"}
+            ✦ {(auraName && !auraName.includes("@")) ? auraName : "Configure sua IA"}
           </button>
         </div>
 
