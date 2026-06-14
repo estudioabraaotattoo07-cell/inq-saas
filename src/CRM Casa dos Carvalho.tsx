@@ -1060,6 +1060,8 @@ export default function CRM() {
   const [auraChatMessages, setAuraChatMessages] = useState<{role: string; content: string}[]>([]);
   const [auraChatInput, setAuraChatInput] = useState("");
   const [auraChatLoading, setAuraChatLoading] = useState(false);
+  const [auraToolPendente, setAuraToolPendente] = useState<{ tool: string; params: any; descricao: string } | null>(null);
+  const [auraChatImagem, setAuraChatImagem] = useState<{ base64: string; mediaType: string } | null>(null);
   const [alertaConfig, setAlertaConfig] = useState({ alerta_nova_mensagem: true, alerta_sessao_proxima: true, alerta_sessao_antecedencia: "2h", alerta_falta: true, alerta_aniversario: true, alerta_sem_retorno: true, alerta_sem_retorno_dias: "30", alerta_sinal_pendente: true, alerta_projeto_sem_valor: true, alerta_novo_cliente_aura: true });
   const [sessoesExtras, setSessoesExtras] = useState<{date: string; start: number; end: number}[]>([]);
   const [entradaCats, setEntradaCats] = useState<string[]>(["sessao","sinal","prolabore","outro"]);
@@ -2064,6 +2066,265 @@ export default function CRM() {
     if (smsCount > 0) {
       try { await sb.from("historico").insert({ data: dataHora, hora: horaStr, acao: "Disparo SMS — " + segmentoLabel + " — " + smsCount + " destinatários", user_id: userId }); } catch {}
     }
+  };
+
+  const AURA_TOOLS = [
+    {
+      name: "mover_pipeline",
+      description: "Move um cliente para uma nova etapa do pipeline. Sempre perguntar ao usuário antes de executar.",
+      input_schema: {
+        type: "object",
+        properties: {
+          cliente_id: { type: "string", description: "ID do cliente" },
+          cliente_nome: { type: "string", description: "Nome do cliente para confirmação" },
+          nova_etapa: { type: "string", description: "Nova etapa do pipeline: consulta, negociacao, sessao_agendada, sessao_realizada, hibernacao, blacklist" }
+        },
+        required: ["cliente_id", "cliente_nome", "nova_etapa"]
+      }
+    },
+    {
+      name: "registrar_pagamento",
+      description: "Registra um pagamento de cliente no financeiro. Sempre perguntar ao usuário antes de executar.",
+      input_schema: {
+        type: "object",
+        properties: {
+          cliente_id: { type: "string", description: "ID do cliente" },
+          cliente_nome: { type: "string", description: "Nome do cliente" },
+          valor: { type: "number", description: "Valor do pagamento em reais" },
+          forma: { type: "string", description: "Forma de pagamento: pix, dinheiro, cartao_credito, cartao_debito" }
+        },
+        required: ["cliente_id", "cliente_nome", "valor", "forma"]
+      }
+    },
+    {
+      name: "criar_agendamento",
+      description: "Cria um novo agendamento na agenda. Sempre perguntar ao usuário antes de executar.",
+      input_schema: {
+        type: "object",
+        properties: {
+          cliente_id: { type: "string", description: "ID do cliente" },
+          cliente_nome: { type: "string", description: "Nome do cliente" },
+          data: { type: "string", description: "Data no formato YYYY-MM-DD" },
+          hora: { type: "string", description: "Hora no formato HH:MM" },
+          tipo: { type: "string", description: "Tipo: consulta ou sessao" },
+          artista: { type: "string", description: "Nome do artista responsável" }
+        },
+        required: ["cliente_id", "cliente_nome", "data", "hora", "tipo"]
+      }
+    },
+    {
+      name: "cadastrar_cliente",
+      description: "Cadastra um novo cliente no sistema. Usado quando o usuário envia foto de ficha ou informa dados de um cliente novo. Sempre confirmar os dados antes de executar.",
+      input_schema: {
+        type: "object",
+        properties: {
+          nome: { type: "string", description: "Nome completo do cliente" },
+          tel: { type: "string", description: "Telefone com DDD, apenas números" },
+          email: { type: "string", description: "Email do cliente" },
+          estilo: { type: "string", description: "Estilo de tatuagem preferido" },
+          obs: { type: "string", description: "Observações adicionais" }
+        },
+        required: ["nome"]
+      }
+    },
+    {
+      name: "disparar_email",
+      description: "Envia um email para um cliente específico. Sempre mostrar o conteúdo e pedir confirmação antes de enviar.",
+      input_schema: {
+        type: "object",
+        properties: {
+          cliente_email: { type: "string", description: "Email do destinatário" },
+          cliente_nome: { type: "string", description: "Nome do cliente" },
+          assunto: { type: "string", description: "Assunto do email" },
+          mensagem: { type: "string", description: "Conteúdo do email" }
+        },
+        required: ["cliente_email", "cliente_nome", "assunto", "mensagem"]
+      }
+    }
+  ];
+
+  const executarToolAura = async (tool: string, params: any) => {
+    const hoje = new Date();
+    const dataStr = hoje.toLocaleDateString("pt-BR");
+    const horaStr = hoje.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    try {
+      if (tool === "mover_pipeline") {
+        const clienteAtualizado = clients.find(c => String(c.id) === String(params.cliente_id));
+        if (clienteAtualizado) {
+          const updated = { ...clienteAtualizado, etapa: params.nova_etapa };
+          setClients(p => p.map(c => String(c.id) === String(params.cliente_id) ? updated : c));
+          await dbUpsert("clientes", { id: params.cliente_id, etapa: params.nova_etapa, user_id: userId });
+          try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: "Aura moveu " + params.cliente_nome + " para " + params.nova_etapa, user_id: userId }); } catch {}
+          return "✅ " + params.cliente_nome + " movido para **" + params.nova_etapa + "** com sucesso.";
+        }
+        return "❌ Cliente não encontrado.";
+      }
+      if (tool === "registrar_pagamento") {
+        const { data: fdPag } = await sb.from("financeiro").insert({
+          data: new Date().toISOString().split("T")[0],
+          cliente_id: params.cliente_id,
+          cliente_nome: params.cliente_nome,
+          val_a: params.valor,
+          val_c: params.valor,
+          pgto: params.forma,
+          categoria: "sessao",
+          tipo: "entrada",
+          user_id: userId
+        }).select().single();
+        if (fdPag) setFin((p: any[]) => [...p, { ...fdPag, cliente: params.cliente_nome }]);
+        try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: "Aura registrou pagamento de R$ " + params.valor + " de " + params.cliente_nome, user_id: userId }); } catch {}
+        return "✅ Pagamento de R$ " + params.valor + " de " + params.cliente_nome + " registrado com sucesso.";
+      }
+      if (tool === "criar_agendamento") {
+        const artistaId = artists.find((a: any) => (params.artista || "").toLowerCase().includes(a.nome.toLowerCase().split(" ")[0]))?.id || artists[0]?.id || "";
+        const tipo = params.tipo === "consulta" ? "cons_" + artistaId : "sess_" + artistaId;
+        const { data: novoEv } = await sb.from("agenda").insert({
+          titulo: (params.tipo === "consulta" ? "Consulta" : "Sessão") + " — " + params.cliente_nome,
+          cliente_id: params.cliente_id,
+          cliente_nome: params.cliente_nome,
+          artista: artistaId,
+          data: params.data,
+          hora: params.hora,
+          hora_fim: (parseInt((params.hora || "09").split(":")[0]) + 2) + ":00",
+          tipo,
+          user_id: userId
+        }).select().single();
+        if (novoEv) {
+          setAgEvents(p => [...p, { ...novoEv, title: novoEv.titulo, date: novoEv.data, start: parseInt(novoEv.hora?.split(":")[0] || "9"), end: parseInt(novoEv.hora?.split(":")[0] || "9") + 2 }]);
+        }
+        try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: "Aura criou agendamento para " + params.cliente_nome + " em " + params.data, user_id: userId }); } catch {}
+        return "✅ Agendamento criado para " + params.cliente_nome + " em " + params.data + " às " + params.hora + ".";
+      }
+      if (tool === "cadastrar_cliente") {
+        const { data: novoC } = await sb.from("clientes").insert({
+          nome: params.nome,
+          tel: params.tel || "",
+          email: params.email || "",
+          estilo: params.estilo || "",
+          obs: params.obs || "",
+          etapa: "qualificacao",
+          qual: "Q2",
+          orig: "Aura",
+          hist: [],
+          followups: [],
+          dias: 0,
+          user_id: userId,
+          updated_at: new Date().toISOString()
+        }).select().single();
+        if (novoC) setClients(p => [novoC, ...p]);
+        try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: "Aura cadastrou cliente " + params.nome, user_id: userId }); } catch {}
+        return "✅ Cliente **" + params.nome + "** cadastrado com sucesso no pipeline!";
+      }
+      if (tool === "disparar_email") {
+        await fetch("/api/resend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            apiKey: resendApiKey,
+            from: (nomeRemetente || studioName) + " <" + emailRemetente + ">",
+            to: [params.cliente_email],
+            subject: params.assunto,
+            html: "<p>" + params.mensagem.replace(/\n/g, "<br/>") + "</p>"
+          })
+        });
+        try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: "Aura enviou email para " + params.cliente_nome, user_id: userId }); } catch {}
+        return "✅ Email enviado para " + params.cliente_nome + " (" + params.cliente_email + ").";
+      }
+      return "❌ Ferramenta não reconhecida.";
+    } catch {
+      return "❌ Erro ao executar ação.";
+    }
+  };
+
+  const enviarMensagemAura = async (msgOverride?: string, imagemBase64?: string, imagemMediaType?: string) => {
+    const userMsg = msgOverride !== undefined ? msgOverride : auraChatInput.trim();
+    if (!userMsg && !imagemBase64) return;
+    if (!auraApiKey) {
+      setAuraChatMessages(p => [...p, { role: "assistant", content: "Configure a chave API da Aura em Configurações → IA para ativar o chat." }]);
+      return;
+    }
+    setAuraChatInput("");
+    setAuraChatImagem(null);
+    const hoje = new Date().toISOString().split("T")[0];
+    let userContent: any;
+    if (imagemBase64) {
+      userContent = [
+        { type: "image", source: { type: "base64", media_type: imagemMediaType || "image/jpeg", data: imagemBase64 } },
+        { type: "text", text: userMsg || "Analise esta imagem e extraia os dados do cliente para cadastro." }
+      ];
+    } else {
+      userContent = userMsg;
+    }
+    const clientesContexto = clients.slice(0, 30).map((c: any) => "ID:" + c.id + " | " + c.nome + " | etapa:" + c.etapa + " | tel:" + (c.tel || "-") + " | email:" + (c.email || "-")).join("\n");
+    const displayMsg = imagemBase64 ? "📷 " + (userMsg || "Imagem enviada") : userMsg;
+    const newHistory = [...auraChatMessages, { role: "user", content: userContent }];
+    setAuraChatMessages(p => [...p, { role: "user", content: displayMsg }]);
+    setAuraChatLoading(true);
+    const contexto = "Você é " + (auraName || "Aura") + ", assistente inteligente do INK SYSTEM CRM.\n" +
+      "Estúdio: " + (studioName || "estúdio") + ".\n\n" +
+      "DADOS DO ESTÚDIO:\n" +
+      "- Total de clientes: " + clients.length + "\n" +
+      "- Ativos: " + clients.filter((c: any) => c.etapa !== "hibernacao" && c.etapa !== "blacklist").length + "\n" +
+      "- Agendamentos hoje: " + agEvents.filter((e: any) => e.date === hoje).length + "\n" +
+      "- Profissionais: " + artists.map((a: any) => a.nome).join(", ") + "\n\n" +
+      "CLIENTES (primeiros 30):\n" + clientesContexto + "\n\n" +
+      "REGRAS IMPORTANTES:\n" +
+      "1. Antes de executar qualquer ação, SEMPRE peça confirmação descrevendo exatamente o que vai fazer.\n" +
+      "2. Quando o usuário confirmar com sim/pode/confirmo/ok ou similar, use a ferramenta correspondente.\n" +
+      "3. Se receber imagem, analise e extraia dados de clientes. Apresente os dados e pergunte se deve cadastrar.\n" +
+      "4. Responda sempre em português, de forma direta e calorosa.\n" +
+      "5. Use **negrito** para destacar nomes e valores importantes.";
+    try {
+      const apiMessages = newHistory.map((m: any) => {
+        if (typeof m.content === "string" && m.content.startsWith("📷")) return null;
+        return m;
+      }).filter(Boolean);
+      const resp = await fetch("/api/aura", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: auraApiKey, system: contexto, messages: apiMessages, tools: AURA_TOOLS })
+      });
+      const json = await resp.json();
+      if (json.stop_reason === "tool_use") {
+        const toolUseBlock = json.content?.find((b: any) => b.type === "tool_use");
+        const textBlock = json.content?.find((b: any) => b.type === "text");
+        if (toolUseBlock) {
+          const p2 = toolUseBlock.input;
+          let descricao = "";
+          if (toolUseBlock.name === "mover_pipeline") descricao = "Mover **" + p2.cliente_nome + "** para a etapa **" + p2.nova_etapa + "**";
+          else if (toolUseBlock.name === "registrar_pagamento") descricao = "Registrar pagamento de **R$ " + p2.valor + "** (" + p2.forma + ") de **" + p2.cliente_nome + "**";
+          else if (toolUseBlock.name === "criar_agendamento") descricao = "Criar agendamento de " + p2.tipo + " para **" + p2.cliente_nome + "** em " + p2.data + " às " + p2.hora;
+          else if (toolUseBlock.name === "cadastrar_cliente") descricao = "Cadastrar cliente **" + p2.nome + "**" + (p2.tel ? " | Tel: " + p2.tel : "") + (p2.email ? " | Email: " + p2.email : "") + (p2.estilo ? " | Estilo: " + p2.estilo : "");
+          else if (toolUseBlock.name === "disparar_email") descricao = "Enviar email para **" + p2.cliente_nome + "**\nAssunto: " + p2.assunto + "\n\n" + p2.mensagem;
+          const msgAura = (textBlock?.text ? textBlock.text + "\n\n" : "") + "⚡ **Ação identificada:** " + descricao + "\n\n✅ Posso executar isso agora. Confirma?";
+          setAuraChatMessages(prev => [...prev, { role: "assistant", content: msgAura }]);
+          setAuraToolPendente({ tool: toolUseBlock.name, params: toolUseBlock.input, descricao });
+        }
+      } else {
+        const reply = json.content?.find((b: any) => b.type === "text")?.text || "Não consegui processar sua mensagem.";
+        if (auraToolPendente) {
+          const confirmacoes = ["sim", "pode", "confirmo", "ok", "vai", "faz", "execute", "confirmar", "positivo"];
+          const isConfirmacao = confirmacoes.some(c => userMsg.toLowerCase().includes(c));
+          if (isConfirmacao) {
+            setAuraChatMessages(prev => [...prev, { role: "assistant", content: "⏳ Executando..." }]);
+            const resultado = await executarToolAura(auraToolPendente.tool, auraToolPendente.params);
+            setAuraToolPendente(null);
+            setAuraChatMessages(prev => {
+              const sem = prev.filter(m => m.content !== "⏳ Executando...");
+              return [...sem, { role: "assistant", content: resultado }];
+            });
+          } else {
+            setAuraToolPendente(null);
+            setAuraChatMessages(prev => [...prev, { role: "assistant", content: reply }]);
+          }
+        } else {
+          setAuraChatMessages(prev => [...prev, { role: "assistant", content: reply }]);
+        }
+      }
+    } catch {
+      setAuraChatMessages(prev => [...prev, { role: "assistant", content: "Erro ao conectar com a API. Verifique sua chave em Configurações → IA." }]);
+    }
+    setAuraChatLoading(false);
   };
 
   const excluirEvento = (e: any, fecharModal = false) => {
@@ -8263,11 +8524,11 @@ export default function CRM() {
         {/* ── AURA FLOATING CHAT ── */}
         <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
           {showAuraChat && (
-            <div style={{ width: "min(380px, 90vw)", height: 480, background: "var(--dk2)", border: "1px solid var(--gold)", borderRadius: 14, display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(0,0,0,.7)", overflow: "hidden" }}>
+            <div style={{ width: "min(400px, 92vw)", height: 500, background: "var(--dk2)", border: "1px solid var(--gold)", borderRadius: 14, display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(0,0,0,.7)", overflow: "hidden" }}>
               <div style={{ padding: "12px 16px", background: "var(--dk3)", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--gold)" }}>✦ {(auraName && !auraName.includes("@")) ? auraName : "Aura"} — Assistente INK SYSTEM</div>
-                  <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 1 }}>Contexto real do estúdio carregado</div>
+                  <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 1 }}>Contexto real do estúdio · Tool Use ativo</div>
                 </div>
                 <button onClick={() => setShowAuraChat(false)} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
               </div>
@@ -8276,16 +8537,25 @@ export default function CRM() {
                   <div style={{ fontSize: 12, color: "var(--tx3)", textAlign: "center", marginTop: 40, lineHeight: 1.8 }}>
                     <div style={{ fontSize: 28, marginBottom: 8 }}>✦</div>
                     <div>Olá! Sou a {(auraName && !auraName.includes("@")) ? auraName : "Aura"}.</div>
-                    <div>Posso analisar seus dados, gerar mensagens e sugerir ações.</div>
+                    <div>Posso analisar dados, executar ações e interpretar imagens.</div>
+                    <div style={{ marginTop: 8, fontSize: 11 }}>📷 Envie uma foto de ficha para cadastrar clientes automaticamente.</div>
                   </div>
                 )}
                 {auraChatMessages.map((m, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
-                    <div style={{ maxWidth: "80%", background: m.role === "user" ? "rgba(201,168,76,.15)" : "var(--dk3)", border: "1px solid " + (m.role === "user" ? "rgba(201,168,76,.25)" : "var(--br)"), borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "var(--tx)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
-                      {m.content}
+                    <div style={{ maxWidth: "82%", background: m.role === "user" ? "rgba(201,168,76,.15)" : "var(--dk3)", border: "1px solid " + (m.role === "user" ? "rgba(201,168,76,.25)" : "var(--br)"), borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "var(--tx)", lineHeight: 1.6 }}>
+                      <span style={{ whiteSpace: "pre-wrap" }} dangerouslySetInnerHTML={{ __html: String(m.content).replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") }} />
                     </div>
                   </div>
                 ))}
+                {auraChatImagem && (
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <div style={{ background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "var(--gold)", display: "flex", alignItems: "center", gap: 8 }}>
+                      📷 Imagem pronta para enviar
+                      <button onClick={() => setAuraChatImagem(null)} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>✕</button>
+                    </div>
+                  </div>
+                )}
                 {auraChatLoading && (
                   <div style={{ display: "flex", justifyContent: "flex-start" }}>
                     <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "var(--tx3)" }}>✦ digitando…</div>
@@ -8293,64 +8563,46 @@ export default function CRM() {
                 )}
               </div>
               <div style={{ padding: "10px 12px", borderTop: "1px solid var(--br)", display: "flex", gap: 8, flexShrink: 0 }}>
+                <label style={{ cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0 }}>
+                  <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = ev => {
+                      const result = ev.target?.result as string;
+                      const base64 = result.split(",")[1];
+                      const mediaType = file.type as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+                      setAuraChatImagem({ base64, mediaType });
+                    };
+                    reader.readAsDataURL(file);
+                  }} />
+                  <div style={{ background: auraChatImagem ? "rgba(201,168,76,.3)" : "var(--dk4)", border: "1px solid " + (auraChatImagem ? "var(--gold)" : "var(--br)"), borderRadius: 8, padding: "8px 10px", fontSize: 14, cursor: "pointer", color: auraChatImagem ? "var(--gold)" : "var(--tx3)" }}>📷</div>
+                </label>
                 <input
                   className="fi"
                   style={{ flex: 1, fontSize: 12 }}
-                  placeholder="Pergunte algo sobre o estúdio..."
+                  placeholder={auraChatImagem ? "Adicione uma instrução (opcional)..." : "Pergunte algo ou peça uma ação..."}
                   value={auraChatInput}
                   onChange={e => setAuraChatInput(e.target.value)}
                   onKeyDown={async e => {
-                    if (e.key !== "Enter" || !auraChatInput.trim() || auraChatLoading) return;
-                    if (!auraApiKey) { setAuraChatMessages(p => [...p, { role: "assistant", content: "Configure a chave API da Aura em Configurações → IA para ativar o chat." }]); return; }
-                    const userMsg = auraChatInput.trim();
-                    setAuraChatInput("");
-                    const hoje = new Date().toISOString().split("T")[0];
-                    const newHistory = [...auraChatMessages, { role: "user", content: userMsg }];
-                    setAuraChatMessages(newHistory);
-                    setAuraChatLoading(true);
-                    const contexto = "Você é a " + (auraName || "Aura") + ", assistente inteligente do INK SYSTEM.\nVocê está dentro do CRM do estúdio: " + (studioName || "estúdio") + ".\n\nDADOS ATUAIS DO ESTÚDIO:\n- Total de clientes: " + clients.length + "\n- Clientes ativos: " + clients.filter(c => c.etapa !== "hibernacao" && c.etapa !== "blacklist").length + "\n- Agendamentos hoje: " + agEvents.filter(e => e.date === hoje).length + "\n- Profissionais: " + artists.map((a: any) => a.nome).join(", ") + "\n\nCLIENTES EM ATENÇÃO:\n- Hibernação: " + clients.filter(c => c.etapa === "hibernacao").length + "\n- Blacklist: " + clients.filter(c => c.etapa === "blacklist").length + "\n\nResponda sempre em português, de forma direta e prática. Você pode sugerir ações, gerar textos de mensagem, analisar dados e orientar o usuário.";
-                    try {
-                      const resp = await fetch("/api/aura", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ apiKey: auraApiKey, system: contexto, messages: newHistory })
-                      });
-                      const json = await resp.json();
-                      const reply = json.content?.[0]?.text || "Não consegui processar sua mensagem.";
-                      setAuraChatMessages(p => [...p, { role: "assistant", content: reply }]);
-                    } catch {
-                      setAuraChatMessages(p => [...p, { role: "assistant", content: "Erro ao conectar com a API. Verifique sua chave em Configurações → IA." }]);
+                    if (e.key !== "Enter" || auraChatLoading) return;
+                    if (auraChatImagem) {
+                      await enviarMensagemAura(auraChatInput.trim(), auraChatImagem.base64, auraChatImagem.mediaType);
+                    } else if (auraChatInput.trim()) {
+                      await enviarMensagemAura();
                     }
-                    setAuraChatLoading(false);
                   }}
                 />
                 <button
-                  disabled={!auraChatInput.trim() || auraChatLoading}
+                  disabled={(!auraChatInput.trim() && !auraChatImagem) || auraChatLoading}
                   onClick={async () => {
-                    if (!auraChatInput.trim() || auraChatLoading) return;
-                    if (!auraApiKey) { setAuraChatMessages(p => [...p, { role: "assistant", content: "Configure a chave API da Aura em Configurações → IA para ativar o chat." }]); return; }
-                    const userMsg = auraChatInput.trim();
-                    setAuraChatInput("");
-                    const hoje = new Date().toISOString().split("T")[0];
-                    const newHistory = [...auraChatMessages, { role: "user", content: userMsg }];
-                    setAuraChatMessages(newHistory);
-                    setAuraChatLoading(true);
-                    const contexto = "Você é a " + (auraName || "Aura") + ", assistente inteligente do INK SYSTEM.\nVocê está dentro do CRM do estúdio: " + (studioName || "estúdio") + ".\n\nDADOS ATUAIS DO ESTÚDIO:\n- Total de clientes: " + clients.length + "\n- Clientes ativos: " + clients.filter(c => c.etapa !== "hibernacao" && c.etapa !== "blacklist").length + "\n- Agendamentos hoje: " + agEvents.filter(e => e.date === hoje).length + "\n- Profissionais: " + artists.map((a: any) => a.nome).join(", ") + "\n\nCLIENTES EM ATENÇÃO:\n- Hibernação: " + clients.filter(c => c.etapa === "hibernacao").length + "\n- Blacklist: " + clients.filter(c => c.etapa === "blacklist").length + "\n\nResponda sempre em português, de forma direta e prática.";
-                    try {
-                      const resp = await fetch("/api/aura", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ apiKey: auraApiKey, system: contexto, messages: newHistory })
-                      });
-                      const json = await resp.json();
-                      const reply = json.content?.[0]?.text || "Não consegui processar sua mensagem.";
-                      setAuraChatMessages(p => [...p, { role: "assistant", content: reply }]);
-                    } catch {
-                      setAuraChatMessages(p => [...p, { role: "assistant", content: "Erro ao conectar com a API." }]);
+                    if (auraChatImagem) {
+                      await enviarMensagemAura(auraChatInput.trim(), auraChatImagem.base64, auraChatImagem.mediaType);
+                    } else if (auraChatInput.trim()) {
+                      await enviarMensagemAura();
                     }
-                    setAuraChatLoading(false);
                   }}
-                  style={{ background: auraChatInput.trim() && !auraChatLoading ? "var(--gold)" : "var(--dk4)", color: auraChatInput.trim() && !auraChatLoading ? "#000" : "var(--tx3)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 700, cursor: auraChatInput.trim() && !auraChatLoading ? "pointer" : "not-allowed", fontFamily: "'DM Sans',sans-serif", flexShrink: 0 }}>
+                  style={{ background: (auraChatInput.trim() || auraChatImagem) && !auraChatLoading ? "var(--gold)" : "var(--dk4)", color: (auraChatInput.trim() || auraChatImagem) && !auraChatLoading ? "#000" : "var(--tx3)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 700, cursor: (auraChatInput.trim() || auraChatImagem) && !auraChatLoading ? "pointer" : "not-allowed", fontFamily: "'DM Sans',sans-serif", flexShrink: 0 }}>
                   ↑
                 </button>
               </div>
