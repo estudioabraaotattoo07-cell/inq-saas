@@ -8306,10 +8306,10 @@ export default function CRM() {
                     setAuraChatLoading(true);
                     const contexto = "Você é a " + (auraName || "Aura") + ", assistente inteligente do INK SYSTEM.\nVocê está dentro do CRM do estúdio: " + (studioName || "estúdio") + ".\n\nDADOS ATUAIS DO ESTÚDIO:\n- Total de clientes: " + clients.length + "\n- Clientes ativos: " + clients.filter(c => c.etapa !== "hibernacao" && c.etapa !== "blacklist").length + "\n- Agendamentos hoje: " + agEvents.filter(e => e.date === hoje).length + "\n- Profissionais: " + artists.map((a: any) => a.nome).join(", ") + "\n\nCLIENTES EM ATENÇÃO:\n- Hibernação: " + clients.filter(c => c.etapa === "hibernacao").length + "\n- Blacklist: " + clients.filter(c => c.etapa === "blacklist").length + "\n\nResponda sempre em português, de forma direta e prática. Você pode sugerir ações, gerar textos de mensagem, analisar dados e orientar o usuário.";
                     try {
-                      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+                      const resp = await fetch("/api/aura", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json", "x-api-key": auraApiKey, "anthropic-version": "2023-06-01" },
-                        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1024, system: contexto, messages: newHistory })
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ apiKey: auraApiKey, system: contexto, messages: newHistory })
                       });
                       const json = await resp.json();
                       const reply = json.content?.[0]?.text || "Não consegui processar sua mensagem.";
@@ -8333,10 +8333,10 @@ export default function CRM() {
                     setAuraChatLoading(true);
                     const contexto = "Você é a " + (auraName || "Aura") + ", assistente inteligente do INK SYSTEM.\nVocê está dentro do CRM do estúdio: " + (studioName || "estúdio") + ".\n\nDADOS ATUAIS DO ESTÚDIO:\n- Total de clientes: " + clients.length + "\n- Clientes ativos: " + clients.filter(c => c.etapa !== "hibernacao" && c.etapa !== "blacklist").length + "\n- Agendamentos hoje: " + agEvents.filter(e => e.date === hoje).length + "\n- Profissionais: " + artists.map((a: any) => a.nome).join(", ") + "\n\nCLIENTES EM ATENÇÃO:\n- Hibernação: " + clients.filter(c => c.etapa === "hibernacao").length + "\n- Blacklist: " + clients.filter(c => c.etapa === "blacklist").length + "\n\nResponda sempre em português, de forma direta e prática.";
                     try {
-                      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+                      const resp = await fetch("/api/aura", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json", "x-api-key": auraApiKey, "anthropic-version": "2023-06-01" },
-                        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1024, system: contexto, messages: newHistory })
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ apiKey: auraApiKey, system: contexto, messages: newHistory })
                       });
                       const json = await resp.json();
                       const reply = json.content?.[0]?.text || "Não consegui processar sua mensagem.";
