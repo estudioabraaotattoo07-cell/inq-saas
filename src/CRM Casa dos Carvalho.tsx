@@ -2336,12 +2336,7 @@ export default function CRM() {
           const novaInstrucao = params.instrucao;
           const novasInstrucoes = (auraInstrucoes ? auraInstrucoes + "\n" : "") + novaInstrucao;
           setAuraInstrucoes(novasInstrucoes);
-          const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-          if (cfgEx?.id) {
-            await sb.from("configuracoes").update({ aura_instrucoes: novasInstrucoes }).eq("id", cfgEx.id);
-          } else {
-            await sb.from("configuracoes").insert({ user_id: userId, aura_instrucoes: novasInstrucoes });
-          }
+          await dbUpsert("configuracoes", { studio_id: userId, aura_instrucoes: novasInstrucoes });
           return "✅ Memória salva! Agora sei que: **" + novaInstrucao + "**\n\nEssa informação ficará comigo em todas as conversas futuras.";
         } catch {
           return "❌ Erro ao salvar memória. Tente novamente.";
@@ -8451,27 +8446,47 @@ export default function CRM() {
                         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                           {!auraInstrucoes && (
                             <button onClick={() => setAuraInstrucoes(
-                              "Sou profissional da área de (ex: tatuagem, odontologia, estética, barbearia, fotografia, nutrição...).\n" +
-                              "Minha especialidade é (ex: blackwork, implantes dentários, limpeza de pele, cortes masculinos, retratos, emagrecimento...).\n" +
-                              "Meu negócio se chama (nome do negócio) e fica em (cidade/bairro).\n\n" +
-                              "Meu tom de comunicação é (ex: descontraído e artístico / profissional e preciso / empático e acolhedor / direto e objetivo...).\n" +
-                              "Uso de emojis: (ex: nenhum / moderado / expressivo).\n\n" +
-                              "Minhas regras de negócio são:\n" +
-                              "- (ex: cobramos sinal para confirmar o agendamento)\n" +
-                              "- (ex: atendemos somente com hora marcada)\n" +
-                              "- (ex: não realizamos procedimentos sem avaliação prévia)\n" +
-                              "- (ex: cobramos taxa para clientes que faltaram sem avisar)\n" +
-                              "- (ex: aceitamos apenas Pix e cartão)\n\n" +
-                              "Meu horário de funcionamento: (ex: segunda a sexta das 10h às 19h, sábados até 14h).\n\n" +
-                              "Informações importantes que a agente deve sempre saber:\n" +
-                              "- (ex: temos lista de espera para novos clientes)\n" +
-                              "- (ex: não trabalhamos com convênio)\n" +
-                              "- (ex: o valor da consulta é descontado no projeto aprovado)\n" +
-                              "- (ex: trabalhamos por ordem de chegada / por encomenda / com portfólio aprovado pelo cliente)\n\n" +
-                              "Sobre o atendimento:\n" +
-                              "- (ex: quando um cliente perguntar sobre preço, explique que depende do projeto e convide para uma consulta)\n" +
-                              "- (ex: sempre finalize com um convite para agendamento)\n" +
-                              "- (ex: se o cliente mencionar urgência, priorize encaminhar para contato direto)"
+                              "— SOBRE O NEGÓCIO —\n" +
+                              "Sou profissional da área de (ex: tatuagem / odontologia / estética / barbearia / nutrição / fotografia / fisioterapia / advocacia...).\n" +
+                              "Minha especialidade principal é (ex: blackwork e realismo / clareamento dental e implantes / depilação a laser e skincare / cortes masculinos e barba / emagrecimento e reeducação alimentar...).\n" +
+                              "Meu negócio se chama (nome do negócio) e fica em (cidade, bairro ou endereço).\n" +
+                              "Atendo (ex: somente presencialmente / online e presencialmente / apenas por videochamada).\n\n" +
+                              "— SOBRE MIM —\n" +
+                              "Me chamo (seu nome) e sou (ex: tatuador há 10 anos / dentista especialista em estética / esteticista com foco em tratamentos faciais...).\n" +
+                              "Trabalho (ex: sozinho / com uma equipe de 3 profissionais / com assistentes).\n\n" +
+                              "— TOM DE COMUNICAÇÃO —\n" +
+                              "Meu tom de comunicação é (ex: descontraído, próximo e sem formalidade / profissional e preciso / empático e acolhedor, especialmente com clientes ansiosos / artístico e criativo / direto e objetivo, sem rodeios).\n" +
+                              "Uso de emojis: (ex: nenhum / use com moderação para reforçar pontos importantes / use livremente para deixar a conversa leve).\n" +
+                              "Linguagem: (ex: trato os clientes por 'você' / uso linguagem informal como 'tu' / mantenho sempre uma postura profissional formal).\n\n" +
+                              "— SERVIÇOS E PREÇOS —\n" +
+                              "Meus serviços são: (ex: tatuagem a partir de R$200 / consulta de avaliação gratuita / limpeza de pele por R$150 / sessão de 3h por R$500 / planos mensais a partir de R$X...).\n" +
+                              "Quando perguntarem sobre preço, (ex: explique que o valor depende do tamanho e complexidade e convide para uma consulta / informe os valores da tabela / diga que enviará um orçamento personalizado).\n" +
+                              "Formas de pagamento aceitas: (ex: Pix, cartão de crédito em até 3x, dinheiro / somente Pix e cartão / todos os meios).\n\n" +
+                              "— REGRAS DE AGENDAMENTO —\n" +
+                              "Para confirmar um agendamento: (ex: cobramos sinal de 30% antecipado / exigimos apenas o cadastro / a consulta inicial é gratuita e sem compromisso).\n" +
+                              "Cancelamentos e remarcações: (ex: aceitamos com até 48h de antecedência sem custo / cobramos taxa de R$X para remarcar / o sinal não é reembolsável em caso de desistência).\n" +
+                              "Clientes que faltaram sem avisar: (ex: cobramos taxa de R$100 para reagendar / não reagendamos sem justificativa / damos uma segunda chance sem custo).\n" +
+                              "Tempo de sessão: (ex: cada sessão dura em média 3 horas / consulta inicial de 1 hora / procedimento de 30 a 60 minutos).\n\n" +
+                              "— HORÁRIO DE FUNCIONAMENTO —\n" +
+                              "Atendo (ex: de segunda a sábado, das 9h às 18h / terça a sexta das 10h às 19h e sábados das 9h às 14h / somente com hora marcada, sem horário fixo).\n" +
+                              "Não atendo (ex: às segundas-feiras / aos domingos / em feriados).\n\n" +
+                              "— PROCESSO DE ATENDIMENTO —\n" +
+                              "O processo começa com (ex: uma consulta presencial gratuita para entender o projeto / um formulário de pré-avaliação online / o envio de referências pelo cliente).\n" +
+                              "Após a consulta: (ex: enviamos o orçamento em até 48h / já agendamos a sessão na hora / o cliente tem 7 dias para decidir).\n" +
+                              "Não realizamos (ex: coberturas sem avaliação presencial / procedimentos sem laudo médico / trabalhos sem referência aprovada pelo profissional).\n\n" +
+                              "— INFORMAÇÕES IMPORTANTES —\n" +
+                              "- (ex: temos lista de espera — novos clientes podem aguardar até 2 meses)\n" +
+                              "- (ex: não trabalhamos com convênio ou plano de saúde)\n" +
+                              "- (ex: cada projeto é único e personalizado — não repetimos trabalhos de outros artistas)\n" +
+                              "- (ex: aceitamos clientes a partir de 18 anos, ou menores com autorização dos pais)\n" +
+                              "- (ex: o cliente deve chegar em jejum de 2 horas para o procedimento)\n" +
+                              "- (ex: disponibilizamos estacionamento gratuito no local)\n\n" +
+                              "— COMO ATENDER OS CLIENTES —\n" +
+                              "Quando um cliente entrar em contato pela primeira vez: (ex: cumprimente pelo nome, pergunte o que está procurando e convide para uma consulta).\n" +
+                              "Quando perguntarem sobre disponibilidade: (ex: informe que verificará a agenda e retornará em breve / mostre as opções disponíveis).\n" +
+                              "Quando o cliente estiver indeciso: (ex: seja paciente, apresente exemplos do portfólio e ofereça uma consulta sem compromisso).\n" +
+                              "Sempre finalize com: (ex: um convite para agendamento / uma pergunta aberta para manter a conversa / o link do portfólio ou redes sociais).\n" +
+                              "Nunca: (ex: prometa datas sem confirmar na agenda / informe preços sem antes entender o projeto / responda fora do horário comercial sem avisar)."
                             )} style={{ fontSize: 11, color: "var(--gold)", background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
                               ✦ Usar template
                             </button>
