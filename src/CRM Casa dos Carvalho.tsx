@@ -2336,7 +2336,12 @@ export default function CRM() {
           const novaInstrucao = params.instrucao;
           const novasInstrucoes = (auraInstrucoes ? auraInstrucoes + "\n" : "") + novaInstrucao;
           setAuraInstrucoes(novasInstrucoes);
-          await dbUpsert("configuracoes", { studio_id: userId, aura_instrucoes: novasInstrucoes });
+          const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
+          if (cfgEx?.id) {
+            await sb.from("configuracoes").update({ aura_instrucoes: novasInstrucoes }).eq("id", cfgEx.id);
+          } else {
+            await sb.from("configuracoes").insert({ user_id: userId, aura_instrucoes: novasInstrucoes });
+          }
           return "✅ Memória salva! Agora sei que: **" + novaInstrucao + "**\n\nEssa informação ficará comigo em todas as conversas futuras.";
         } catch {
           return "❌ Erro ao salvar memória. Tente novamente.";
