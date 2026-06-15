@@ -10,6 +10,22 @@ const OWNER_EMAIL = "estudioabraaotattoo07@gmail.com";
 // Variável global para manter tool pendente da Aura sem stale closure
 let _auraToolPendenteCache: { tool: string; params: any; descricao: string } | null = null;
 
+// Notificação nativa do browser para alertar sobre ações pendentes da Aura
+function notificarAura(titulo: string, corpo: string) {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "granted") {
+    const n = new Notification(titulo, { body: corpo, icon: "/favicon.ico", tag: "aura-pendente" });
+    n.onclick = () => { window.focus(); n.close(); };
+  } else if (Notification.permission !== "denied") {
+    Notification.requestPermission().then(p => {
+      if (p === "granted") {
+        const n = new Notification(titulo, { body: corpo, icon: "/favicon.ico", tag: "aura-pendente" });
+        n.onclick = () => { window.focus(); n.close(); };
+      }
+    });
+  }
+}
+
 async function dbGet(table: string) {
   const { data, error } = await sb.from(table).select("*");
   if (error) { console.error(table, error); return null; }
@@ -1083,6 +1099,9 @@ export default function CRM() {
     const el = document.createElement("style");
     el.textContent = S;
     document.head.appendChild(el);
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
     return () => document.head.removeChild(el);
   }, []);
 
@@ -2325,6 +2344,7 @@ export default function CRM() {
           const pendente = { tool: toolUseBlock.name, params: toolUseBlock.input, descricao };
           _auraToolPendenteCache = pendente;
           setAuraToolPendente(pendente);
+          notificarAura("✨ Aura — Ação Pendente", descricao.replace(/[*][*](.+?)[*][*]/g, "$1"));
         }
       } else {
         const reply = json.content?.find((b: any) => b.type === "text")?.text || "Não consegui processar sua mensagem.";
