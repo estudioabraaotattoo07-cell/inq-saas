@@ -939,6 +939,7 @@ export default function CRM() {
   const [auraTracos, setAuraTracos] = useState<string[]>([]);
   const [auraRitmo, setAuraRitmo] = useState("");
   const [auraEmojis, setAuraEmojis] = useState("");
+  const [auraInstrucoes, setAuraInstrucoes] = useState("");
   const [metaSessoes, setMetaSessoes] = useState(0);
   const [metaLeads, setMetaLeads] = useState(0);
   const [metaNPS, setMetaNPS] = useState(0);
@@ -1251,6 +1252,7 @@ export default function CRM() {
           if (cfg.zenvia_api_key) setZenviaApiKey(cfg.zenvia_api_key);
           if (cfg.zenvia_numero) setZenviaNumero(cfg.zenvia_numero);
           if (cfg.aura_api_key) setAuraApiKey(cfg.aura_api_key);
+          if (cfg.aura_instrucoes) setAuraInstrucoes(cfg.aura_instrucoes);
           setDark(cfg.dark_mode !== false);
           // [X2] onboarding_done from Supabase (source of truth); localStorage as cache
           if (cfg.onboarding_done) {
@@ -2162,6 +2164,40 @@ export default function CRM() {
         },
         required: ["cliente_email", "cliente_nome", "assunto", "mensagem"]
       }
+    },
+    {
+      name: "criar_projeto",
+      description: "Cria um novo projeto dentro da ficha de um cliente. Usado quando o cliente tem uma nova solicitação de tatuagem ou serviço. Sempre confirmar os dados antes de executar.",
+      input_schema: {
+        type: "object",
+        properties: {
+          cliente_id: { type: "string", description: "ID do cliente" },
+          cliente_nome: { type: "string", description: "Nome do cliente para confirmação" },
+          estilo: { type: "string", description: "Estilo da tatuagem (ex: Blackwork, Realismo, Aquarela)" },
+          descricao: { type: "string", description: "Descrição do projeto ou tatuagem desejada" },
+          servico: { type: "string", description: "Tipo de serviço: tatuagem, piercing, implante, consulta" },
+          tamanho: { type: "string", description: "Tamanho: Discreto, Medio, Grande, Fechamento" },
+          valor_total: { type: "number", description: "Valor total do projeto em reais (0 se não definido)" }
+        },
+        required: ["cliente_id", "cliente_nome", "estilo"]
+      }
+    },
+    {
+      name: "editar_cliente",
+      description: "Atualiza dados cadastrais de um cliente existente. Sempre confirmar o que vai alterar antes de executar.",
+      input_schema: {
+        type: "object",
+        properties: {
+          cliente_id: { type: "string", description: "ID do cliente" },
+          cliente_nome: { type: "string", description: "Nome do cliente para confirmação" },
+          tel: { type: "string", description: "Novo telefone (apenas se alterando)" },
+          email: { type: "string", description: "Novo email (apenas se alterando)" },
+          insta: { type: "string", description: "Novo Instagram (apenas se alterando)" },
+          nascimento: { type: "string", description: "Data de nascimento no formato YYYY-MM-DD (apenas se alterando)" },
+          obs: { type: "string", description: "Observações (apenas se alterando)" }
+        },
+        required: ["cliente_id", "cliente_nome"]
+      }
     }
   ];
 
@@ -2176,7 +2212,7 @@ export default function CRM() {
           const updated = { ...clienteAtualizado, etapa: params.nova_etapa };
           setClients(p => p.map(c => String(c.id) === String(params.cliente_id) ? updated : c));
           await dbUpsert("clientes", { id: params.cliente_id, etapa: params.nova_etapa, user_id: userId });
-          try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: "Aura moveu " + params.cliente_nome + " para " + params.nova_etapa, user_id: userId }); } catch {}
+          try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: (auraName || "IA") + " moveu " + params.cliente_nome + " para " + params.nova_etapa, user_id: userId }); } catch {}
           return "✅ " + params.cliente_nome + " movido para **" + params.nova_etapa + "** com sucesso.";
         }
         return "❌ Cliente não encontrado.";
@@ -2194,7 +2230,7 @@ export default function CRM() {
           user_id: userId
         }).select().single();
         if (fdPag) setFin((p: any[]) => [...p, { ...fdPag, cliente: params.cliente_nome }]);
-        try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: "Aura registrou pagamento de R$ " + params.valor + " de " + params.cliente_nome, user_id: userId }); } catch {}
+        try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: (auraName || "IA") + " registrou pagamento de R$ " + params.valor + " de " + params.cliente_nome, user_id: userId }); } catch {}
         return "✅ Pagamento de R$ " + params.valor + " de " + params.cliente_nome + " registrado com sucesso.";
       }
       if (tool === "criar_agendamento") {
@@ -2214,7 +2250,7 @@ export default function CRM() {
         if (novoEv) {
           setAgEvents(p => [...p, { ...novoEv, title: novoEv.titulo, date: novoEv.data, start: parseInt(novoEv.hora?.split(":")[0] || "9"), end: parseInt(novoEv.hora?.split(":")[0] || "9") + 2 }]);
         }
-        try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: "Aura criou agendamento para " + params.cliente_nome + " em " + params.data, user_id: userId }); } catch {}
+        try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: (auraName || "IA") + " criou agendamento para " + params.cliente_nome + " em " + params.data, user_id: userId }); } catch {}
         return "✅ Agendamento criado para " + params.cliente_nome + " em " + params.data + " às " + params.hora + ".";
       }
       if (tool === "cadastrar_cliente") {
@@ -2234,7 +2270,7 @@ export default function CRM() {
           updated_at: new Date().toISOString()
         }).select().single();
         if (novoC) setClients(p => [novoC, ...p]);
-        try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: "Aura cadastrou cliente " + params.nome, user_id: userId }); } catch {}
+        try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: (auraName || "IA") + " cadastrou cliente " + params.nome, user_id: userId }); } catch {}
         return "✅ Cliente **" + params.nome + "** cadastrado com sucesso no pipeline!";
       }
       if (tool === "disparar_email") {
@@ -2249,8 +2285,50 @@ export default function CRM() {
             html: "<p>" + params.mensagem.replace(/\n/g, "<br/>") + "</p>"
           })
         });
-        try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: "Aura enviou email para " + params.cliente_nome, user_id: userId }); } catch {}
+        try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: (auraName || "IA") + " enviou email para " + params.cliente_nome, user_id: userId }); } catch {}
         return "✅ Email enviado para " + params.cliente_nome + " (" + params.cliente_email + ").";
+      }
+      if (tool === "criar_projeto") {
+        try {
+          const cliente = clients.find((c: any) => c.id === params.cliente_id);
+          if (!cliente) return "❌ Cliente não encontrado.";
+          const novoProjeto = {
+            id: Date.now().toString(),
+            estilo: params.estilo || "",
+            desc: params.descricao || "",
+            servico: params.servico || "tatuagem",
+            tam: params.tamanho || "Medio",
+            valorTotal: params.valor_total || 0,
+            status: "ativo",
+            primeira: false,
+            sessoes: []
+          };
+          const projetosAtualizados = [...(cliente.projetos || []), novoProjeto];
+          const updated = { ...cliente, projetos: projetosAtualizados };
+          setClients((p: any[]) => p.map((c: any) => c.id === params.cliente_id ? updated : c));
+          await dbUpsert("clientes", { id: params.cliente_id, projetos: projetosAtualizados, studio_id: userId });
+          try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: (auraName || "IA") + " criou projeto '" + params.estilo + "' para " + params.cliente_nome, user_id: userId }); } catch {}
+          return "✅ Projeto **" + params.estilo + "** criado para **" + params.cliente_nome + "** com sucesso!";
+        } catch { return "❌ Erro ao criar projeto."; }
+      }
+      if (tool === "editar_cliente") {
+        try {
+          const cliente = clients.find((c: any) => c.id === params.cliente_id);
+          if (!cliente) return "❌ Cliente não encontrado.";
+          const campos: any = {};
+          if (params.tel) campos.tel = params.tel;
+          if (params.email) campos.email = params.email;
+          if (params.insta) campos.insta = params.insta;
+          if (params.nascimento) campos.nascimento = params.nascimento;
+          if (params.obs) campos.obs = params.obs;
+          if (Object.keys(campos).length === 0) return "❌ Nenhum campo para atualizar foi informado.";
+          const updated = { ...cliente, ...campos };
+          setClients((p: any[]) => p.map((c: any) => c.id === params.cliente_id ? updated : c));
+          await dbUpsert("clientes", { id: params.cliente_id, ...campos, studio_id: userId });
+          const camposStr = Object.keys(campos).join(", ");
+          try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: (auraName || "IA") + " atualizou " + camposStr + " de " + params.cliente_nome, user_id: userId }); } catch {}
+          return "✅ Dados de **" + params.cliente_nome + "** atualizados com sucesso! Campos alterados: " + camposStr + ".";
+        } catch { return "❌ Erro ao editar cliente."; }
       }
       return "❌ Ferramenta não reconhecida.";
     } catch {
@@ -2262,7 +2340,7 @@ export default function CRM() {
     const userMsg = msgOverride !== undefined ? msgOverride : auraChatInput.trim();
     if (!userMsg && !imagemBase64) return;
     if (!auraApiKey) {
-      setAuraChatMessages(p => [...p, { role: "assistant", content: "Configure a chave API da Aura em Configurações → IA para ativar o chat." }]);
+      setAuraChatMessages(p => [...p, { role: "assistant", content: "Configure a chave API em Configurações → IA para ativar o chat." }]);
       return;
     }
     setAuraChatInput("");
@@ -2299,25 +2377,47 @@ export default function CRM() {
     } else {
       userContent = userMsg;
     }
-    const clientesContexto = clients.slice(0, 30).map((c: any) => "ID:" + c.id + " | " + c.nome + " | etapa:" + c.etapa + " | tel:" + (c.tel || "-") + " | email:" + (c.email || "-")).join("\n");
+    const clientesContexto = clients.slice(0, 80).map((c: any) => "ID:" + c.id + " | " + c.nome + " | etapa:" + c.etapa + " | tel:" + (c.tel || "-") + " | email:" + (c.email || "-")).join("\n");
     const displayMsg = imagemBase64 ? "📷 " + (userMsg || "Imagem enviada") : userMsg;
     const newHistory = [...auraChatMessages, { role: "user", content: userContent }];
     setAuraChatMessages(p => [...p, { role: "user", content: displayMsg }]);
     setAuraChatLoading(true);
-    const contexto = "Você é " + (auraName || "Aura") + ", assistente inteligente do INK SYSTEM CRM.\n" +
-      "Estúdio: " + (studioName || "estúdio") + ".\n\n" +
+    const nomeIA = auraName || "Assistente";
+    const tipoNegocio = studioName || "estúdio";
+
+    const blocoPersonalidade = [
+      auraFormalidade ? "- Tom: " + auraFormalidade : "",
+      auraIdioma ? "- Idioma: " + auraIdioma : "",
+      auraTracos && auraTracos.length > 0 ? "- Traços de personalidade: " + auraTracos.join(", ") : "",
+      auraRitmo ? "- Ritmo de resposta: " + auraRitmo : "",
+      auraEmojis ? "- Uso de emojis: " + auraEmojis : "",
+    ].filter(Boolean).join("\n");
+
+    const blocoInstrucoes = auraInstrucoes ? "\nINSTRUÇÕES ESPECÍFICAS DO ESTÚDIO:\n" + auraInstrucoes : "";
+
+    const hoje2 = new Date().toLocaleDateString("pt-BR");
+
+    const contexto = "Você é " + nomeIA + ", assistente inteligente do INK SYSTEM CRM.\n" +
+      "Estúdio: " + tipoNegocio + ".\n\n" +
       "DADOS DO ESTÚDIO:\n" +
+      "- Data de hoje: " + hoje2 + "\n" +
       "- Total de clientes: " + clients.length + "\n" +
-      "- Ativos: " + clients.filter((c: any) => c.etapa !== "hibernacao" && c.etapa !== "blacklist").length + "\n" +
+      "- Clientes ativos: " + clients.filter((c: any) => c.etapa !== "hibernacao" && c.etapa !== "blacklist").length + "\n" +
+      "- Em negociação: " + clients.filter((c: any) => c.etapa === "negociacao").length + "\n" +
+      "- Sessões agendadas: " + clients.filter((c: any) => c.etapa === "sessao_agend").length + "\n" +
       "- Agendamentos hoje: " + agEvents.filter((e: any) => e.date === hoje).length + "\n" +
       "- Profissionais: " + artists.map((a: any) => a.nome).join(", ") + "\n\n" +
-      "CLIENTES (primeiros 30):\n" + clientesContexto + "\n\n" +
+      "CLIENTES (até 80 mais recentes):\n" + clientesContexto + "\n\n" +
+      (blocoPersonalidade ? "PERSONALIDADE:\n" + blocoPersonalidade + "\n\n" : "") +
+      blocoInstrucoes + "\n\n" +
       "REGRAS IMPORTANTES:\n" +
       "1. Antes de executar qualquer ação, SEMPRE peça confirmação descrevendo exatamente o que vai fazer.\n" +
       "2. Quando o usuário confirmar com sim/pode/confirmo/ok ou similar, use a ferramenta correspondente.\n" +
       "3. Se receber imagem, analise e extraia dados de clientes. Apresente os dados e pergunte se deve cadastrar.\n" +
-      "4. Responda sempre em português, de forma direta e calorosa.\n" +
-      "5. Use **negrito** para destacar nomes e valores importantes.";
+      "4. Responda sempre em português." + (auraFormalidade ? " Tom: " + auraFormalidade + "." : " De forma direta e calorosa.") + "\n" +
+      "5. Use **negrito** para destacar nomes e valores importantes.\n" +
+      "6. Você conhece o histórico desta conversa — use-o para dar continuidade.\n" +
+      "7. Quando não souber algo sobre um cliente específico, diga que precisa verificar e peça o nome.";
     try {
       const apiMessages = newHistory.map((m: any) => {
         if (typeof m.content === "string" && m.content.startsWith("📷")) return null;
@@ -2340,6 +2440,15 @@ export default function CRM() {
           else if (toolUseBlock.name === "criar_agendamento") descricao = "Criar agendamento de " + p2.tipo + " para **" + p2.cliente_nome + "** em " + p2.data + " às " + p2.hora;
           else if (toolUseBlock.name === "cadastrar_cliente") descricao = "Cadastrar cliente **" + p2.nome + "**" + (p2.tel ? " | Tel: " + p2.tel : "") + (p2.email ? " | Email: " + p2.email : "") + (p2.estilo ? " | Estilo: " + p2.estilo : "");
           else if (toolUseBlock.name === "disparar_email") descricao = "Enviar email para **" + p2.cliente_nome + "**\nAssunto: " + p2.assunto + "\n\n" + p2.mensagem;
+          else if (toolUseBlock.name === "criar_projeto") {
+            const p3 = toolUseBlock.input;
+            descricao = "Criar projeto **" + p3.estilo + "**" + (p3.descricao ? " — " + p3.descricao : "") + " para **" + p3.cliente_nome + "**" + (p3.valor_total ? " · R$ " + p3.valor_total : "");
+          }
+          else if (toolUseBlock.name === "editar_cliente") {
+            const p4 = toolUseBlock.input;
+            const campos4 = Object.entries(p4).filter(([k]) => !["cliente_id","cliente_nome"].includes(k)).map(([k,v]) => k + ": " + v).join(", ");
+            descricao = "Atualizar dados de **" + p4.cliente_nome + "**: " + campos4;
+          }
           const msgAura = (textBlock?.text ? textBlock.text + "\n\n" : "") + "⚡ **Ação identificada:** " + descricao + "\n\n✅ Posso executar isso agora. Confirma?";
           setAuraChatMessages(prev => [...prev, { role: "assistant", content: msgAura }]);
           const pendente = { tool: toolUseBlock.name, params: toolUseBlock.input, descricao };
@@ -4876,7 +4985,7 @@ export default function CRM() {
             {/* Cabeçalho */}
             <div style={{ marginBottom: 4 }}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 700, color: "var(--tx)" }}>Central de Comunicação</div>
-              <div style={{ fontSize: 12, color: "var(--tx3)", marginTop: 3 }}>A Aura envia cada mensagem personalizada com os dados reais do cliente. Nenhuma mensagem é genérica.</div>
+              <div style={{ fontSize: 12, color: "var(--tx3)", marginTop: 3 }}>{"A " + (auraName || "IA") + " envia cada mensagem personalizada com os dados reais do cliente. Nenhuma mensagem é genérica."}</div>
             </div>
 
             {/* Alerta de data comemorativa próxima */}
@@ -4967,7 +5076,7 @@ export default function CRM() {
                           {isOpen && (
                             <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--br)", paddingTop: 14 }}>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Instrução para a Aura</div>
+                                <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>{"Instrução para " + (auraName || "a IA")}</div>
                                 {segSel === item.id && !editing && (
                                   <button onClick={() => { setEditing(true); setMsgEdit(msgEdit || msg); }}
                                     style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 10px", fontSize: 11, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>✏️ Editar</button>
@@ -5034,7 +5143,7 @@ export default function CRM() {
                       {isOpen && (
                         <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--br)", paddingTop: 14 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Mensagem via Aura</div>
+                            <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>{"Mensagem via " + (auraName || "IA")}</div>
                             {dateSel === d.id && !editing && (
                               <button onClick={() => { setEditing(true); setMsgEdit(msgEdit || msg); }}
                                 style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 10px", fontSize: 11, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>✏️ Editar</button>
@@ -5113,7 +5222,7 @@ export default function CRM() {
                           <label style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Instrução para a Aura</label>
                           <textarea defaultValue={"Enviar no dia do aniversário do cliente. Usar o nome do cliente. Parabenizar pelo aniversário de forma calorosa e personalizada. Mencionar o estilo de tatuagem favorito do cliente se disponível. Oferecer " + descontoAniversario + "% de desconto em qualquer sessão realizada durante o mês do aniversário. Tom: caloroso e pessoal, não promocional. Finalizar com convite para agendar."}
                             style={{ width: "100%", minHeight: 110, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", fontSize: 11, color: "var(--tx2)", fontFamily: "'DM Sans',sans-serif", resize: "vertical", outline: "none", lineHeight: 1.6 }} />
-                          <div style={{ fontSize: 10, color: "var(--tx3)" }}>A Aura usa estas instruções para compor cada mensagem — personalizada com nome, estilo e artista do cliente.</div>
+                          <div style={{ fontSize: 10, color: "var(--tx3)" }}>{"A " + (auraName || "IA") + " usa estas instruções para compor cada mensagem — personalizada com nome, estilo e artista do cliente."}</div>
                         </div>
                         <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>💡 O disparo acontece automaticamente às 9h do dia do aniversário — sem precisar lembrar.</div>
                       </div>
@@ -5512,12 +5621,12 @@ export default function CRM() {
                   <div className="stit">Fotos de Referência</div>
                   <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px" }}>
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 6 }}>
-                      Fotos enviadas pelo cliente via Aura.
+                      {"Fotos enviadas pelo cliente via " + (auraName || "IA") + "."}
                     </div>
                     <div style={{ background: "var(--dk4)", border: "1px dashed var(--br)", borderRadius: 6, padding: "18px", textAlign: "center" }}>
                       <div style={{ fontSize: 24, marginBottom: 6 }}>📷</div>
                       <div style={{ fontSize: 11, color: "var(--tx3)" }}>Integração com armazenamento em breve.</div>
-                      <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 4, fontStyle: "italic" }}>A Aura aceita somente fotos. Vídeos não são aceitos.</div>
+                      <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 4, fontStyle: "italic" }}>{"A " + (auraName || "IA") + " aceita somente fotos. Vídeos não são aceitos."}</div>
                     </div>
                   </div>
                 </div>
@@ -5526,7 +5635,7 @@ export default function CRM() {
                   <div className="stit">Comprovante de Pagamento</div>
                   <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px" }}>
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 6 }}>
-                      Comprovante coletado pela Aura após a sessão.
+                      {"Comprovante coletado pela " + (auraName || "IA") + " após a sessão."}
                     </div>
                     <div style={{ background: "var(--dk4)", border: "1px dashed var(--br)", borderRadius: 6, padding: "18px", textAlign: "center" }}>
                       <div style={{ fontSize: 24, marginBottom: 6 }}>🧾</div>
@@ -5540,7 +5649,7 @@ export default function CRM() {
                     <div className="stit">Financeiro da Sessão</div>
                     <div className="fg3">
                       <div className="fi2">
-                        <div className="fil">Valor via Aura (não editável)</div>
+                        <div className="fil">{"Valor via " + (auraName || "IA") + " (não editável)"}</div>
                         <div className="fiv">{sc.val_c > 0 ? "R$ " + sc.val_c.toLocaleString("pt-BR") + " · " + (sc.pgto || "—") : "Não coletado"}</div>
                       </div>
                       <div className="fi2">
@@ -5854,8 +5963,8 @@ export default function CRM() {
                         navigator.clipboard?.writeText(currentText);
                         if (showCtr.type === "client" && sc) upC(sc.id, "contrato", true);
                         setShowCtr(null);
-                        setShowAviso("Contrato copiado! A Aura enviará ao artista para assinar via Gov.br.");
-                      }}>📤 Enviar via Aura</button>
+                        setShowAviso("Contrato copiado! " + (auraName || "A IA") + " enviará ao artista para assinar via Gov.br.");
+                      }}>{"📤 Enviar via " + (auraName || "IA")}</button>
                     </div>
                     <textarea
                       value={currentText}
@@ -7308,7 +7417,7 @@ export default function CRM() {
                 <div style={{ fontSize: 13, color: "var(--tx2)" }}>
                   {isPosVenda && "Deseja registrar uma observação sobre esta sessão? (opcional)"}
                   {isBlacklist && "Informe o motivo. Este registro ficará salvo no histórico do cliente."}
-                  {isHibernacao && "Informe o motivo e em quantos dias a Aura deve tentar recontato."}
+                  {isHibernacao && ("Informe o motivo e em quantos dias " + (auraName || "a IA") + " deve tentar recontato.")}
                   {isListaEspera && "Informe o motivo para colocar este cliente em espera."}
                 </div>
                 <textarea
@@ -7324,7 +7433,7 @@ export default function CRM() {
                       onChange={e => setPipelineMotivo(p => p ? { ...p, dias: e.target.value } : p)}
                       style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 9px", fontSize: 12, color: "var(--tx)", width: 70, outline: "none" }} />
                     <span style={{ fontSize: 12, color: "var(--tx2)" }}>dias</span>
-                    <span style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>(sugestão para a Aura)</span>
+                    <span style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>{"(sugestão para " + (auraName || "a IA") + ")"}</span>
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -7934,7 +8043,7 @@ export default function CRM() {
                   </div>
                   <div>
                     <div className="stit">Redes Sociais</div>
-                    <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 10 }}>Aparecem nos contratos e comunicações da Aura.</div>
+                    <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 10 }}>{"Aparecem nos contratos e comunicações da " + (auraName || "IA") + "."}</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {studioRedes.map((rede, idx) => (
                         <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -8098,7 +8207,7 @@ export default function CRM() {
                   <div>
                     <div className="stit">Dados do Responsável</div>
                     <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 12, lineHeight: 1.6 }}>
-                      Estas informações são usadas pela {auraName} para alertas diretos e comunicação interna.
+                      {"Estas informações são usadas pela " + (auraName || "IA") + " para alertas diretos e comunicação interna."}
                     </div>
                     <div className="fg2">
                       <div className="fi2"><div className="fil">Nome Completo</div><input className="ef" value={donoNome || studioOwner} placeholder="Seu nome completo" onChange={e => setDonoNome(e.target.value)} /></div>
@@ -8109,13 +8218,13 @@ export default function CRM() {
                   <div>
                     <div className="stit">Alertas Diretos</div>
                     <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 12, lineHeight: 1.6 }}>
-                      A {auraName} pode enviar notificações diretamente para você via WhatsApp pessoal.
+                      {"A " + (auraName || "IA") + " pode enviar notificações diretamente para você via WhatsApp pessoal."}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {/* 1 */}
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
                         <div>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>Nova mensagem recebida via Aura</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>{"Nova mensagem recebida via " + (auraName || "IA")}</div>
                           <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Quando um cliente enviar mensagem fora do horário comercial</div>
                         </div>
                         <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_nova_mensagem: !p.alerta_nova_mensagem }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_nova_mensagem ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}>
@@ -8199,8 +8308,8 @@ export default function CRM() {
                       {/* 8 */}
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
                         <div>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>Cliente novo cadastrado pela Aura</div>
-                          <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Quando um lead entrar pelo WhatsApp via Aura</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>{"Cliente novo cadastrado pela " + (auraName || "IA")}</div>
+                          <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>{"Quando um lead entrar pelo WhatsApp via " + (auraName || "IA")}</div>
                         </div>
                         <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_novo_cliente_aura: !p.alerta_novo_cliente_aura }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_novo_cliente_aura ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}>
                           <div style={{ position: "absolute", left: alertaConfig.alerta_novo_cliente_aura ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
@@ -8293,7 +8402,7 @@ export default function CRM() {
                       <div className="fil">Chave API Anthropic (Chat interno)</div>
                       <input className="ef" type="password" placeholder="sk-ant-..." value={auraApiKey} onChange={e => setAuraApiKey(e.target.value)} />
                     </div>
-                    <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 4, lineHeight: 1.5 }}>Usada pelo chat flutuante da Aura dentro do CRM. Obtenha em console.anthropic.com.</div>
+                    <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 4, lineHeight: 1.5 }}>{"Usada pelo chat flutuante da " + (auraName || "IA") + " dentro do CRM. Obtenha em console.anthropic.com."}</div>
                   </div>
                   <div>
                     <div className="stit">Comunicação</div>
@@ -8374,6 +8483,22 @@ export default function CRM() {
                           ))}
                         </div>
                       </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>
+                      {"Instruções para " + (auraName || "a IA")}
+                    </div>
+                    <textarea
+                      className="ef"
+                      rows={4}
+                      placeholder={"Descreva como " + (auraName || "a IA") + " deve se comportar. Ex: Somos um estúdio de blackwork em Vitória-ES. Cobramos 30% de sinal. Tom descontraído e artístico."}
+                      value={auraInstrucoes}
+                      onChange={e => setAuraInstrucoes(e.target.value)}
+                      style={{ resize: "vertical", fontFamily: "'DM Sans',sans-serif", fontSize: 12, lineHeight: 1.6 }}
+                    />
+                    <div style={{ fontSize: 10, color: "var(--tx3)", lineHeight: 1.5 }}>
+                      {"Quanto mais detalhado, mais precisa " + (auraName || "a IA") + " responde. Inclua especialidades, processo de trabalho, política de cancelamento e tom de voz."}
                     </div>
                   </div>
                 </>}
@@ -8512,6 +8637,7 @@ export default function CRM() {
                     zenvia_api_key: zenviaApiKey,
                     zenvia_numero: zenviaNumero,
                     aura_api_key: auraApiKey,
+                    aura_instrucoes: auraInstrucoes,
                     user_id: userId,
                     updated_at: new Date().toISOString()
                   };
@@ -8575,7 +8701,7 @@ export default function CRM() {
             <div style={{ width: "min(400px, 92vw)", height: 500, background: "var(--dk2)", border: "1px solid var(--gold)", borderRadius: 14, display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(0,0,0,.7)", overflow: "hidden" }}>
               <div style={{ padding: "12px 16px", background: "var(--dk3)", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--gold)" }}>✦ {(auraName && !auraName.includes("@")) ? auraName : "Aura"} — Assistente INK SYSTEM</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--gold)" }}>✦ {(auraName && !auraName.includes("@")) ? auraName : "Assistente"} — INK SYSTEM</div>
                   <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 1 }}>Contexto real do estúdio · Tool Use ativo</div>
                 </div>
                 <button onClick={() => setShowAuraChat(false)} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
