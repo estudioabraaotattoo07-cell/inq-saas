@@ -934,11 +934,6 @@ export default function CRM() {
   const [donoWhats, setDonoWhats] = useState("");
   const [donoEmail, setDonoEmail] = useState("");
   const [auraName, setAuraName] = useState("");
-  const [auraFormalidade, setAuraFormalidade] = useState("");
-  const [auraIdioma, setAuraIdioma] = useState("");
-  const [auraTracos, setAuraTracos] = useState<string[]>([]);
-  const [auraRitmo, setAuraRitmo] = useState("");
-  const [auraEmojis, setAuraEmojis] = useState("");
   const [auraInstrucoes, setAuraInstrucoes] = useState("");
   const [metaSessoes, setMetaSessoes] = useState(0);
   const [metaLeads, setMetaLeads] = useState(0);
@@ -1229,9 +1224,6 @@ export default function CRM() {
           if (cfg.dono_whats) setDonoWhats(cfg.dono_whats);
           if (cfg.dono_email) setDonoEmail(cfg.dono_email);
           if (cfg.aura_name) setAuraName(cfg.aura_name);
-          if (cfg.aura_tracos) setAuraTracos(cfg.aura_tracos);
-          if (cfg.aura_ritmo) setAuraRitmo(cfg.aura_ritmo);
-          if (cfg.aura_emojis) setAuraEmojis(cfg.aura_emojis);
           if (cfg.google_link) setGoogleLink(cfg.google_link);
           if (cfg.cnpj) setCnpj(cfg.cnpj);
           if (cfg.meta_mensal) setMetaMensal(cfg.meta_mensal);
@@ -1241,8 +1233,6 @@ export default function CRM() {
           if (cfg.desconto_aniversario !== undefined) setDescontoAniversario(cfg.desconto_aniversario);
           if (cfg.horarios) setHorarios(cfg.horarios);
           if (cfg.alerta_config) setAlertaConfig(prev => ({ ...prev, ...cfg.alerta_config }));
-          if (cfg.aura_formalidade) setAuraFormalidade(cfg.aura_formalidade);
-          if (cfg.aura_idioma) setAuraIdioma(cfg.aura_idioma);
           if (cfg.entrada_cats && Array.isArray(cfg.entrada_cats) && cfg.entrada_cats.length) setEntradaCats(cfg.entrada_cats);
           if (cfg.saida_cats && Array.isArray(cfg.saida_cats) && cfg.saida_cats.length) setSaidaCats(cfg.saida_cats);
           if (cfg.servico_opts && Array.isArray(cfg.servico_opts) && cfg.servico_opts.length) setServicoOpts(cfg.servico_opts);
@@ -2198,6 +2188,17 @@ export default function CRM() {
         },
         required: ["cliente_id", "cliente_nome"]
       }
+    },
+    {
+      name: "salvar_memoria",
+      description: "Salva uma informação nova e permanente sobre o estúdio nas instruções da IA. Usar quando o usuário revelar algo importante sobre como o estúdio funciona, suas regras, preferências ou política — e que deve ser lembrado em todas as conversas futuras. SEMPRE pedir confirmação antes de salvar.",
+      input_schema: {
+        type: "object",
+        properties: {
+          instrucao: { type: "string", description: "A instrução exata a ser adicionada às memórias permanentes. Deve ser uma frase clara e objetiva." }
+        },
+        required: ["instrucao"]
+      }
     }
   ];
 
@@ -2262,7 +2263,7 @@ export default function CRM() {
           obs: params.obs || "",
           etapa: "qualificacao",
           qual: "Q2",
-          orig: "Aura",
+          orig: auraName || "IA",
           hist: [],
           followups: [],
           dias: 0,
@@ -2330,6 +2331,17 @@ export default function CRM() {
           return "✅ Dados de **" + params.cliente_nome + "** atualizados com sucesso! Campos alterados: " + camposStr + ".";
         } catch { return "❌ Erro ao editar cliente."; }
       }
+      if (tool === "salvar_memoria") {
+        try {
+          const novaInstrucao = params.instrucao;
+          const novasInstrucoes = (auraInstrucoes ? auraInstrucoes + "\n" : "") + novaInstrucao;
+          setAuraInstrucoes(novasInstrucoes);
+          await dbUpsert("configuracoes", { studio_id: userId, aura_instrucoes: novasInstrucoes });
+          return "✅ Memória salva! Agora sei que: **" + novaInstrucao + "**\n\nEssa informação ficará comigo em todas as conversas futuras.";
+        } catch {
+          return "❌ Erro ao salvar memória. Tente novamente.";
+        }
+      }
       return "❌ Ferramenta não reconhecida.";
     } catch {
       return "❌ Erro ao executar ação.";
@@ -2385,14 +2397,6 @@ export default function CRM() {
     const nomeIA = auraName || "Assistente";
     const tipoNegocio = studioName || "estúdio";
 
-    const blocoPersonalidade = [
-      auraFormalidade ? "- Tom: " + auraFormalidade : "",
-      auraIdioma ? "- Idioma: " + auraIdioma : "",
-      auraTracos && auraTracos.length > 0 ? "- Traços de personalidade: " + auraTracos.join(", ") : "",
-      auraRitmo ? "- Ritmo de resposta: " + auraRitmo : "",
-      auraEmojis ? "- Uso de emojis: " + auraEmojis : "",
-    ].filter(Boolean).join("\n");
-
     const blocoInstrucoes = auraInstrucoes ? "\nINSTRUÇÕES ESPECÍFICAS DO ESTÚDIO:\n" + auraInstrucoes : "";
 
     const hoje2 = new Date().toLocaleDateString("pt-BR");
@@ -2408,16 +2412,18 @@ export default function CRM() {
       "- Agendamentos hoje: " + agEvents.filter((e: any) => e.date === hoje).length + "\n" +
       "- Profissionais: " + artists.map((a: any) => a.nome).join(", ") + "\n\n" +
       "CLIENTES (até 80 mais recentes):\n" + clientesContexto + "\n\n" +
-      (blocoPersonalidade ? "PERSONALIDADE:\n" + blocoPersonalidade + "\n\n" : "") +
       blocoInstrucoes + "\n\n" +
       "REGRAS IMPORTANTES:\n" +
       "1. Antes de executar qualquer ação, SEMPRE peça confirmação descrevendo exatamente o que vai fazer.\n" +
       "2. Quando o usuário confirmar com sim/pode/confirmo/ok ou similar, use a ferramenta correspondente.\n" +
       "3. Se receber imagem, analise e extraia dados de clientes. Apresente os dados e pergunte se deve cadastrar.\n" +
-      "4. Responda sempre em português." + (auraFormalidade ? " Tom: " + auraFormalidade + "." : " De forma direta e calorosa.") + "\n" +
+      "4. Responda sempre em português, de forma direta e calorosa.\n" +
       "5. Use **negrito** para destacar nomes e valores importantes.\n" +
       "6. Você conhece o histórico desta conversa — use-o para dar continuidade.\n" +
-      "7. Quando não souber algo sobre um cliente específico, diga que precisa verificar e peça o nome.";
+      "7. Quando não souber algo sobre um cliente específico, diga que precisa verificar e peça o nome.\n" +
+      "8. Quando o usuário revelar algo importante sobre como o estúdio funciona (regras, preferências, política, horários), sugira salvar isso nas suas memórias permanentes usando a ferramenta salvar_memoria.\n" +
+      "9. Nunca invente informações sobre o estúdio — se não souber, pergunte.\n" +
+      "10. Se as instruções do estúdio já existirem, use-as como base principal do seu comportamento.";
     try {
       const apiMessages = newHistory.map((m: any) => {
         if (typeof m.content === "string" && m.content.startsWith("📷")) return null;
@@ -2448,6 +2454,9 @@ export default function CRM() {
             const p4 = toolUseBlock.input;
             const campos4 = Object.entries(p4).filter(([k]) => !["cliente_id","cliente_nome"].includes(k)).map(([k,v]) => k + ": " + v).join(", ");
             descricao = "Atualizar dados de **" + p4.cliente_nome + "**: " + campos4;
+          }
+          else if (toolUseBlock.name === "salvar_memoria") {
+            descricao = "Salvar permanentemente nas minhas memórias: **" + toolUseBlock.input.instrucao + "**";
           }
           const msgAura = (textBlock?.text ? textBlock.text + "\n\n" : "") + "⚡ **Ação identificada:** " + descricao + "\n\n✅ Posso executar isso agora. Confirma?";
           setAuraChatMessages(prev => [...prev, { role: "assistant", content: msgAura }]);
@@ -2925,33 +2934,25 @@ export default function CRM() {
           )}
           {onbStep === 3 && (
             <div style={{ padding: "22px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ fontSize: 14, color: "#E8E2D9", fontWeight: 600, marginBottom: 4 }}>Configure sua IA de atendimento</div>
-              <div style={{ fontSize: 11, color: "#555045", marginBottom: 4 }}>Ela atende 24h e nunca se passa por humano. Ajuste o comportamento abaixo.</div>
+              <div style={{ fontSize: 14, color: "#E8E2D9", fontWeight: 600, marginBottom: 4 }}>Configure sua agente de atendimento</div>
+              <div style={{ fontSize: 11, color: "#555045", marginBottom: 4, lineHeight: 1.6 }}>Escolha um nome para a sua agente. Você poderá configurar a personalidade completa em Configurações → IA após concluir.</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Nome da IA</label>
-                <input className="fi" value={auraName} placeholder="Escolha o nome da sua agente"
+                <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Nome da agente</label>
+                <input className="fi" value={auraName} placeholder="Ex: Luna, Sofia, Iris..."
                   onChange={e => setAuraName(e.target.value.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase()))} />
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Formalidade</label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {["Formal","Equilibrado","Descontraído"].map(op => (
-                    <button key={op} onClick={() => setAuraFormalidade(op)}
-                      style={{ flex: 1, padding: "8px 4px", borderRadius: 7, border: auraFormalidade === op ? "1px solid #C9A84C" : "1px solid rgba(201,168,76,.15)", background: auraFormalidade === op ? "rgba(201,168,76,.15)" : "#1E1E1E", color: auraFormalidade === op ? "#C9A84C" : "#8A8070", fontSize: 12, fontWeight: auraFormalidade === op ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                      {op}
-                    </button>
-                  ))}
+                <div style={{ fontSize: 10, color: "#555045", marginTop: 4, lineHeight: 1.5 }}>
+                  Este nome aparece em todo o sistema e nas comunicações com seus clientes. Escolha algo que combine com a identidade da sua agente.
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Idioma Principal</label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {["Português","Inglês","Espanhol"].map(op => (
-                    <button key={op} onClick={() => setAuraIdioma(op)}
-                      style={{ flex: 1, padding: "8px 4px", borderRadius: 7, border: auraIdioma === op ? "1px solid #C9A84C" : "1px solid rgba(201,168,76,.15)", background: auraIdioma === op ? "rgba(201,168,76,.15)" : "#1E1E1E", color: auraIdioma === op ? "#C9A84C" : "#8A8070", fontSize: 12, fontWeight: auraIdioma === op ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                      {op}
-                    </button>
-                  ))}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Primeiras instruções (opcional)</label>
+                <textarea className="fi" rows={3}
+                  placeholder={"Descreva brevemente seu estúdio e como " + (auraName || "a agente") + " deve se comunicar. Ex: Somos um estúdio de blackwork em SP. Tom descontraído e artístico."}
+                  value={auraInstrucoes}
+                  onChange={e => setAuraInstrucoes(e.target.value)}
+                  style={{ resize: "none", fontFamily: "'DM Sans',sans-serif", fontSize: 12, lineHeight: 1.6 }} />
+                <div style={{ fontSize: 10, color: "#555045", marginTop: 2, lineHeight: 1.5 }}>
+                  Você pode detalhar mais em Configurações → IA depois.
                 </div>
               </div>
             </div>
@@ -8419,88 +8420,158 @@ export default function CRM() {
                       <div className="fi2"><div className="fil">Número de Envio</div><input className="ef" placeholder="+55DDD999999999" value={zenviaNumero} onChange={e => setZenviaNumero(e.target.value)} /></div>
                     </div>
                   </div>
-                  <div>
-                    <div className="stit">Tom de Comunicação</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      <div>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>Formalidade</div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          {["Formal","Equilibrado","Descontraído"].map(op => (
-                            <button key={op} onClick={() => setAuraFormalidade(op)}
-                              style={{ flex: 1, padding: "8px 4px", borderRadius: 7, border: auraFormalidade === op ? "1px solid var(--gold)" : "1px solid var(--br)", background: auraFormalidade === op ? "rgba(201,168,76,.15)" : "var(--dk3)", color: auraFormalidade === op ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: auraFormalidade === op ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
-                              {op}
-                            </button>
-                          ))}
-                        </div>
+                  {/* ── NOVA SEÇÃO: PERSONALIDADE COM ATALHOS ── */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div>
+                      <div className="stit">{"Personalidade da " + (auraName || "IA")}</div>
+                      <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.6, marginTop: 4 }}>
+                        {"Configure como " + (auraName || "sua IA") + " se comunica e o que ela sabe sobre o seu negócio. Clique nos atalhos para montar as instruções automaticamente — ou escreva livremente no campo abaixo."}
                       </div>
-                      <div>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>Idioma Principal</div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          {["Português","Inglês","Espanhol"].map(op => (
-                            <button key={op} onClick={() => setAuraIdioma(op)}
-                              style={{ flex: 1, padding: "8px 4px", borderRadius: 7, border: auraIdioma === op ? "1px solid var(--gold)" : "1px solid var(--br)", background: auraIdioma === op ? "rgba(201,168,76,.15)" : "var(--dk3)", color: auraIdioma === op ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: auraIdioma === op ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
-                              {op}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>🗣️ Tom de voz</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {[
+                          { label: "Descontraído", frase: "Tom de comunicação: descontraído, próximo e sem formalidade excessiva." },
+                          { label: "Profissional", frase: "Tom de comunicação: profissional, preciso e respeitoso." },
+                          { label: "Empático", frase: "Tom de comunicação: empático e acolhedor, especialmente com clientes nervosos ou indecisos." },
+                          { label: "Artístico", frase: "Tom de comunicação: artístico e criativo, refletindo a identidade do estúdio." },
+                          { label: "Direto", frase: "Tom de comunicação: direto e objetivo, sem rodeios." },
+                        ].map(({ label, frase }) => {
+                          const ativo = auraInstrucoes.includes(frase);
+                          return (
+                            <button key={label} onClick={() => {
+                              if (ativo) {
+                                setAuraInstrucoes(prev => prev.replace("\n" + frase, "").replace(frase + "\n", "").replace(frase, "").trim());
+                              } else {
+                                setAuraInstrucoes(prev => (prev ? prev + "\n" : "") + frase);
+                              }
+                            }} style={{ padding: "7px 14px", borderRadius: 7, border: ativo ? "1px solid var(--gold)" : "1px solid var(--br)", background: ativo ? "rgba(201,168,76,.15)" : "var(--dk3)", color: ativo ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: ativo ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
+                              {ativo ? "✓ " : ""}{label}
                             </button>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
-                      <div>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>Traços de Personalidade <span style={{ color: "var(--tx3)", fontWeight: 400 }}>(escolha até 3)</span></div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                          {["Acolhedora","Sofisticada","Empática","Direta","Entusiasmada"].map(op => {
-                            const isOn = auraTracos.includes(op);
-                            return (
-                              <button key={op} onClick={() => {
-                                const next = isOn ? auraTracos.filter(x => x !== op) : auraTracos.length < 3 ? [...auraTracos, op] : auraTracos;
-                                setAuraTracos(next);
-                              }}
-                                style={{ padding: "7px 14px", borderRadius: 7, border: isOn ? "1px solid var(--gold)" : "1px solid var(--br)", background: isOn ? "rgba(201,168,76,.15)" : "var(--dk3)", color: isOn ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: isOn ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
-                                {op}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>Ritmo das Mensagens</div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          {["Mensagens curtas","Mensagens elaboradas"].map(op => (
-                            <button key={op} onClick={() => setAuraRitmo(op)}
-                              style={{ flex: 1, padding: "8px 4px", borderRadius: 7, border: auraRitmo === op ? "1px solid var(--gold)" : "1px solid var(--br)", background: auraRitmo === op ? "rgba(201,168,76,.15)" : "var(--dk3)", color: auraRitmo === op ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: auraRitmo === op ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
-                              {op}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>😊 Emojis nas respostas</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {[
+                          { label: "Sem emojis", frase: "Não use emojis nas respostas." },
+                          { label: "Moderado", frase: "Use emojis com moderação, apenas para reforçar pontos importantes." },
+                          { label: "Expressivo", frase: "Use emojis livremente para tornar a comunicação mais leve e expressiva." },
+                        ].map(({ label, frase }) => {
+                          const ativo = auraInstrucoes.includes(frase);
+                          return (
+                            <button key={label} onClick={() => {
+                              const outrosFrases = [
+                                "Não use emojis nas respostas.",
+                                "Use emojis com moderação, apenas para reforçar pontos importantes.",
+                                "Use emojis livremente para tornar a comunicação mais leve e expressiva."
+                              ];
+                              let novo = auraInstrucoes;
+                              outrosFrases.forEach(f => { novo = novo.replace("\n" + f, "").replace(f + "\n", "").replace(f, "").trim(); });
+                              if (!ativo) novo = (novo ? novo + "\n" : "") + frase;
+                              setAuraInstrucoes(novo);
+                            }} style={{ flex: 1, padding: "8px 4px", borderRadius: 7, border: ativo ? "1px solid var(--gold)" : "1px solid var(--br)", background: ativo ? "rgba(201,168,76,.15)" : "var(--dk3)", color: ativo ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: ativo ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
+                              {ativo ? "✓ " : ""}{label}
                             </button>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
-                      <div>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".06em" }}>Uso de Emojis</div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          {["Nenhum","Moderado","Expressivo"].map(op => (
-                            <button key={op} onClick={() => setAuraEmojis(op)}
-                              style={{ flex: 1, padding: "8px 4px", borderRadius: 7, border: auraEmojis === op ? "1px solid var(--gold)" : "1px solid var(--br)", background: auraEmojis === op ? "rgba(201,168,76,.15)" : "var(--dk3)", color: auraEmojis === op ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: auraEmojis === op ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
-                              {op}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>🎨 Especialidades do estúdio</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {[
+                          { label: "Blackwork", frase: "Especialidade: Blackwork." },
+                          { label: "Realismo", frase: "Especialidade: Realismo." },
+                          { label: "Aquarela", frase: "Especialidade: Aquarela." },
+                          { label: "Fineline", frase: "Especialidade: Fineline." },
+                          { label: "Old School", frase: "Especialidade: Old School." },
+                          { label: "Geométrico", frase: "Especialidade: Geométrico." },
+                          { label: "Pontilhismo", frase: "Especialidade: Pontilhismo." },
+                          { label: "Oriental", frase: "Especialidade: Oriental." },
+                          { label: "Piercing", frase: "O estúdio também realiza procedimentos de piercing." },
+                          { label: "Implante", frase: "O estúdio também realiza implantes subdérmicos." },
+                        ].map(({ label, frase }) => {
+                          const ativo = auraInstrucoes.includes(frase);
+                          return (
+                            <button key={label} onClick={() => {
+                              if (ativo) {
+                                setAuraInstrucoes(prev => prev.replace("\n" + frase, "").replace(frase + "\n", "").replace(frase, "").trim());
+                              } else {
+                                setAuraInstrucoes(prev => (prev ? prev + "\n" : "") + frase);
+                              }
+                            }} style={{ padding: "7px 14px", borderRadius: 7, border: ativo ? "1px solid var(--gold)" : "1px solid var(--br)", background: ativo ? "rgba(201,168,76,.15)" : "var(--dk3)", color: ativo ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: ativo ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
+                              {ativo ? "✓ " : ""}{label}
                             </button>
-                          ))}
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>📋 Regras do negócio</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {[
+                          { label: "Cobra sinal", frase: "Cobramos sinal no agendamento. Sem sinal, não há confirmação da data." },
+                          { label: "Somente com agend.", frase: "Atendemos somente com agendamento prévio." },
+                          { label: "Sem segunda-feira", frase: "Não realizamos atendimentos às segundas-feiras." },
+                          { label: "Sem cobertura sem avaliação", frase: "Não fazemos coberturas sem avaliação presencial prévia." },
+                          { label: "Trabalho por encomenda", frase: "Trabalhamos por encomenda — cada projeto é único e personalizado." },
+                          { label: "Taxa de no-show", frase: "Cobramos taxa de R$100 para clientes que faltaram sem avisar e querem reagendar." },
+                          { label: "Consulta gratuita", frase: "A consulta inicial é gratuita e sem compromisso." },
+                          { label: "Consulta paga", frase: "A consulta inicial tem valor cobrado, descontado no projeto se aprovado." },
+                        ].map(({ label, frase }) => {
+                          const ativo = auraInstrucoes.includes(frase);
+                          return (
+                            <button key={label} onClick={() => {
+                              if (ativo) {
+                                setAuraInstrucoes(prev => prev.replace("\n" + frase, "").replace(frase + "\n", "").replace(frase, "").trim());
+                              } else {
+                                setAuraInstrucoes(prev => (prev ? prev + "\n" : "") + frase);
+                              }
+                            }} style={{ padding: "7px 14px", borderRadius: 7, border: ativo ? "1px solid var(--gold)" : "1px solid var(--br)", background: ativo ? "rgba(201,168,76,.15)" : "var(--dk3)", color: ativo ? "var(--gold)" : "var(--tx2)", fontSize: 12, fontWeight: ativo ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "all .15s" }}>
+                              {ativo ? "✓ " : ""}{label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>
+                          {"📝 Instruções completas para " + (auraName || "a IA")}
+                        </div>
+                        {auraInstrucoes && (
+                          <button onClick={() => { if (window.confirm("Limpar todas as instruções?")) setAuraInstrucoes(""); }}
+                            style={{ fontSize: 10, color: "var(--tx3)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+                            Limpar tudo
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 10, color: "var(--tx3)", lineHeight: 1.5, marginBottom: 4 }}>
+                        {"Este é o texto exato que " + (auraName || "a IA") + " recebe antes de cada conversa. Os atalhos acima preenchem automaticamente, mas você pode escrever ou editar livremente. Quanto mais detalhado, melhor ela responde."}
+                      </div>
+                      <textarea
+                        className="ef"
+                        rows={6}
+                        placeholder={"Descreva como " + (auraName || "a IA") + " deve se comportar, o que ela sabe sobre o seu negócio, sua política de preços, seus horários... Tudo que for relevante para ela atender bem seus clientes."}
+                        value={auraInstrucoes}
+                        onChange={e => setAuraInstrucoes(e.target.value)}
+                        style={{ resize: "vertical", fontFamily: "'DM Sans',sans-serif", fontSize: 12, lineHeight: 1.7 }}
+                      />
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ fontSize: 10, color: "var(--tx3)" }}>
+                          {auraInstrucoes.length} caracteres · {auraInstrucoes.split("\n").filter(Boolean).length} instruções
+                        </div>
+                        <div style={{ fontSize: 10, color: "var(--tx3)", fontStyle: "italic" }}>
+                          {"💡 " + (auraName || "A IA") + " também aprende durante as conversas e pode salvar novas instruções automaticamente."}
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>
-                      {"Instruções para " + (auraName || "a IA")}
-                    </div>
-                    <textarea
-                      className="ef"
-                      rows={4}
-                      placeholder={"Descreva como " + (auraName || "a IA") + " deve se comportar. Ex: Somos um estúdio de blackwork em Vitória-ES. Cobramos 30% de sinal. Tom descontraído e artístico."}
-                      value={auraInstrucoes}
-                      onChange={e => setAuraInstrucoes(e.target.value)}
-                      style={{ resize: "vertical", fontFamily: "'DM Sans',sans-serif", fontSize: 12, lineHeight: 1.6 }}
-                    />
-                    <div style={{ fontSize: 10, color: "var(--tx3)", lineHeight: 1.5 }}>
-                      {"Quanto mais detalhado, mais precisa " + (auraName || "a IA") + " responde. Inclua especialidades, processo de trabalho, política de cancelamento e tom de voz."}
-                    </div>
-                  </div>
+                  {/* ── FIM NOVA SEÇÃO ── */}
                 </>}
 
                 {/* ── ABA SISTEMA ── */}
@@ -8618,9 +8689,7 @@ export default function CRM() {
                     studio_pais: studioPais,
                     studio_redes: studioRedes,
                     dono_nome: donoNome, dono_whats: donoWhats, dono_email: donoEmail,
-                    aura_name: auraName, aura_formalidade: auraFormalidade,
-                    aura_idioma: auraIdioma, aura_tracos: auraTracos,
-                    aura_ritmo: auraRitmo, aura_emojis: auraEmojis,
+                    aura_name: auraName,
                     google_link: googleLink,
                     cnpj, meta_mensal: metaMensal,
                     meta_sessoes: metaSessoes, meta_leads: metaLeads, meta_nps: metaNPS,
