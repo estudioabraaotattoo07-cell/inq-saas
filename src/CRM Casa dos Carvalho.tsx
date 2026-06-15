@@ -934,7 +934,7 @@ export default function CRM() {
   const [donoWhats, setDonoWhats] = useState("");
   const [donoEmail, setDonoEmail] = useState("");
   const [auraName, setAuraName] = useState("");
-  const [auraInstrucoes, setAuraInstrucoes] = useState("");
+  const [auraInstrucoes, setAuraInstrucoes] = useState("Sou profissional da área de (ex: tatuagem / odontologia / estética / barbearia / nutrição / fotografia / fisioterapia / advocacia / educação / moda...).\nMinha especialidade principal é (ex: blackwork e realismo / clareamento dental e implantes / depilação a laser e skincare / cortes masculinos e barba / emagrecimento e reeducação alimentar / retratos e ensaios / pilates e reabilitação...).\nMeu negócio se chama (nome do negócio) e fica em (cidade e bairro ou endereço completo).\nAtendo (ex: somente presencialmente / online e presencialmente / apenas por videochamada / em domicílio).\n\nMe chamo (seu nome) e sou (ex: tatuador há 10 anos especializado em arte autoral / dentista com foco em estética do sorriso / esteticista com 8 anos de experiência em tratamentos faciais / nutricionista clínico e esportivo...).\nTrabalho (ex: sozinho em estúdio próprio / com uma equipe de 3 profissionais / com assistentes e recepcionista).\n\nMeu tom de comunicação é (ex: descontraído, próximo e sem formalidade — como um amigo especialista / profissional e preciso, sempre claro e objetivo / empático e acolhedor, especialmente com clientes ansiosos ou com dúvidas / artístico e criativo, refletindo a identidade do negócio / direto e eficiente, sem rodeios).\nUso de emojis nas respostas: (ex: nenhum — mantenho comunicação limpa e profissional / use com moderação apenas para reforçar pontos importantes / use livremente para deixar a conversa mais leve e expressiva).\nTrato os clientes por: (ex: 'você' com tom próximo / 'você' formalmente / 'tu' de forma informal / sempre pelo primeiro nome).\n\nMeus serviços e valores são: (ex: tatuagem pequena a partir de R$200, sessão de 3h por R$500, projetos grandes sob orçamento / consulta de avaliação gratuita, limpeza de pele R$150, botox a partir de R$800 / plano mensal de acompanhamento R$350, consulta avulsa R$180...).\nQuando um cliente perguntar sobre preço: (ex: explique que o valor depende do tamanho e complexidade do projeto e convide para uma consulta gratuita / informe a tabela de preços e ofereça condições de parcelamento / diga que enviará um orçamento personalizado após entender a necessidade).\nFormas de pagamento aceitas: (ex: Pix, cartão de crédito em até 3x sem juros e dinheiro / somente Pix e transferência / todos os meios, inclusive parcelamento em até 12x).\n\nPara confirmar um agendamento: (ex: cobramos sinal de 30% antecipado via Pix — sem sinal não há confirmação / exigimos apenas o preenchimento do cadastro / a consulta inicial é gratuita e sem compromisso, sem necessidade de sinal).\nCancelamentos e remarcações: (ex: aceitamos com até 48h de antecedência sem custo / cobramos taxa de R$50 para remarcar com menos de 24h / o sinal é descontado do valor final mas não é reembolsável em caso de desistência).\nClientes que faltaram sem avisar: (ex: cobramos taxa de R$100 para reagendar — é nossa política de respeito ao tempo de trabalho / damos uma segunda chance sem custo mas registramos no histórico / não reagendamos sem justificativa plausível).\n\nMeu horário de funcionamento: (ex: terça a sábado das 10h às 19h / segunda a sexta das 9h às 18h, sábados das 9h às 14h / atendo por agendamento sem horário fixo, conforme disponibilidade).\nNão atendo: (ex: às segundas-feiras / aos domingos e feriados / em horários fora do comercial, exceto em casos especiais).\n\nO processo de atendimento começa com: (ex: uma consulta presencial gratuita para entender o projeto e apresentar referências / um formulário de pré-avaliação que envio pelo WhatsApp / o envio de fotos de referência pelo cliente para eu avaliar a viabilidade).\nApós a consulta ou primeiro contato: (ex: enviamos o orçamento em até 48h por WhatsApp / já agendamos a sessão na hora se o cliente aprovar / o cliente tem 7 dias para confirmar com o sinal).\nNão realizamos: (ex: coberturas sem avaliação presencial prévia / procedimentos sem laudo médico quando necessário / trabalhos copiados de outros artistas — cada projeto é único / atendimentos de urgência sem agendamento).\n\nInformações importantes que a agente deve sempre ter em mente:\n- (ex: temos lista de espera — novos clientes podem aguardar até 2 meses para o primeiro atendimento)\n- (ex: não trabalhamos com convênio ou plano de saúde)\n- (ex: o valor da consulta inicial é descontado no serviço aprovado)\n- (ex: atendemos clientes a partir de 18 anos — menores somente com presença e autorização dos responsáveis)\n- (ex: disponibilizamos estacionamento gratuito no local)\n- (ex: o cliente deve evitar sol e bebida alcoólica 48h antes do procedimento)\n- (ex: emitimos nota fiscal para todos os serviços)\n\nComo a agente deve se comportar no atendimento:\n- Quando um cliente entrar em contato pela primeira vez: (ex: cumprimente com entusiasmo, pergunte o que está procurando e convide para uma consulta sem pressão)\n- Quando perguntarem sobre disponibilidade: (ex: informe que verificará a agenda e retornará em breve com opções de horário)\n- Quando o cliente estiver indeciso: (ex: seja paciente, apresente exemplos do portfólio, tire dúvidas e ofereça uma consulta sem compromisso)\n- Quando houver reclamação: (ex: ouça com atenção, peça desculpas pelo inconveniente e encaminhe para contato direto comigo)\n- Sempre finalize com: (ex: um convite para agendamento / uma pergunta aberta para manter a conversa ativa / o link do portfólio ou redes sociais)\n- Nunca: (ex: prometa datas sem confirmar comigo na agenda / informe preços exatos sem antes entender o projeto / tome decisões que dependam da minha aprovação)");
   const [metaSessoes, setMetaSessoes] = useState(0);
   const [metaLeads, setMetaLeads] = useState(0);
   const [metaNPS, setMetaNPS] = useState(0);
@@ -8439,78 +8439,21 @@ export default function CRM() {
                       </div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                         <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>
                           {"📝 O que " + (auraName || "a agente") + " deve saber"}
                         </div>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          {!auraInstrucoes && (
-                            <button onClick={() => setAuraInstrucoes(
-                              "— SOBRE O NEGÓCIO —\n" +
-                              "Sou profissional da área de (ex: tatuagem / odontologia / estética / barbearia / nutrição / fotografia / fisioterapia / advocacia...).\n" +
-                              "Minha especialidade principal é (ex: blackwork e realismo / clareamento dental e implantes / depilação a laser e skincare / cortes masculinos e barba / emagrecimento e reeducação alimentar...).\n" +
-                              "Meu negócio se chama (nome do negócio) e fica em (cidade, bairro ou endereço).\n" +
-                              "Atendo (ex: somente presencialmente / online e presencialmente / apenas por videochamada).\n\n" +
-                              "— SOBRE MIM —\n" +
-                              "Me chamo (seu nome) e sou (ex: tatuador há 10 anos / dentista especialista em estética / esteticista com foco em tratamentos faciais...).\n" +
-                              "Trabalho (ex: sozinho / com uma equipe de 3 profissionais / com assistentes).\n\n" +
-                              "— TOM DE COMUNICAÇÃO —\n" +
-                              "Meu tom de comunicação é (ex: descontraído, próximo e sem formalidade / profissional e preciso / empático e acolhedor, especialmente com clientes ansiosos / artístico e criativo / direto e objetivo, sem rodeios).\n" +
-                              "Uso de emojis: (ex: nenhum / use com moderação para reforçar pontos importantes / use livremente para deixar a conversa leve).\n" +
-                              "Linguagem: (ex: trato os clientes por 'você' / uso linguagem informal como 'tu' / mantenho sempre uma postura profissional formal).\n\n" +
-                              "— SERVIÇOS E PREÇOS —\n" +
-                              "Meus serviços são: (ex: tatuagem a partir de R$200 / consulta de avaliação gratuita / limpeza de pele por R$150 / sessão de 3h por R$500 / planos mensais a partir de R$X...).\n" +
-                              "Quando perguntarem sobre preço, (ex: explique que o valor depende do tamanho e complexidade e convide para uma consulta / informe os valores da tabela / diga que enviará um orçamento personalizado).\n" +
-                              "Formas de pagamento aceitas: (ex: Pix, cartão de crédito em até 3x, dinheiro / somente Pix e cartão / todos os meios).\n\n" +
-                              "— REGRAS DE AGENDAMENTO —\n" +
-                              "Para confirmar um agendamento: (ex: cobramos sinal de 30% antecipado / exigimos apenas o cadastro / a consulta inicial é gratuita e sem compromisso).\n" +
-                              "Cancelamentos e remarcações: (ex: aceitamos com até 48h de antecedência sem custo / cobramos taxa de R$X para remarcar / o sinal não é reembolsável em caso de desistência).\n" +
-                              "Clientes que faltaram sem avisar: (ex: cobramos taxa de R$100 para reagendar / não reagendamos sem justificativa / damos uma segunda chance sem custo).\n" +
-                              "Tempo de sessão: (ex: cada sessão dura em média 3 horas / consulta inicial de 1 hora / procedimento de 30 a 60 minutos).\n\n" +
-                              "— HORÁRIO DE FUNCIONAMENTO —\n" +
-                              "Atendo (ex: de segunda a sábado, das 9h às 18h / terça a sexta das 10h às 19h e sábados das 9h às 14h / somente com hora marcada, sem horário fixo).\n" +
-                              "Não atendo (ex: às segundas-feiras / aos domingos / em feriados).\n\n" +
-                              "— PROCESSO DE ATENDIMENTO —\n" +
-                              "O processo começa com (ex: uma consulta presencial gratuita para entender o projeto / um formulário de pré-avaliação online / o envio de referências pelo cliente).\n" +
-                              "Após a consulta: (ex: enviamos o orçamento em até 48h / já agendamos a sessão na hora / o cliente tem 7 dias para decidir).\n" +
-                              "Não realizamos (ex: coberturas sem avaliação presencial / procedimentos sem laudo médico / trabalhos sem referência aprovada pelo profissional).\n\n" +
-                              "— INFORMAÇÕES IMPORTANTES —\n" +
-                              "- (ex: temos lista de espera — novos clientes podem aguardar até 2 meses)\n" +
-                              "- (ex: não trabalhamos com convênio ou plano de saúde)\n" +
-                              "- (ex: cada projeto é único e personalizado — não repetimos trabalhos de outros artistas)\n" +
-                              "- (ex: aceitamos clientes a partir de 18 anos, ou menores com autorização dos pais)\n" +
-                              "- (ex: o cliente deve chegar em jejum de 2 horas para o procedimento)\n" +
-                              "- (ex: disponibilizamos estacionamento gratuito no local)\n\n" +
-                              "— COMO ATENDER OS CLIENTES —\n" +
-                              "Quando um cliente entrar em contato pela primeira vez: (ex: cumprimente pelo nome, pergunte o que está procurando e convide para uma consulta).\n" +
-                              "Quando perguntarem sobre disponibilidade: (ex: informe que verificará a agenda e retornará em breve / mostre as opções disponíveis).\n" +
-                              "Quando o cliente estiver indeciso: (ex: seja paciente, apresente exemplos do portfólio e ofereça uma consulta sem compromisso).\n" +
-                              "Sempre finalize com: (ex: um convite para agendamento / uma pergunta aberta para manter a conversa / o link do portfólio ou redes sociais).\n" +
-                              "Nunca: (ex: prometa datas sem confirmar na agenda / informe preços sem antes entender o projeto / responda fora do horário comercial sem avisar)."
-                            )} style={{ fontSize: 11, color: "var(--gold)", background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
-                              ✦ Usar template
-                            </button>
-                          )}
-                          {auraInstrucoes && (
-                            <button onClick={() => { if (window.confirm("Limpar todas as instruções?")) setAuraInstrucoes(""); }}
-                              style={{ fontSize: 10, color: "var(--tx3)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
-                              Limpar
-                            </button>
-                          )}
-                        </div>
+                        {auraInstrucoes && (
+                          <button onClick={() => { if (window.confirm("Limpar e começar do zero?")) setAuraInstrucoes(""); }}
+                            style={{ fontSize: 10, color: "var(--tx3)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+                            Limpar
+                          </button>
+                        )}
                       </div>
-                      <textarea
+                                            <textarea
                         className="ef"
                         rows={12}
-                        placeholder={
-                          "Clique em 'Usar template' acima para começar com um modelo completo, ou escreva livremente aqui.\n\n" +
-                          "Exemplos do que incluir:\n" +
-                          "• Área de atuação e especialidades\n" +
-                          "• Tom de comunicação desejado\n" +
-                          "• Regras de negócio e política de agendamento\n" +
-                          "• Horários de funcionamento\n" +
-                          "• O que a agente deve e não deve fazer"
-                        }
+                        placeholder={"Preencha com as informações do seu negócio substituindo os exemplos entre parênteses..."}
                         value={auraInstrucoes}
                         onChange={e => setAuraInstrucoes(e.target.value)}
                         style={{ resize: "vertical", fontFamily: "'DM Sans',sans-serif", fontSize: 12, lineHeight: 1.8, minHeight: 220 }}
