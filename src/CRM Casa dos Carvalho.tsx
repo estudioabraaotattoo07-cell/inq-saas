@@ -1378,10 +1378,11 @@ export default function CRM() {
     if (!c.insta) m.push("Instagram");
     // Valor do projeto vazio
     const proj = c.projetos?.[0];
-    if (proj && (!proj.valorTotal || proj.valorTotal === 0) && c.etapa !== "lead") m.push("Valor do projeto");
+    const valorTotalNum = proj ? Number(String(proj.valorTotal || "0").replace(/\./g,"").replace(",",".")) : 0;
+    if (proj && valorTotalNum <= 0 && c.etapa !== "lead") m.push("Valor do projeto");
     // Forma de pagamento não definida em cliente com sessão agendada
-    const pgtoValido = c.pgto && c.pgto !== "A definir";
-    if (!pgtoValido && ["sessao_agend","tatuado","pos_venda"].includes(c.etapa)) m.push("Forma de pagamento");
+    const pgtoValido = (c.pgto && c.pgto !== "A definir") || (c.etapa === "tatuado") || (c.etapa === "pos_venda");
+    if (!pgtoValido && ["sessao_agend"].includes(c.etapa)) m.push("Forma de pagamento");
     // [X7] Sinal pendente
     const temSinalPendente = agEvents.some(e =>
       e.cliente_id === c.id &&
@@ -1401,7 +1402,7 @@ export default function CRM() {
   const alertas = useMemo(() => {
     const hoje = new Date();
     return clients.filter(c => {
-      const projSemValor = (c.projetos || []).some((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0)) && c.etapa !== "lead";
+      const projSemValor = (c.projetos || []).some((p: any) => { const vt = Number(String(p.valorTotal || "0").replace(/\./g,"").replace(",",".")); return p.status !== "concluido" && p.status !== "cancelado" && vt <= 0; }) && c.etapa !== "lead";
       let aniversario = false;
       if ((c as any).nascimento) {
         const nasc = new Date((c as any).nascimento);
@@ -3019,18 +3020,18 @@ export default function CRM() {
               {/* ⚠ Demais alertas */}
               {alertas.filter(c => {
                 const m = miss(c); const ch = churn(c);
-                const projSemValor = (c.projetos || []).some((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0)) && c.etapa !== "lead";
+                const projSemValor = (c.projetos || []).some((p: any) => { const vt = Number(String(p.valorTotal || "0").replace(/\./g,"").replace(",",".")); return p.status !== "concluido" && p.status !== "cancelado" && vt <= 0; }) && c.etapa !== "lead";
                 return ch || projSemValor || m.length > 0;
               }).length > 0 && (
                 <div>
                   <div style={{ fontSize: 10, color: "var(--q1)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>⚠ Outros alertas</div>
                   {alertas.filter(c => {
                     const m = miss(c); const ch = churn(c);
-                    const projSemValor = (c.projetos || []).some((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0)) && c.etapa !== "lead";
+                    const projSemValor = (c.projetos || []).some((p: any) => { const vt = Number(String(p.valorTotal || "0").replace(/\./g,"").replace(",",".")); return p.status !== "concluido" && p.status !== "cancelado" && vt <= 0; }) && c.etapa !== "lead";
                     return ch || projSemValor || m.length > 0;
                   }).map(c => {
                     const m = miss(c); const ch = churn(c);
-                    const projSemValor = (c.projetos || []).some((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0)) && c.etapa !== "lead";
+                    const projSemValor = (c.projetos || []).some((p: any) => { const vt = Number(String(p.valorTotal || "0").replace(/\./g,"").replace(",",".")); return p.status !== "concluido" && p.status !== "cancelado" && vt <= 0; }) && c.etapa !== "lead";
                     return (
                       <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); }}>
                         <div className="ad-name">{c.nome}</div>
@@ -5180,7 +5181,7 @@ export default function CRM() {
               </div>
               <div className="mb">
                 {(() => {
-                  const projSemValor = (sc.projetos || []).find((p: any) => p.status !== "concluido" && p.status !== "cancelado" && (!p.valorTotal || p.valorTotal === 0));
+                  const projSemValor = (sc.projetos || []).find((p: any) => { const vt = Number(String(p.valorTotal || "0").replace(/\./g,"").replace(",",".")); return p.status !== "concluido" && p.status !== "cancelado" && vt <= 0; });
                   return projSemValor && sc.etapa !== "lead" ? (
                     <div className="ba">
                       <span style={{ fontSize: 18 }}>💰</span>
@@ -7148,10 +7149,11 @@ export default function CRM() {
                           setUndoSessao({ cid: confirmPagamento?.cid, etapaAnterior, finIds: [] });
                           if (cliLocal) {
                             setTimeout(() => {
+                              const artistaId = cliLocal.artista || (artists[0]?.id || "");
                               setEditingEvent(null);
                               setAgClientVinc(cliLocal);
                               setAgClientSearch("");
-                              setAgForm({ title: cliLocal.nome, desc: "", tipo: "sess_" + (cliLocal.artista || artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11, sinal: "", sinalPago: false } as any);
+                              setAgForm({ title: cliLocal.nome, desc: "", tipo: "sess_" + artistaId, date: new Date().toISOString().split("T")[0], start: 9, end: 11, sinal: "", sinalPago: false } as any);
                               setSessoesExtras([]);
                               setShowAgForm(true);
                             }, 600);
@@ -7581,7 +7583,7 @@ export default function CRM() {
                       const updated = p.map(c => {
                         if (c.id !== orcamentoModal.cid) return c;
                         const projetos = (c.projetos || []).map((proj: any) =>
-                          (proj.status !== "concluido" && proj.status !== "cancelado" && (!proj.valorTotal || proj.valorTotal === 0))
+                          (proj.status !== "concluido" && proj.status !== "cancelado" && Number(String(proj.valorTotal || "0").replace(/\./g,"").replace(",",".")) <= 0)
                             ? { ...proj, valorTotal: v }
                             : proj
                         );
