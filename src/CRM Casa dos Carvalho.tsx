@@ -136,7 +136,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .srch::placeholder{color:var(--tx3);}
 .fb{background:var(--dk3);border:1px solid var(--br);border-radius:6px;color:var(--tx2);padding:6px 11px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
 .fb.on{background:var(--gold-d);border-color:var(--gold);color:var(--gold);}
-.kw{flex:1;overflow-x:auto;padding:14px;display:flex;gap:11px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:195px;max-width:195px;display:flex;flex-direction:column;gap:5px;}
+.kw{flex:1;overflow-x:auto;padding:12px;display:flex;gap:9px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:175px;max-width:175px;display:flex;flex-direction:column;gap:5px;}@media(max-width:600px){.kc{min-width:155px;max-width:155px;}.kw{padding:8px 6px;gap:7px;}}
 
 .kh{padding:8px 11px;border-radius:7px 7px 0 0;background:var(--dk3);border:1px solid var(--br);border-bottom:2px solid;display:flex;align-items:center;justify-content:space-between;}
 .kt{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
@@ -3016,6 +3016,8 @@ export default function CRM() {
     );
   }
 
+  const isMobileView = typeof window !== "undefined" && window.innerWidth < 600;
+
   return (
     <>
       <div className="root">
@@ -3037,7 +3039,14 @@ export default function CRM() {
               <div style={{ position: "relative" }}>
                 <div ref={alertBtnRef} className="alert-btn" onClick={() => {
                   const rect = alertBtnRef.current?.getBoundingClientRect();
-                  if (rect) setAlertPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+                  if (rect) {
+                    const mob = window.innerWidth < 600;
+                    if (mob) {
+                      setAlertPos({ top: rect.bottom + 8, right: 8 });
+                    } else {
+                      setAlertPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+                    }
+                  }
                   setShowAlerts(v => !v);
                 }}>
                   ⚠️ {alertas.length} alerta{alertas.length > 1 ? "s" : ""}
@@ -3053,7 +3062,7 @@ export default function CRM() {
         {/* ALERT DROPDOWN - createPortal para evitar overflow */}
         {showAlerts && alertas.length > 0 && createPortal(
           <div onClick={() => setShowAlerts(false)} style={{ position: "fixed", inset: 0, zIndex: 2147483646 }}>
-          <div onClick={e => e.stopPropagation()} style={{ position: "fixed", top: alertPos.top, right: Math.max(alertPos.right, 8), zIndex: 2147483647, width: "min(380px, calc(100vw - 16px))", maxWidth: "calc(100vw - 16px)", background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,.5)", maxHeight: "min(80vh, calc(100dvh - 80px))", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "fixed", top: alertPos.top, right: isMobileView ? undefined : Math.max(alertPos.right, 8), left: isMobileView ? 8 : "auto", zIndex: 2147483647, width: isMobileView ? "calc(100vw - 16px)" : "min(380px, calc(100vw - 16px))", maxWidth: "calc(100vw - 16px)", background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,.5)", maxHeight: "min(80vh, calc(100dvh - 80px))", overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <div className="ad-hdr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>Alertas — {alertas.length} clientes</span>
               <button onClick={() => setShowAlerts(false)} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 16 }}>×</button>
@@ -5426,9 +5435,9 @@ export default function CRM() {
                     <div style={{ background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 8, padding: "14px", marginBottom: 10, display: "flex", flexDirection: "column", gap: 10 }}>
                       <div style={{ fontSize: 11, color: "var(--gold)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>Nova Solicitação</div>
                       <div className="fi2">
-                        <div className="fil">Valor Total do Projeto (R$)</div>
-                        <input className="ef" type="text" placeholder="0,00" value={novoProjetoForm.valorTotal}
-                          onChange={e => { const raw = e.target.value.replace(/[^0-9]/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setNovoProjetoForm(p => ({ ...p, valorTotal: num })); }} />
+                        <div className="fil">Nome / Identificação do Projeto *</div>
+                        <input className="ef" placeholder="Ex: Tatuagem no braço, Limpeza de pele, Implante..." value={novoProjetoForm.estilo}
+                          onChange={e => setNovoProjetoForm(p => ({ ...p, estilo: e.target.value }))} />
                       </div>
                       <div className="fi2">
                         <div className="fil">Serviço</div>
@@ -5438,13 +5447,19 @@ export default function CRM() {
                         </select>
                       </div>
                       <div className="fi2">
+                        <div className="fil">Valor Total do Projeto (R$)</div>
+                        <input className="ef" type="text" placeholder="0,00" value={novoProjetoForm.valorTotal}
+                          onChange={e => { const raw = e.target.value.replace(/[^0-9]/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setNovoProjetoForm(p => ({ ...p, valorTotal: num })); }} />
+                      </div>
+                      <div className="fi2">
                         <div className="fil">Descrição do Projeto</div>
                         <textarea className="ef" placeholder="Descreva o projeto..." value={novoProjetoForm.desc} onChange={e => setNovoProjetoForm(p => ({ ...p, desc: e.target.value }))}
                           style={{ resize: "vertical", minHeight: 55, width: "100%", fontFamily: "inherit" }} />
                       </div>
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <button onClick={() => { setNovoProjetoAberto(null); }} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Descartar</button>
+                        <button onClick={() => { setNovoProjetoAberto(null); setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "" }); }} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Descartar</button>
                         <button onClick={() => {
+                          if (!novoProjetoForm.estilo.trim()) { setShowAviso("Preencha o nome/identificação do projeto."); return; }
                           const val = parseFloat(novoProjetoForm.valorTotal.replace(/\./g,"").replace(",",".")) || 0;
                           const proj = { id: Date.now(), estilo: novoProjetoForm.estilo, tam: novoProjetoForm.tam, primeira: novoProjetoForm.primeira, desc: novoProjetoForm.desc, servico: (novoProjetoForm as any).servico || "", valorTotal: val, status: "ativo", criadoEm: new Date().toLocaleDateString("pt-BR"), pagamentos: [] };
                           const projs = [...(sc.projetos || [])];
@@ -7408,8 +7423,21 @@ export default function CRM() {
                 <button className="btn-s" onClick={() => {
                   const cid = confirmMover.cid;
                   const stageId = confirmMover.stage.id;
+                  const agEvs = confirmMover.agEvents;
                   setConfirmMover(null);
                   move(cid, stageId);
+                  if (stageId === "sessao_agend" && agEvs.length === 0) {
+                    const cli = clients.find((c: any) => c.id === cid);
+                    setTimeout(() => {
+                      setEditingEvent(null);
+                      setAgClientVinc(cli || null);
+                      setAgClientSearch("");
+                      setSessoesExtras([]);
+                      const artistaId = cli?.artista || artists[0]?.id || "";
+                      setAgForm({ title: cli?.nome || "", desc: "", tipo: "sess_" + artistaId, date: new Date().toISOString().split("T")[0], start: 9, end: 11, sinal: "", sinalPago: false } as any);
+                      setShowAgForm(true);
+                    }, 300);
+                  }
                 }}>
                   Confirmar
                 </button>
