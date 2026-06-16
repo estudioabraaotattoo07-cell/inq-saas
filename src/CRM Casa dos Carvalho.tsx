@@ -887,6 +887,12 @@ function isAniversMes(nasc: string): boolean {
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function CRM() {
+  const hojeLocal = () => {
+    const agora = new Date();
+    const offset = -3 * 60; // Brasília UTC-3
+    return new Date(agora.getTime() + (offset - agora.getTimezoneOffset()) * 60000);
+  };
+
   // ── LOGIN ──
   const [logado, setLogado] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
@@ -1035,7 +1041,10 @@ export default function CRM() {
   const [showHistoricoModal, setShowHistoricoModal] = useState(false);
   const [showSaidaCatsModal, setShowSaidaCatsModal] = useState(false);
   const [showAvisoPastDate, setShowAvisoPastDate] = useState(false);
-  const [proximaSessaoModal, setProximaSessaoModal] = useState<{cid: any} | null>(null);
+  const [proximaSessaoModal, setProximaSessaoModal] = useState<{cid: any; agEvent: any} | null>(null);
+  const [instrucaoDisparo, setInstrucaoDisparo] = useState<Record<string, string>>({});
+  const [gerandoDisparo, setGerandoDisparo] = useState<string | null>(null);
+  const [confirmDisparo, setConfirmDisparo] = useState<{clientes: any[]; mensagem: string; segmento: string} | null>(null);
   const [cancelProjetoModal, setCancelProjetoModal] = useState<{clienteId: any; projetoId: any; motivo: string} | null>(null);
   const [cancelMotivos, setCancelMotivos] = useState<string[]>(["Cliente desistiu", "Questão financeira", "Mudança de projeto", "Sem resposta do cliente", "Outro"]);
   const [novoProjetoAberto, setNovoProjetoAberto] = useState<any>(null);
@@ -1433,7 +1442,7 @@ export default function CRM() {
 
     // Cumpriu Evento — modal de pagamento
     if (ns === "tatuado") {
-      const hoje0 = new Date(); hoje0.setHours(0,0,0,0);
+      const hoje0 = hojeLocal(); hoje0.setHours(0,0,0,0);
       const sessoesCliente = evs.filter(e => !e.tipo?.startsWith("bloq") && !e.tipo?.startsWith("cons"));
       const todasFuturas = sessoesCliente.length > 0 && sessoesCliente.every(e => {
         const d = e.date ? new Date(e.date + "T12:00:00") : null;
@@ -1630,7 +1639,7 @@ export default function CRM() {
       }
     } catch {}
     setConfirmPagamento(null);
-    executarMove(cid, "tatuado");
+    setProximaSessaoModal({ cid, agEvent: confirmPagamento?.agEvent || null });
   };
 
   const upC = (cid: number, f: string, v: any) => {
@@ -1853,7 +1862,7 @@ export default function CRM() {
     if (!forceRetroativo && !(agForm.tipo || "").startsWith("bloq") && agForm.date) {
       const agDateStr = agForm.date + "T" + String(agForm.start).padStart(2,"0") + ":00:00";
       const agDateTime = new Date(agDateStr);
-      const agora = new Date();
+      const agora = hojeLocal();
       agora.setMinutes(agora.getMinutes() - 30);
       if (agDateTime < agora) {
         setShowAvisoPastDate(true);
@@ -5272,20 +5281,57 @@ export default function CRM() {
                           </div>
                           {isOpen && (
                             <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--br)", paddingTop: 14 }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>{"Instrução para " + (auraName || "a IA")}</div>
-                                {segSel === item.id && !editing && (
-                                  <button onClick={() => { setEditing(true); setMsgEdit(msgEdit || msg); }}
-                                    style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 10px", fontSize: 11, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>✏️ Editar</button>
-                                )}
-                                {editing && segSel === item.id && (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                  <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>{"Instrução para " + (auraName || "a IA")}</div>
                                   <div style={{ display: "flex", gap: 6 }}>
-                                    <button onClick={() => { setEditing(false); setMsgEdit(""); }}
-                                      style={{ background: "none", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 10px", fontSize: 11, color: "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Cancelar</button>
-                                    <button onClick={() => setEditing(false)}
-                                      style={{ background: "var(--gold)", border: "none", borderRadius: 5, padding: "3px 10px", fontSize: 11, fontWeight: 700, color: "#000", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Salvar</button>
+                                    <button
+                                      disabled={gerandoDisparo === item.id || !(instrucaoDisparo[item.id] || "").trim()}
+                                      onClick={async () => {
+                                        const instrucao = (instrucaoDisparo[item.id] || "").trim();
+                                        if (!instrucao || !auraApiKey) return;
+                                        setGerandoDisparo(item.id);
+                                        try {
+                                          const resp = await fetch("/api/aura", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({
+                                              apiKey: auraApiKey,
+                                              system: "Você é " + (auraName || "a IA") + " do sistema INK SYSTEM. Gere uma mensagem de comunicação para o segmento indicado com base na instrução do usuário. Responda APENAS com o texto da mensagem, sem explicações, sem aspas, sem prefácio.",
+                                              messages: [{ role: "user", content: "Segmento: " + item.label + "\nDestinatários: " + cnt + " clientes\nInstrução: " + instrucao }],
+                                              tools: []
+                                            })
+                                          });
+                                          const json = await resp.json();
+                                          const texto = json.content?.find((b: any) => b.type === "text")?.text || "";
+                                          if (texto) setMsgEdit(texto);
+                                        } catch {}
+                                        setGerandoDisparo(null);
+                                      }}
+                                      style={{ background: gerandoDisparo === item.id ? "var(--dk3)" : "rgba(201,168,76,.15)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 5, padding: "3px 10px", fontSize: 11, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", opacity: !(instrucaoDisparo[item.id] || "").trim() ? 0.4 : 1 }}>
+                                      {gerandoDisparo === item.id ? "⏳ Gerando..." : "✨ Gerar"}
+                                    </button>
+                                    {segSel === item.id && !editing && (
+                                      <button onClick={() => { setEditing(true); setMsgEdit(msgEdit || msg); }}
+                                        style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 10px", fontSize: 11, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>✏️ Editar</button>
+                                    )}
+                                    {editing && segSel === item.id && (
+                                      <div style={{ display: "flex", gap: 6 }}>
+                                        <button onClick={() => { setEditing(false); setMsgEdit(""); }}
+                                          style={{ background: "none", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 10px", fontSize: 11, color: "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Cancelar</button>
+                                        <button onClick={() => setEditing(false)}
+                                          style={{ background: "var(--gold)", border: "none", borderRadius: 5, padding: "3px 10px", fontSize: 11, fontWeight: 700, color: "#000", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Salvar</button>
+                                      </div>
+                                    )}
                                   </div>
-                                )}
+                                </div>
+                                <input
+                                  className="fi"
+                                  placeholder={"Ex: mensagem de fim de ano, tom descontraído..."}
+                                  value={instrucaoDisparo[item.id] || ""}
+                                  onChange={e => setInstrucaoDisparo(p => ({ ...p, [item.id]: e.target.value }))}
+                                  style={{ fontSize: 12 }}
+                                />
                               </div>
                               {editing && segSel === item.id
                                 ? <textarea value={msgEdit || msg} onChange={e => setMsgEdit(e.target.value)}
@@ -5298,7 +5344,11 @@ export default function CRM() {
                                 </span>
                                 {sent && segSel === item.id
                                   ? <div style={{ fontSize: 12, color: "var(--q3)", fontWeight: 600 }}>✓ Disparo programado!</div>
-                                  : <button onClick={() => { disparar(clients.filter(item.f), msgEdit || msg, item.label); }}
+                                  : <button onClick={() => {
+                                        const mensagemFinal = msgEdit || msg;
+                                        if (!mensagemFinal.trim()) { setShowAviso("Escreva ou gere uma mensagem antes de disparar."); return; }
+                                        setConfirmDisparo({ clientes: clients.filter(item.f), mensagem: mensagemFinal, segmento: item.label });
+                                      }}
                                       disabled={cnt === 0}
                                       style={{ background: cnt === 0 ? "var(--dk4)" : "var(--gold)", color: cnt === 0 ? "var(--tx3)" : "#000", border: "none", borderRadius: 7, padding: "8px 18px", fontSize: 12, fontWeight: 700, cursor: cnt === 0 ? "not-allowed" : "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                                       📣 Disparar
@@ -5363,7 +5413,10 @@ export default function CRM() {
                             <span style={{ fontSize: 11, color: "var(--tx3)" }}>📩 {cnt} destinatário{cnt !== 1 ? "s" : ""}</span>
                             {sent && dateSel === d.id
                               ? <div style={{ fontSize: 12, color: "var(--q3)", fontWeight: 600 }}>✓ Disparo programado!</div>
-                              : <button onClick={() => { disparar(clients, msgEdit || msg, d.label); }}
+                              : <button onClick={() => {
+                                    const mensagemFinal = msgEdit || msg;
+                                    setConfirmDisparo({ clientes: clients, mensagem: mensagemFinal, segmento: d.label });
+                                  }}
                                   style={{ background: "var(--gold)", color: "#000", border: "none", borderRadius: 7, padding: "8px 18px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                                   📣 Disparar
                                 </button>
@@ -6947,7 +7000,7 @@ export default function CRM() {
                       <button onClick={async () => {
                         const ev = confirmPresenca.event;
                         const dataEv = ev.date ? new Date(ev.date + "T12:00:00") : null;
-                        const hoje0 = new Date(); hoje0.setHours(0,0,0,0);
+                        const hoje0 = hojeLocal(); hoje0.setHours(0,0,0,0);
                         if (dataEv && dataEv > hoje0) {
                           setShowAviso("Esta sessão ainda não ocorreu. Só é possível confirmar sessões do dia atual ou passadas.");
                           return;
@@ -8976,6 +9029,84 @@ export default function CRM() {
             ✦ {(auraName && !auraName.includes("@")) ? auraName : "Configure sua agente"}
           </button>
         </div>
+
+        {/* ── MODAL: HAVERÁ MAIS SESSÕES? ── */}
+        {proximaSessaoModal && (
+          <div className="ov" onClick={() => setProximaSessaoModal(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(440px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>
+                ✅ Sessão concluída!
+              </div>
+              <div style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.6 }}>
+                Haverá mais sessões para este projeto?
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => {
+                  const { cid } = proximaSessaoModal;
+                  setProximaSessaoModal(null);
+                  if (window.confirm("Deseja agendar a próxima sessão agora?")) {
+                    const cli = clients.find((c: any) => c.id === cid);
+                    if (cli) {
+                      setAgClientVinc(cli);
+                      setEditingEvent(null);
+                      setAgClientSearch("");
+                      setSessoesExtras([]);
+                      setAgForm({ title: cli.nome, desc: "", tipo: "sess_" + (cli.artista || artists[0]?.id || ""), date: "", start: 9, end: 11, sinal: "", sinalPago: false, servico: "" } as any);
+                      setShowAgForm(true);
+                    }
+                  }
+                }} style={{ flex: 1, background: "rgba(201,168,76,.15)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 8, padding: "12px", fontSize: 13, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                  Sim, haverá mais
+                </button>
+                <button onClick={() => {
+                  const { cid } = proximaSessaoModal;
+                  setProximaSessaoModal(null);
+                  executarMove(cid, "hibernacao");
+                }} style={{ flex: 1, background: "rgba(100,100,100,.12)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px", fontSize: 13, fontWeight: 700, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                  Não, projeto concluído
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--tx3)", textAlign: "center" }}>
+                Se o projeto foi concluído, o cliente será movido para Hibernação automaticamente.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MODAL: CONFIRMAR DISPARO ── */}
+        {confirmDisparo && (
+          <div className="ov" onClick={() => setConfirmDisparo(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(480px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>
+                📣 Confirmar Disparo
+              </div>
+              <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em" }}>Segmento</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)" }}>{confirmDisparo.segmento}</div>
+                <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 4 }}>
+                  {confirmDisparo.clientes.length} destinatário{confirmDisparo.clientes.length !== 1 ? "s" : ""}: {confirmDisparo.clientes.map((c: any) => c.nome.split(" ")[0]).slice(0, 5).join(", ")}{confirmDisparo.clientes.length > 5 ? " +" + (confirmDisparo.clientes.length - 5) + " outros" : ""}
+                </div>
+              </div>
+              <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "10px 14px" }}>
+                <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 6 }}>Mensagem</div>
+                <div style={{ fontSize: 12, color: "var(--tx2)", lineHeight: 1.7, whiteSpace: "pre-wrap", maxHeight: 150, overflowY: "auto" }}>{confirmDisparo.mensagem}</div>
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button onClick={() => setConfirmDisparo(null)}
+                  style={{ flex: 1, background: "none", border: "1px solid var(--br)", borderRadius: 8, padding: "11px", fontSize: 13, color: "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                  Cancelar
+                </button>
+                <button onClick={() => {
+                  disparar(confirmDisparo.clientes, confirmDisparo.mensagem, confirmDisparo.segmento);
+                  setConfirmDisparo(null);
+                }}
+                  style={{ flex: 2, background: "var(--gold)", border: "none", borderRadius: 8, padding: "11px", fontSize: 13, fontWeight: 700, color: "#000", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                  📣 Confirmar e Disparar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
     </>
   );
