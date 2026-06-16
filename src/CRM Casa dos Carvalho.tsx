@@ -1956,7 +1956,10 @@ export default function CRM() {
     setEditingEvent(null);
     setAgClientVinc(null);
     setAgClientSearch("");
-    addLog("📅 Agendado: " + agForm.title + " — " + servicoNome + " em " + dataFmt + " às " + agForm.start + "h" + (artistaNome ? " com " + artistaNome : ""));
+    const _servicoLog = (agForm as any).servico || "";
+    const _dataLog = agForm.date || "";
+    const _artistaLog = artists.find((a: any) => (agForm.tipo || "").includes(a.id))?.nome || "";
+    addLog("📅 Agendado: " + agForm.title + " — " + _servicoLog + " em " + _dataLog + " às " + agForm.start + "h" + (_artistaLog ? " com " + _artistaLog : ""));
     try {
       const artistaNomeN8n = artists.find((a: any) => (agForm.tipo || "").includes(a.id))?.nome || "";
       const clienteObjN8n = agClientVinc ? clients.find(c => c.id === agClientVinc.id) : null;
