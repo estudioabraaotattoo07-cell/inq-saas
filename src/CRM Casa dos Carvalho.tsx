@@ -1586,10 +1586,11 @@ export default function CRM() {
         pgto: f.forma === "Cartão" ? "Cartão " + f.parcelas + "x" : f.forma,
         taxa_maquina: taxaPct,
         parcelas: nParcelas,
-        com_base: comSess,
-        com_sess: comSess,
+        com_base: f.forma === "Permuta" ? 0 : comSess,
+        com_sess: f.forma === "Permuta" ? 0 : comSess,
         categoria: "sessao",
         tipo: "entrada",
+        is_permuta: f.forma === "Permuta" ? true : false,
         user_id: userId,
       };
       const { data: fdPag, error } = await sb.from("financeiro").insert(finRowPag).select().single();
@@ -3843,9 +3844,10 @@ export default function CRM() {
           });
 
           // ── totais ──
-          const totalEntradas = finFiltrado.filter(f => !f.tipo || f.tipo === "entrada").reduce((s, f) => s + (Number(f.val_a) || 0), 0);
+          const totalEntradas = finFiltrado.filter(f => (!f.tipo || f.tipo === "entrada") && !f.is_permuta).reduce((s, f) => s + (Number(f.val_a) || 0), 0);
+          const totalPermuta = finFiltrado.filter(f => f.is_permuta).reduce((s, f) => s + (Number(f.val_a) || 0), 0);
           const totalSaidas = saidasFiltradas.reduce((s, x) => s + (Number(x.valor) || 0), 0);
-          const totalRepasses = finFiltrado.filter(f => !f.tipo || f.tipo === "entrada").reduce((s, f) => s + ((Number(f.val_a) || 0) * (Number(f.com_sess) || 0) / 100), 0);
+          const totalRepasses = finFiltrado.filter(f => (!f.tipo || f.tipo === "entrada") && !f.is_permuta).reduce((s, f) => s + ((Number(f.val_a) || 0) * (Number(f.com_sess) || 0) / 100), 0);
           const saldoLiquido = totalEntradas - totalSaidas - totalRepasses;
           const progressoMeta = Math.min(totalEntradas / metaMensal * 100, 100);
           const diaAtual = new Date().getDate();
@@ -3928,7 +3930,7 @@ export default function CRM() {
                   const totalAReceber = clients.reduce((acc: number, c: any) => {
                     const projs = (c.projetos || []).filter((p: any) => p.status !== "concluido" && p.status !== "cancelado");
                     const totalProj = projs.reduce((s: number, p: any) => s + (Number(p.valorTotal) || 0), 0);
-                    const totalPago = fin.filter((f: any) => f.cliente_id === c.id && (!f.tipo || f.tipo === "entrada")).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
+                    const totalPago = fin.filter((f: any) => f.cliente_id === c.id && (!f.tipo || f.tipo === "entrada") && !f.is_permuta).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
                     return acc + Math.max(totalProj - totalPago, 0);
                   }, 0);
                   return [
@@ -3947,6 +3949,15 @@ export default function CRM() {
                   </div>
                 ))}
               </div>
+
+              {/* card permutas */}
+              {totalPermuta > 0 && (
+                <div style={{ background: "rgba(155,89,182,.08)", border: "1px solid rgba(155,89,182,.25)", borderRadius: 10, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 11, color: "#9B59B6", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700 }}>Permutas</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: "#9B59B6", marginTop: 4 }}>{"R$ " + totalPermuta.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+                  <div style={{ fontSize: 11, color: "rgba(155,89,182,.7)", marginTop: 3 }}>Não contabilizado no caixa</div>
+                </div>
+              )}
 
               {/* meta mensal */}
               <div className="ftable">
@@ -4056,7 +4067,7 @@ export default function CRM() {
                           <td style={{ fontSize: 11, fontWeight: 600, color: saldoDev > 0 ? "var(--gold)" : "#27AE60" }}>
                             {valorTotal > 0 ? (saldoDev > 0 ? fmtR(saldoDev) : "✅") : "—"}
                           </td>
-                          <td style={{ fontSize: 11 }}>{f.forma_pgto || f.pgto || "—"}</td>
+                          <td style={{ fontSize: 11 }}><span style={{ background: f.is_permuta ? "rgba(155,89,182,.15)" : "rgba(201,168,76,.1)", color: f.is_permuta ? "#9B59B6" : "var(--gold)", border: "1px solid " + (f.is_permuta ? "rgba(155,89,182,.3)" : "rgba(201,168,76,.2)"), borderRadius: 4, padding: "2px 7px", fontWeight: 600 }}>{f.forma_pgto || f.pgto || "—"}</span></td>
                           <td style={{ fontSize: 11 }}>
                             {(f.taxa_maquina > 0) ? (
                               <span style={{ color: "#E74C3C" }}>
@@ -5530,7 +5541,7 @@ export default function CRM() {
                     {(() => {
                       const projs = (sc.projetos || []).filter((p: any) => p.status !== "concluido" && p.status !== "cancelado" && p.valorTotal > 0);
                       const totalProj = projs.reduce((acc: number, p: any) => acc + (Number(p.valorTotal) || 0), 0);
-                      const totalPago = fin.filter((f: any) => f.cliente_id === sc.id && f.tipo !== "saida").reduce((acc: number, f: any) => acc + (Number(f.val_a) || 0), 0);
+                      const totalPago = fin.filter((f: any) => f.cliente_id === sc.id && f.tipo !== "saida" && !f.is_permuta).reduce((acc: number, f: any) => acc + (Number(f.val_a) || 0), 0);
                       const saldo = totalProj - totalPago;
                       if (totalProj <= 0) return null;
                       return saldo > 0
@@ -7573,7 +7584,7 @@ export default function CRM() {
                     </>
                   ) : (
                     <>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "#27AE60" }}>✅ Projeto quitado — sessão finalizada!</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#27AE60" }}>✅ Pagamento registrado — pronto para finalizar!</div>
                       <button onClick={() => {
                         const etapaAnterior = clients.find(c => c.id === confirmPagamento?.cid)?.etapa || "sessao_agend";
                         if (undoSessaoTimer) clearTimeout(undoSessaoTimer);
@@ -7582,7 +7593,7 @@ export default function CRM() {
                         setUndoSessao({ cid: confirmPagamento?.cid, etapaAnterior, finIds: [] });
                         confirmarPagamento();
                       }} style={{ background: "rgba(39,174,96,.15)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 7, padding: "9px 12px", fontSize: 12, fontWeight: 700, color: "#27AE60", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                        ✅ Confirmar e Finalizar
+                        ✅ Confirmar Pagamento
                       </button>
                     </>
                   );
