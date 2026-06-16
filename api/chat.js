@@ -102,7 +102,7 @@ export default async function handler(req, res) {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
+      model: "claude-haiku-4-5",
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
       messages,
@@ -112,7 +112,7 @@ export default async function handler(req, res) {
   if (!response.ok) {
     const err = await response.text();
     console.error("Anthropic API error:", err);
-    return res.status(502).json({ error: "LLM error" });
+    return res.status(502).json({ error: "LLM error", detail: err });
   }
 
   const data = await response.json();
