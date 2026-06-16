@@ -1379,7 +1379,10 @@ export default function CRM() {
     const valorTotalNum = proj ? Number(String(proj.valorTotal || "0").replace(/\./g,"").replace(",",".")) : 0;
     if (proj && valorTotalNum <= 0 && c.etapa !== "lead") m.push("Valor do projeto");
     // Forma de pagamento não definida em cliente com sessão agendada
-    const pgtoValido = (c.pgto && c.pgto !== "A definir") || (c.etapa === "tatuado") || (c.etapa === "pos_venda");
+    const pgtoValido = (c.pgto && c.pgto !== "A definir") ||
+      (c.etapa === "tatuado") ||
+      (c.etapa === "pos_venda") ||
+      fin.some((f: any) => String(f.cliente_id) === String(c.id));
     if (!pgtoValido && ["sessao_agend"].includes(c.etapa)) m.push("Forma de pagamento");
     // [X7] Sinal pendente
     const temSinalPendente = agEvents.some(e =>
@@ -1837,6 +1840,13 @@ export default function CRM() {
       const ano = parseInt(agForm.date.split("-")[0]);
       if (isNaN(ano) || ano < 2020 || ano > 2099) {
         setShowAviso("Data inválida. Verifique o ano informado.");
+        return;
+      }
+    }
+    if (!(agForm.tipo || "").startsWith("bloq")) {
+      const servicoSelecionado = (agForm as any).servico || "";
+      if (!servicoSelecionado) {
+        setShowAviso("Selecione o tipo de serviço antes de confirmar o agendamento.");
         return;
       }
     }
