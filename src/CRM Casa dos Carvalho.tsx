@@ -1442,7 +1442,7 @@ export default function CRM() {
 
     // Cumpriu Evento — modal de pagamento
     if (ns === "tatuado") {
-      const hoje0 = hojeLocal(); hoje0.setHours(0,0,0,0);
+      const hoje0 = hojeLocal(); hoje0.setHours(23,59,59,0);
       const sessoesCliente = evs.filter(e => !e.tipo?.startsWith("bloq") && !e.tipo?.startsWith("cons"));
       const todasFuturas = sessoesCliente.length > 0 && sessoesCliente.every(e => {
         const d = e.date ? new Date(e.date + "T12:00:00") : null;
@@ -7003,7 +7003,7 @@ export default function CRM() {
                       <button onClick={async () => {
                         const ev = confirmPresenca.event;
                         const dataEv = ev.date ? new Date(ev.date + "T12:00:00") : null;
-                        const hoje0 = hojeLocal(); hoje0.setHours(0,0,0,0);
+                        const hoje0 = hojeLocal(); hoje0.setHours(23,59,59,0);
                         if (dataEv && dataEv > hoje0) {
                           setShowAviso("Esta sessão ainda não ocorreu. Só é possível confirmar sessões do dia atual ou passadas.");
                           return;
