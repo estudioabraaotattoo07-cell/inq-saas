@@ -1043,6 +1043,7 @@ export default function CRM() {
   const [showSaidaCatsModal, setShowSaidaCatsModal] = useState(false);
   const [showAvisoPastDate, setShowAvisoPastDate] = useState(false);
   const [proximaSessaoModal, setProximaSessaoModal] = useState<{cid: any; agEvent: any} | null>(null);
+  const [editandoProjConc, setEditandoProjConc] = useState<{clienteId: any; projetoId: any} | null>(null);
   const [agendarProximaModal, setAgendarProximaModal] = useState<{cid: any} | null>(null);
   const [instrucaoDisparo, setInstrucaoDisparo] = useState<Record<string, string>>({});
   const [gerandoDisparo, setGerandoDisparo] = useState<string | null>(null);
@@ -5832,16 +5833,72 @@ export default function CRM() {
                         {concluidos.length > 0 && (
                           <div style={{ borderTop: "1px solid var(--br)", paddingTop: 8, marginTop: 2 }}>
                             <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Concluídos</div>
-                            {concluidos.map((proj: any) => (
-                              <div key={proj.id} style={{ background: "rgba(39,174,96,.05)", border: "1px solid rgba(39,174,96,.15)", borderRadius: 6, padding: "8px 12px", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <div>
-                                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)" }}>{proj.desc ? proj.desc.substring(0,30) : "Solicitação"}</div>
-                                  <div style={{ fontSize: 11, color: "var(--tx3)" }}>Concluído em {proj.concluidoEm || "—"}</div>
-                                  {proj.desc && <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2, fontStyle: "italic" }}>{proj.desc.slice(0,60)}{proj.desc.length > 60 ? "..." : ""}</div>}
+                            {concluidos.map((proj: any) => {
+                              const estaEditando = editandoProjConc?.clienteId === sc.id && editandoProjConc?.projetoId === proj.id;
+                              return (
+                                <div key={proj.id} style={{ background: estaEditando ? "var(--dk3)" : "rgba(39,174,96,.05)", border: "1px solid " + (estaEditando ? "rgba(201,168,76,.3)" : "rgba(39,174,96,.15)"), borderRadius: 6, padding: "10px 12px", marginBottom: 6 }}>
+                                  {estaEditando ? (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                      <div style={{ fontSize: 11, color: "var(--gold)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>✏️ Editando solicitação concluída</div>
+                                      <div className="fi2">
+                                        <div className="fil">Descrição</div>
+                                        <textarea className="ef" value={proj.desc || ""} onChange={e => {
+                                          const projs = [...(sc.projetos || [])];
+                                          const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                          if (idx >= 0) { projs[idx] = { ...projs[idx], desc: e.target.value }; upC(sc.id, "projetos", projs); }
+                                        }} style={{ resize: "vertical", minHeight: 55, width: "100%", fontFamily: "inherit" }} />
+                                      </div>
+                                      <div className="fi2">
+                                        <div className="fil">Valor Total (R$)</div>
+                                        <input className="ef" type="text" placeholder="0,00"
+                                          value={proj.valorTotal ? Number(proj.valorTotal).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""}
+                                          onChange={e => {
+                                            const raw = e.target.value.replace(/[^0-9]/g, "");
+                                            const num = raw ? Number(raw) / 100 : 0;
+                                            const projs = [...(sc.projetos || [])];
+                                            const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                            if (idx >= 0) { projs[idx] = { ...projs[idx], valorTotal: num }; upC(sc.id, "projetos", projs); }
+                                          }} />
+                                      </div>
+                                      <div style={{ display: "flex", gap: 8 }}>
+                                        <button onClick={() => setEditandoProjConc(null)}
+                                          style={{ flex: 1, background: "var(--gold)", border: "none", borderRadius: 6, padding: "8px", fontSize: 12, fontWeight: 700, color: "#000", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                                          ✓ Salvar edição
+                                        </button>
+                                        <button onClick={() => setEditandoProjConc(null)}
+                                          style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "8px 14px", fontSize: 12, color: "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                                          Cancelar
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)" }}>{proj.desc ? proj.desc.substring(0, 30) : "Solicitação"}</div>
+                                        <div style={{ fontSize: 11, color: "var(--tx3)" }}>Concluído em {proj.concluidoEm || "—"}</div>
+                                        {proj.desc && <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2, fontStyle: "italic" }}>{proj.desc.slice(0, 60)}{proj.desc.length > 60 ? "..." : ""}</div>}
+                                        {proj.valorTotal > 0 && <div style={{ fontSize: 11, color: "#27AE60", marginTop: 2, fontWeight: 600 }}>{"R$ " + Number(proj.valorTotal).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>}
+                                      </div>
+                                      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginLeft: 10, flexShrink: 0 }}>
+                                        <button onClick={() => setEditandoProjConc({ clienteId: sc.id, projetoId: proj.id })}
+                                          style={{ fontSize: 10, fontWeight: 600, background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 5, padding: "3px 9px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                                          ✏️ Editar
+                                        </button>
+                                        <button onClick={() => {
+                                          if (window.confirm("Reabrir esta solicitação? Ela voltará para Em andamento.")) {
+                                            const projs = [...(sc.projetos || [])];
+                                            const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                            if (idx >= 0) { projs[idx] = { ...projs[idx], status: "ativo", concluidoEm: undefined }; upC(sc.id, "projetos", projs); }
+                                          }
+                                        }} style={{ fontSize: 10, fontWeight: 600, background: "rgba(52,152,219,.1)", border: "1px solid rgba(52,152,219,.3)", borderRadius: 5, padding: "3px 9px", color: "#3498DB", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                                          ↩️ Reabrir
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                                <span style={{ fontSize: 16 }}>✅</span>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -8952,9 +9009,9 @@ export default function CRM() {
           </div>
         )}
         {/* ── AURA FLOATING CHAT ── */}
-        <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
+        <div style={{ position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", right: 16, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
           {showAuraChat && (
-            <div style={{ width: "min(400px, 92vw)", height: 500, background: "var(--dk2)", border: "1px solid var(--gold)", borderRadius: 14, display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(0,0,0,.7)", overflow: "hidden" }}>
+            <div style={{ width: "min(400px, 92vw)", height: "min(500px, 75vh)", background: "var(--dk2)", border: "1px solid var(--gold)", borderRadius: 14, display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(0,0,0,.7)", overflow: "hidden" }}>
               <div style={{ padding: "12px 16px", background: "var(--dk3)", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--gold)" }}>✦ {(auraName && !auraName.includes("@")) ? auraName : "Assistente"} — INK SYSTEM</div>
