@@ -982,6 +982,7 @@ export default function CRM() {
   const [showAgForm, setShowAgForm] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const alertBtnRef = useRef<HTMLDivElement>(null);
+  const auraChatEndRef = useRef<HTMLDivElement>(null);
   const [alertPos, setAlertPos] = useState({ top: 64, right: 16 });
   const [showCtr, setShowCtr] = useState<any>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -1106,6 +1107,12 @@ export default function CRM() {
   const [novoServicoCor, setNovoServicoCor] = useState("#a78bfa");
 
   const [dbReady, setDbReady] = useState(false);
+
+  useEffect(() => {
+    if (auraChatEndRef.current) {
+      auraChatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [auraChatMessages, auraChatLoading]);
 
   useEffect(() => {
     const el = document.createElement("style");
@@ -1394,8 +1401,11 @@ export default function CRM() {
       (c.etapa === "pos_venda") ||
       fin.some((f: any) => String(f.cliente_id) === String(c.id));
     if (!pgtoValido && ["sessao_agend"].includes(c.etapa)) m.push("Forma de pagamento");
-    // [X7] Sinal pendente
-    const temSinalPendente = agEvents.some(e =>
+    // [X7] Sinal pendente — só alertar se projeto ainda não foi quitado
+    const totalPagoCliente = fin.filter((f: any) => String(f.cliente_id) === String(c.id) && !f.is_permuta).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
+    const valorProjetoCliente = Number(c.val_a) || 0;
+    const projetoQuitado = valorProjetoCliente > 0 && totalPagoCliente >= valorProjetoCliente;
+    const temSinalPendente = !projetoQuitado && agEvents.some(e =>
       e.cliente_id === c.id &&
       e.sinal > 0 &&
       !e.sinal_pago
@@ -9010,6 +9020,7 @@ export default function CRM() {
                     <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "var(--tx3)" }}>✦ digitando…</div>
                   </div>
                 )}
+                <div ref={auraChatEndRef} />
               </div>
               <div style={{ padding: "10px 12px", borderTop: "1px solid var(--br)", display: "flex", gap: 8, flexShrink: 0 }}>
                 <label style={{ cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0 }}>
@@ -9084,13 +9095,13 @@ export default function CRM() {
                 <button onClick={() => {
                   const cid = agendarProximaModal.cid;
                   setAgendarProximaModal(null);
-                  executarMove(cid, "hibernacao");
+                  executarMove(cid, "pos_venda");
                 }} style={{ flex: 1, background: "rgba(100,100,100,.12)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px", fontSize: 13, fontWeight: 700, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                  Não, projeto concluído
+                  Não, projeto concluído → Pós-Venda
                 </button>
               </div>
               <div style={{ fontSize: 11, color: "var(--tx3)", textAlign: "center" }}>
-                Se o projeto foi concluído, o cliente será movido para Hibernação automaticamente.
+                Se o projeto foi concluído, o cliente será movido para Pós-Venda automaticamente.
               </div>
             </div>
           </div>
