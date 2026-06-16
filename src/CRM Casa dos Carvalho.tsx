@@ -136,7 +136,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .srch::placeholder{color:var(--tx3);}
 .fb{background:var(--dk3);border:1px solid var(--br);border-radius:6px;color:var(--tx2);padding:6px 11px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
 .fb.on{background:var(--gold-d);border-color:var(--gold);color:var(--gold);}
-.kw{flex:1;overflow-x:auto;padding:12px;display:flex;gap:9px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:175px;max-width:175px;display:flex;flex-direction:column;gap:5px;}@media(max-width:600px){.kc{min-width:155px;max-width:155px;}.kw{padding:8px 6px;gap:7px;}}
+.kw{flex:1;overflow-x:auto;padding:12px;display:flex;gap:9px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:175px;max-width:175px;display:flex;flex-direction:column;gap:5px;}@media(max-width:600px){.kc{min-width:130px;max-width:130px;}.kw{padding:8px 6px;gap:6px;}.cname{font-size:11px;}.card{padding:5px 6px;}}
 
 .kh{padding:8px 11px;border-radius:7px 7px 0 0;background:var(--dk3);border:1px solid var(--br);border-bottom:2px solid;display:flex;align-items:center;justify-content:space-between;}
 .kt{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
@@ -1533,7 +1533,11 @@ export default function CRM() {
         ]
       });
       const c = updated.find(c => c.id === cid);
-      if (c) setTimeout(() => saveClientDb(c), 100);
+      if (c) {
+        setTimeout(() => saveClientDb(c), 100);
+        // Atualiza o sel se a ficha do cliente estiver aberta
+        setSel((prev: any) => prev?.id === cid ? c : prev);
+      }
       const nome = updated.find(c => c.id === cid)?.nome || "cliente";
       addLog(`Pipeline: "${nome}" movido para ${lbl}`);
       return updated;
