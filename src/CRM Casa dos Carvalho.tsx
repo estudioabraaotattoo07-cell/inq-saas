@@ -1050,6 +1050,7 @@ export default function CRM() {
   const [confirmDisparo, setConfirmDisparo] = useState<{clientes: any[]; mensagem: string; segmento: string} | null>(null);
   const [cancelProjetoModal, setCancelProjetoModal] = useState<{clienteId: any; projetoId: any; motivo: string} | null>(null);
   const [cancelMotivos, setCancelMotivos] = useState<string[]>(["Cliente desistiu", "Questão financeira", "Mudança de projeto", "Sem resposta do cliente", "Outro"]);
+  const [pvRegua, setPvRegua] = useState<{id: string; label: string; dias: number; msg: string; canal: string}[]>([]);
   const [novoProjetoAberto, setNovoProjetoAberto] = useState<any>(null);
   const [showStats, setShowStats] = useState(false);
   const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "" });
@@ -1267,6 +1268,16 @@ export default function CRM() {
           if (cfg.zenvia_numero) setZenviaNumero(cfg.zenvia_numero);
           if (cfg.aura_api_key) setAuraApiKey(cfg.aura_api_key);
           if (cfg.aura_instrucoes) setAuraInstrucoes(cfg.aura_instrucoes);
+          const pvReguaRaw = cfg.pv_regua;
+          if (pvReguaRaw) {
+            try {
+              const parsed = typeof pvReguaRaw === "string" ? JSON.parse(pvReguaRaw) : pvReguaRaw;
+              if (Array.isArray(parsed) && parsed.length > 0) setPvRegua(parsed);
+              else setPvRegua(PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" })));
+            } catch { setPvRegua(PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }))); }
+          } else {
+            setPvRegua(PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" })));
+          }
           setDark(cfg.dark_mode !== false);
           // [X2] onboarding_done from Supabase (source of truth); localStorage as cache
           if (cfg.onboarding_done) {
@@ -1285,6 +1296,14 @@ export default function CRM() {
     }
     loadAll();
   }, [logado]);
+
+  // ─── RÉGUA PÓS-VENDA ─────────────────────────────────────────────────────
+  const salvarPvRegua = async (novaRegua: typeof pvRegua) => {
+    setPvRegua(novaRegua);
+    try {
+      await sb.from("configuracoes").upsert({ user_id: userId, pv_regua: JSON.stringify(novaRegua) }, { onConflict: "user_id" });
+    } catch {}
+  };
 
   // ─── SALVAR CLIENTE NO SUPABASE ──────────────────────────────────────────
   const saveClientDb = useCallback(async (c: any) => {
@@ -1544,7 +1563,8 @@ export default function CRM() {
     const lbl = STAGES.find(s => s.id === ns)?.label || ns;
     const orq = ns === "sessao_agend";
     const tatuado = ns === "tatuado";
-    const pvFlow = tatuado ? PV_FLOW.map(p => ({ l: p.label, s: "pending", dias: p.dias, msg: p.msg })) : undefined;
+    const regraAtiva = pvRegua.length > 0 ? pvRegua : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
+    const pvFlow = tatuado ? regraAtiva.map(p => ({ l: p.label, s: "pending", dias: p.dias, msg: p.msg, canal: p.canal || "email" })) : undefined;
     setClients(p => {
       const updated = p.map(c => c.id !== cid ? c : {
         ...c, etapa: ns, orcamento: orq,
@@ -8849,6 +8869,54 @@ export default function CRM() {
 
                 {/* ── ABA SISTEMA ── */}
                 {settingsTab === "sistema" && <>
+                  <div>
+                    <div className="stit">Régua de Pós-Venda</div>
+                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 12 }}>Etapas de acompanhamento enviadas automaticamente após uma sessão concluída. Edite labels, dias e canal de envio.</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {(pvRegua.length > 0 ? pvRegua : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }))).map((etapa, idx) => (
+                        <div key={etapa.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <input value={etapa.label} onChange={e => {
+                              const nova = pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
+                              nova[idx] = { ...nova[idx], label: e.target.value };
+                              salvarPvRegua(nova);
+                            }} style={{ flex: 1, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif" }} placeholder="Label da etapa" />
+                            <input type="number" value={etapa.dias} min={0} onChange={e => {
+                              const nova = pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
+                              nova[idx] = { ...nova[idx], dias: Number(e.target.value) };
+                              salvarPvRegua(nova);
+                            }} style={{ width: 60, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", textAlign: "center" }} title="Dias após sessão" />
+                            <span style={{ fontSize: 11, color: "var(--tx3)" }}>dias</span>
+                            <select value={etapa.canal || "email"} onChange={e => {
+                              const nova = pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
+                              nova[idx] = { ...nova[idx], canal: e.target.value };
+                              salvarPvRegua(nova);
+                            }} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif" }}>
+                              <option value="email">E-mail</option>
+                              <option value="whatsapp">WhatsApp</option>
+                              <option value="sms">SMS</option>
+                            </select>
+                            <button onClick={() => {
+                              const nova = (pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }))).filter((_, i) => i !== idx);
+                              salvarPvRegua(nova);
+                            }} style={{ background: "rgba(192,57,43,.12)", border: "none", borderRadius: 5, padding: "4px 8px", fontSize: 12, color: "#C0392B", cursor: "pointer" }} title="Remover etapa">✕</button>
+                          </div>
+                          <textarea value={etapa.msg} rows={2} onChange={e => {
+                            const nova = pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
+                            nova[idx] = { ...nova[idx], msg: e.target.value };
+                            salvarPvRegua(nova);
+                          }} style={{ width: "100%", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 8px", fontSize: 11, color: "var(--tx2)", fontFamily: "'DM Sans',sans-serif", resize: "vertical", boxSizing: "border-box" }} placeholder="Mensagem da etapa (use {nome}, {estudio})" />
+                        </div>
+                      ))}
+                      <button onClick={() => {
+                        const base = pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
+                        const nova = [...base, { id: "etapa_" + Date.now(), label: "Nova etapa", dias: 30, msg: "", canal: "email" }];
+                        salvarPvRegua(nova);
+                      }} style={{ background: "rgba(52,152,219,.1)", border: "1px dashed rgba(52,152,219,.4)", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#3498DB", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                        ＋ Nova etapa
+                      </button>
+                    </div>
+                  </div>
                   <div>
                     <div className="stit">Tour Guiado</div>
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>Refaça o tour de apresentação do sistema a qualquer momento.</div>
