@@ -1086,6 +1086,9 @@ export default function CRM() {
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [editandoListas, setEditandoListas] = useState(false);
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
+  const [pvEditando, setPvEditando] = useState<number | null>(null);
+  const [pvEditLocal, setPvEditLocal] = useState<any | null>(null);
+  const [pvConfirmDelete, setPvConfirmDelete] = useState<number | null>(null);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
   const [resendApiKey, setResendApiKey] = useState("");
   const [emailRemetente, setEmailRemetente] = useState("");
@@ -5384,46 +5387,83 @@ export default function CRM() {
           <div style={{ padding: "16px", borderTop: "1px solid var(--br)", marginTop: 8 }}>
             <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--tx)", marginBottom: 4 }}>Régua de Pós-Venda</div>
             <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 12 }}>Configure as etapas de comunicação após cada sessão concluída. Cada profissional monta sua própria régua.</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 700 }}>
-              {(pvRegua.length > 0 ? pvRegua : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }))).map((etapa, idx) => (
-                <div key={etapa.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <input value={etapa.label} onChange={e => {
-                      const nova = pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
-                      nova[idx] = { ...nova[idx], label: e.target.value };
+            {/* Modal de confirmação de exclusão de etapa */}
+            {pvConfirmDelete !== null && (
+              <div className="ov" style={{ zIndex: 9999 }} onClick={() => setPvConfirmDelete(null)}>
+                <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(360px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>Remover etapa?</div>
+                  <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>Esta ação não pode ser desfeita. Deseja remover esta etapa da régua?</div>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    <button className="btn-c" onClick={() => setPvConfirmDelete(null)}>Cancelar</button>
+                    <button className="btn-s" style={{ background: "rgba(192,57,43,.18)", color: "#C0392B", border: "1px solid rgba(192,57,43,.4)" }} onClick={() => {
+                      const base = pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
+                      const nova = base.filter((_: any, i: number) => i !== pvConfirmDelete);
                       salvarPvRegua(nova);
-                    }} style={{ flex: 1, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif" }} placeholder="Label da etapa" />
-                    <input type="number" value={etapa.dias} min={0} onChange={e => {
-                      const nova = pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
-                      nova[idx] = { ...nova[idx], dias: Number(e.target.value) };
-                      salvarPvRegua(nova);
-                    }} style={{ width: 60, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", textAlign: "center" }} title="Dias após sessão" />
-                    <span style={{ fontSize: 11, color: "var(--tx3)" }}>dias</span>
-                    <select value={etapa.canal || "email"} onChange={e => {
-                      const nova = pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
-                      nova[idx] = { ...nova[idx], canal: e.target.value };
-                      salvarPvRegua(nova);
-                    }} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif" }}>
-                      <option value="email">E-mail</option>
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="sms">SMS</option>
-                    </select>
-                    <button onClick={() => {
-                      const nova = (pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }))).filter((_, i) => i !== idx);
-                      salvarPvRegua(nova);
-                    }} style={{ background: "rgba(192,57,43,.12)", border: "none", borderRadius: 5, padding: "4px 8px", fontSize: 12, color: "#C0392B", cursor: "pointer" }} title="Remover etapa">✕</button>
+                      if (pvEditando === pvConfirmDelete) { setPvEditando(null); setPvEditLocal(null); }
+                      setPvConfirmDelete(null);
+                    }}>Remover</button>
                   </div>
-                  <textarea value={etapa.msg} rows={2} onChange={e => {
-                    const nova = pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
-                    nova[idx] = { ...nova[idx], msg: e.target.value };
-                    salvarPvRegua(nova);
-                  }} style={{ width: "100%", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 8px", fontSize: 11, color: "var(--tx2)", fontFamily: "'DM Sans',sans-serif", resize: "vertical", boxSizing: "border-box" }} placeholder="Mensagem da etapa (use {nome}, {estudio})" />
                 </div>
-              ))}
+              </div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 700 }}>
+              {(pvRegua.length > 0 ? pvRegua : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }))).map((etapa, idx) => {
+                const emEdicao = pvEditando === idx;
+                const draft = emEdicao ? pvEditLocal : etapa;
+                const canalLabel = (draft.canal || "email") === "email" ? "E-mail" : (draft.canal || "email") === "whatsapp" ? "WhatsApp" : "SMS";
+                return (
+                  <div key={etapa.id} style={{ background: "var(--dk3)", border: "1px solid " + (emEdicao ? "rgba(201,168,76,.4)" : "var(--br)"), borderRadius: 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+                    {emEdicao ? (
+                      <>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <input value={draft.label} onChange={e => setPvEditLocal((d: any) => ({ ...d, label: e.target.value }))} style={{ flex: 1, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif" }} placeholder="Label da etapa" />
+                          <input type="number" value={draft.dias} min={0} onChange={e => setPvEditLocal((d: any) => ({ ...d, dias: Number(e.target.value) }))} style={{ width: 60, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", textAlign: "center" }} title="Dias após sessão" />
+                          <span style={{ fontSize: 11, color: "var(--tx3)" }}>dias</span>
+                          <select value={draft.canal || "email"} onChange={e => setPvEditLocal((d: any) => ({ ...d, canal: e.target.value }))} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif" }}>
+                            <option value="email">E-mail</option>
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="sms">SMS</option>
+                          </select>
+                          <button onClick={() => setPvConfirmDelete(idx)} style={{ background: "rgba(192,57,43,.12)", border: "none", borderRadius: 5, padding: "4px 8px", fontSize: 12, color: "#C0392B", cursor: "pointer" }} title="Remover etapa">✕</button>
+                        </div>
+                        <textarea value={draft.msg} rows={2} onChange={e => setPvEditLocal((d: any) => ({ ...d, msg: e.target.value }))} style={{ width: "100%", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 8px", fontSize: 11, color: "var(--tx2)", fontFamily: "'DM Sans',sans-serif", resize: "vertical", boxSizing: "border-box" }} placeholder="Mensagem da etapa (use {nome}, {estudio})" />
+                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                          <button className="btn-c" onClick={() => { setPvEditando(null); setPvEditLocal(null); }} style={{ fontSize: 11, padding: "4px 12px" }}>Cancelar</button>
+                          <button className="btn-s" onClick={() => {
+                            const base = pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
+                            base[idx] = { ...base[idx], ...pvEditLocal };
+                            salvarPvRegua(base);
+                            setPvEditando(null);
+                            setPvEditLocal(null);
+                          }} style={{ fontSize: 11, padding: "4px 12px" }}>Salvar</button>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx)" }}>{etapa.label || "Etapa sem título"}</span>
+                            <span style={{ fontSize: 10, color: "var(--tx3)", background: "var(--dk4)", borderRadius: 4, padding: "1px 6px" }}>{etapa.dias} dias</span>
+                            <span style={{ fontSize: 10, color: "var(--tx3)", background: "var(--dk4)", borderRadius: 4, padding: "1px 6px" }}>{canalLabel}</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{etapa.msg || <span style={{ fontStyle: "italic", opacity: 0.5 }}>Sem mensagem definida</span>}</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                          <button onClick={() => { setPvEditando(idx); setPvEditLocal({ ...etapa }); }} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 5, padding: "4px 8px", fontSize: 13, color: "var(--tx3)", cursor: "pointer" }} title="Editar etapa">✏️</button>
+                          <button onClick={() => setPvConfirmDelete(idx)} style={{ background: "rgba(192,57,43,.08)", border: "none", borderRadius: 5, padding: "4px 8px", fontSize: 12, color: "#C0392B", cursor: "pointer" }} title="Remover etapa">✕</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               <button onClick={() => {
                 const base = pvRegua.length > 0 ? [...pvRegua] : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
-                const nova = [...base, { id: "etapa_" + Date.now(), label: "Nova etapa", dias: 30, msg: "", canal: "email" }];
+                const novaEtapa = { id: "etapa_" + Date.now(), label: "Nova etapa", dias: 30, msg: "", canal: "email" };
+                const nova = [...base, novaEtapa];
                 salvarPvRegua(nova);
+                setPvEditando(nova.length - 1);
+                setPvEditLocal({ ...novaEtapa });
               }} style={{ background: "rgba(52,152,219,.1)", border: "1px dashed rgba(52,152,219,.4)", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#3498DB", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                 ＋ Nova etapa
               </button>
