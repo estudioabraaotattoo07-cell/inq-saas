@@ -1069,6 +1069,7 @@ export default function CRM() {
   const [showAvisoPastDate, setShowAvisoPastDate] = useState(false);
   const [proximaSessaoModal, setProximaSessaoModal] = useState<{cid: any; agEvent: any} | null>(null);
   const [editandoProjConc, setEditandoProjConc] = useState<{clienteId: any; projetoId: any} | null>(null);
+  const [pgAvulso, setPgAvulso] = useState<{clienteId: any; clienteNome: string; artistaId: string; fase: "form"|"confirm"; valor: string; forma: string; obs: string} | null>(null);
   const [agendarProximaModal, setAgendarProximaModal] = useState<{cid: any} | null>(null);
   const [instrucaoDisparo, setInstrucaoDisparo] = useState<Record<string, string>>({});
   const [gerandoDisparo, setGerandoDisparo] = useState<string | null>(null);
@@ -7136,6 +7137,13 @@ export default function CRM() {
                             <div style={{ fontSize: 16, fontWeight: 700, color: credito > 0 ? "var(--gold)" : "var(--tx3)", fontFamily: "'Cormorant Garamond',serif" }}>{credito > 0 ? "R$ " + credito.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "—"}</div>
                           </div>
                         </div>
+                        {totalDevedor > 0 && (
+                          <button
+                            onClick={() => setPgAvulso({ clienteId: sc.id, clienteNome: sc.nome, artistaId: sc.artista || "", fase: "form", valor: "", forma: "Pix", obs: "" })}
+                            style={{ alignSelf: "flex-start", background: "rgba(201,168,76,.12)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 7, padding: "8px 14px", fontSize: 12, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                            + Registrar pagamento
+                          </button>
+                        )}
                         {pagCliente.length > 0 && (
                           <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 13px" }}>
                             <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Histórico de Pagamentos</div>
@@ -10438,6 +10446,128 @@ export default function CRM() {
             </div>
           </div>
         )}
+
+        {/* ── MODAL: PAGAMENTO AVULSO ── */}
+        {pgAvulso && (() => {
+          const valorNum = parseFloat(pgAvulso.valor.replace(/\./g, "").replace(",", ".")) || 0;
+          const podeContinuar = valorNum > 0;
+          if (pgAvulso.fase === "form") {
+            return (
+              <div className="ov" onClick={() => setPgAvulso(null)}>
+                <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(420px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 16, animation: "slideInRight .25s ease" }}>
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>
+                    + Registrar pagamento
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--tx2)" }}>Cliente: <strong>{pgAvulso.clienteNome}</strong></div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Valor (R$) *</div>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="0,00"
+                        value={pgAvulso.valor}
+                        onChange={e => {
+                          const raw = e.target.value.replace(/[^0-9]/g, "");
+                          const num = raw ? Number(raw) / 100 : 0;
+                          const fmt = num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                          setPgAvulso(p => p ? { ...p, valor: fmt } : p);
+                        }}
+                        style={{ width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "9px 12px", fontSize: 15, fontWeight: 700, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", boxSizing: "border-box" }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Forma de pagamento</div>
+                      <select
+                        value={pgAvulso.forma}
+                        onChange={e => setPgAvulso(p => p ? { ...p, forma: e.target.value } : p)}
+                        style={{ width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "9px 12px", fontSize: 13, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", boxSizing: "border-box" }}>
+                        {["Pix", "Dinheiro", "Cartão", "Transferência", "Outro"].map(f => <option key={f}>{f}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Observação (opcional)</div>
+                      <input
+                        type="text"
+                        placeholder="ex: entrada da sessão 1"
+                        value={pgAvulso.obs}
+                        onChange={e => setPgAvulso(p => p ? { ...p, obs: e.target.value } : p)}
+                        style={{ width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "9px 12px", fontSize: 13, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", boxSizing: "border-box" }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    <button className="btn-c" onClick={() => setPgAvulso(null)}>Cancelar</button>
+                    <button
+                      className="btn-s"
+                      style={{ opacity: podeContinuar ? 1 : 0.45, cursor: podeContinuar ? "pointer" : "not-allowed" }}
+                      onClick={() => { if (podeContinuar) setPgAvulso(p => p ? { ...p, fase: "confirm" } : p); }}>
+                      Continuar →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div className="ov" onClick={() => setPgAvulso(null)}>
+              <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(420px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 16, animation: "slideInRight .25s ease" }}>
+                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>
+                  Confirmar pagamento
+                </div>
+                <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ fontSize: 13, color: "var(--tx)" }}>
+                    Cliente: <strong>{pgAvulso.clienteNome}</strong>
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "#27AE60", fontFamily: "'Cormorant Garamond',serif" }}>
+                    {"R$ " + valorNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--tx2)" }}>Forma: <strong>{pgAvulso.forma}</strong></div>
+                  {pgAvulso.obs && <div style={{ fontSize: 12, color: "var(--tx2)", fontStyle: "italic" }}>{pgAvulso.obs}</div>}
+                </div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button className="btn-c" onClick={() => setPgAvulso(p => p ? { ...p, fase: "form" } : p)}>← Voltar</button>
+                  <button className="btn-s" onClick={async () => {
+                    const hoje = new Date();
+                    const dataISO = hoje.toISOString().split("T")[0];
+                    const competencia = dataISO.slice(0, 7);
+                    const descricao = "Pagamento avulso" + (pgAvulso.obs ? " — " + pgAvulso.obs : "");
+                    const novaEntrada = {
+                      cliente_id: pgAvulso.clienteId,
+                      cliente_nome: pgAvulso.clienteNome,
+                      artista: pgAvulso.artistaId,
+                      val_a: valorNum,
+                      pgto: pgAvulso.forma,
+                      data: dataISO,
+                      competencia,
+                      categoria: "sessao",
+                      descricao,
+                      tipo: "entrada",
+                      is_permuta: false,
+                      user_id: userId,
+                    };
+                    try {
+                      const { data: inserted } = await sb.from("financeiro").insert(novaEntrada).select().single();
+                      const row = { ...(inserted || novaEntrada), id: inserted?.id, cliente: pgAvulso.clienteNome };
+                      setFin((p: any[]) => [...p, row]);
+                      try {
+                        const dataStr = hoje.toLocaleDateString("pt-BR");
+                        const horaStr = hoje.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                        await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: "Pagamento avulso registrado — R$ " + valorNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " (" + pgAvulso.forma + ") — " + pgAvulso.clienteNome, user_id: userId });
+                      } catch {}
+                      setPgAvulso(null);
+                      setShowAviso("✅ Pagamento de R$ " + valorNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " registrado com sucesso.");
+                    } catch {
+                      setShowAviso("❌ Erro ao registrar pagamento. Tente novamente.");
+                    }
+                  }}>
+                    Confirmar registro
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── MODAL: AGENDAR PRÓXIMA SESSÃO? ── */}
         {proximaSessaoModal && (
