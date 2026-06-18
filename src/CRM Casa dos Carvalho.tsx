@@ -968,6 +968,7 @@ export default function CRM() {
   const [campConfirmDel, setCampConfirmDel] = useState<number | null>(null);
   // ── FILTRO EXTRA (campanha | origem) — mutuamente exclusivo com filtro de artista ──
   const [filtroExtra, setFiltroExtra] = useState<{tipo: "campanha"|"orig"; valor: string} | null>(null);
+  const [dropdownAberto, setDropdownAberto] = useState<"campanhas"|"orig"|null>(null);
   // ── SELEÇÃO MÚLTIPLA + DISPARO EM MASSA ──
   const [selMode, setSelMode] = useState(false);
   const [selIds, setSelIds] = useState<Set<string>>(new Set());
@@ -1164,6 +1165,13 @@ export default function CRM() {
     }
     return () => document.head.removeChild(el);
   }, []);
+
+  useEffect(() => {
+    if (!dropdownAberto) return;
+    const handler = () => setDropdownAberto(null);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [dropdownAberto]);
 
   // ─── SUPABASE AUTH ────────────────────────────────────────────────────────
   const verificarAcessoPos = async (uid: string, email: string) => {
@@ -1623,9 +1631,14 @@ export default function CRM() {
       ? true
       : filtroExtra.tipo === "campanha"
         ? c.campanha_id === filtroExtra.valor
-        : (c.orig || "") === filtroExtra.valor;
+        : (() => {
+            const cOrig = (c.orig || "").toLowerCase();
+            const o = origens.find(or => or.nome === filtroExtra.valor);
+            if (o) return cOrig === o.nome.toLowerCase() || cOrig === o.slug;
+            return cOrig === filtroExtra.valor.toLowerCase();
+          })();
     return mA && mS && mE;
-  }), [clients, fa, srch, filtroExtra]);
+  }), [clients, fa, srch, filtroExtra, origens]);
 
   const getSC = (id: string) => filtered.filter(c => c.etapa === id);
   const calcScore = (c: any): { score: number; label: string; cor: string } => {
@@ -2577,6 +2590,17 @@ export default function CRM() {
         },
         required: ["instrucao"]
       }
+    },
+    {
+      name: "migrar_origens",
+      description: "Escaneia todos os clientes e mapeia valores antigos de origem (campo 'orig') para as origens cadastradas no sistema (por nome ou slug). Gera um relatório do que será alterado e SEMPRE pede confirmação explícita do usuário antes de aplicar qualquer mudança.",
+      input_schema: {
+        type: "object",
+        properties: {
+          confirmar: { type: "boolean", description: "true = aplicar a migração, false = apenas gerar o relatório sem alterar nada" }
+        },
+        required: ["confirmar"]
+      }
     }
   ];
 
@@ -2843,6 +2867,56 @@ export default function CRM() {
           return "✅ Memória salva! Agora sei que: **" + novaInstrucao + "**\n\nEssa informação ficará comigo em todas as conversas futuras.";
         } catch {
           return "❌ Erro ao salvar memória. Tente novamente.";
+        }
+      }
+      if (tool === "migrar_origens") {
+        try {
+          const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+          const mapa: { cliente: any; origAntiga: string; origemNova: { id: string; nome: string; slug: string } }[] = [];
+          const semMatch: { cliente: any; orig: string }[] = [];
+          for (const c of clients) {
+            const orig = (c.orig || "").trim();
+            if (!orig) continue;
+            const o = origens.find(or =>
+              normalize(or.nome) === normalize(orig) ||
+              or.slug === orig ||
+              normalize(orig).includes(normalize(or.nome)) ||
+              normalize(or.nome).includes(normalize(orig))
+            );
+            if (o && normalize(o.nome) !== normalize(orig)) {
+              mapa.push({ cliente: c, origAntiga: orig, origemNova: o });
+            } else if (!o) {
+              semMatch.push({ cliente: c, orig });
+            }
+          }
+          if (!params.confirmar) {
+            let rel = "**Relatório de migração de origens**\n\n";
+            if (mapa.length === 0) {
+              rel += "Nenhum cliente precisa de migração — todos os valores de origem já estão normalizados.\n";
+            } else {
+              rel += `${mapa.length} cliente(s) serão atualizados:\n`;
+              mapa.forEach(m => { rel += `- **${m.cliente.nome}**: "${m.origAntiga}" → "${m.origemNova.nome}"\n`; });
+            }
+            if (semMatch.length > 0) {
+              rel += `\n${semMatch.length} cliente(s) com origem não reconhecida (não serão alterados):\n`;
+              semMatch.forEach(m => { rel += `- **${m.cliente.nome}**: "${m.orig}"\n`; });
+            }
+            rel += "\nDeseja confirmar a migração?";
+            return rel;
+          }
+          if (mapa.length === 0) return "Nenhuma migração necessária.";
+          let ok = 0;
+          for (const m of mapa) {
+            const { error } = await sb.from("clientes").update({ orig: m.origemNova.nome }).eq("id", m.cliente.id);
+            if (!error) {
+              setClients(p => p.map(c => String(c.id) === String(m.cliente.id) ? { ...c, orig: m.origemNova.nome } : c));
+              ok++;
+            }
+          }
+          try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: (auraName || "IA") + " migrou origens de " + ok + " cliente(s)", user_id: userId }); } catch {}
+          return `✅ Migração concluída! ${ok} de ${mapa.length} cliente(s) atualizados.`;
+        } catch {
+          return "❌ Erro ao executar migração de origens.";
         }
       }
       return "❌ Ferramenta não reconhecida.";
@@ -3756,45 +3830,91 @@ export default function CRM() {
         {(tab === "kanban" || tab === "clientes") && (
           <div className="ctrl" style={{ flexWrap: "wrap", rowGap: 4 }}>
             <input className="srch" placeholder="Buscar..." value={srch} onChange={e => setSrch(e.target.value)} />
-            <button className={"fb" + (fa === "todos" && !filtroExtra ? " on" : "")} onClick={() => { setFa("todos"); setFiltroExtra(null); setSelIds(new Set()); }}>Todos</button>
+            <button className={"fb" + (fa === "todos" && !filtroExtra ? " on" : "")} onClick={() => { setFa("todos"); setFiltroExtra(null); setSelIds(new Set()); setDropdownAberto(null); }}>Todos</button>
             {artists.filter(a => a.ativo).map(a => (
-              <button key={a.id} className={"fb" + (fa === a.id && !filtroExtra ? " on" : "")} onClick={() => { setFa(a.id); setFiltroExtra(null); setSelIds(new Set()); }}>
+              <button key={a.id} className={"fb" + (fa === a.id && !filtroExtra ? " on" : "")} onClick={() => { setFa(a.id); setFiltroExtra(null); setSelIds(new Set()); setDropdownAberto(null); }}>
                 {a.nome.split(" ")[0]}
               </button>
             ))}
-            {tab === "clientes" && campanhas.length > 0 && (
-              <>
-                <span style={{ fontSize: 10, color: "var(--tx3)", alignSelf: "center", padding: "0 4px", whiteSpace: "nowrap" }}>Campanhas:</span>
-                {campanhas.map(camp => {
-                  const hoje = new Date().toISOString().split("T")[0];
-                  const ativa = camp.data_inicio && camp.data_fim && hoje >= camp.data_inicio && hoje <= camp.data_fim;
-                  const ativo = filtroExtra?.tipo === "campanha" && filtroExtra.valor === camp.id;
-                  return (
-                    <button key={camp.id}
-                      className={"fb" + (ativo ? " on" : "")}
-                      style={{ opacity: ativa ? 1 : 0.55 }}
-                      onClick={() => { setFa("todos"); setSelIds(new Set()); setFiltroExtra(ativo ? null : { tipo: "campanha", valor: camp.id }); }}>
-                      🎯 {camp.nome}
-                    </button>
-                  );
-                })}
-              </>
-            )}
-            {tab === "clientes" && origens.length > 0 && (
-              <>
-                <span style={{ fontSize: 10, color: "var(--tx3)", alignSelf: "center", padding: "0 4px", whiteSpace: "nowrap" }}>Origens:</span>
-                {origens.map(o => {
-                  const ativo = filtroExtra?.tipo === "orig" && filtroExtra.valor === o.nome;
-                  return (
-                    <button key={o.id}
-                      className={"fb" + (ativo ? " on" : "")}
-                      onClick={() => { setFa("todos"); setSelIds(new Set()); setFiltroExtra(ativo ? null : { tipo: "orig", valor: o.nome }); }}>
-                      🔗 {o.nome}
-                    </button>
-                  );
-                })}
-              </>
-            )}
+            {tab === "clientes" && campanhas.length > 0 && (() => {
+              const hoje = new Date().toISOString().split("T")[0];
+              const campAtiva = filtroExtra?.tipo === "campanha";
+              const campSel = campAtiva ? campanhas.find(c => c.id === filtroExtra!.valor) : null;
+              return (
+                <div style={{ position: "relative" }}>
+                  <button
+                    className={"fb" + (campAtiva ? " on" : "")}
+                    onClick={() => setDropdownAberto(p => p === "campanhas" ? null : "campanhas")}
+                    style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    🎯 {campSel ? campSel.nome : "Campanhas"} <span style={{ fontSize: 9, opacity: 0.7 }}>▾</span>
+                  </button>
+                  {dropdownAberto === "campanhas" && (
+                    <div
+                      style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 200, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 8, minWidth: 180, boxShadow: "0 4px 16px rgba(0,0,0,.4)", padding: "4px 0" }}
+                      onMouseDown={e => e.stopPropagation()}>
+                      {campAtiva && (
+                        <button
+                          style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 14px", background: "none", border: "none", color: "var(--tx3)", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                          onClick={() => { setFiltroExtra(null); setSelIds(new Set()); setDropdownAberto(null); }}>
+                          ✕ Limpar filtro
+                        </button>
+                      )}
+                      {campanhas.map(camp => {
+                        const ativa = camp.data_inicio && camp.data_fim && hoje >= camp.data_inicio && hoje <= camp.data_fim;
+                        const sel = filtroExtra?.tipo === "campanha" && filtroExtra.valor === camp.id;
+                        return (
+                          <button key={camp.id}
+                            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, width: "100%", textAlign: "left", padding: "7px 14px", background: sel ? "var(--dk3)" : "none", border: "none", color: sel ? "var(--gold)" : "var(--tx1)", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                            onClick={() => { setFa("todos"); setSelIds(new Set()); setFiltroExtra(sel ? null : { tipo: "campanha", valor: camp.id }); setDropdownAberto(null); }}>
+                            <span>🎯 {camp.nome}</span>
+                            <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 10, background: ativa ? "rgba(34,197,94,.15)" : "rgba(239,68,68,.1)", color: ativa ? "#22c55e" : "#ef4444", fontWeight: 600, whiteSpace: "nowrap" }}>
+                              {ativa ? "ativa" : "encerrada"}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {tab === "clientes" && origens.length > 0 && (() => {
+              const origAtiva = filtroExtra?.tipo === "orig";
+              const origSel = origAtiva ? origens.find(o => o.nome === filtroExtra!.valor) : null;
+              return (
+                <div style={{ position: "relative" }}>
+                  <button
+                    className={"fb" + (origAtiva ? " on" : "")}
+                    onClick={() => setDropdownAberto(p => p === "orig" ? null : "orig")}
+                    style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    🔗 {origSel ? origSel.nome : "Origens"} <span style={{ fontSize: 9, opacity: 0.7 }}>▾</span>
+                  </button>
+                  {dropdownAberto === "orig" && (
+                    <div
+                      style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 200, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 8, minWidth: 160, boxShadow: "0 4px 16px rgba(0,0,0,.4)", padding: "4px 0" }}
+                      onMouseDown={e => e.stopPropagation()}>
+                      {origAtiva && (
+                        <button
+                          style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 14px", background: "none", border: "none", color: "var(--tx3)", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                          onClick={() => { setFiltroExtra(null); setSelIds(new Set()); setDropdownAberto(null); }}>
+                          ✕ Limpar filtro
+                        </button>
+                      )}
+                      {origens.map(o => {
+                        const sel = filtroExtra?.tipo === "orig" && filtroExtra.valor === o.nome;
+                        return (
+                          <button key={o.id}
+                            style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 14px", background: sel ? "var(--dk3)" : "none", border: "none", color: sel ? "var(--gold)" : "var(--tx1)", fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
+                            onClick={() => { setFa("todos"); setSelIds(new Set()); setFiltroExtra(sel ? null : { tipo: "orig", valor: o.nome }); setDropdownAberto(null); }}>
+                            🔗 {o.nome}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 
