@@ -6153,66 +6153,6 @@ export default function CRM() {
                       <div className="fi2" key={i}><div className="fil">{fd.l}</div><div className="fiv">{fd.v || "—"}</div></div>
                     ))}
 
-                    {/* ── Referências de tatuagem ── */}
-                    <div className="fi2" style={{ gridColumn: "1 / -1" }}>
-                      <div className="fil" style={{ marginBottom: 8 }}>Referências de Tatuagem</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-                        {((sc as any).referencias || []).map((url: string, i: number) => (
-                          <div key={i} style={{ position: "relative" }}>
-                            <img src={url} alt={`ref-${i}`}
-                              style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 6, border: "1px solid var(--br)", cursor: "pointer" }}
-                              onClick={() => window.open(url, "_blank")} />
-                            <button
-                              onClick={async () => {
-                                const refs: string[] = ((sc as any).referencias || []).filter((_: string, j: number) => j !== i);
-                                upC(sc.id, "referencias", refs);
-                                await sb.from("clientes").update({ referencias: refs }).eq("id", sc.id);
-                              }}
-                              style={{ position: "absolute", top: -6, right: -6, background: "#c0392b", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
-                              title="Remover">✕</button>
-                          </div>
-                        ))}
-                        <label style={{ width: 80, height: 80, border: "1px dashed var(--br)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--tx3)", fontSize: 22, flexShrink: 0 }} title="Adicionar referência">
-                          +
-                          <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const compress = (f: File, maxPx: number, q: number): Promise<{base64: string}> => new Promise((res) => {
-                              const reader = new FileReader();
-                              reader.onload = (ev) => {
-                                const img = new Image();
-                                img.onload = () => {
-                                  let w = img.width, h = img.height;
-                                  if (w > maxPx || h > maxPx) { if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; } else { w = Math.round(w * maxPx / h); h = maxPx; } }
-                                  const canvas = document.createElement("canvas");
-                                  canvas.width = w; canvas.height = h;
-                                  canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-                                  res({ base64: canvas.toDataURL("image/jpeg", q).split(",")[1] });
-                                };
-                                img.src = ev.target?.result as string;
-                              };
-                              reader.readAsDataURL(f);
-                            });
-                            const { base64 } = await compress(file, 800, 0.75);
-                            const resp = await fetch("https://inq-ink-system.vercel.app/api/upload", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ base64, mimeType: "image/jpeg", clienteId: sc.id })
-                            });
-                            const d = await resp.json();
-                            if (d.url) {
-                              const refs = [...((sc as any).referencias || []), d.url];
-                              upC(sc.id, "referencias", refs);
-                            }
-                            e.target.value = "";
-                          }} />
-                        </label>
-                      </div>
-                      {(!(sc as any).referencias || (sc as any).referencias.length === 0) && (
-                        <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>Nenhuma referência ainda. Clique em + para adicionar.</div>
-                      )}
-                    </div>
-
                     <div className="fi2">
                       <div className="fil">Data de Nascimento</div>
                       {(() => {
@@ -6558,14 +6498,65 @@ export default function CRM() {
                 <div>
                   <div className="stit">Fotos de Referência</div>
                   <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px" }}>
-                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 6 }}>
-                      {"Fotos enviadas pelo cliente via " + (auraName || "IA") + "."}
+                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>
+                      {"Fotos enviadas pelo cliente via " + (auraName || "Aura") + " ou adicionadas manualmente."}
                     </div>
-                    <div style={{ background: "var(--dk4)", border: "1px dashed var(--br)", borderRadius: 6, padding: "18px", textAlign: "center" }}>
-                      <div style={{ fontSize: 24, marginBottom: 6 }}>📷</div>
-                      <div style={{ fontSize: 11, color: "var(--tx3)" }}>Integração com armazenamento em breve.</div>
-                      <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 4, fontStyle: "italic" }}>{"A " + (auraName || "IA") + " aceita somente fotos. Vídeos não são aceitos."}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {((sc as any).referencias || []).map((url: string, i: number) => (
+                        <div key={i} style={{ position: "relative" }}>
+                          <img src={url} alt={`ref-${i}`}
+                            style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid var(--br)", cursor: "pointer" }}
+                            onClick={() => window.open(url, "_blank")} />
+                          <button
+                            onClick={async () => {
+                              const refs: string[] = ((sc as any).referencias || []).filter((_: string, j: number) => j !== i);
+                              upC(sc.id, "referencias", refs);
+                              await sb.from("clientes").update({ referencias: refs }).eq("id", sc.id);
+                            }}
+                            style={{ position: "absolute", top: -6, right: -6, background: "#c0392b", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
+                            title="Remover">✕</button>
+                        </div>
+                      ))}
+                      <label style={{ width: 90, height: 90, border: "1px dashed var(--br)", borderRadius: 6, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--tx3)", gap: 4, flexShrink: 0 }} title="Adicionar referência">
+                        <span style={{ fontSize: 22 }}>+</span>
+                        <span style={{ fontSize: 9 }}>Adicionar</span>
+                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const compress = (f: File, maxPx: number, q: number): Promise<{base64: string}> => new Promise((res) => {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              const img = new Image();
+                              img.onload = () => {
+                                let w = img.width, h = img.height;
+                                if (w > maxPx || h > maxPx) { if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; } else { w = Math.round(w * maxPx / h); h = maxPx; } }
+                                const canvas = document.createElement("canvas");
+                                canvas.width = w; canvas.height = h;
+                                canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+                                res({ base64: canvas.toDataURL("image/jpeg", q).split(",")[1] });
+                              };
+                              img.src = ev.target?.result as string;
+                            };
+                            reader.readAsDataURL(f);
+                          });
+                          const { base64 } = await compress(file, 800, 0.75);
+                          const resp = await fetch("https://inq-ink-system.vercel.app/api/upload", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ base64, mimeType: "image/jpeg", clienteId: sc.id })
+                          });
+                          const d = await resp.json();
+                          if (d.url) {
+                            const refs = [...((sc as any).referencias || []), d.url];
+                            upC(sc.id, "referencias", refs);
+                          }
+                          e.target.value = "";
+                        }} />
+                      </label>
                     </div>
+                    {(!(sc as any).referencias || (sc as any).referencias.length === 0) && (
+                      <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic", marginTop: 8 }}>Nenhuma referência ainda.</div>
+                    )}
                   </div>
                 </div>
 
