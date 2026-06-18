@@ -107,13 +107,19 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { messages } = req.body;
+  const { messages, campanhas } = req.body;
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: "messages array required" });
   }
 
   if (!ANTHROPIC_API_KEY) {
     return res.status(500).json({ error: "API key not configured" });
+  }
+
+  let systemPrompt = SYSTEM_PROMPT;
+  if (campanhas && Array.isArray(campanhas) && campanhas.length > 0) {
+    const lista = campanhas.map(c => "- \"" + c.palavra_chave + "\" → " + c.nome + " (válida até " + c.data_fim + ")").join("\n");
+    systemPrompt += "\n\n## CAMPANHAS ATIVAS\nSe o lead mencionar que tem uma palavra secreta, código de promoção ou algo similar, pergunte qual é a palavra. Compare com esta lista (ignore maiúsculas, acentos e espaços):\n" + lista + "\n\nSe a palavra bater: confirme com entusiasmo discreto que reconhece a promoção. Garanta que nome, WhatsApp e e-mail estejam coletados (se não estiverem, colete antes de confirmar). Após os dados completos e confirmação do lead, inclua no final da resposta: [CAMPANHA:{\"id\":\"ID\",\"nome\":\"NOME\"}] com os dados reais.\nSe a palavra não bater ou a promoção estiver encerrada: informe de forma gentil e acolhedora, sem ser ríspida.";
   }
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -126,7 +132,7 @@ export default async function handler(req, res) {
     body: JSON.stringify({
       model: "claude-haiku-4-5",
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages,
     }),
   });
@@ -151,8 +157,15 @@ export default async function handler(req, res) {
     }
   }
 
-  // Strip the tag from visible text
-  const cleanText = text.replace(/\[LEAD:[\s\S]*?\]/g, "").trim();
+  // Extract campanha tag if present
+  const campMatch = text.match(/\[CAMPANHA:(\{[^}]+\})\]/);
+  let campanhaData = null;
+  if (campMatch) {
+    try { campanhaData = JSON.parse(campMatch[1]); } catch (e) {}
+  }
 
-  return res.status(200).json({ text: cleanText, lead: leadData });
+  // Strip tags from visible text
+  const cleanText = text.replace(/\[LEAD:[\s\S]*?\]/g, "").replace(/\[CAMPANHA:\{[^}]+\}\]/g, "").trim();
+
+  return res.status(200).json({ text: cleanText, lead: leadData, campanha: campanhaData });
 }

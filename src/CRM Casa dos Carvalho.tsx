@@ -961,6 +961,12 @@ export default function CRM() {
   const [origenEditIdx, setOrigenEditIdx] = useState<number | null>(null);
   const [origenEditNome, setOrigenEditNome] = useState("");
   const [origenConfirmDel, setOrigenConfirmDel] = useState<number | null>(null);
+  // ── CAMPANHAS ──
+  const [campanhas, setCampanhas] = useState<{id: string; user_id: string; nome: string; palavra_chave: string; data_inicio: string; data_fim: string; criado_em: string}[]>([]);
+  const [campEditIdx, setCampEditIdx] = useState<number | null>(null);
+  const [campEditForm, setCampEditForm] = useState<{nome: string; palavra_chave: string; data_inicio: string; data_fim: string}>({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" });
+  const [campConfirmDel, setCampConfirmDel] = useState<number | null>(null);
+  const [campFiltroId, setCampFiltroId] = useState<string | null>(null);
   const [cnpj, setCnpj] = useState("");
   const [metaMensal, setMetaMensal] = useState(0);
   const [descontoAniversario, setDescontoAniversario] = useState(5);
@@ -1219,12 +1225,14 @@ export default function CRM() {
           if (!uid) return await sb.from("configuracoes").select("*").limit(1).single().then(r => r.data ? [r.data] : null);
           return await sb.from("configuracoes").select("*").eq("user_id", uid).limit(1).single().then(r => r.data ? [r.data] : null);
         };
-        const [cls, arts, fins, sds, ags, cfgs, eqs, orgs] = await Promise.all([
+        const [cls, arts, fins, sds, ags, cfgs, eqs, orgs, camps] = await Promise.all([
           loadWithUser("clientes"), loadWithUser("artistas"), loadWithUser("financeiro"),
           loadWithUser("saidas"), loadWithUser("agenda"), loadCfg(), loadWithUser("equipamentos"),
-          uid ? sb.from("origens").select("*").eq("user_id", uid).order("criado_em", { ascending: true }).then(r => r.data) : Promise.resolve([])
+          uid ? sb.from("origens").select("*").eq("user_id", uid).order("criado_em", { ascending: true }).then(r => r.data) : Promise.resolve([]),
+          uid ? sb.from("campanhas").select("*").eq("user_id", uid).order("criado_em", { ascending: true }).then(r => r.data) : Promise.resolve([])
         ]);
         if (orgs && orgs.length > 0) setOrigens(orgs);
+        if (camps && camps.length > 0) setCampanhas(camps);
         if (eqs && eqs.length > 0) setEquipamentos(eqs);
         if (cls && cls.length > 0) setClients(cls.map((c: any) => ({
           ...c,
@@ -1237,6 +1245,7 @@ export default function CRM() {
           projetos: c.projetos || [],
           referencias: c.referencias || [],
           orig: c.orig || c.origem || "",
+          campanha_id: c.campanha_id || null,
         })));
         if (arts && arts.length > 0) {
           setArtists(arts);
@@ -1605,8 +1614,9 @@ export default function CRM() {
       (c.orig || "").toLowerCase().includes(q) ||
       (c.desc || "").toLowerCase().includes(q) ||
       (c.etapa || "").toLowerCase().includes(q);
-    return mA && mS;
-  }), [clients, fa, srch]);
+    const mC = !campFiltroId || c.campanha_id === campFiltroId;
+    return mA && mS && mC;
+  }), [clients, fa, srch, campFiltroId]);
 
   const getSC = (id: string) => filtered.filter(c => c.etapa === id);
   const calcScore = (c: any): { score: number; label: string; cor: string } => {
@@ -3698,6 +3708,7 @@ export default function CRM() {
             { id: "posvenda", l: "Pré/Pós-Venda", i: "💬", roles: ["admin","profissional"] },
             { id: "disparos", l: "Disparos", i: "📣", roles: ["admin"] },
             { id: "origens", l: "Origens", i: "🔗", roles: ["admin"] },
+            { id: "campanhas", l: "Campanhas", i: "🎯", roles: ["admin"] },
             { id: "licencas", l: "Licenças", i: "🔑", roles: ["owner"] },
           ] as {id:string;l:string;i:string;roles:string[]}[]).filter(t => {
             if (t.id === "licencas") return authEmail === OWNER_EMAIL;
@@ -3879,6 +3890,15 @@ export default function CRM() {
           return (
           <div style={{ display: "flex", flex: 1, overflow: "hidden", animation: "fadeIn .15s ease" }}>
             <div className="cw" style={{ flex: 1 }}>
+            {campFiltroId && (() => {
+              const camp = campanhas.find(c => c.id === campFiltroId);
+              return (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", background: "rgba(201,168,76,.12)", borderBottom: "1px solid rgba(201,168,76,.25)", fontSize: 12, color: "var(--gold)" }}>
+                  <span>🎯 Filtrando por campanha: <strong>{camp?.nome || campFiltroId}</strong></span>
+                  <button onClick={() => setCampFiltroId(null)} style={{ background: "none", border: "none", color: "var(--gold)", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1 }}>✕</button>
+                </div>
+              );
+            })()}
             {sorted.length === 0
               ? <div className="empty">Nenhum cliente encontrado.</div>
               : (
@@ -5627,6 +5647,151 @@ export default function CRM() {
           );
         })()}
 
+        {/* ── CAMPANHAS ── */}
+        {tab === "campanhas" && (() => {
+          const hoje = new Date().toISOString().split("T")[0];
+          const statusCamp = (c: any) => {
+            if (!c.data_inicio || !c.data_fim) return "sem data";
+            if (hoje < c.data_inicio) return "agendada";
+            if (hoje > c.data_fim) return "encerrada";
+            return "ativa";
+          };
+          const statusStyle = (s: string) => {
+            if (s === "ativa") return { background: "rgba(39,174,96,.15)", color: "#27AE60", border: "1px solid rgba(39,174,96,.3)" };
+            if (s === "agendada") return { background: "rgba(52,152,219,.15)", color: "#3498DB", border: "1px solid rgba(52,152,219,.3)" };
+            return { background: "rgba(127,140,141,.15)", color: "var(--tx3)", border: "1px solid var(--br)" };
+          };
+          const slugPalavra = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "").trim();
+          const salvarCamp = async (form: {nome: string; palavra_chave: string; data_inicio: string; data_fim: string}, idx: number | null) => {
+            if (!form.nome.trim() || !form.palavra_chave.trim()) return;
+            const row = { ...form, palavra_chave: slugPalavra(form.palavra_chave), user_id: userId, criado_em: idx === null ? new Date().toISOString() : undefined };
+            try {
+              if (idx === null) {
+                const { data: nova } = await sb.from("campanhas").insert(row).select("*").single();
+                if (nova) setCampanhas(prev => [...prev, nova]);
+              } else {
+                const { data: atualizada } = await sb.from("campanhas").update({ nome: row.nome, palavra_chave: row.palavra_chave, data_inicio: row.data_inicio, data_fim: row.data_fim }).eq("id", campanhas[idx].id).select("*").single();
+                if (atualizada) setCampanhas(prev => prev.map((c, i) => i === idx ? atualizada : c));
+              }
+            } catch {}
+            setCampEditIdx(null);
+            setCampEditForm({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" });
+          };
+          const excluirCamp = async (idx: number) => {
+            try {
+              await sb.from("campanhas").delete().eq("id", campanhas[idx].id);
+              setCampanhas(prev => prev.filter((_, i) => i !== idx));
+            } catch {}
+            setCampConfirmDel(null);
+          };
+          const campForm = (idx: number | null) => (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Nome da campanha</div>
+                  <input className="ef" placeholder="Ex: Black Friday 2025" value={campEditForm.nome} onChange={e => setCampEditForm(f => ({ ...f, nome: e.target.value }))} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Palavra-chave</div>
+                  <input className="ef" placeholder="Ex: blackfriday2025" value={campEditForm.palavra_chave} onChange={e => setCampEditForm(f => ({ ...f, palavra_chave: e.target.value }))} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Início</div>
+                  <input className="ef" type="date" value={campEditForm.data_inicio} onChange={e => setCampEditForm(f => ({ ...f, data_inicio: e.target.value }))} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Fim</div>
+                  <input className="ef" type="date" value={campEditForm.data_fim} onChange={e => setCampEditForm(f => ({ ...f, data_fim: e.target.value }))} />
+                </div>
+              </div>
+              {campEditForm.palavra_chave.trim() && (
+                <div style={{ fontSize: 11, color: "var(--tx3)" }}>
+                  Palavra salva como: <span style={{ color: "var(--gold)", fontFamily: "monospace" }}>{slugPalavra(campEditForm.palavra_chave)}</span>
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn-c" onClick={() => { setCampEditIdx(null); setCampEditForm({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" }); }}>Cancelar</button>
+                <button className="btn-s" onClick={() => salvarCamp(campEditForm, idx)}>Salvar</button>
+              </div>
+            </div>
+          );
+          return (
+            <div style={{ padding: "24px 16px", maxWidth: 700, margin: "0 auto" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🎯 Campanhas</div>
+                <button className="btn-s" onClick={() => { setCampEditIdx(-1); setCampEditForm({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" }); }}>+ Nova campanha</button>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 20, lineHeight: 1.6 }}>
+                Crie campanhas com uma palavra-chave secreta. Quando um lead mencionar a palavra na conversa com a Aura do site, ela é vinculada automaticamente à campanha.
+              </div>
+              {/* Modal confirmação exclusão */}
+              {campConfirmDel !== null && (
+                <div className="ov" style={{ zIndex: 9999 }} onClick={() => setCampConfirmDel(null)}>
+                  <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(360px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>Remover campanha?</div>
+                    <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>Esta ação não pode ser desfeita. Leads já vinculados à campanha perdem o vínculo.</div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button className="btn-c" onClick={() => setCampConfirmDel(null)}>Cancelar</button>
+                      <button className="btn-s" style={{ background: "rgba(192,57,43,.18)", color: "#C0392B", border: "1px solid rgba(192,57,43,.4)" }} onClick={() => excluirCamp(campConfirmDel!)}>Remover</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Form nova campanha */}
+              {campEditIdx === -1 && (
+                <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "16px", marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, color: "var(--tx3)", fontWeight: 600, marginBottom: 10 }}>Nova campanha</div>
+                  {campForm(null)}
+                </div>
+              )}
+              {/* Lista */}
+              {campanhas.length === 0 && campEditIdx !== -1 && (
+                <div style={{ textAlign: "center", color: "var(--tx3)", fontSize: 13, padding: "40px 0" }}>
+                  Nenhuma campanha cadastrada ainda. Clique em "+ Nova campanha" para começar.
+                </div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {campanhas.map((camp, idx) => {
+                  const st = statusCamp(camp);
+                  const leadsCount = clients.filter(c => c.campanha_id === camp.id).length;
+                  const isEditing = campEditIdx === idx;
+                  return (
+                    <div key={camp.id} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px" }}>
+                      {isEditing ? campForm(idx) : (
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--tx)" }}>{camp.nome}</div>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, ...statusStyle(st) }}>{st.toUpperCase()}</span>
+                            </div>
+                            <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 4 }}>
+                              Palavra-chave: <span style={{ color: "var(--gold)", fontFamily: "monospace", fontWeight: 600 }}>{camp.palavra_chave}</span>
+                            </div>
+                            {(camp.data_inicio || camp.data_fim) && (
+                              <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 6 }}>
+                                {camp.data_inicio && camp.data_fim ? camp.data_inicio + " → " + camp.data_fim : camp.data_inicio || camp.data_fim}
+                              </div>
+                            )}
+                            <button
+                              onClick={() => { setCampFiltroId(camp.id); changeTab("clientes"); }}
+                              style={{ background: "none", border: "none", padding: 0, fontSize: 11, color: leadsCount > 0 ? "var(--q3)" : "var(--tx3)", cursor: leadsCount > 0 ? "pointer" : "default", textDecoration: leadsCount > 0 ? "underline" : "none", fontFamily: "inherit" }}>
+                              {leadsCount} lead{leadsCount !== 1 ? "s" : ""} capturado{leadsCount !== 1 ? "s" : ""}
+                            </button>
+                          </div>
+                          <button title="Editar" onClick={() => { setCampEditIdx(idx); setCampEditForm({ nome: camp.nome, palavra_chave: camp.palavra_chave, data_inicio: camp.data_inicio || "", data_fim: camp.data_fim || "" }); }}
+                            style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "var(--tx2)", flexShrink: 0 }}>✏️</button>
+                          <button title="Remover" onClick={() => setCampConfirmDel(idx)}
+                            style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "#C0392B", flexShrink: 0 }}>✕</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── PRÉ/PÓS-VENDA ── */}
         {tab === "posvenda" && (() => {
           // ── Componente interno reutilizável de régua ──────────────────────────
@@ -7136,6 +7301,18 @@ export default function CRM() {
                           <option value="Outro">Outro</option>
                         </select>
                       </div>
+                      {(sel as any)?.campanha_id && (() => {
+                        const camp = campanhas.find(c => c.id === (sel as any).campanha_id);
+                        return camp ? (
+                          <div className="ff">
+                            <label className="fl">Campanha</label>
+                            <div className="fs" style={{ display: "flex", alignItems: "center", gap: 6, cursor: "default" }}>
+                              <span>🎯</span>
+                              <span style={{ color: "var(--gold)", fontWeight: 600 }}>{camp.nome}</span>
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
                       <div className="ff">
                         <label className="fl">Data de Nascimento</label>
                         {(() => {
