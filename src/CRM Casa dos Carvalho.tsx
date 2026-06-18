@@ -362,6 +362,7 @@ const STAGES = [
   { id: "cons_agendada", label: "Consulta Marcada", color: "#9B6BB5", emoji: "📅" },
   { id: "sessao_agend", label: "Sessão Marcada", color: "#4A9EBF", emoji: "✏️" },
   { id: "tatuado", label: "Sessão Realizada", color: "#27AE60", emoji: "✅" },
+  { id: "aguard_agend", label: "Aguardando Agendamento", color: "#F39C12", emoji: "⏰" },
   { id: "pos_venda", label: "Pós-venda", color: "#E67E22", emoji: "💬" },
   { id: "lista_espera", label: "Lista de Espera", color: "#3498DB", emoji: "⏳" },
   { id: "hibernacao", label: "Hibernação", color: "#666", emoji: "💤" },
@@ -445,10 +446,10 @@ const SEGS = [
   { id: "q0", label: "Q0 - Presencial", desc: "Estiveram no atelier", icon: "🟣", f: (c: any) => c.qual === "Q0" },
   { id: "q1", label: "Q1 - Frios", desc: "Nutricao e educacao", icon: "🔴", f: (c: any) => c.qual === "Q1" },
   { id: "q2", label: "Q2 - Quentes", desc: "Prontos para avancar", icon: "🟡", f: (c: any) => c.qual === "Q2" },
-  { id: "tatuados", label: "Tatuados", desc: "Ja fizeram sessao", icon: "🖤", f: (c: any) => c.etapa === "tatuado" || c.etapa === "pos_venda" },
+  { id: "tatuados", label: "Tatuados", desc: "Ja fizeram sessao", icon: "🖤", f: (c: any) => c.etapa === "tatuado" || c.etapa === "aguard_agend" || c.etapa === "pos_venda" },
   { id: "primeira", label: "Primeira Tattoo", desc: "Primeira vez", icon: "✨", f: (c: any) => c.primeira },
-  { id: "google", label: "Avaliacao Google", desc: "Tatuados sem avaliacao", icon: "⭐", f: (c: any) => (c.etapa === "tatuado" || c.etapa === "pos_venda") && !c.googleReview },
-  { id: "retorno", label: "Retorno Sazonal", desc: "Tatuados ha mais de 6 meses", icon: "🔄", f: (c: any) => (c.etapa === "tatuado" || c.etapa === "pos_venda") && c.dias >= 180 },
+  { id: "google", label: "Avaliacao Google", desc: "Tatuados sem avaliacao", icon: "⭐", f: (c: any) => (c.etapa === "tatuado" || c.etapa === "aguard_agend" || c.etapa === "pos_venda") && !c.googleReview },
+  { id: "retorno", label: "Retorno Sazonal", desc: "Tatuados ha mais de 6 meses", icon: "🔄", f: (c: any) => (c.etapa === "tatuado" || c.etapa === "aguard_agend" || c.etapa === "pos_venda") && c.dias >= 180 },
 ];
 
 const DATAS = [
@@ -1111,14 +1112,14 @@ export default function CRM() {
   const [pvEditLocal, setPvEditLocal] = useState<any | null>(null);
   const [pvConfirmDelete, setPvConfirmDelete] = useState<number | null>(null);
   // ── PRÉ-VENDA RÉGUAS ──
-  const [preVendaRegua, setPreVendaRegua] = useState<{lead: {id:string;label:string;dias:number;msg:string;canal:string}[]; qualificacao: {id:string;label:string;dias:number;msg:string;canal:string}[]; hibernacao: {id:string;label:string;dias:number;msg:string;canal:string}[]}>({ lead: [], qualificacao: [], hibernacao: [] });
+  const [preVendaRegua, setPreVendaRegua] = useState<{lead: {id:string;label:string;dias:number;msg:string;canal:string}[]; qualificacao: {id:string;label:string;dias:number;msg:string;canal:string}[]; hibernacao: {id:string;label:string;dias:number;msg:string;canal:string}[]; aguard_agend: {id:string;label:string;dias:number;msg:string;canal:string}[]}>({ lead: [], qualificacao: [], hibernacao: [], aguard_agend: [] });
   const [pvPreEditando, setPvPreEditando] = useState<{campo: string; idx: number} | null>(null);
   const [pvPreEditLocal, setPvPreEditLocal] = useState<any | null>(null);
   const [pvPreConfirmDelete, setPvPreConfirmDelete] = useState<{campo: string; idx: number} | null>(null);
   const [canaisHabilitados, setCanaisHabilitados] = useState<{email: boolean; whatsapp: boolean; sms: boolean}>({ email: true, whatsapp: false, sms: false });
   // ── RÉGUA: toggles de ativação (nível régua) ──
   const [pvReguaAtiva, setPvReguaAtiva] = useState(true);
-  const [preReguaAtiva, setPreReguaAtiva] = useState<{lead: boolean; qualificacao: boolean; hibernacao: boolean}>({ lead: true, qualificacao: true, hibernacao: true });
+  const [preReguaAtiva, setPreReguaAtiva] = useState<{lead: boolean; qualificacao: boolean; hibernacao: boolean; aguard_agend: boolean}>({ lead: true, qualificacao: true, hibernacao: true, aguard_agend: true });
   // ── DISPARO MANUAL: estado de confirmação ──
   const [disparoManualPendente, setDisparoManualPendente] = useState<{etapa: any; tipoRegua: string; campo?: string} | null>(null);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
@@ -1357,6 +1358,7 @@ export default function CRM() {
                   lead: Array.isArray(parsedPre.lead) ? parsedPre.lead : [],
                   qualificacao: Array.isArray(parsedPre.qualificacao) ? parsedPre.qualificacao : [],
                   hibernacao: Array.isArray(parsedPre.hibernacao) ? parsedPre.hibernacao : [],
+                  aguard_agend: Array.isArray(parsedPre.aguard_agend) ? parsedPre.aguard_agend : [],
                 });
               }
             } catch {}
@@ -1674,6 +1676,7 @@ export default function CRM() {
     // Forma de pagamento não definida em cliente com sessão agendada
     const pgtoValido = (c.pgto && c.pgto !== "A definir") ||
       (c.etapa === "tatuado") ||
+      (c.etapa === "aguard_agend") ||
       (c.etapa === "pos_venda") ||
       fin.some((f: any) => String(f.cliente_id) === String(c.id));
     if (!pgtoValido && ["sessao_agend"].includes(c.etapa)) m.push("Forma de pagamento");
@@ -1690,7 +1693,7 @@ export default function CRM() {
     return m;
   };
   const churn = (c: any) => {
-    if (c.etapa !== "tatuado" && c.etapa !== "pos_venda") return null;
+    if (c.etapa !== "tatuado" && c.etapa !== "aguard_agend" && c.etapa !== "pos_venda") return null;
     if (c.dias >= 365) return "red";
     if (c.dias >= 180) return "orange";
     return null;
@@ -1709,12 +1712,12 @@ export default function CRM() {
         }
       }
       const garantia = c.etapa === "tatuado" && c.dias >= 30 && c.dias <= 37;
-      const inativo = !["blacklist","tatuado","pos_venda","hibernacao"].includes(c.etapa) && c.dias >= 40;
+      const inativo = !["blacklist","tatuado","aguard_agend","pos_venda","hibernacao"].includes(c.etapa) && c.dias >= 40;
       return miss(c).length > 0 || churn(c) || projSemValor || aniversario || garantia || inativo;
     });
   }, [clients]);
   const reativacao = useMemo(() =>
-    clients.filter(c => !["blacklist", "tatuado", "pos_venda"].includes(c.etapa) && c.dias >= 30)
+    clients.filter(c => !["blacklist", "tatuado", "aguard_agend", "pos_venda"].includes(c.etapa) && c.dias >= 30)
       .sort((a, b) => b.dias - a.dias).slice(0, 5),
     [clients]
   );
@@ -2195,7 +2198,7 @@ export default function CRM() {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
         if (tipoKey === "cons" && cli && ["lead", "qualificacao"].includes(cli.etapa)) {
           executarMove(agClientVinc.id, "cons_agendada");
-        } else if ((tipoKey === "sess" || tipoKey === "piercing") && cli && ["lead", "qualificacao", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "pos_venda"].includes(cli.etapa)) {
+        } else if ((tipoKey === "sess" || tipoKey === "piercing") && cli && ["lead", "qualificacao", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"].includes(cli.etapa)) {
           executarMove(agClientVinc.id, "sessao_agend");
         }
       }
@@ -2289,7 +2292,7 @@ export default function CRM() {
         }
       } else if (tipoKey === "sess" || tipoKey === "piercing") {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
-        if (cli && ["lead", "qualificacao", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "pos_venda"].includes(cli.etapa)) {
+        if (cli && ["lead", "qualificacao", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"].includes(cli.etapa)) {
           if (cli.etapa === "hibernacao" && (cli.faltas || 0) > 0) {
             setTimeout(() => setShowAviso(`⚠️ ${cli.nome} estava em hibernação por desmarcação. Lembre de cobrar R$100,00 de taxa — conforme política do estúdio.`), 500);
           }
@@ -3217,6 +3220,7 @@ export default function CRM() {
     cons_agendada: { bg: "rgba(155,107,181,.15)", color: "#9B6BB5", b: "rgba(155,107,181,.3)" },
     sessao_agend: { bg: "rgba(74,158,191,.15)", color: "#4A9EBF", b: "rgba(74,158,191,.3)" },
     tatuado: { bg: "rgba(39,174,96,.15)", color: "#27AE60", b: "rgba(39,174,96,.3)" },
+    aguard_agend: { bg: "rgba(243,156,18,.15)", color: "#F39C12", b: "rgba(243,156,18,.3)" },
     pos_venda: { bg: "rgba(230,126,34,.15)", color: "#E67E22", b: "rgba(230,126,34,.3)" },
     lista_espera: { bg: "rgba(52,152,219,.15)", color: "#3498DB", b: "rgba(52,152,219,.3)" },
     hibernacao: { bg: "rgba(102,102,102,.15)", color: "#888", b: "rgba(102,102,102,.3)" },
@@ -6373,6 +6377,17 @@ export default function CRM() {
                 preReguaAtiva.hibernacao !== false,
                 () => salvarPreReguaAtiva({ ...preReguaAtiva, hibernacao: !preReguaAtiva.hibernacao }),
                 "pré-venda/hibernacao"
+              )}
+              {renderRegua(
+                "Régua Aguardando Agendamento",
+                "Clientes com projeto em andamento que aguardam agendamento da próxima sessão. Diferente da Hibernação — aqui o cliente tem intenção confirmada e só precisa de um estímulo para agendar.",
+                preVendaRegua.aguard_agend,
+                (novas) => salvarPreVendaRegua({ ...preVendaRegua, aguard_agend: novas }),
+                false,
+                "aguard_agend",
+                preReguaAtiva.aguard_agend !== false,
+                () => salvarPreReguaAtiva({ ...preReguaAtiva, aguard_agend: !preReguaAtiva.aguard_agend }),
+                "pré-venda/aguard_agend"
               )}
 
               {/* ── RÉGUA DE PÓS-VENDA ── */}
@@ -10386,33 +10401,39 @@ export default function CRM() {
           </button>
         </div>
 
-        {/* ── MODAL: HAVERÁ MAIS SESSÕES? ── */}
+        {/* ── MODAL: SESSÃO CONCLUÍDA — PROJETO COMPLETO? ── */}
         {agendarProximaModal && (
           <div className="ov" onClick={() => setAgendarProximaModal(null)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(440px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(460px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>
-                ✅ Sessão concluída!
+                ✅ Sessão concluída
               </div>
               <div style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.6 }}>
-                Haverá mais sessões para este projeto?
+                Este projeto está completo ou ainda há mais sessões a realizar?
               </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => {
-                  setAgendarProximaModal(null);
-                  setProximaSessaoModal({ cid: agendarProximaModal.cid, agEvent: null });
-                }} style={{ flex: 1, background: "rgba(201,168,76,.15)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 8, padding: "12px", fontSize: 13, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                  Sim, haverá mais
-                </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button onClick={() => {
                   const cid = agendarProximaModal.cid;
                   setAgendarProximaModal(null);
                   executarMove(cid, "pos_venda");
-                }} style={{ flex: 1, background: "rgba(100,100,100,.12)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px", fontSize: 13, fontWeight: 700, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                  Não, projeto concluído → Pós-Venda
+                }} style={{ background: "rgba(39,174,96,.12)", border: "1px solid rgba(39,174,96,.4)", borderRadius: 8, padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#27AE60", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", textAlign: "left" }}>
+                  ✅ Projeto completo → Pós-Venda
+                  <div style={{ fontSize: 11, fontWeight: 400, color: "rgba(39,174,96,.8)", marginTop: 3 }}>Régua de pós-venda inicia automaticamente</div>
+                </button>
+                <button onClick={() => {
+                  const cid = agendarProximaModal.cid;
+                  setAgendarProximaModal(null);
+                  executarMove(cid, "aguard_agend");
+                }} style={{ background: "rgba(243,156,18,.12)", border: "1px solid rgba(243,156,18,.4)", borderRadius: 8, padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#F39C12", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", textAlign: "left" }}>
+                  ⏰ Mais sessões → Aguardando Agendamento
+                  <div style={{ fontSize: 11, fontWeight: 400, color: "rgba(243,156,18,.8)", marginTop: 3 }}>Régua específica para projetos em andamento</div>
+                </button>
+                <button onClick={() => setAgendarProximaModal(null)} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 8, padding: "10px 16px", fontSize: 12, color: "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                  Cancelar
                 </button>
               </div>
               <div style={{ fontSize: 11, color: "var(--tx3)", textAlign: "center" }}>
-                Se o projeto foi concluído, o cliente será movido para Pós-Venda automaticamente.
+                Os e-mails de cuidados de cicatrização serão enviados independente da escolha.
               </div>
             </div>
           </div>

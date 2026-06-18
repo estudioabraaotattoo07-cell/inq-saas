@@ -214,7 +214,7 @@ export default async function handler(req, res) {
       } catch {}
 
       // Parse pre_venda_regua
-      let preVendaRegua = { lead: [], qualificacao: [], hibernacao: [] };
+      let preVendaRegua = { lead: [], qualificacao: [], hibernacao: [], aguard_agend: [] };
       try {
         const raw = cfg.pre_venda_regua;
         if (raw) {
@@ -223,7 +223,8 @@ export default async function handler(req, res) {
             preVendaRegua = {
               lead: Array.isArray(parsed.lead) ? parsed.lead : [],
               qualificacao: Array.isArray(parsed.qualificacao) ? parsed.qualificacao : [],
-              hibernacao: Array.isArray(parsed.hibernacao) ? parsed.hibernacao : []
+              hibernacao: Array.isArray(parsed.hibernacao) ? parsed.hibernacao : [],
+              aguard_agend: Array.isArray(parsed.aguard_agend) ? parsed.aguard_agend : []
             };
           }
         }
@@ -260,7 +261,7 @@ export default async function handler(req, res) {
           }
         } catch {}
 
-        if (pvReguaAtiva && pvRegua.length > 0 && cliente.sessao_concluida_em) {
+        if (pvReguaAtiva && pvRegua.length > 0 && cliente.sessao_concluida_em && cliente.etapa !== "aguard_agend") {
           const diasPv = diasEntre(cliente.sessao_concluida_em, hoje);
           if (diasPv >= 0) {
             for (const etapa of pvRegua) {
@@ -279,7 +280,7 @@ export default async function handler(req, res) {
 
         // ── PRÉ-VENDA ───────────────────────────────────────────────────────
         const etapaCliente = cliente.etapa || "";
-        const etapaMapeadas = { lead: "lead", qualificacao: "qualificacao", hibernacao: "hibernacao" };
+        const etapaMapeadas = { lead: "lead", qualificacao: "qualificacao", hibernacao: "hibernacao", aguard_agend: "aguard_agend" };
         const campoPre = etapaMapeadas[etapaCliente] || null;
 
         if (campoPre && preVendaRegua[campoPre] && preVendaRegua[campoPre].length > 0) {
