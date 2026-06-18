@@ -1142,6 +1142,9 @@ export default function CRM() {
   const [nomeRemetente, setNomeRemetente] = useState("");
   const [zenviaApiKey, setZenviaApiKey] = useState("");
   const [zenviaNumero, setZenviaNumero] = useState("");
+  // ── TESTE DE CANAIS (confirmação manual de recebimento) ──
+  const [testeCanalEnviado, setTesteCanalEnviado] = useState<{canal: "email" | "sms" | "whatsapp"; destino: string} | null>(null);
+  const [testandoCanal, setTestandoCanal] = useState<string | null>(null);
   const [auraApiKey, setAuraApiKey] = useState("");
   const [showAuraChat, setShowAuraChat] = useState(false);
   const [auraChatMessages, setAuraChatMessages] = useState<{role: string; content: string}[]>([]);
@@ -1457,6 +1460,47 @@ export default function CRM() {
     try {
       await sb.from("configuracoes").upsert({ user_id: userId, canais_habilitados: JSON.stringify(novos) }, { onConflict: "user_id" });
     } catch {}
+  };
+
+  const testarCanal = async (canal: "email" | "sms" | "whatsapp") => {
+    if (canal === "email") {
+      if (!resendApiKey || !emailRemetente) { setShowAviso("Preencha a Resend API Key e o Email Remetente antes de testar."); return; }
+      if (!studioEmail) { setShowAviso("Preencha o Email do Estúdio em Configurações → Estúdio para receber o teste."); return; }
+      setTestandoCanal("email");
+      try {
+        const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>Esta é uma mensagem de teste do INK SYSTEM.<br>Se você recebeu este e-mail, o canal está funcionando corretamente.</div>";
+        await fetch("/api/resend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey: resendApiKey, from: (nomeRemetente || studioName || "INK SYSTEM") + " <" + emailRemetente + ">", to: studioEmail, subject: "Teste de canal — INK SYSTEM", html })
+        });
+        setTesteCanalEnviado({ canal: "email", destino: studioEmail });
+      } catch { setShowAviso("Erro ao enviar o teste. Revise a Resend API Key."); }
+      setTestandoCanal(null);
+    } else {
+      if (!zenviaApiKey || !zenviaNumero) { setShowAviso("Preencha a Zenvia API Key e o Número de Envio antes de testar."); return; }
+      if (!studioTel) { setShowAviso("Preencha o WhatsApp do Estúdio em Configurações → Estúdio para receber o teste."); return; }
+      setTestandoCanal(canal);
+      try {
+        const tel = (studioTel || "").replace(/[^0-9]/g, "");
+        const endpoint = canal === "sms" ? "/api/zenvia-sms" : "/api/zenvia";
+        await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey: zenviaApiKey, from: zenviaNumero, to: tel, text: "Mensagem de teste do INK SYSTEM. Se você recebeu isso, o canal está funcionando!" })
+        });
+        setTesteCanalEnviado({ canal, destino: studioTel });
+      } catch { setShowAviso("Erro ao enviar o teste. Revise a Zenvia API Key."); }
+      setTestandoCanal(null);
+    }
+  };
+
+  const confirmarRecebimentoTeste = async (recebeu: boolean) => {
+    if (!testeCanalEnviado) return;
+    const canal = testeCanalEnviado.canal;
+    await salvarCanaisHabilitados({ ...canaisHabilitados, [canal]: recebeu });
+    setShowAviso(recebeu ? "✅ Canal confirmado e marcado como testado." : "Canal não confirmado. Revise as credenciais e tente novamente.");
+    setTesteCanalEnviado(null);
   };
 
   const salvarPvReguaAtiva = async (ativa: boolean) => {
@@ -6363,28 +6407,41 @@ export default function CRM() {
 
           return (
             <div className="pvw">
-              {/* ── CANAIS HABILITADOS ── */}
+              {/* ── CANAIS HABILITADOS (status somente leitura, baseado em teste confirmado) ── */}
               <div style={{ padding: "14px 16px", background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 9, margin: "8px 0 0" }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", marginBottom: 10 }}>Canais habilitados</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", marginBottom: 4 }}>Canais habilitados</div>
+                <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 10 }}>Status definido por teste real, em Configurações → IA. O canal usado em cada mensagem é escolhido na própria régua.</div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   {([["email", "E-mail"], ["whatsapp", "WhatsApp"], ["sms", "SMS"]] as const).map(([ch, label]) => {
-                    const ligado = canaisHabilitados[ch] !== false;
-                    const configurado = ch === "email" ? !!(resendApiKey && emailRemetente) : !!(zenviaApiKey && zenviaNumero);
-                    const bloqueado = !configurado;
+                    const testado = canaisHabilitados[ch] === true;
                     return (
                       <div key={ch}
-                        onClick={() => { if (!bloqueado) salvarCanaisHabilitados({ ...canaisHabilitados, [ch]: !ligado }); }}
-                        title={bloqueado ? (ch === "email" ? "Configure a chave Resend e o e-mail remetente para habilitar este canal." : "Configure a chave Zenvia e o número para habilitar este canal.") : undefined}
-                        style={{ display: "flex", alignItems: "center", gap: 7, cursor: bloqueado ? "not-allowed" : "pointer", padding: "6px 12px", background: bloqueado ? "var(--dk3)" : ligado ? "rgba(39,174,96,.08)" : "var(--dk3)", border: "1px solid " + (bloqueado ? "rgba(192,57,43,.25)" : ligado ? "rgba(39,174,96,.3)" : "var(--br)"), borderRadius: 7, opacity: bloqueado ? 0.6 : 1 }}>
-                        <div style={{ width: 30, height: 17, borderRadius: 8, background: bloqueado ? "var(--dk5)" : ligado ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", flexShrink: 0 }}>
-                          <div style={{ width: 13, height: 13, background: "#fff", borderRadius: "50%", position: "absolute", top: 2, left: (!bloqueado && ligado) ? 15 : 2, transition: "left .2s" }} />
-                        </div>
-                        <span style={{ fontSize: 12, color: bloqueado ? "var(--tx3)" : ligado ? "var(--q3)" : "var(--tx3)", fontWeight: 500 }}>{label}{bloqueado ? " 🔒" : ""}</span>
+                        title={testado ? "Testado e aprovado" : "Ainda não testado — vá em Configurações → IA para testar"}
+                        style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 12px", background: testado ? "rgba(39,174,96,.08)" : "var(--dk3)", border: "1px solid " + (testado ? "rgba(39,174,96,.3)" : "var(--br)"), borderRadius: 7, opacity: testado ? 1 : 0.55 }}>
+                        <div style={{ width: 9, height: 9, borderRadius: "50%", background: testado ? "var(--q3)" : "var(--tx3)", flexShrink: 0 }} />
+                        <span style={{ fontSize: 12, color: testado ? "var(--q3)" : "var(--tx3)", fontWeight: 500 }}>{label}</span>
+                        <span style={{ fontSize: 10, color: "var(--tx3)" }}>{testado ? "— testado e aprovado" : "— não testado"}</span>
                       </div>
                     );
                   })}
                 </div>
               </div>
+
+              {/* ── MODAL: confirmação de recebimento do teste de canal ── */}
+              {testeCanalEnviado && (
+                <div className="ov" style={{ zIndex: 9999 }} onClick={() => setTesteCanalEnviado(null)}>
+                  <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(380px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>Você recebeu a mensagem de teste?</div>
+                    <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>
+                      Enviamos uma mensagem de teste via <strong>{testeCanalEnviado.canal === "email" ? "E-mail" : testeCanalEnviado.canal === "sms" ? "SMS" : "WhatsApp"}</strong> para <strong>{testeCanalEnviado.destino}</strong>. Confirme se ela chegou antes de marcar o canal como aprovado.
+                    </div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button className="btn-c" onClick={() => confirmarRecebimentoTeste(false)}>Não recebi</button>
+                      <button className="btn-s" onClick={() => confirmarRecebimentoTeste(true)}>Sim, recebi</button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* ── PRÉ-VENDA: clientes em follow-up de pós-venda ── */}
               {pvC.length === 0
@@ -10254,14 +10311,29 @@ export default function CRM() {
                     <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 10, lineHeight: 1.6 }}>Credenciais para disparo real de Email e SMS. Cada estúdio usa suas próprias chaves.</div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)", marginBottom: 6, marginTop: 4 }}>Email — Resend</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>
-                      <div className="fi2"><div className="fil">Resend API Key</div><input className="ef" type="password" placeholder="re_..." value={resendApiKey} onChange={e => setResendApiKey(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Email Remetente</div><input className="ef" type="email" placeholder="ia@seuestudio.com.br" value={emailRemetente} onChange={e => setEmailRemetente(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Resend API Key</div><input className="ef" type="password" placeholder="re_..." value={resendApiKey} onChange={e => { setResendApiKey(e.target.value); if (canaisHabilitados.email) salvarCanaisHabilitados({ ...canaisHabilitados, email: false }); }} /></div>
+                      <div className="fi2"><div className="fil">Email Remetente</div><input className="ef" type="email" placeholder="ia@seuestudio.com.br" value={emailRemetente} onChange={e => { setEmailRemetente(e.target.value); if (canaisHabilitados.email) salvarCanaisHabilitados({ ...canaisHabilitados, email: false }); }} /></div>
                       <div className="fi2"><div className="fil">Nome Remetente</div><input className="ef" placeholder="Nome do seu estúdio" value={nomeRemetente} onChange={e => setNomeRemetente(e.target.value)} /></div>
+                      <button type="button" disabled={testandoCanal === "email"} onClick={() => testarCanal("email")} style={{ alignSelf: "flex-start", marginTop: 4, background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 12, color: "var(--gold)", cursor: testandoCanal === "email" ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                        {testandoCanal === "email" ? "Enviando..." : "📧 Testar canal"}
+                        {canaisHabilitados.email && <span style={{ color: "var(--q3)" }}>✓ Testado</span>}
+                      </button>
                     </div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)", marginBottom: 6 }}>SMS — Zenvia</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                      <div className="fi2"><div className="fil">Zenvia API Key</div><input className="ef" type="password" placeholder="Sua chave de API da Zenvia" value={zenviaApiKey} onChange={e => setZenviaApiKey(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">Número de Envio</div><input className="ef" placeholder="+55DDD999999999" value={zenviaNumero} onChange={e => setZenviaNumero(e.target.value)} /></div>
+                      <div className="fi2"><div className="fil">Zenvia API Key</div><input className="ef" type="password" placeholder="Sua chave de API da Zenvia" value={zenviaApiKey} onChange={e => { setZenviaApiKey(e.target.value); if (canaisHabilitados.sms || canaisHabilitados.whatsapp) salvarCanaisHabilitados({ ...canaisHabilitados, sms: false, whatsapp: false }); }} /></div>
+                      <div className="fi2"><div className="fil">Número de Envio</div><input className="ef" placeholder="+55DDD999999999" value={zenviaNumero} onChange={e => { setZenviaNumero(e.target.value); if (canaisHabilitados.sms || canaisHabilitados.whatsapp) salvarCanaisHabilitados({ ...canaisHabilitados, sms: false, whatsapp: false }); }} /></div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                        <button type="button" disabled={testandoCanal === "sms"} onClick={() => testarCanal("sms")} style={{ background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 12, color: "var(--gold)", cursor: testandoCanal === "sms" ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                          {testandoCanal === "sms" ? "Enviando..." : "💬 Testar SMS"}
+                          {canaisHabilitados.sms && <span style={{ color: "var(--q3)" }}>✓ Testado</span>}
+                        </button>
+                        <button type="button" disabled={testandoCanal === "whatsapp"} onClick={() => testarCanal("whatsapp")} style={{ background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 12, color: "var(--gold)", cursor: testandoCanal === "whatsapp" ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                          {testandoCanal === "whatsapp" ? "Enviando..." : "📱 Testar WhatsApp"}
+                          {canaisHabilitados.whatsapp && <span style={{ color: "var(--q3)" }}>✓ Testado</span>}
+                        </button>
+                      </div>
+                      <div style={{ fontSize: 10, color: "var(--tx3)", lineHeight: 1.5 }}>O teste usa as mesmas credenciais Zenvia para SMS e WhatsApp — confirme separadamente cada canal após receber a mensagem.</div>
                     </div>
                   </div>
                   {/* ── SEÇÃO: INSTRUÇÕES DA AGENTE ── */}
