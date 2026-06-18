@@ -966,7 +966,12 @@ export default function CRM() {
   const [campEditIdx, setCampEditIdx] = useState<number | null>(null);
   const [campEditForm, setCampEditForm] = useState<{nome: string; palavra_chave: string; data_inicio: string; data_fim: string}>({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" });
   const [campConfirmDel, setCampConfirmDel] = useState<number | null>(null);
-  const [campFiltroId, setCampFiltroId] = useState<string | null>(null);
+  // ── FILTRO EXTRA (campanha | origem) — mutuamente exclusivo com filtro de artista ──
+  const [filtroExtra, setFiltroExtra] = useState<{tipo: "campanha"|"orig"; valor: string} | null>(null);
+  // ── SELEÇÃO MÚLTIPLA + DISPARO EM MASSA ──
+  const [selMode, setSelMode] = useState(false);
+  const [selIds, setSelIds] = useState<Set<string>>(new Set());
+  const [disparoMassa, setDisparoMassa] = useState<{canal: "email"|"sms"; texto: string; fase: "compose"|"confirm"|"enviando"|"done"; ok: number; total: number} | null>(null);
   const [cnpj, setCnpj] = useState("");
   const [metaMensal, setMetaMensal] = useState(0);
   const [descontoAniversario, setDescontoAniversario] = useState(5);
@@ -1614,9 +1619,13 @@ export default function CRM() {
       (c.orig || "").toLowerCase().includes(q) ||
       (c.desc || "").toLowerCase().includes(q) ||
       (c.etapa || "").toLowerCase().includes(q);
-    const mC = !campFiltroId || c.campanha_id === campFiltroId;
-    return mA && mS && mC;
-  }), [clients, fa, srch, campFiltroId]);
+    const mE = !filtroExtra
+      ? true
+      : filtroExtra.tipo === "campanha"
+        ? c.campanha_id === filtroExtra.valor
+        : (c.orig || "") === filtroExtra.valor;
+    return mA && mS && mE;
+  }), [clients, fa, srch, filtroExtra]);
 
   const getSC = (id: string) => filtered.filter(c => c.etapa === id);
   const calcScore = (c: any): { score: number; label: string; cor: string } => {
@@ -3745,14 +3754,47 @@ export default function CRM() {
 
         {/* FILTER BAR */}
         {(tab === "kanban" || tab === "clientes") && (
-          <div className="ctrl">
+          <div className="ctrl" style={{ flexWrap: "wrap", rowGap: 4 }}>
             <input className="srch" placeholder="Buscar..." value={srch} onChange={e => setSrch(e.target.value)} />
-            <button className={"fb" + (fa === "todos" ? " on" : "")} onClick={() => setFa("todos")}>Todos</button>
+            <button className={"fb" + (fa === "todos" && !filtroExtra ? " on" : "")} onClick={() => { setFa("todos"); setFiltroExtra(null); setSelIds(new Set()); }}>Todos</button>
             {artists.filter(a => a.ativo).map(a => (
-              <button key={a.id} className={"fb" + (fa === a.id ? " on" : "")} onClick={() => setFa(a.id)}>
+              <button key={a.id} className={"fb" + (fa === a.id && !filtroExtra ? " on" : "")} onClick={() => { setFa(a.id); setFiltroExtra(null); setSelIds(new Set()); }}>
                 {a.nome.split(" ")[0]}
               </button>
             ))}
+            {tab === "clientes" && campanhas.length > 0 && (
+              <>
+                <span style={{ fontSize: 10, color: "var(--tx3)", alignSelf: "center", padding: "0 4px", whiteSpace: "nowrap" }}>Campanhas:</span>
+                {campanhas.map(camp => {
+                  const hoje = new Date().toISOString().split("T")[0];
+                  const ativa = camp.data_inicio && camp.data_fim && hoje >= camp.data_inicio && hoje <= camp.data_fim;
+                  const ativo = filtroExtra?.tipo === "campanha" && filtroExtra.valor === camp.id;
+                  return (
+                    <button key={camp.id}
+                      className={"fb" + (ativo ? " on" : "")}
+                      style={{ opacity: ativa ? 1 : 0.55 }}
+                      onClick={() => { setFa("todos"); setSelIds(new Set()); setFiltroExtra(ativo ? null : { tipo: "campanha", valor: camp.id }); }}>
+                      🎯 {camp.nome}
+                    </button>
+                  );
+                })}
+              </>
+            )}
+            {tab === "clientes" && origens.length > 0 && (
+              <>
+                <span style={{ fontSize: 10, color: "var(--tx3)", alignSelf: "center", padding: "0 4px", whiteSpace: "nowrap" }}>Origens:</span>
+                {origens.map(o => {
+                  const ativo = filtroExtra?.tipo === "orig" && filtroExtra.valor === o.nome;
+                  return (
+                    <button key={o.id}
+                      className={"fb" + (ativo ? " on" : "")}
+                      onClick={() => { setFa("todos"); setSelIds(new Set()); setFiltroExtra(ativo ? null : { tipo: "orig", valor: o.nome }); }}>
+                      🔗 {o.nome}
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
         )}
 
@@ -3884,27 +3926,153 @@ export default function CRM() {
 
         {/* ── CLIENTES ── */}
         {tab === "clientes" && (() => {
-          const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
           const sorted = [...filtered].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-          const usedLetters = new Set(sorted.map(c => c.nome[0].toUpperCase()));
+          const todosVisivelIds = sorted.map(c => c.id);
+          const todosSelecionados = todosVisivelIds.length > 0 && todosVisivelIds.every(id => selIds.has(id));
+
+          const iniciarDisparoMassa = async () => {
+            if (!disparoMassa || disparoMassa.fase !== "confirm") return;
+            const selecionados = sorted.filter(c => selIds.has(c.id));
+            setDisparoMassa(d => d ? { ...d, fase: "enviando", ok: 0, total: selecionados.length } : d);
+            let ok = 0;
+            const now = new Date();
+            const dataStr = now.toLocaleDateString("pt-BR");
+            const horaStr = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            for (const c of selecionados) {
+              const msg = (disparoMassa!.texto || "").replace(/\{nome\}/gi, c.nome.split(" ")[0]);
+              try {
+                if (disparoMassa!.canal === "email" && c.email && resendApiKey) {
+                  const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
+                  const r = await fetch("/api/resend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: resendApiKey, from: (nomeRemetente || studioName || "INK SYSTEM") + " <" + emailRemetente + ">", to: c.email, subject: "Mensagem de " + (studioName || "INK SYSTEM"), html }) });
+                  if (r.ok) ok++;
+                } else if (disparoMassa!.canal === "sms" && c.tel && zenviaApiKey && zenviaNumero) {
+                  const tel = "55" + c.tel.replace(/[^0-9]/g, "").replace(/^55/, "");
+                  const r = await fetch("/api/zenvia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: zenviaApiKey, from: zenviaNumero, to: tel, text: msg }) });
+                  if (r.ok) ok++;
+                }
+              } catch {}
+            }
+            try {
+              await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: "Disparo em massa [" + disparoMassa!.canal.toUpperCase() + "] — " + ok + " de " + selecionados.length + " cliente(s)", user_id: userId });
+            } catch {}
+            setDisparoMassa(d => d ? { ...d, fase: "done", ok } : d);
+            setSelIds(new Set());
+            setSelMode(false);
+          };
+
           return (
-          <div style={{ display: "flex", flex: 1, overflow: "hidden", animation: "fadeIn .15s ease" }}>
-            <div className="cw" style={{ flex: 1 }}>
-            {campFiltroId && (() => {
-              const camp = campanhas.find(c => c.id === campFiltroId);
+          <div style={{ display: "flex", flex: 1, overflow: "hidden", animation: "fadeIn .15s ease", flexDirection: "column" }}>
+
+            {/* Modal disparo em massa */}
+            {disparoMassa && (
+              <div className="ov" style={{ zIndex: 9999 }} onClick={() => { if (disparoMassa.fase !== "enviando") setDisparoMassa(null); }}>
+                <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 14, width: "min(480px, 94vw)", padding: "24px", display: "flex", flexDirection: "column", gap: 16, animation: "slideInRight .25s ease" }}>
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 700, color: "var(--gold)" }}>✉ Disparo em Massa</div>
+
+                  {disparoMassa.fase === "done" ? (
+                    <>
+                      <div style={{ fontSize: 14, color: "var(--tx)", lineHeight: 1.6 }}>
+                        Disparo concluído: <strong style={{ color: "var(--q3)" }}>{disparoMassa.ok}</strong> de <strong>{disparoMassa.total}</strong> clientes receberam a mensagem.
+                        {disparoMassa.ok < disparoMassa.total && (
+                          <span style={{ color: "var(--tx3)", fontSize: 12 }}> ({disparoMassa.total - disparoMassa.ok} sem dado de contato válido para o canal selecionado.)</span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <button className="btn-s" onClick={() => setDisparoMassa(null)}>Fechar</button>
+                      </div>
+                    </>
+                  ) : disparoMassa.fase === "enviando" ? (
+                    <div style={{ fontSize: 13, color: "var(--tx3)", textAlign: "center", padding: "20px 0" }}>Enviando mensagens… aguarde.</div>
+                  ) : disparoMassa.fase === "confirm" ? (
+                    <>
+                      <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>
+                        Tem certeza que deseja enviar <strong>{disparoMassa.canal === "email" ? "e-mail" : "SMS"}</strong> para <strong>{selIds.size} cliente(s)</strong>? Esta ação não pode ser desfeita.
+                      </div>
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                        <button className="btn-c" onClick={() => setDisparoMassa(d => d ? { ...d, fase: "compose" } : d)}>Voltar</button>
+                        <button className="btn-s" onClick={iniciarDisparoMassa}>Confirmar disparo</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 12, color: "var(--tx3)" }}>
+                        {selIds.size} cliente(s) selecionado(s). Use <code style={{ background: "var(--dk3)", padding: "1px 4px", borderRadius: 3 }}>{"{nome}"}</code> para personalizar.
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 6 }}>Canal</div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button className={"fb" + (disparoMassa.canal === "email" ? " on" : "")} onClick={() => setDisparoMassa(d => d ? { ...d, canal: "email" } : d)}>✉ E-mail</button>
+                          <button className={"fb" + (disparoMassa.canal === "sms" ? " on" : "")} style={{ opacity: (zenviaApiKey && canaisHabilitados.sms) ? 1 : 0.4, cursor: (zenviaApiKey && canaisHabilitados.sms) ? "pointer" : "not-allowed" }}
+                            onClick={() => { if (zenviaApiKey && canaisHabilitados.sms) setDisparoMassa(d => d ? { ...d, canal: "sms" } : d); }}>
+                            💬 SMS{!(zenviaApiKey && canaisHabilitados.sms) ? " (não configurado)" : ""}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 6 }}>Mensagem</div>
+                        <textarea rows={5} style={{ width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "var(--tx)", resize: "vertical", fontFamily: "'DM Sans',sans-serif", boxSizing: "border-box" }}
+                          placeholder={"Olá {nome}, temos uma novidade especial para você…"}
+                          value={disparoMassa.texto}
+                          onChange={e => setDisparoMassa(d => d ? { ...d, texto: e.target.value } : d)} />
+                      </div>
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                        <button className="btn-c" onClick={() => setDisparoMassa(null)}>Cancelar</button>
+                        <button className="btn-s" style={{ opacity: disparoMassa.texto.trim() ? 1 : 0.4, cursor: disparoMassa.texto.trim() ? "pointer" : "not-allowed" }}
+                          onClick={() => { if (disparoMassa.texto.trim()) setDisparoMassa(d => d ? { ...d, fase: "confirm" } : d); }}>
+                          Continuar →
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Linha: tabela + índice alfabético */}
+            <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+            <div className="cw" style={{ flex: 1, display: "flex", flexDirection: "column", padding: 0 }}>
+            {filtroExtra && (() => {
+              const label = filtroExtra.tipo === "campanha"
+                ? "🎯 " + (campanhas.find(c => c.id === filtroExtra.valor)?.nome || filtroExtra.valor)
+                : "🔗 " + filtroExtra.valor;
               return (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", background: "rgba(201,168,76,.12)", borderBottom: "1px solid rgba(201,168,76,.25)", fontSize: 12, color: "var(--gold)" }}>
-                  <span>🎯 Filtrando por campanha: <strong>{camp?.nome || campFiltroId}</strong></span>
-                  <button onClick={() => setCampFiltroId(null)} style={{ background: "none", border: "none", color: "var(--gold)", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1 }}>✕</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 14px", background: "rgba(201,168,76,.10)", borderBottom: "1px solid rgba(201,168,76,.2)", fontSize: 12, color: "var(--gold)" }}>
+                  <span>Filtrando: <strong>{label}</strong></span>
+                  <button onClick={() => setFiltroExtra(null)} style={{ background: "none", border: "none", color: "var(--gold)", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1 }}>✕</button>
                 </div>
               );
             })()}
+            {/* Barra de ação seleção múltipla */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", background: "var(--dk2)", borderBottom: "1px solid var(--br)", flexShrink: 0 }}>
+              {selMode ? (
+                <>
+                  <input type="checkbox" checked={todosSelecionados} onChange={() => {
+                    if (todosSelecionados) { setSelIds(new Set()); }
+                    else { setSelIds(new Set(todosVisivelIds)); }
+                  }} style={{ cursor: "pointer" }} />
+                  <span style={{ fontSize: 12, color: "var(--tx3)" }}>Selecionar todos ({sorted.length})</span>
+                  <div style={{ flex: 1 }} />
+                  <button className="btn-s" style={{ opacity: selIds.size > 0 ? 1 : 0.45, cursor: selIds.size > 0 ? "pointer" : "not-allowed" }}
+                    onClick={() => { if (selIds.size > 0) setDisparoMassa({ canal: "email", texto: "", fase: "compose", ok: 0, total: 0 }); }}>
+                    ✉ Disparar ({selIds.size})
+                  </button>
+                  <button className="btn-c" onClick={() => { setSelMode(false); setSelIds(new Set()); }}>Cancelar</button>
+                </>
+              ) : (
+                <>
+                  <div style={{ flex: 1 }} />
+                  <button className="btn-c" style={{ fontSize: 11, padding: "4px 12px" }} onClick={() => setSelMode(true)}>✉ Disparar</button>
+                </>
+              )}
+            </div>
+
             {sorted.length === 0
               ? <div className="empty">Nenhum cliente encontrado.</div>
               : (
                 <table className="ctbl" id="client-table">
                   <thead>
                     <tr>
+                      {selMode && <th style={{ width: 32 }}></th>}
                       <th>Cliente</th><th>Contato</th><th>Projeto</th>
                       <th>Profissional</th><th>Q</th><th>Etapa</th>
                       <th>Alertas</th><th>Origem</th>
@@ -3914,8 +4082,24 @@ export default function CRM() {
                     {sorted.map(c => {
                       const es = EBS[c.etapa] || EBS.lead;
                       const m = miss(c); const ch = churn(c);
+                      const selecionado = selIds.has(c.id);
                       return (
-                        <tr key={c.id} data-letter={c.nome[0]?.toUpperCase()} onClick={() => { setSel(c); setSelCtx("clientes"); }}>
+                        <tr key={c.id} data-letter={c.nome[0]?.toUpperCase()}
+                          style={{ background: selecionado ? "rgba(201,168,76,.08)" : undefined }}
+                          onClick={() => {
+                            if (selMode) {
+                              setSelIds(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; });
+                            } else {
+                              setSel(c); setSelCtx("clientes");
+                            }
+                          }}>
+                          {selMode && (
+                            <td style={{ width: 32, textAlign: "center" }} onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" checked={selecionado} onChange={() => {
+                                setSelIds(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; });
+                              }} style={{ cursor: "pointer" }} />
+                            </td>
+                          )}
                           <td>
                             <div className="tdn">{isAniversMes((c as any).nascimento || "") ? "🎂 " : ""}{c.nome}</div>
                             <div className="tdd">{c.insta || <span style={{ color: "var(--q2)" }}>⚠ Instagram</span>}</div>
@@ -3956,15 +4140,19 @@ export default function CRM() {
             </div>
             {/* Índice alfabético lateral */}
             <div style={{ width: 24, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "8px 0", background: "var(--dk2)", borderLeft: "1px solid var(--br)", gap: 1 }}>
-              {letters.map(l => (
-                <button key={l} onClick={() => {
-                  const rows = document.querySelectorAll("[data-letter]");
-                  rows.forEach((r: any) => { if (r.dataset.letter === l) r.scrollIntoView({ behavior: "smooth", block: "start" }); });
-                }} style={{ fontSize: 9, fontWeight: 600, color: usedLetters.has(l) ? "var(--gold)" : "var(--tx3)", background: "none", border: "none", cursor: usedLetters.has(l) ? "pointer" : "default", padding: "1px 0", fontFamily: "'DM Sans',sans-serif", lineHeight: 1.4 }}>
-                  {l}
-                </button>
-              ))}
+              {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map(l => {
+                const usedL = new Set(sorted.map((c: any) => c.nome[0]?.toUpperCase()));
+                return (
+                  <button key={l} onClick={() => {
+                    const rows = document.querySelectorAll("[data-letter]");
+                    rows.forEach((r: any) => { if (r.dataset.letter === l) r.scrollIntoView({ behavior: "smooth", block: "start" }); });
+                  }} style={{ fontSize: 9, fontWeight: 600, color: usedL.has(l) ? "var(--gold)" : "var(--tx3)", background: "none", border: "none", cursor: usedL.has(l) ? "pointer" : "default", padding: "1px 0", fontFamily: "'DM Sans',sans-serif", lineHeight: 1.4 }}>
+                    {l}
+                  </button>
+                );
+              })}
             </div>
+            </div>{/* end linha tabela+índice */}
           </div>
           );
         })()}
@@ -5783,7 +5971,7 @@ export default function CRM() {
                               </div>
                             )}
                             <button
-                              onClick={() => { setCampFiltroId(camp.id); changeTab("clientes"); }}
+                              onClick={() => { setFiltroExtra({ tipo: "campanha", valor: camp.id }); setFa("todos"); changeTab("clientes"); }}
                               style={{ background: "none", border: "none", padding: 0, fontSize: 11, color: leadsCount > 0 ? "var(--q3)" : "var(--tx3)", cursor: leadsCount > 0 ? "pointer" : "default", textDecoration: leadsCount > 0 ? "underline" : "none", fontFamily: "inherit" }}>
                               {leadsCount} lead{leadsCount !== 1 ? "s" : ""} capturado{leadsCount !== 1 ? "s" : ""}
                             </button>
