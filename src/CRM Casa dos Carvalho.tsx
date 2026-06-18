@@ -1132,6 +1132,8 @@ export default function CRM() {
   const [pvPreSessaoEditLocal, setPvPreSessaoEditLocal] = useState<any | null>(null);
   const [pvPreSessaoConfirmDelete, setPvPreSessaoConfirmDelete] = useState<number | null>(null);
   const [disparoPreSessaoPendente, setDisparoPreSessaoPendente] = useState<{etapa: any} | null>(null);
+  // ── ACORDEÃO DAS RÉGUAS ──
+  const [pvAccordion, setPvAccordion] = useState<{preVenda: boolean; preSessao: boolean; posVenda: boolean}>({ preVenda: false, preSessao: false, posVenda: false });
   // ── DISPARO MANUAL: estado de confirmação ──
   const [disparoManualPendente, setDisparoManualPendente] = useState<{etapa: any; tipoRegua: string; campo?: string} | null>(null);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
@@ -6203,6 +6205,13 @@ export default function CRM() {
             </div>
           );
 
+          const AccordionHeader = ({ titulo, aberto, onToggle }: { titulo: string; aberto: boolean; onToggle: () => void }) => (
+            <div onClick={onToggle} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 8px", marginTop: 8, borderTop: "1px solid var(--br)", cursor: "pointer", userSelect: "none" }}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 700, color: "var(--tx)" }}>{titulo}</div>
+              <div style={{ fontSize: 14, color: "var(--gold)", transition: "transform .2s ease", transform: aberto ? "rotate(180deg)" : "rotate(0deg)" }}>▼</div>
+            </div>
+          );
+
           const renderRegua = (
             title: string,
             desc: string,
@@ -6360,13 +6369,17 @@ export default function CRM() {
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   {([["email", "E-mail"], ["whatsapp", "WhatsApp"], ["sms", "SMS"]] as const).map(([ch, label]) => {
                     const ligado = canaisHabilitados[ch] !== false;
+                    const configurado = ch === "email" ? !!(resendApiKey && emailRemetente) : !!(zenviaApiKey && zenviaNumero);
+                    const bloqueado = !configurado;
                     return (
-                      <div key={ch} onClick={() => salvarCanaisHabilitados({ ...canaisHabilitados, [ch]: !ligado })}
-                        style={{ display: "flex", alignItems: "center", gap: 7, cursor: "pointer", padding: "6px 12px", background: ligado ? "rgba(39,174,96,.08)" : "var(--dk3)", border: "1px solid " + (ligado ? "rgba(39,174,96,.3)" : "var(--br)"), borderRadius: 7 }}>
-                        <div style={{ width: 30, height: 17, borderRadius: 8, background: ligado ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", flexShrink: 0 }}>
-                          <div style={{ width: 13, height: 13, background: "#fff", borderRadius: "50%", position: "absolute", top: 2, left: ligado ? 15 : 2, transition: "left .2s" }} />
+                      <div key={ch}
+                        onClick={() => { if (!bloqueado) salvarCanaisHabilitados({ ...canaisHabilitados, [ch]: !ligado }); }}
+                        title={bloqueado ? (ch === "email" ? "Configure a chave Resend e o e-mail remetente para habilitar este canal." : "Configure a chave Zenvia e o número para habilitar este canal.") : undefined}
+                        style={{ display: "flex", alignItems: "center", gap: 7, cursor: bloqueado ? "not-allowed" : "pointer", padding: "6px 12px", background: bloqueado ? "var(--dk3)" : ligado ? "rgba(39,174,96,.08)" : "var(--dk3)", border: "1px solid " + (bloqueado ? "rgba(192,57,43,.25)" : ligado ? "rgba(39,174,96,.3)" : "var(--br)"), borderRadius: 7, opacity: bloqueado ? 0.6 : 1 }}>
+                        <div style={{ width: 30, height: 17, borderRadius: 8, background: bloqueado ? "var(--dk5)" : ligado ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", flexShrink: 0 }}>
+                          <div style={{ width: 13, height: 13, background: "#fff", borderRadius: "50%", position: "absolute", top: 2, left: (!bloqueado && ligado) ? 15 : 2, transition: "left .2s" }} />
                         </div>
-                        <span style={{ fontSize: 12, color: ligado ? "var(--q3)" : "var(--tx3)", fontWeight: 500 }}>{label}</span>
+                        <span style={{ fontSize: 12, color: bloqueado ? "var(--tx3)" : ligado ? "var(--q3)" : "var(--tx3)", fontWeight: 500 }}>{label}{bloqueado ? " 🔒" : ""}</span>
                       </div>
                     );
                   })}
@@ -6407,10 +6420,11 @@ export default function CRM() {
               }
 
               {/* ── RÉGUAS DE PRÉ-VENDA ── */}
-              <div style={{ padding: "16px 16px 0", marginTop: 8, borderTop: "1px solid var(--br)" }}>
-                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 700, color: "var(--tx)", marginBottom: 2 }}>Réguas de Pré-Venda</div>
-                <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 4 }}>Gatilho: dias desde que o cliente entrou na etapa atual. Antes de disparar, o sistema verifica se o cliente ainda está na etapa — se mudou, o disparo é cancelado e a contagem reinicia para a nova régua.</div>
-              </div>
+              <AccordionHeader titulo="Réguas de Pré-Venda" aberto={pvAccordion.preVenda} onToggle={() => setPvAccordion(p => ({ ...p, preVenda: !p.preVenda }))} />
+              {pvAccordion.preVenda && (<>
+                <div style={{ padding: "0 16px 4px" }}>
+                  <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 4 }}>Gatilho: dias desde que o cliente entrou na etapa atual. Antes de disparar, o sistema verifica se o cliente ainda está na etapa — se mudou, o disparo é cancelado e a contagem reinicia para a nova régua.</div>
+                </div>
               {renderRegua(
                 "Régua Lead",
                 "Clientes na etapa Lead. Dispara conforme os dias na etapa atual.",
@@ -6455,18 +6469,11 @@ export default function CRM() {
                 () => salvarPreReguaAtiva({ ...preReguaAtiva, aguard_agend: !preReguaAtiva.aguard_agend }),
                 "pré-venda/aguard_agend"
               )}
+              </>)}
 
               {/* ── RÉGUA DE PRÉ-SESSÃO ── */}
-              <div style={{ padding: "16px 16px 0", marginTop: 8, borderTop: "1px solid var(--br)" }}>
-                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 700, color: "var(--tx)", marginBottom: 2 }}>Régua de Pré-Sessão</div>
-                <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 4 }}>Gatilho: dias antes da data do agendamento. O sistema verifica quem tem sessão marcada no período e dispara automaticamente. Use para confirmar presenças, enviar instruções ou lembretes.</div>
-                <div style={{ fontSize: 11, color: "var(--gold)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>⚙️</span>
-                  <span>Variáveis disponíveis: <strong>{"{nome}"}</strong>, <strong>{"{data}"}</strong>, <strong>{"{hora}"}</strong>, <strong>{"{artista}"}</strong>, <strong>{"{servico}"}</strong>, <strong>{"{estudio}"}</strong></span>
-                </div>
-              </div>
-              {/* Toggle e lista de etapas da Pré-Sessão */}
-              {(() => {
+              <AccordionHeader titulo="Régua de Pré-Sessão" aberto={pvAccordion.preSessao} onToggle={() => setPvAccordion(p => ({ ...p, preSessao: !p.preSessao }))} />
+              {pvAccordion.preSessao && (() => {
                 const etapasPS = preSessaoRegua.length > 0 ? preSessaoRegua : PRE_SESSAO_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
                 return (
                   <div style={{ padding: "16px", borderTop: "1px solid var(--br)", marginTop: 8, opacity: preSessaoReguaAtiva ? 1 : 0.65 }}>
@@ -6573,7 +6580,8 @@ export default function CRM() {
               })()}
 
               {/* ── RÉGUA DE PÓS-VENDA ── */}
-              {renderRegua(
+              <AccordionHeader titulo="Régua de Pós-Venda" aberto={pvAccordion.posVenda} onToggle={() => setPvAccordion(p => ({ ...p, posVenda: !p.posVenda }))} />
+              {pvAccordion.posVenda && renderRegua(
                 "Régua de Pós-Venda",
                 "Configure as etapas de comunicação após cada sessão concluída. Cada profissional monta sua própria régua.",
                 pvReguaEtapas,
