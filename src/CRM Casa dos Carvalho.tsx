@@ -497,6 +497,10 @@ const PV_FLOW = [
   { id: "d37", label: "D+37 Ultimo dia", dias: 37, msg: "Olá, [Nome]! Hoje é o último dia da sua garantia de retoque gratuito. Se precisar, nos chame agora. Depois disso, o retoque será cobrado a combinar." },
 ];
 
+const PRE_SESSAO_FLOW = [
+  { id: "ps_d1", label: "Confirmação — véspera", dias: 1, msg: "Olá, {nome}! Sua sessão está agendada para amanhã, {data} às {hora}h com {artista}. Confirme sua presença respondendo este e-mail. Qualquer dúvida, é só chamar!" },
+];
+
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 8);
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
 const MONTHS = [
@@ -1121,6 +1125,13 @@ export default function CRM() {
   // ── RÉGUA: toggles de ativação (nível régua) ──
   const [pvReguaAtiva, setPvReguaAtiva] = useState(true);
   const [preReguaAtiva, setPreReguaAtiva] = useState<{lead: boolean; qualificacao: boolean; hibernacao: boolean; aguard_agend: boolean}>({ lead: true, qualificacao: true, hibernacao: true, aguard_agend: true });
+  // ── RÉGUA PRÉ-SESSÃO ──
+  const [preSessaoRegua, setPreSessaoRegua] = useState<{id: string; label: string; dias: number; msg: string; canal: string; ativa?: boolean}[]>([]);
+  const [preSessaoReguaAtiva, setPreSessaoReguaAtiva] = useState(true);
+  const [pvPreSessaoEditando, setPvPreSessaoEditando] = useState<number | null>(null);
+  const [pvPreSessaoEditLocal, setPvPreSessaoEditLocal] = useState<any | null>(null);
+  const [pvPreSessaoConfirmDelete, setPvPreSessaoConfirmDelete] = useState<number | null>(null);
+  const [disparoPreSessaoPendente, setDisparoPreSessaoPendente] = useState<{etapa: any} | null>(null);
   // ── DISPARO MANUAL: estado de confirmação ──
   const [disparoManualPendente, setDisparoManualPendente] = useState<{etapa: any; tipoRegua: string; campo?: string} | null>(null);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
@@ -1364,6 +1375,18 @@ export default function CRM() {
               }
             } catch {}
           }
+          // ── RÉGUA PRÉ-SESSÃO ──
+          if (cfg.pre_sessao_regua_ativa !== undefined) setPreSessaoReguaAtiva(cfg.pre_sessao_regua_ativa !== false);
+          const pvPSRaw = cfg.pre_sessao_regua;
+          if (pvPSRaw) {
+            try {
+              const parsedPS = typeof pvPSRaw === "string" ? JSON.parse(pvPSRaw) : pvPSRaw;
+              if (Array.isArray(parsedPS) && parsedPS.length > 0) setPreSessaoRegua(parsedPS);
+              else setPreSessaoRegua(PRE_SESSAO_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" })));
+            } catch { setPreSessaoRegua(PRE_SESSAO_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }))); }
+          } else {
+            setPreSessaoRegua(PRE_SESSAO_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" })));
+          }
           setDark(cfg.dark_mode !== false);
           // [X2] onboarding_done from Supabase (source of truth); localStorage as cache
           if (cfg.onboarding_done) {
@@ -1446,6 +1469,76 @@ export default function CRM() {
     try {
       await sb.from("configuracoes").upsert({ user_id: userId, pre_regua_ativa: JSON.stringify(novo) }, { onConflict: "user_id" });
     } catch {}
+  };
+
+  const salvarPreSessaoRegua = async (novaRegua: typeof preSessaoRegua) => {
+    setPreSessaoRegua(novaRegua);
+    try {
+      await sb.from("configuracoes").upsert({ user_id: userId, pre_sessao_regua: JSON.stringify(novaRegua) }, { onConflict: "user_id" });
+    } catch {}
+  };
+
+  const salvarPreSessaoReguaAtiva = async (ativa: boolean) => {
+    setPreSessaoReguaAtiva(ativa);
+    try {
+      await sb.from("configuracoes").upsert({ user_id: userId, pre_sessao_regua_ativa: ativa }, { onConflict: "user_id" });
+    } catch {}
+  };
+
+  const executarDisparoPreSessao = async (etapa: any) => {
+    const canal = etapa.canal || "email";
+    const canalOk = canaisHabilitados[canal as keyof typeof canaisHabilitados] !== false;
+    if (!canalOk) { setShowAviso("Canal " + canal + " não está habilitado nas configurações."); return; }
+    const hoje = new Date();
+    const alvoDate = new Date(hoje);
+    alvoDate.setDate(hoje.getDate() + etapa.dias);
+    const alvoStr = alvoDate.getFullYear() + "-" +
+      String(alvoDate.getMonth() + 1).padStart(2, "0") + "-" +
+      String(alvoDate.getDate()).padStart(2, "0");
+    const eventosAlvo = agEvents.filter((e: any) => e.date === alvoStr && (e.tipo || "").startsWith("sess") && e.status !== "cancelado" && e.status !== "concluido");
+    let enviados = 0;
+    for (const evento of eventosAlvo) {
+      const cliente = clients.find((c: any) => c.id === evento.cliente_id);
+      if (!cliente) continue;
+      const dataFmt = alvoStr.split("-").reverse().join("/");
+      const horaFmt = String(evento.start).padStart(2, "0") + ":00";
+      const artistaNome = artists.find((a: any) => (evento.tipo || "").includes(a.id))?.nome || "";
+      const servicoNome = evento.servico || "Sessão";
+      const msg = (etapa.msg || "")
+        .replace(/\{nome\}/gi, cliente.nome || "")
+        .replace(/\{data\}/gi, dataFmt)
+        .replace(/\{hora\}/gi, horaFmt)
+        .replace(/\{artista\}/gi, artistaNome)
+        .replace(/\{servico\}/gi, servicoNome)
+        .replace(/\{estudio\}/gi, studioName || "INK SYSTEM");
+      try {
+        if (canal === "email" && resendApiKey && cliente.email) {
+          const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
+          await fetch("/api/resend", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ apiKey: resendApiKey, from: emailRemetente || "noreply@acasadoscarvalhotattoo.com.br", to: cliente.email, subject: etapa.label + " — " + (studioName || "INK SYSTEM"), html })
+          });
+          enviados++;
+        } else if ((canal === "sms") && zenviaApiKey && zenviaNumero && cliente.tel) {
+          const tel = (cliente.tel || "").replace(/[^0-9]/g, "");
+          await fetch("/api/zenvia-sms", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ apiKey: zenviaApiKey, from: zenviaNumero, to: tel, text: msg })
+          });
+          enviados++;
+        }
+      } catch {}
+    }
+    try {
+      const now = new Date();
+      const data = now.toLocaleDateString("pt-BR");
+      const hora = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      await sb.from("historico").insert({ data, hora, acao: "Disparo pré-sessão manual — " + etapa.label + " — " + enviados + " destinatário(s)", user_id: userId });
+    } catch {}
+    setShowAviso("Disparo pré-sessão enviado para " + enviados + " cliente(s) com sessão em " + etapa.dias + " dia(s).");
+    setDisparoPreSessaoPendente(null);
   };
 
   // ── DISPARO MANUAL: executa envio de uma etapa sob demanda ────────────────
@@ -1919,18 +2012,6 @@ export default function CRM() {
       }));
       setProjParaConcluir(null);
     }
-    try {
-      const cliPag = clients.find(c => c.id === cid);
-      const agEvPag = confirmPagamento.agEvent;
-      const artistaNomePag = agEvPag ? (artists.find((a: any) => (agEvPag.tipo || "").includes(a.id))?.nome || "") : "";
-      if (cliPag) {
-        fetch("https://casadoscarvalho.app.n8n.cloud/webhook/sessao-realizada", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ studio_id: userId, cliente_id: cid, cliente_nome: cliPag.nome, cliente_email: cliPag.email || "", cliente_telefone: cliPag.tel || "", artista: artistaNomePag, data_sessao: new Date().toISOString() })
-        });
-      }
-    } catch {}
     setConfirmPagamento(null);
     setAgendarProximaModal({ cid });
   };
@@ -2091,13 +2172,6 @@ export default function CRM() {
     setFormAg({ agendar: false, data: "", hora: "09:00", tipo: "cons" });
     setForm({ nome: "", tel: "", email: "", insta: "", artista: "", estilo: "", regiao: "", tam: "Medio", desc: "", orig: "Instagram Organico", qual: "Q2", primeira: false, cob: false, intencao: "", nascimento: "" });
     addLog(`Cliente "${nc.nome}" cadastrado`);
-    try {
-      fetch("https://casadoscarvalho.app.n8n.cloud/webhook/cliente-cadastrado", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studio_id: userId, cliente_id: data?.id, cliente_nome: nc.nome, cliente_email: nc.email || "", cliente_telefone: nc.tel || "", data_cadastro: new Date().toISOString() })
-      });
-    } catch {}
   };
 
   const saveArtist = async () => {
@@ -2253,15 +2327,6 @@ export default function CRM() {
     const _dataLog = agForm.date || "";
     const _artistaLog = artists.find((a: any) => (agForm.tipo || "").includes(a.id))?.nome || "";
     addLog("📅 Agendado: " + agForm.title + " — " + _servicoLog + " em " + _dataLog + " às " + agForm.start + "h" + (_artistaLog ? " com " + _artistaLog : ""));
-    try {
-      const artistaNomeN8n = artists.find((a: any) => (agForm.tipo || "").includes(a.id))?.nome || "";
-      const clienteObjN8n = agClientVinc ? clients.find(c => c.id === agClientVinc.id) : null;
-      fetch("https://casadoscarvalho.app.n8n.cloud/webhook/agendamento-confirmado", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studio_id: userId, cliente_nome: agForm.title, cliente_email: clienteObjN8n?.email || "", cliente_telefone: clienteObjN8n?.tel || "", data_evento: agForm.date, hora_evento: String(agForm.start).padStart(2,"0") + ":00", tipo: agForm.tipo, artista: artistaNomeN8n })
-      });
-    } catch {}
     // Registrar no histórico e mover pipeline automaticamente
     if (agClientVinc) {
       const dataFmt = agForm.date ? agForm.date.split("-").reverse().join("/") : agForm.date;
@@ -6390,6 +6455,122 @@ export default function CRM() {
                 () => salvarPreReguaAtiva({ ...preReguaAtiva, aguard_agend: !preReguaAtiva.aguard_agend }),
                 "pré-venda/aguard_agend"
               )}
+
+              {/* ── RÉGUA DE PRÉ-SESSÃO ── */}
+              <div style={{ padding: "16px 16px 0", marginTop: 8, borderTop: "1px solid var(--br)" }}>
+                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 700, color: "var(--tx)", marginBottom: 2 }}>Régua de Pré-Sessão</div>
+                <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 4 }}>Gatilho: dias antes da data do agendamento. O sistema verifica quem tem sessão marcada no período e dispara automaticamente. Use para confirmar presenças, enviar instruções ou lembretes.</div>
+                <div style={{ fontSize: 11, color: "var(--gold)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>⚙️</span>
+                  <span>Variáveis disponíveis: <strong>{"{nome}"}</strong>, <strong>{"{data}"}</strong>, <strong>{"{hora}"}</strong>, <strong>{"{artista}"}</strong>, <strong>{"{servico}"}</strong>, <strong>{"{estudio}"}</strong></span>
+                </div>
+              </div>
+              {/* Toggle e lista de etapas da Pré-Sessão */}
+              {(() => {
+                const etapasPS = preSessaoRegua.length > 0 ? preSessaoRegua : PRE_SESSAO_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
+                return (
+                  <div style={{ padding: "16px", borderTop: "1px solid var(--br)", marginTop: 8, opacity: preSessaoReguaAtiva ? 1 : 0.65 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--tx)" }}>Confirmação e Lembretes</div>
+                      <ReguaToggle ativa={preSessaoReguaAtiva} onToggle={() => salvarPreSessaoReguaAtiva(!preSessaoReguaAtiva)} />
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 12 }}>Disparado para clientes com sessão agendada no período configurado abaixo.</div>
+                    {/* Modal confirmação exclusão */}
+                    {pvPreSessaoConfirmDelete !== null && (
+                      <div className="ov" style={{ zIndex: 9999 }} onClick={() => setPvPreSessaoConfirmDelete(null)}>
+                        <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(360px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>Remover etapa?</div>
+                          <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>Esta ação não pode ser desfeita. Deseja remover esta etapa da régua?</div>
+                          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                            <button className="btn-c" onClick={() => setPvPreSessaoConfirmDelete(null)}>Cancelar</button>
+                            <button className="btn-s" style={{ background: "rgba(192,57,43,.18)", color: "#C0392B", border: "1px solid rgba(192,57,43,.4)" }} onClick={() => {
+                              const nova = etapasPS.filter((_: any, i: number) => i !== pvPreSessaoConfirmDelete);
+                              salvarPreSessaoRegua(nova);
+                              if (pvPreSessaoEditando === pvPreSessaoConfirmDelete) { setPvPreSessaoEditando(null); setPvPreSessaoEditLocal(null); }
+                              setPvPreSessaoConfirmDelete(null);
+                            }}>Remover</button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {/* Modal confirmação disparo manual */}
+                    {disparoPreSessaoPendente && (
+                      <div className="ov" style={{ zIndex: 9999 }} onClick={() => setDisparoPreSessaoPendente(null)}>
+                        <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(360px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>Tem certeza disto?</div>
+                          <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>
+                            Você está prestes a enviar <strong>{disparoPreSessaoPendente.etapa?.label}</strong> agora para todos os clientes com sessão em <strong>{disparoPreSessaoPendente.etapa?.dias} dia(s)</strong>. Esta ação não pode ser desfeita.
+                          </div>
+                          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                            <button className="btn-c" onClick={() => setDisparoPreSessaoPendente(null)}>Cancelar</button>
+                            <button className="btn-s" onClick={() => executarDisparoPreSessao(disparoPreSessaoPendente.etapa)}>Confirmar</button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 700 }}>
+                      {etapasPS.map((etapa, idx) => {
+                        const emEdicao = pvPreSessaoEditando === idx;
+                        const draft = emEdicao ? pvPreSessaoEditLocal : etapa;
+                        const canalEtapa = draft.canal || "email";
+                        const canalLabel = canalEtapa === "email" ? "E-mail" : "SMS";
+                        const canalBloqueado = canaisHabilitados[canalEtapa as keyof typeof canaisHabilitados] === false;
+                        const etapaAtiva = etapa.ativa !== false;
+                        return (
+                          <div key={etapa.id} style={{ background: "var(--dk3)", border: "1px solid " + (emEdicao ? "rgba(201,168,76,.4)" : "var(--br)"), borderRadius: 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6, opacity: etapaAtiva ? 1 : 0.5 }}>
+                            {emEdicao ? (
+                              <>
+                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                  <input value={draft.label} onChange={e => setPvPreSessaoEditLocal((d: any) => ({ ...d, label: e.target.value }))} style={{ flex: 1, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif" }} placeholder="Nome da etapa" />
+                                  <input type="number" value={draft.dias} min={1} onChange={e => setPvPreSessaoEditLocal((d: any) => ({ ...d, dias: Number(e.target.value) }))} style={{ width: 60, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", textAlign: "center" }} title="Dias antes da sessão" />
+                                  <span style={{ fontSize: 11, color: "var(--tx3)", whiteSpace: "nowrap" }}>dias antes</span>
+                                  <select value={draft.canal || "email"} onChange={e => setPvPreSessaoEditLocal((d: any) => ({ ...d, canal: e.target.value }))} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif" }}>
+                                    <option value="email" disabled={canaisHabilitados.email === false}>E-mail{canaisHabilitados.email === false ? " (desabilitado)" : ""}</option>
+                                    <option value="sms" disabled={canaisHabilitados.sms === false}>SMS{canaisHabilitados.sms === false ? " (desabilitado)" : ""}</option>
+                                  </select>
+                                </div>
+                                <textarea value={draft.msg} onChange={e => setPvPreSessaoEditLocal((d: any) => ({ ...d, msg: e.target.value }))} rows={4} style={{ width: "100%", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", resize: "vertical" }} placeholder="Mensagem — use {nome}, {data}, {hora}, {artista}, {servico}, {estudio}" />
+                                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                  <button className="btn-c" onClick={() => { setPvPreSessaoEditando(null); setPvPreSessaoEditLocal(null); }}>Cancelar</button>
+                                  <button className="btn-s" onClick={() => {
+                                    const nova = etapasPS.map((e, i) => i === idx ? { ...e, ...pvPreSessaoEditLocal } : e);
+                                    salvarPreSessaoRegua(nova);
+                                    setPvPreSessaoEditando(null);
+                                    setPvPreSessaoEditLocal(null);
+                                  }}>Salvar</button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                                    <div onClick={() => { const nova = etapasPS.map((e, i) => i === idx ? { ...e, ativa: !etapaAtiva } : e); salvarPreSessaoRegua(nova); }} style={{ width: 28, height: 16, borderRadius: 8, background: etapaAtiva ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", flexShrink: 0, cursor: "pointer" }}>
+                                      <div style={{ width: 12, height: 12, background: "#fff", borderRadius: "50%", position: "absolute", top: 2, left: etapaAtiva ? 14 : 2, transition: "left .2s" }} />
+                                    </div>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{etapa.label}</span>
+                                    <span style={{ fontSize: 11, color: "var(--tx3)", whiteSpace: "nowrap" }}>— {etapa.dias} dia{etapa.dias !== 1 ? "s" : ""} antes</span>
+                                    <span style={{ fontSize: 10, background: canalBloqueado ? "rgba(192,57,43,.15)" : "rgba(201,168,76,.12)", color: canalBloqueado ? "#C0392B" : "var(--gold)", border: "1px solid " + (canalBloqueado ? "rgba(192,57,43,.3)" : "rgba(201,168,76,.3)"), borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" }}>{canalLabel}{canalBloqueado ? " ⚠️" : ""}</span>
+                                  </div>
+                                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                                    <button onClick={() => setDisparoPreSessaoPendente({ etapa })} style={{ background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.35)", borderRadius: 5, padding: "4px 8px", fontSize: 11, color: "var(--gold)", cursor: "pointer" }} title={"Enviar agora para clientes com sessão em " + etapa.dias + " dia(s)"}>Enviar agora</button>
+                                    <button onClick={() => { setPvPreSessaoEditando(idx); setPvPreSessaoEditLocal({ ...etapa }); }} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "4px 8px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>Editar</button>
+                                    <button onClick={() => setPvPreSessaoConfirmDelete(idx)} style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "4px 8px", fontSize: 11, color: "#C0392B", cursor: "pointer" }}>✕</button>
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.6, paddingLeft: 36, fontStyle: "italic", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{etapa.msg}</div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                      <button onClick={() => {
+                        const nova = [...etapasPS, { id: "ps_" + Date.now(), label: "Nova etapa", dias: 2, msg: "Olá, {nome}! Sua sessão é em {data} às {hora}h com {artista}. Qualquer dúvida, é só chamar!", canal: "email", ativa: true }];
+                        salvarPreSessaoRegua(nova);
+                      }} style={{ background: "rgba(201,168,76,.08)", border: "1px dashed rgba(201,168,76,.35)", borderRadius: 8, padding: "8px", fontSize: 12, color: "var(--gold)", cursor: "pointer", textAlign: "center" }}>+ Adicionar etapa</button>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* ── RÉGUA DE PÓS-VENDA ── */}
               {renderRegua(
