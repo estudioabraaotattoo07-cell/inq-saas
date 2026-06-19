@@ -359,6 +359,7 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 const STAGES = [
   { id: "lead", label: "Lead", color: "#5B8DEF", emoji: "🎯" },
   { id: "qualificacao", label: "Qualificação", color: "#C9A84C", emoji: "🔍" },
+  { id: "aura_agend", label: "Agendado pela Aura", color: "#8B5CF6", emoji: "✦" },
   { id: "cons_agendada", label: "Consulta Marcada", color: "#9B6BB5", emoji: "📅" },
   { id: "sessao_agend", label: "Sessão Marcada", color: "#4A9EBF", emoji: "✏️" },
   { id: "tatuado", label: "Sessão Realizada", color: "#27AE60", emoji: "✅" },

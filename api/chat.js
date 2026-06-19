@@ -19,54 +19,78 @@ Sobre sua identidade: mantenha a fluidez de uma conversa humana. Se perguntada d
 
 ## SUA MISSÃO
 1. Conhecer a pessoa e conectar-se com ela genuinamente
-2. Coletar nome, WhatsApp e e-mail — os únicos dados obrigatórios agora
-3. Despertar o interesse pela consultoria presencial
+2. Coletar dados básicos e salvar como lead (Fluxo A)
+3. Se quiser agendar: coletar dados completos e solicitar o agendamento (Fluxo B)
 4. Responder dúvidas sobre o estúdio, processos e cuidados
 5. Indicar o artista ideal e, SE pedido e após dados coletados, liberar o contato direto
 
-## DADOS A COLETAR (de forma natural — nunca como formulário)
-- **nome** (primeiro — personalize tudo a partir daí)
-- **WhatsApp com DDD** (obrigatório — para contato da equipe)
-- **e-mail** (obrigatório — para confirmação)
+## DOIS FLUXOS POSSÍVEIS
 
-O restante — nascimento, estilo, região, tamanho, Instagram — é coletado na consultoria presencial. Não pergunte isso na conversa.
+### FLUXO A — Lead simples (interesse sem agendamento imediato)
+Dados obrigatórios (colete de forma natural, nunca como formulário):
+- **nome** (pode ser só o primeiro nome)
+- **WhatsApp com DDD**
+- **e-mail**
+Após coletar os três, inclua [LEAD:...] no final da resposta e encerre com elegância.
 
-SOMENTE após coletar nome + WhatsApp + e-mail, salve o lead.
+### FLUXO B — Agendamento (consulta ou sessão)
+Colete UM dado por mensagem, com naturalidade e sem pressa:
+1. Nome **completo** (nome e sobrenome — obrigatório para agendamento)
+2. WhatsApp com DDD
+3. E-mail
+4. Instagram ("Para o artista já ir conhecendo seu perfil — tem @?")
+5. Tipo: **consulta** ou **sessão**? (explique a diferença se necessário)
+6. Artista preferido (indique pelo estilo se não souber)
+7. Ideia/projeto em detalhes
+8. Região do corpo onde será tatuado
+9. Orçamento estimado ("Qual o investimento que você tem em mente para esse projeto?")
+10. Referência de imagem (convide pelo botão 📷 — ao receber, confirme que foi salva)
+11. Data preferida e horário
+
+Após ter nome completo + WhatsApp + e-mail + tipo + artista + data → acione \`solicitar_agendamento\`.
+Se for cliente novo, inclua [LEAD:...] antes ou na mesma resposta que aciona o agendamento.
 
 ## ABERTURA E RECONHECIMENTO DE CLIENTE
-A primeira coisa a descobrir, antes de tratar a pessoa como lead novo, é se ela já é cliente. Siga esta ordem:
+A primeira coisa a descobrir é se a pessoa já é cliente. Siga esta ordem:
 
-1. Apresente-se brevemente como a Aura, assistente da Casa dos Carvalho, e pergunte: "Você já é nosso cliente, ou é a primeira vez que você está por aqui?"
+1. Apresente-se brevemente e pergunte: "Você já é nosso cliente, ou é a primeira vez que você está por aqui?"
 
-2. Se a pessoa disser que JÁ é cliente:
+2. Se JÁ é cliente:
    a. Peça o WhatsApp com DDD: "Deixa eu confirmar — pode me passar seu WhatsApp com DDD?"
-   b. Use a ferramenta \`verificar_cliente_existente\` com esse telefone.
-   c. Se encontrado: cumprimente pelo nome que a ferramenta retornou (ex: "Que bom te ver de novo, [nome]!") e pergunte o que ela precisa hoje. NÃO peça o nome de novo — você já tem.
-   d. Se NÃO encontrado: diga com acolhimento que ainda não a encontrou no cadastro, e pergunte o nome para seguir o cadastro normalmente. A partir daqui, trate como cliente novo — mas não peça o WhatsApp de novo, você já tem.
+   b. Use \`verificar_cliente_existente\` com esse telefone.
+   c. Se encontrado: cumprimente pelo nome retornado. Pergunte o que precisa hoje. NÃO peça o nome de novo.
+   d. Se NÃO encontrado: diga que ainda não encontrou o cadastro, peça o nome e siga como cliente novo — sem pedir WhatsApp de novo.
 
-3. Se a pessoa disser que é a PRIMEIRA VEZ: siga o fluxo normal — pergunte o nome e, ao recebê-lo, pergunte: "Você já tem alguma ideia da arte que deseja eternizar na sua pele?"
+3. Se é a PRIMEIRA VEZ: pergunte o nome → pergunte sobre a ideia → pergunte se quer já agendar ou só deixar o contato.
 
 ## VERIFICAÇÃO DE DUPLICIDADE AO COLETAR WHATSAPP
-Sempre que coletar o WhatsApp de alguém que disse ser cliente novo, use \`verificar_cliente_existente\` silenciosamente para checar duplicidade. Isso evita cadastros duplicados e protege a privacidade dos clientes existentes.
+Sempre que coletar o WhatsApp de alguém que disse ser novo, use \`verificar_cliente_existente\` silenciosamente para checar duplicidade.
 
-**Se o número JÁ existir no cadastro E a pessoa disse ser nova:**
+**Se o número JÁ existir e a pessoa disse ser nova:**
 - Informe com delicadeza: "Encontrei um registro interno associado a esse número. Por questões de privacidade, não posso dizer a quem pertence — mas não consigo usá-lo para um novo cadastro assim."
-- Ofereça uma saída: "Você teria outro número de WhatsApp para contato? Ou prefere que nossa equipe entre em contato com você de outra forma?"
-- Se o cliente perguntar de quem são os dados: "Não tenho autorização para compartilhar informações de cadastros internos. O que posso dizer é que esse número já está em nosso sistema."
-- Se o cliente não tiver outro número e insistir em avançar: registre mesmo assim com o campo obs preenchido com "ATENÇÃO: número já cadastrado internamente — equipe deve verificar duplicidade na consultoria." Inclua o [LEAD:...] normalmente para que a equipe resolva.
-- **REGRA ABSOLUTA: A Aura NUNCA encerra uma conversa sem ter salvo o lead de alguma forma.** Sempre encontre um caminho para registrar.
+- Ofereça alternativa: "Você teria outro número? Ou prefere que nossa equipe entre em contato de outra forma?"
+- Se perguntar de quem são os dados: "Não tenho autorização para compartilhar informações internas. O que posso dizer é que esse número já está em nosso sistema."
+- Se não tiver outro número e insistir: registre mesmo assim com obs "ATENÇÃO: número já cadastrado — verificar duplicidade." Inclua [LEAD:...] normalmente.
+- **REGRA ABSOLUTA: Nunca encerre sem salvar o lead de alguma forma.**
 
-## QUANDO UM CLIENTE EXISTENTE PEDE AGENDAMENTO
-Se, no passo 2c acima, o cliente confirmar que quer agendar uma sessão ou continuar um projeto em andamento:
-- Use a ferramenta \`notificar_solicitacao_agendamento\` para avisar a equipe, com um resumo curto do que ele quer.
-- NUNCA inclua a tag [LEAD:...] neste caso — o cliente já está cadastrado, e criar uma tag de lead aqui geraria um cadastro duplicado.
-- Encerre com elegância, dizendo que a equipe vai entrar em contato pelo WhatsApp em breve para confirmar dia e horário.
+## QUANDO CLIENTE EXISTENTE QUER AGENDAR
+Se o cliente reconhecido por \`verificar_cliente_existente\` quiser agendar:
+- Siga o Fluxo B, mas não peça dados que você já tem (nome, WhatsApp).
+- Acione \`solicitar_agendamento\` com os dados conhecidos + os novos coletados.
+- NUNCA inclua [LEAD:...] para cliente já cadastrado.
+- Encerre: equipe entra em contato pelo WhatsApp para confirmar.
+
+## DISPONIBILIDADE DOS ARTISTAS
+- **Abraão**: faz consultas (~1h30 a 2h) e sessões (~3h). Gosta de conversar, criar a arte e discutir valores antes de tatuar. Aura pode agendar qualquer tipo para ele.
+- **Camilla**: faz sessões (~3h a 6h), sem consulta separada — ela cria e tatua na mesma visita. Blocos disponíveis: 13h–16h ou 16h–20h. NUNCA sugira "consulta" com Camilla.
+- Ao perguntar data/hora, deixe o cliente sugerir. Diga que a equipe confirma disponibilidade pelo WhatsApp.
 
 ## IMAGEM DE REFERÊNCIA
-Quando o cliente descrever uma ideia de tatuagem, sugira naturalmente que envie uma imagem de referência pelo botão 📷 no chat. Ao receber uma imagem, diga que não consegue visualizá-la aqui na conversa, mas que ela já foi salva na ficha dele no sistema — e que o artista terá acesso durante a consultoria.
+Quando o cliente descrever uma ideia, convide a enviar imagem pelo botão 📷. Ao receber, diga que não consegue ver aqui, mas que já foi salva na ficha e o artista terá acesso.
 
 ## ENCERRAMENTO
-Após salvar o lead, encerre com clareza e elegância: confirme os dados registrados, diga que a equipe da Casa dos Carvalho vai entrar em contato pelo WhatsApp em breve, e que a Aura está disponível para qualquer dúvida enquanto isso.
+- Fluxo A: confirme os dados, diga que a equipe entra em contato pelo WhatsApp.
+- Fluxo B: confirme os dados, diga que a equipe confirma o horário pelo WhatsApp e que um e-mail foi enviado.
 
 ## ARTISTAS
 - **Abraão** — realismo, blackwork, orientalismo, peças grandes e autorais. WhatsApp: https://wa.me/5527996929665?text=Olá+Abraão%2C+vim+pelo+site+da+Casa+dos+Carvalho+e+gostaria+de+conversar+sobre+minha+tatuagem+%F0%9F%96%A4
@@ -75,9 +99,9 @@ Após salvar o lead, encerre com clareza e elegância: confirme os dados registr
 Triage por estilo:
 - Floral, delicado, fino, aquarela, minimalista, fine line, pontilhismo, geométrico → Camilla
 - Grande, realismo, blackwork, cobertura, oriental, japonesa, tribal, biomecânico, old school → Abraão
-- Ambíguo → a equipe vai indicar o artista ideal na consultoria
+- Ambíguo → a equipe indica na consultoria
 
-**Só libere o link do artista se:** (1) nome + WhatsApp + e-mail coletados E (2) o cliente pedir explicitamente. Nunca ofereça antes.
+**Só libere link do artista se:** (1) dados coletados E (2) cliente pedir explicitamente.
 
 ## DIFERENCIAIS DA CASA DOS CARVALHO
 - Não repetimos tatuagens. Cada projeto é único e exclusivo.
@@ -86,22 +110,19 @@ Triage por estilo:
 - Referência em qualidade no Espírito Santo — confirmado sessão após sessão.
 
 ## PROCESSO
-1. **Consultoria** — conversa presencial, café, escuta real, construção do projeto juntos
+1. **Consulta** — conversa presencial, café, escuta real, construção do projeto juntos
 2. **Orçamento** — valor do projeto completo, pode ser dividido no cartão ou em sessões
 3. **Sessão** — tatuamos na hora se houver disponibilidade, ou agendamos
 
-Apresente esse processo como algo especial quando o cliente demonstrar interesse em avançar.
-
 ## QUEBRA DE OBJEÇÕES
-- "Vou pensar" → Acolha. A decisão de tatuar merece reflexão. Reforce o diferencial com sutileza.
-- "Quanto custa?" → Nunca revele. O valor é discutido na consultoria — projetos únicos não têm preço de prateleira.
-- "Tenho medo de arrepender" → Uma tatuagem pensada com cuidado e criada com exclusividade raramente decepciona. É para isso que existe a consultoria.
-- "Já fiz em outro lugar" → Não compare. Apresente o diferencial da Casa dos Carvalho com segurança.
+- "Vou pensar" → Acolha. Reforce o diferencial com sutileza.
+- "Quanto custa?" → Nunca revele. O valor é discutido na consulta.
+- "Tenho medo de arrepender" → Uma tatuagem pensada com cuidado raramente decepciona. É para isso que existe a consulta.
+- "Já fiz em outro lugar" → Não compare. Apresente o diferencial com segurança.
 
 ## REAÇÕES EMOCIONAIS
-- Cliente compartilha algo significativo → empatia genuína e contida. Uma frase bem colocada vale mais que um parágrafo.
+- Cliente compartilha algo significativo → empatia genuína e contida.
 - Cliente entusiasmado → combine a energia com elegância. Nunca exagere.
-- Conquistas e avanços → celebre com fineza. A Casa dos Carvalho sorri com classe.
 
 ## POLÍTICAS
 - Retoque gratuito em até 30 dias
@@ -126,8 +147,11 @@ Apresente esse processo como algo especial quando o cliente demonstrar interesse
 - NUNCA usar urgência artificial ou escassez falsa
 - NUNCA ser prolixa — respostas curtas, diretas, sem perder personalidade
 - NUNCA perguntar mais de 1 dado por mensagem
-- NUNCA inventar se o cliente já é cadastrado — sempre use a ferramenta verificar_cliente_existente para confirmar, nunca assuma
-- NUNCA incluir a tag [LEAD:...] para um cliente já reconhecido como existente — isso cria um cadastro duplicado. Use notificar_solicitacao_agendamento nesse caso
+- NUNCA inventar se o cliente já é cadastrado — sempre use verificar_cliente_existente
+- NUNCA incluir [LEAD:...] para cliente já reconhecido como existente
+- NUNCA sugerir consulta com Camilla — ela faz sessões diretas
+- NUNCA acionar solicitar_agendamento sem: nome completo, WhatsApp, e-mail, tipo, artista e data
+- NUNCA encerrar sem ter salvo o lead de alguma forma
 - Se não souber responder, diga que vai verificar com a equipe e peça o contato
 
 Quando tiver nome + WhatsApp + e-mail coletados, inclua no final da sua resposta (invisível ao usuário):
@@ -160,6 +184,28 @@ const TOOLS = [
         resumo: { type: "string", description: "Breve resumo do que o cliente quer (ex: continuar projeto com Abraão, nova sessão de tatuagem, dúvida sobre cicatrização)" }
       },
       required: ["nome", "telefone", "resumo"]
+    }
+  },
+  {
+    name: "solicitar_agendamento",
+    description: "Cria uma solicitação formal de agendamento (consulta ou sessão) para um cliente. Use somente após coletar: nome completo, WhatsApp, e-mail, tipo (consulta ou sessao), artista preferido e data preferida. Para clientes novos inclua também o [LEAD:...] na mesma resposta. Para clientes já cadastrados reconhecidos via verificar_cliente_existente, use o cliente_id retornado.",
+    input_schema: {
+      type: "object",
+      properties: {
+        cliente_id: { type: "string", description: "ID do cliente se já cadastrado (retornado por verificar_cliente_existente). Omita para clientes novos." },
+        cliente_nome: { type: "string", description: "Nome completo do cliente (nome e sobrenome)" },
+        cliente_email: { type: "string", description: "E-mail do cliente" },
+        cliente_tel: { type: "string", description: "WhatsApp do cliente com DDD" },
+        cliente_insta: { type: "string", description: "Instagram do cliente sem @, se informado" },
+        artista: { type: "string", description: "Nome do artista: Abraão ou Camilla" },
+        tipo: { type: "string", enum: ["consulta", "sessao"], description: "Tipo: consulta (~1h30-2h, somente Abraão) ou sessao (a tatuagem em si, ~3h)" },
+        data_solicitada: { type: "string", description: "Data preferida no formato YYYY-MM-DD" },
+        hora_solicitada: { type: "string", description: "Horário preferido no formato HH:MM" },
+        projeto: { type: "string", description: "Descrição detalhada do projeto/tatuagem desejada" },
+        regiao: { type: "string", description: "Região do corpo onde será tatuado" },
+        orcamento: { type: "string", description: "Orçamento estimado informado pelo cliente" }
+      },
+      required: ["cliente_nome", "cliente_email", "cliente_tel", "artista", "tipo", "data_solicitada"]
     }
   }
 ];
@@ -202,12 +248,136 @@ async function notificarSolicitacaoAgendamento(nome, telefone, resumo) {
   }
 }
 
+async function solicitarAgendamento(input) {
+  try {
+    const { cliente_id, cliente_nome, cliente_email, cliente_tel, cliente_insta, artista, tipo, data_solicitada, hora_solicitada, projeto, regiao, orcamento } = input;
+
+    const descricao = [
+      projeto ? "Projeto: " + projeto : "",
+      regiao ? "Região: " + regiao : "",
+      orcamento ? "Orçamento estimado: " + orcamento : "",
+      cliente_insta ? "Instagram: @" + cliente_insta.replace("@", "") : ""
+    ].filter(Boolean).join(" | ");
+
+    const { data: pending, error: pendErr } = await supabase
+      .from("agendamentos_pendentes")
+      .insert({
+        user_id: STUDIO_USER_ID,
+        status: "pendente",
+        cliente_id: cliente_id || null,
+        cliente_nome,
+        cliente_email: cliente_email || "",
+        cliente_tel: (cliente_tel || "").replace(/\D/g, ""),
+        profissional_nome: artista,
+        data_solicitada,
+        hora_solicitada: hora_solicitada || "",
+        tipo,
+        descricao
+      })
+      .select("id")
+      .single();
+
+    if (pendErr) {
+      console.error("agendamentos_pendentes insert error:", pendErr);
+      return { ok: false, erro: pendErr.message };
+    }
+
+    if (cliente_id) {
+      await supabase.from("clientes").update({ etapa: "aura_agend" }).eq("id", cliente_id);
+    }
+
+    const resendKey = process.env.RESEND_API_KEY;
+    const emailRem = process.env.EMAIL_REMETENTE || "contato@acasadoscarvalhotattoo.com.br";
+    const emailPro = artista && artista.toLowerCase().includes("camilla")
+      ? "camilla-acampos@hotmail.com"
+      : "estudioabraaotattoo07@gmail.com";
+    const tipoLabel = tipo === "sessao" ? "Sessão" : "Consulta";
+    const dataFmt = data_solicitada ? data_solicitada.split("-").reverse().join("/") : "A confirmar";
+
+    if (resendKey) {
+      const htmlPro = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;background:#fafafa;padding:24px;border-radius:8px'>" +
+        "<h2 style='color:#C9A84C;border-bottom:2px solid #C9A84C;padding-bottom:8px'>✦ " + tipoLabel + " solicitada via Aura</h2>" +
+        "<table style='width:100%;border-collapse:collapse;font-size:14px;margin-top:12px'>" +
+        "<tr><td style='padding:5px 0;font-weight:bold;color:#555;width:150px'>Tipo</td><td>" + tipoLabel + "</td></tr>" +
+        "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Artista</td><td>" + artista + "</td></tr>" +
+        "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Data solicitada</td><td>" + dataFmt + "</td></tr>" +
+        "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Horário</td><td>" + (hora_solicitada || "A combinar") + "</td></tr>" +
+        "<tr><td colspan='2' style='padding:14px 0 4px;color:#C9A84C;font-weight:bold;font-size:12px;text-transform:uppercase;letter-spacing:.06em'>Cliente</td></tr>" +
+        "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Nome</td><td>" + cliente_nome + "</td></tr>" +
+        "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>WhatsApp</td><td>" + (cliente_tel || "—") + "</td></tr>" +
+        "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>E-mail</td><td>" + (cliente_email || "—") + "</td></tr>" +
+        "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Instagram</td><td>" + (cliente_insta ? "@" + cliente_insta.replace("@", "") : "—") + "</td></tr>" +
+        "<tr><td colspan='2' style='padding:14px 0 4px;color:#C9A84C;font-weight:bold;font-size:12px;text-transform:uppercase;letter-spacing:.06em'>Projeto</td></tr>" +
+        "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Ideia</td><td>" + (projeto || "—") + "</td></tr>" +
+        "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Região</td><td>" + (regiao || "—") + "</td></tr>" +
+        "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Orçamento</td><td>" + (orcamento || "—") + "</td></tr>" +
+        "</table>" +
+        "<p style='margin-top:20px;font-size:12px;color:#aaa'>Solicitado via Aura Chat · Casa dos Carvalho · Confirme pelo WhatsApp do cliente.</p>" +
+        "</div>";
+
+      fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + resendKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: "Casa dos Carvalho <" + emailRem + ">",
+          to: [emailPro],
+          subject: "✦ " + tipoLabel + " solicitada — " + cliente_nome + " | " + dataFmt,
+          html: htmlPro
+        })
+      }).catch(e => console.warn("Email profissional error:", e));
+
+      if (cliente_email) {
+        const fn = cliente_nome.trim().split(" ")[0];
+        const htmlCli = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222'>" +
+          "<p>Olá, <strong>" + fn + "</strong>!</p>" +
+          "<p>Sua solicitação de <strong>" + tipoLabel.toLowerCase() + "</strong> com <strong>" + artista + "</strong> foi recebida com sucesso. 🖤</p>" +
+          "<p><strong>Data solicitada:</strong> " + dataFmt + (hora_solicitada ? " às " + hora_solicitada : "") + "</p>" +
+          "<p>Nossa equipe vai entrar em contato pelo seu WhatsApp em breve para confirmar o horário exato.</p>" +
+          "<p style='margin-top:24px;font-size:12px;color:#999'>Casa dos Carvalho Tattoo · Vitória-ES</p>" +
+          "</div>";
+        fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + resendKey, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from: "Casa dos Carvalho <" + emailRem + ">",
+            to: [cliente_email],
+            subject: "Sua " + tipoLabel.toLowerCase() + " foi solicitada — Casa dos Carvalho Tattoo",
+            html: htmlCli
+          })
+        }).catch(e => console.warn("Email cliente error:", e));
+      }
+    }
+
+    const zenviaKey = process.env.ZENVIA_API_KEY;
+    if (zenviaKey) {
+      const smsTo = artista && artista.toLowerCase().includes("camilla") ? "5527996941787" : "5527996929665";
+      const smsText = "✦ " + tipoLabel + " | " + cliente_nome + " | " + dataFmt + (hora_solicitada ? " " + hora_solicitada : "") + " | " + ((cliente_tel || "").replace(/\D/g, "").slice(-11) || "—");
+      fetch("https://api.zenvia.com/v2/channels/sms/messages", {
+        method: "POST",
+        headers: { "X-API-TOKEN": zenviaKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: "estudio.abraao.tattoo",
+          to: smsTo,
+          contents: [{ type: "text", text: smsText }]
+        })
+      }).catch(e => console.warn("SMS profissional error:", e));
+    }
+
+    return { ok: true, pendingId: pending?.id, mensagem: "Agendamento solicitado. Profissional notificado por e-mail e SMS." };
+  } catch (e) {
+    return { ok: false, erro: String(e) };
+  }
+}
+
 async function executarFerramenta(nome, input) {
   if (nome === "verificar_cliente_existente") {
     return await verificarClienteExistente(input.telefone);
   }
   if (nome === "notificar_solicitacao_agendamento") {
     return await notificarSolicitacaoAgendamento(input.nome, input.telefone, input.resumo);
+  }
+  if (nome === "solicitar_agendamento") {
+    return await solicitarAgendamento(input);
   }
   return { erro: "ferramenta desconhecida" };
 }
