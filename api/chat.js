@@ -33,13 +33,24 @@ O restante — nascimento, estilo, região, tamanho, Instagram — é coletado n
 
 SOMENTE após coletar nome + WhatsApp + e-mail, salve o lead.
 
-## VERIFICAÇÃO DE CLIENTE EXISTENTE
-Assim que o cliente informar o número de WhatsApp, use a ferramenta \`verificar_cliente_existente\` para checar se ele já é nosso cliente, antes de continuar a conversa.
-- Se for encontrado: confirme com calor humano, por exemplo "Que bom te ver de novo, [nome]! Você já é nosso cliente, certo?" e aguarde a confirmação dele antes de seguir.
-- Se não for encontrado: continue normalmente, sem comentar nada sobre isso — pode ser um cliente novo, ou antigo sem cadastro completo ainda.
+## ABERTURA E RECONHECIMENTO DE CLIENTE
+A primeira coisa a descobrir, antes de tratar a pessoa como lead novo, é se ela já é cliente. Siga esta ordem:
 
-## ABERTURA SUGERIDA
-Após a saudação e apresentação, pergunte o nome. Ao recebê-lo, use-o e pergunte com a frase: "Você já tem alguma ideia da arte que deseja eternizar na sua pele?"
+1. Apresente-se brevemente como a Aura, assistente da Casa dos Carvalho, e pergunte: "Você já é nosso cliente, ou é a primeira vez que você está por aqui?"
+
+2. Se a pessoa disser que JÁ é cliente:
+   a. Peça o WhatsApp com DDD: "Deixa eu confirmar — pode me passar seu WhatsApp com DDD?"
+   b. Use a ferramenta \`verificar_cliente_existente\` com esse telefone.
+   c. Se encontrado: cumprimente pelo nome que a ferramenta retornou (ex: "Que bom te ver de novo, [nome]!") e pergunte o que ela precisa hoje. NÃO peça o nome de novo — você já tem.
+   d. Se NÃO encontrado: diga com acolhimento que ainda não a encontrou no cadastro, e pergunte o nome para seguir o cadastro normalmente. A partir daqui, trate como cliente novo — mas não peça o WhatsApp de novo, você já tem.
+
+3. Se a pessoa disser que é a PRIMEIRA VEZ: siga o fluxo normal — pergunte o nome e, ao recebê-lo, pergunte: "Você já tem alguma ideia da arte que deseja eternizar na sua pele?"
+
+## QUANDO UM CLIENTE EXISTENTE PEDE AGENDAMENTO
+Se, no passo 2c acima, o cliente confirmar que quer agendar uma sessão ou continuar um projeto em andamento:
+- Use a ferramenta \`notificar_solicitacao_agendamento\` para avisar a equipe, com um resumo curto do que ele quer.
+- NUNCA inclua a tag [LEAD:...] neste caso — o cliente já está cadastrado, e criar uma tag de lead aqui geraria um cadastro duplicado.
+- Encerre com elegância, dizendo que a equipe vai entrar em contato pelo WhatsApp em breve para confirmar dia e horário.
 
 ## IMAGEM DE REFERÊNCIA
 Quando o cliente descrever uma ideia de tatuagem, sugira naturalmente que envie uma imagem de referência pelo botão 📷 no chat. Ao receber uma imagem, diga que não consegue visualizá-la aqui na conversa, mas que ela já foi salva na ficha dele no sistema — e que o artista terá acesso durante a consultoria.
@@ -106,6 +117,7 @@ Apresente esse processo como algo especial quando o cliente demonstrar interesse
 - NUNCA ser prolixa — respostas curtas, diretas, sem perder personalidade
 - NUNCA perguntar mais de 1 dado por mensagem
 - NUNCA inventar se o cliente já é cadastrado — sempre use a ferramenta verificar_cliente_existente para confirmar, nunca assuma
+- NUNCA incluir a tag [LEAD:...] para um cliente já reconhecido como existente — isso cria um cadastro duplicado. Use notificar_solicitacao_agendamento nesse caso
 - Se não souber responder, diga que vai verificar com a equipe e peça o contato
 
 Quando tiver nome + WhatsApp + e-mail coletados, inclua no final da sua resposta (invisível ao usuário):
@@ -125,6 +137,19 @@ const TOOLS = [
       },
       required: ["telefone"]
     }
+  },
+  {
+    name: "notificar_solicitacao_agendamento",
+    description: "Notifica a equipe do estúdio por SMS que um cliente JÁ CADASTRADO está pedindo para agendar uma sessão ou continuar um projeto. Use isso somente depois que verificar_cliente_existente confirmou que o telefone já pertence a um cliente, e o cliente confirmou que quer agendar. NUNCA use para clientes novos — clientes novos são tratados pela tag [LEAD:...] normalmente.",
+    input_schema: {
+      type: "object",
+      properties: {
+        nome: { type: "string", description: "Nome do cliente, conforme retornado por verificar_cliente_existente" },
+        telefone: { type: "string", description: "Telefone do cliente" },
+        resumo: { type: "string", description: "Breve resumo do que o cliente quer (ex: continuar projeto com Abraão, nova sessão de tatuagem, dúvida sobre cicatrização)" }
+      },
+      required: ["nome", "telefone", "resumo"]
+    }
   }
 ];
 
@@ -139,16 +164,38 @@ async function verificarClienteExistente(telefoneInformado) {
       .eq("user_id", STUDIO_USER_ID);
     if (error || !data) return { encontrado: false };
     const match = data.find(c => (c.tel || "").replace(/\D/g, "").slice(-8) === ultimosDigitos);
-    if (match) return { encontrado: true, nome: match.nome };
+    if (match) return { encontrado: true, nome: match.nome, id: match.id };
     return { encontrado: false };
   } catch {
     return { encontrado: false };
   }
 }
 
+async function notificarSolicitacaoAgendamento(nome, telefone, resumo) {
+  try {
+    const zenviaKey = process.env.ZENVIA_API_KEY;
+    if (!zenviaKey) return { enviado: false };
+    await fetch("https://api.zenvia.com/v2/channels/sms/messages", {
+      method: "POST",
+      headers: { "X-API-TOKEN": zenviaKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: "estudio.abraao.tattoo",
+        to: "5527996929665",
+        contents: [{ type: "text", text: "✦ Cliente já cadastrado quer agendar: " + nome + " | " + telefone + " | " + resumo }]
+      })
+    });
+    return { enviado: true };
+  } catch {
+    return { enviado: false };
+  }
+}
+
 async function executarFerramenta(nome, input) {
   if (nome === "verificar_cliente_existente") {
     return await verificarClienteExistente(input.telefone);
+  }
+  if (nome === "notificar_solicitacao_agendamento") {
+    return await notificarSolicitacaoAgendamento(input.nome, input.telefone, input.resumo);
   }
   return { erro: "ferramenta desconhecida" };
 }
