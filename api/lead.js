@@ -49,16 +49,45 @@ export default async function handler(req, res) {
 
   row.user_id = "2d366d35-1cae-40d5-ba92-06fe2ab8a763";
 
-  const { data: inserted, error } = await sb.from("clientes").insert(row).select("id").single();
-
-  if (error) {
-    console.error("Supabase insert error:", error);
-    return res.status(500).json({ error: error.message });
+  // Upsert: se o telefone já existe, atualiza em vez de inserir
+  let clienteId = null;
+  let isNewClient = true;
+  if (tel) {
+    const telDigits = tel.replace(/\D/g, "").slice(-8);
+    const { data: existentes } = await sb.from("clientes").select("id,tel").eq("user_id", row.user_id);
+    const match = (existentes || []).find(c => (c.tel || "").replace(/\D/g, "").slice(-8) === telDigits);
+    if (match) {
+      const updateRow = { ...row };
+      delete updateRow.user_id; delete updateRow.etapa; delete updateRow.orig;
+      // Só atualiza campos que vieram preenchidos
+      const updateFields = {};
+      if (nome) updateFields.nome = updateRow.nome;
+      if (email) updateFields.email = updateRow.email;
+      if (insta) updateFields.insta = updateRow.insta;
+      if (idea || nascimento) updateFields.descricao = updateRow.descricao;
+      if (artista) updateFields.artista = updateRow.artista;
+      if (regiao) updateFields.regiao = updateRow.regiao;
+      if (obsExtra) updateFields.obs = updateRow.obs;
+      if (Object.keys(updateFields).length > 0) {
+        await sb.from("clientes").update(updateFields).eq("id", match.id);
+      }
+      clienteId = match.id;
+      isNewClient = false;
+    }
   }
 
-  const clienteId = inserted?.id || null;
+  if (!clienteId) {
+    const { data: inserted, error } = await sb.from("clientes").insert(row).select("id").single();
+    if (error) {
+      console.error("Supabase insert error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+    clienteId = inserted?.id || null;
+  }
 
-  // Dispara SMS para o cliente e para o estúdio em paralelo
+  // Dispara SMS e e-mail apenas no primeiro cadastro (não em updates progressivos)
+  if (!isNewClient) return res.status(200).json({ ok: true, clienteId, updated: true });
+
   const zenviaKey = process.env.ZENVIA_API_KEY;
   const fn = nome.trim().split(" ")[0];
 

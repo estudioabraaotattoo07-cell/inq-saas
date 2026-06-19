@@ -1300,7 +1300,7 @@ export default function CRM() {
           return {
             ...a,
             title: a.titulo || a.title || "Sem título",
-            date: a.data || a.date,
+            date: (a.data || a.date || "").substring(0, 10),
             start: isNaN(startH) ? 9 : startH,
             end: isNaN(endH) ? startH + 2 : endH
           };
