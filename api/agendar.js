@@ -108,12 +108,14 @@ export default async function handler(req, res) {
       "<p style='margin-top:20px;font-size:12px;color:#aaa'>Solicitado via Aura Chat · Casa dos Carvalho · Confirme pelo WhatsApp do cliente.</p>" +
       "</div>";
 
+    const emailEstudio = "estudioabraaotattoo07@gmail.com";
+    const toList = emailPro === emailEstudio ? [emailPro] : [emailPro, emailEstudio];
     fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { "Authorization": "Bearer " + resendKey, "Content-Type": "application/json" },
       body: JSON.stringify({
         from: "Casa dos Carvalho <" + emailRem + ">",
-        to: [emailPro],
+        to: toList,
         subject: "✦ " + tipoLabel + " solicitada — " + cliente_nome + " | " + dataFmt,
         html: htmlPro
       })

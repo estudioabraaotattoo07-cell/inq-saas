@@ -106,14 +106,14 @@ export default async function handler(req, res) {
         })
       }).catch(e => console.warn("SMS cliente error:", e)),
 
-      // SMS para o estúdio
+      // SMS para o profissional responsável (ou estúdio se indefinido)
       fetch("https://api.zenvia.com/v2/channels/sms/messages", {
         method: "POST",
         headers: { "X-API-TOKEN": zenviaKey, "Content-Type": "application/json" },
         body: JSON.stringify({
           from: "estudio.abraao.tattoo",
-          to: "5527996929665",
-          contents: [{ type: "text", text: `✦ Novo lead: ${nome} | ${tel} | ${email} | Artista: ${artista || "A definir"}` }]
+          to: artista && artista.toLowerCase().includes("camilla") ? "5527996941787" : "5527996929665",
+          contents: [{ type: "text", text: `✦ Novo lead: ${nome} | ${tel} | ${email || "—"} | Artista: ${artista || "A definir"}` }]
         })
       }).catch(e => console.warn("SMS estudio error:", e)),
     ];
