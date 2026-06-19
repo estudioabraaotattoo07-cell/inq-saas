@@ -39,13 +39,14 @@ Colete UM dado por mensagem, com naturalidade e sem pressa:
 2. WhatsApp com DDD
 3. E-mail
 4. Instagram ("Para o artista já ir conhecendo seu perfil — tem @?")
-5. Tipo: **consulta** ou **sessão**? (explique a diferença se necessário)
-6. Artista preferido (indique pelo estilo se não souber)
-7. Ideia/projeto em detalhes
-8. Região do corpo onde será tatuado
-9. Orçamento estimado ("Qual o investimento que você tem em mente para esse projeto?")
-10. Referência de imagem (convide pelo botão 📷 — ao receber, confirme que foi salva)
-11. Data preferida e horário
+5. Data de aniversário ("Só pra gente te surpreender na data certa — qual seu aniversário?") — obrigatório coletar
+6. Tipo: **consulta** ou **sessão**? (explique a diferença se necessário)
+7. Artista preferido (indique pelo estilo se não souber)
+8. Ideia/projeto em detalhes
+9. Região do corpo onde será tatuado
+10. Orçamento estimado ("Qual o investimento que você tem em mente para esse projeto?")
+11. Referência de imagem (convide pelo botão 📷 — ao receber, confirme que foi salva)
+12. Data preferida e horário
 
 Após ter nome completo + WhatsApp + e-mail + tipo + artista + data → acione \`solicitar_agendamento\`.
 Se for cliente novo, inclua [LEAD:...] antes ou na mesma resposta que aciona o agendamento.
@@ -165,6 +166,7 @@ Triage por estilo:
 - NUNCA incluir [LEAD:...] para cliente já reconhecido como existente
 - NUNCA sugerir consulta com Camilla — ela faz sessões diretas
 - NUNCA acionar solicitar_agendamento sem: nome completo, WhatsApp, e-mail, tipo, artista e data
+- Sempre inclua cliente_nascimento no solicitar_agendamento se tiver sido coletado
 - NUNCA encerrar sem ter salvo o lead de alguma forma
 - Se não souber responder, diga que vai verificar com a equipe e peça o contato
 
@@ -217,6 +219,7 @@ const TOOLS = [
         cliente_email: { type: "string", description: "E-mail do cliente" },
         cliente_tel: { type: "string", description: "WhatsApp do cliente com DDD" },
         cliente_insta: { type: "string", description: "Instagram do cliente sem @, se informado" },
+        cliente_nascimento: { type: "string", description: "Data de aniversário do cliente no formato DD/MM/AAAA, se informada" },
         artista: { type: "string", description: "Nome do artista: Abraão ou Camilla" },
         tipo: { type: "string", enum: ["consulta", "sessao"], description: "Tipo: consulta (~1h30-2h, somente Abraão) ou sessao (a tatuagem em si, ~3h)" },
         data_solicitada: { type: "string", description: "Data preferida no formato YYYY-MM-DD" },
@@ -270,7 +273,7 @@ async function notificarSolicitacaoAgendamento(nome, telefone, resumo) {
 
 async function solicitarAgendamento(input) {
   try {
-    const { cliente_id, cliente_nome, cliente_email, cliente_tel, cliente_insta, artista, tipo, data_solicitada, hora_solicitada, projeto, regiao, orcamento } = input;
+    const { cliente_id, cliente_nome, cliente_email, cliente_tel, cliente_insta, cliente_nascimento, artista, tipo, data_solicitada, hora_solicitada, projeto, regiao, orcamento } = input;
 
     const descricao = [
       projeto ? "Projeto: " + projeto : "",
@@ -279,29 +282,39 @@ async function solicitarAgendamento(input) {
       cliente_insta ? "Instagram: @" + cliente_insta.replace("@", "") : ""
     ].filter(Boolean).join(" | ");
 
-    // Buscar dados do artista e configurações do estúdio em paralelo
+    // Buscar dados do artista (com ID) e configurações do estúdio em paralelo
     const [artistaRow, cfgRow] = await Promise.all([
       artista
-        ? supabase.from("artistas").select("nome,email,tel").ilike("nome", "%" + artista.split(" ")[0] + "%").eq("user_id", STUDIO_USER_ID).limit(1).single().then(r => r.data)
+        ? supabase.from("artistas").select("id,nome,email,tel").ilike("nome", "%" + artista.split(" ")[0] + "%").eq("user_id", STUDIO_USER_ID).limit(1).single().then(r => r.data)
         : Promise.resolve(null),
       supabase.from("configuracoes").select("studio_email,studio_name").eq("user_id", STUDIO_USER_ID).limit(1).single().then(r => r.data)
     ]);
 
+    const artistaId = artistaRow?.id || null;
     const emailArtista = artistaRow?.email || null;
     const telArtista = artistaRow?.tel ? "55" + (artistaRow.tel).replace(/\D/g, "").replace(/^55/, "") : null;
     const emailEstudio = cfgRow?.studio_email || "estudioabraaotattoo07@gmail.com";
     const nomeEstudio = cfgRow?.studio_name || "Casa dos Carvalho Tattoo";
 
+    // Normalizar nascimento para formato ISO (AAAA-MM-DD) se vier como DD/MM/AAAA
+    let nascimentoISO = null;
+    if (cliente_nascimento) {
+      const parts = cliente_nascimento.replace(/[^\d]/g, "/").split("/");
+      if (parts.length === 3 && parts[2].length === 4) {
+        nascimentoISO = parts[2] + "-" + parts[1].padStart(2,"0") + "-" + parts[0].padStart(2,"0");
+      }
+    }
+
     // Para clientes novos: cria o registro no CRM direto com etapa aura_agend
     let finalClienteId = cliente_id || null;
     if (!finalClienteId) {
-      const { data: novoCliente } = await supabase.from("clientes").insert({
+      const novoClienteRow = {
         user_id: STUDIO_USER_ID,
         nome: cliente_nome,
         tel: (cliente_tel || "").replace(/\D/g, ""),
         email: cliente_email || "",
         insta: cliente_insta || "",
-        artista: artista || null,
+        artista: artistaId || artista || null,
         descricao: descricao || "",
         regiao: regiao || "",
         etapa: "aura_agend",
@@ -311,10 +324,16 @@ async function solicitarAgendamento(input) {
         estilo: "", tam: "Medio", intencao: "", cob: false, stars: 0,
         val_a: 0, val_c: 0, pgto: "", orcamento: false, contrato: false,
         faltas: 0, indicacoes: 0, credito: 0, cri: "", dias: 0, referencias: []
-      }).select("id").single();
+      };
+      if (nascimentoISO) novoClienteRow.nascimento = nascimentoISO;
+      const { data: novoCliente } = await supabase.from("clientes").insert(novoClienteRow).select("id").single();
       if (novoCliente) finalClienteId = novoCliente.id;
     } else {
-      await supabase.from("clientes").update({ etapa: "aura_agend", descricao: descricao || undefined }).eq("id", finalClienteId);
+      const updateFields = { etapa: "aura_agend" };
+      if (descricao) updateFields.descricao = descricao;
+      if (artistaId) updateFields.artista = artistaId;
+      if (nascimentoISO) updateFields.nascimento = nascimentoISO;
+      await supabase.from("clientes").update(updateFields).eq("id", finalClienteId);
     }
 
     const { error: pendErr } = await supabase
@@ -336,6 +355,27 @@ async function solicitarAgendamento(input) {
     if (pendErr) {
       console.error("agendamentos_pendentes insert error:", pendErr);
       return { ok: false, erro: pendErr.message };
+    }
+
+    // Criar evento na agenda (marcado como pendente de confirmação)
+    if (data_solicitada && artistaId) {
+      const tipoAgenda = tipo === "consulta" ? "cons_" + artistaId : "sess_" + artistaId;
+      const horaInicio = hora_solicitada || "13:00";
+      const horaInicioH = parseInt(horaInicio.split(":")[0]);
+      const duracaoH = tipo === "consulta" ? 2 : 3;
+      const horaFim = String(horaInicioH + duracaoH).padStart(2, "0") + ":00";
+      supabase.from("agenda").insert({
+        user_id: STUDIO_USER_ID,
+        titulo: "(Aguardando confirmação) " + (tipo === "consulta" ? "Consulta" : "Sessão") + " — " + cliente_nome,
+        cliente_id: finalClienteId,
+        cliente_nome,
+        artista: artistaId,
+        data: data_solicitada,
+        hora: horaInicio,
+        hora_fim: horaFim,
+        tipo: tipoAgenda,
+        status: "pendente"
+      }).then(r => { if (r.error) console.warn("agenda insert error:", r.error); });
     }
 
     const resendKey = process.env.RESEND_API_KEY;
