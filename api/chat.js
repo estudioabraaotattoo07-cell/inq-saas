@@ -105,7 +105,9 @@ Quando o cliente descrever uma ideia, convide a enviar imagem pelo botão 📷. 
 
 ## ENCERRAMENTO
 - Fluxo A: confirme os dados, diga que a equipe entra em contato pelo WhatsApp.
-- Fluxo B: confirme os dados, diga que a equipe confirma o horário pelo WhatsApp e que um e-mail foi enviado.
+- Fluxo B: após acionar \`solicitar_agendamento\`, leia o retorno:
+  - Se \`na_agenda: true\`: confirme que o agendamento está marcado na data e hora combinadas. Diga que um e-mail foi enviado e a equipe pode entrar em contato pelo WhatsApp para detalhes.
+  - Se \`na_agenda: false\`: diga que a solicitação foi registrada e que a equipe vai confirmar o horário pelo WhatsApp em breve. NUNCA diga que o agendamento está confirmado ou que já está na agenda se \`na_agenda\` for false.
 
 ## ARTISTAS
 - **Abraão** — realismo, blackwork, orientalismo, peças grandes e autorais. WhatsApp: https://wa.me/5527996929665?text=Olá+Abraão%2C+vim+pelo+site+da+Casa+dos+Carvalho+e+gostaria+de+conversar+sobre+minha+tatuagem+%F0%9F%96%A4
@@ -371,6 +373,7 @@ async function solicitarAgendamento(input) {
     }
 
     // Criar evento na agenda — awaited para garantir execução antes do return
+    let agendaNaAgenda = false;
     if (data_solicitada) {
       const tipoAgenda = artistaId
         ? (tipo === "consulta" ? "cons_" + artistaId : "sess_" + artistaId)
@@ -392,6 +395,7 @@ async function solicitarAgendamento(input) {
       if (artistaId) agendaRow.artista = artistaId;
       const agRes = await supabase.from("agenda").insert(agendaRow);
       if (agRes.error) console.error("agenda insert error:", agRes.error);
+      agendaNaAgenda = !agRes.error;
     }
 
     const resendKey = process.env.RESEND_API_KEY;
@@ -487,7 +491,14 @@ async function solicitarAgendamento(input) {
       }).catch(e => console.warn("SMS profissional error:", e));
     }
 
-    return { ok: true, clienteId: finalClienteId, mensagem: "Agendamento solicitado. Profissional e estúdio notificados." };
+    return {
+      ok: true,
+      clienteId: finalClienteId,
+      na_agenda: agendaNaAgenda,
+      mensagem: agendaNaAgenda
+        ? "Agendamento registrado na agenda e profissional notificado."
+        : "Solicitação registrada. Profissional notificado, mas o evento na agenda requer confirmação da equipe."
+    };
   } catch (e) {
     console.error("solicitarAgendamento exception:", e);
     return { ok: false, erro: String(e) };
