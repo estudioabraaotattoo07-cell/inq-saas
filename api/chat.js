@@ -370,24 +370,28 @@ async function solicitarAgendamento(input) {
       return { ok: false, erro: pendErr.message };
     }
 
-    // Criar evento na agenda (marcado como pendente de confirmação)
-    if (data_solicitada && artistaId) {
-      const tipoAgenda = tipo === "consulta" ? "cons_" + artistaId : "sess_" + artistaId;
+    // Criar evento na agenda — awaited para garantir execução antes do return
+    if (data_solicitada) {
+      const tipoAgenda = artistaId
+        ? (tipo === "consulta" ? "cons_" + artistaId : "sess_" + artistaId)
+        : tipo;
       const horaInicio = hora_solicitada || "13:00";
-      const horaInicioH = parseInt(horaInicio.split(":")[0]);
+      const horaInicioH = parseInt((horaInicio.split(":")[0]) || "13");
       const duracaoH = tipo === "consulta" ? 2 : 3;
       const horaFim = String(horaInicioH + duracaoH).padStart(2, "0") + ":00";
-      supabase.from("agenda").insert({
+      const agendaRow = {
         user_id: STUDIO_USER_ID,
         titulo: "(Aguardando confirmação) " + (tipo === "consulta" ? "Consulta" : "Sessão") + " — " + cliente_nome,
         cliente_id: finalClienteId,
         cliente_nome,
-        artista: artistaId,
         data: data_solicitada,
         hora: horaInicio,
         hora_fim: horaFim,
         tipo: tipoAgenda
-      }).then(r => { if (r.error) console.warn("agenda insert error:", r.error); });
+      };
+      if (artistaId) agendaRow.artista = artistaId;
+      const agRes = await supabase.from("agenda").insert(agendaRow);
+      if (agRes.error) console.error("agenda insert error:", agRes.error);
     }
 
     const resendKey = process.env.RESEND_API_KEY;
