@@ -1,4 +1,13 @@
-﻿const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+import { createClient } from "@supabase/supabase-js";
+
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const STUDIO_USER_ID = "2d366d35-1cae-40d5-ba92-06fe2ab8a763";
+
+const supabase = createClient(
+  "https://zkzsykmnhrkwmvgekshh.supabase.co",
+  process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY,
+  { auth: { persistSession: false } }
+);
 
 const SYSTEM_PROMPT = `Você é a Aura, assistente da Casa dos Carvalho — estúdio de tatuagem de alto padrão em Vitória-ES. Criada e treinada por Abraão de Carvalho Aguiar, idealizador do estúdio, que é obcecado pela excelência no atendimento. O padrão aqui é alto — e você o representa com naturalidade.
 
@@ -23,6 +32,11 @@ Sobre sua identidade: mantenha a fluidez de uma conversa humana. Se perguntada d
 O restante — nascimento, estilo, região, tamanho, Instagram — é coletado na consultoria presencial. Não pergunte isso na conversa.
 
 SOMENTE após coletar nome + WhatsApp + e-mail, salve o lead.
+
+## VERIFICAÇÃO DE CLIENTE EXISTENTE
+Assim que o cliente informar o número de WhatsApp, use a ferramenta \`verificar_cliente_existente\` para checar se ele já é nosso cliente, antes de continuar a conversa.
+- Se for encontrado: confirme com calor humano, por exemplo "Que bom te ver de novo, [nome]! Você já é nosso cliente, certo?" e aguarde a confirmação dele antes de seguir.
+- Se não for encontrado: continue normalmente, sem comentar nada sobre isso — pode ser um cliente novo, ou antigo sem cadastro completo ainda.
 
 ## ABERTURA SUGERIDA
 Após a saudação e apresentação, pergunte o nome. Ao recebê-lo, use-o e pergunte com a frase: "Você já tem alguma ideia da arte que deseja eternizar na sua pele?"
@@ -91,6 +105,7 @@ Apresente esse processo como algo especial quando o cliente demonstrar interesse
 - NUNCA usar urgência artificial ou escassez falsa
 - NUNCA ser prolixa — respostas curtas, diretas, sem perder personalidade
 - NUNCA perguntar mais de 1 dado por mensagem
+- NUNCA inventar se o cliente já é cadastrado — sempre use a ferramenta verificar_cliente_existente para confirmar, nunca assuma
 - Se não souber responder, diga que vai verificar com a equipe e peça o contato
 
 Quando tiver nome + WhatsApp + e-mail coletados, inclua no final da sua resposta (invisível ao usuário):
@@ -98,6 +113,45 @@ Quando tiver nome + WhatsApp + e-mail coletados, inclua no final da sua resposta
 
 O campo "artista" deve ser "Abraão", "Camilla" ou null se indeterminado.
 Campos não coletados ficam com string vazia "".`;
+
+const TOOLS = [
+  {
+    name: "verificar_cliente_existente",
+    description: "Verifica se um número de telefone já pertence a um cliente cadastrado no estúdio. Use isso assim que o cliente informar o WhatsApp, antes de continuar a conversa.",
+    input_schema: {
+      type: "object",
+      properties: {
+        telefone: { type: "string", description: "Número de telefone informado pelo cliente, exatamente como ele escreveu" }
+      },
+      required: ["telefone"]
+    }
+  }
+];
+
+async function verificarClienteExistente(telefoneInformado) {
+  try {
+    const digitsInformado = (telefoneInformado || "").replace(/\D/g, "");
+    const ultimosDigitos = digitsInformado.slice(-8);
+    if (!ultimosDigitos) return { encontrado: false };
+    const { data, error } = await supabase
+      .from("clientes")
+      .select("id, nome, tel")
+      .eq("user_id", STUDIO_USER_ID);
+    if (error || !data) return { encontrado: false };
+    const match = data.find(c => (c.tel || "").replace(/\D/g, "").slice(-8) === ultimosDigitos);
+    if (match) return { encontrado: true, nome: match.nome };
+    return { encontrado: false };
+  } catch {
+    return { encontrado: false };
+  }
+}
+
+async function executarFerramenta(nome, input) {
+  if (nome === "verificar_cliente_existente") {
+    return await verificarClienteExistente(input.telefone);
+  }
+  return { erro: "ferramenta desconhecida" };
+}
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -122,31 +176,57 @@ export default async function handler(req, res) {
     systemPrompt += "\n\n## CAMPANHAS ATIVAS\nSe o lead mencionar que tem uma palavra secreta, código de promoção ou algo similar, pergunte qual é a palavra. Compare com esta lista (ignore maiúsculas, acentos e espaços extras ao comparar a palavra_chave):\n" + lista + "\n\nSe a palavra bater com uma campanha: confirme com entusiasmo discreto. Garanta que nome, WhatsApp e e-mail estejam coletados antes de confirmar. Após confirmação com dados completos, inclua EXATAMENTE no final da sua resposta (invisível ao usuário): [CAMPANHA:{\"id\":\"VALOR_DO_ID\",\"nome\":\"VALOR_DO_NOME\"}] — substituindo VALOR_DO_ID e VALOR_DO_NOME pelos valores EXATOS desta lista acima.\nSe a palavra não corresponder a nenhuma campanha ou a campanha estiver encerrada: informe de forma gentil e acolhedora, sem ser ríspida.";
   }
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5",
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages,
-    }),
-  });
+  let workingMessages = [...messages];
+  let finalText = "";
+  let loopGuard = 0;
 
-  if (!response.ok) {
-    const err = await response.text();
-    console.error("Anthropic API error:", err);
-    return res.status(502).json({ error: "LLM error", detail: err });
+  while (loopGuard < 5) {
+    loopGuard++;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5",
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: workingMessages,
+        tools: TOOLS,
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.error("Anthropic API error:", err);
+      return res.status(502).json({ error: "LLM error", detail: err });
+    }
+
+    const data = await response.json();
+    const textBlocks = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+    if (textBlocks) finalText = textBlocks;
+
+    if (data.stop_reason === "tool_use") {
+      const toolUseBlocks = (data.content || []).filter(b => b.type === "tool_use");
+      workingMessages.push({ role: "assistant", content: data.content });
+
+      const toolResults = [];
+      for (const block of toolUseBlocks) {
+        const resultado = await executarFerramenta(block.name, block.input);
+        toolResults.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(resultado) });
+      }
+      workingMessages.push({ role: "user", content: toolResults });
+      continue;
+    } else {
+      break;
+    }
   }
 
-  const data = await response.json();
-  const text = data.content?.[0]?.text || "";
+  const text = finalText;
 
-  // Extract lead data tag if present
   const leadMatch = text.match(/\[LEAD:(\{[^}]+\}(?:[^[]*\})?)\]/s);
   let leadData = null;
   if (leadMatch) {
@@ -157,14 +237,12 @@ export default async function handler(req, res) {
     }
   }
 
-  // Extract campanha tag if present
   const campMatch = text.match(/\[CAMPANHA:(\{[^}]+\})\]/);
   let campanhaData = null;
   if (campMatch) {
     try { campanhaData = JSON.parse(campMatch[1]); } catch (e) {}
   }
 
-  // Strip tags from visible text
   const cleanText = text.replace(/\[LEAD:[\s\S]*?\]/g, "").replace(/\[CAMPANHA:\{[^}]+\}\]/g, "").trim();
 
   return res.status(200).json({ text: cleanText, lead: leadData, campanha: campanhaData });
