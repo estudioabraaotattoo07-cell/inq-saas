@@ -162,6 +162,7 @@ async function verificarClienteExistente(telefoneInformado) {
       .from("clientes")
       .select("id, nome, tel")
       .eq("user_id", STUDIO_USER_ID);
+    console.error("DEBUG verificarCliente:", { error, totalRegistros: data?.length, ultimosDigitos });
     if (error || !data) return { encontrado: false };
     const match = data.find(c => (c.tel || "").replace(/\D/g, "").slice(-8) === ultimosDigitos);
     if (match) return { encontrado: true, nome: match.nome, id: match.id };
