@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, artista, insta, regiao, nascimento, referencias, orig } = req.body;
+  const { nome, tel, email, idea, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra } = req.body;
   if (!nome) return res.status(400).json({ error: "nome obrigatório" });
 
   const row = {
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     intencao: "",
     cob: false,
     stars: 0,
-    obs: "Lead captado via Aura Chat no site.",
+    obs: obsExtra ? `Lead captado via Aura Chat no site. ${obsExtra}` : "Lead captado via Aura Chat no site.",
     val_a: 0,
     val_c: 0,
     pgto: "",
