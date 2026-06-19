@@ -1134,6 +1134,10 @@ export default function CRM() {
   const [disparoPreSessaoPendente, setDisparoPreSessaoPendente] = useState<{etapa: any} | null>(null);
   // ── ACORDEÃO DAS RÉGUAS ──
   const [pvAccordion, setPvAccordion] = useState<{preVenda: boolean; preSessao: boolean; posVenda: boolean}>({ preVenda: false, preSessao: false, posVenda: false });
+  // ── AGENDAMENTOS PENDENTES (vindos da Aura do site) ──
+  const [agendamentosPendentes, setAgendamentosPendentes] = useState<any[]>([]);
+  const [decisaoPendente, setDecisaoPendente] = useState<{id: string; acao: "aprovar" | "recusar"; nome: string} | null>(null);
+  const [processandoDecisao, setProcessandoDecisao] = useState(false);
   // ── DISPARO MANUAL: estado de confirmação ──
   const [disparoManualPendente, setDisparoManualPendente] = useState<{etapa: any; tipoRegua: string; campo?: string} | null>(null);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
@@ -1440,7 +1444,55 @@ export default function CRM() {
     return () => clearInterval(interval);
   }, [logado]);
 
+  // ─── POLLING AGENDAMENTOS PENDENTES (vindos da Aura do site) ────────────
+  const carregarAgendamentosPendentes = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const { data } = await sb.from("agendamentos_pendentes")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("status", "pendente")
+        .order("created_at", { ascending: false });
+      if (data) setAgendamentosPendentes(data);
+    } catch {}
+  }, [userId]);
+
+  useEffect(() => {
+    if (!logado || !userId) return;
+    carregarAgendamentosPendentes();
+    const interval = setInterval(carregarAgendamentosPendentes, 30000);
+    return () => clearInterval(interval);
+  }, [logado, userId, carregarAgendamentosPendentes]);
+
   // ─── RÉGUA PÓS-VENDA ─────────────────────────────────────────────────────
+  const decidirAgendamentoPendente = async (id: string, acao: "aprovar" | "recusar") => {
+    setProcessandoDecisao(true);
+    try {
+      const pendente = agendamentosPendentes.find((p: any) => p.id === id);
+      if (!pendente) { setProcessandoDecisao(false); setDecisaoPendente(null); return; }
+      const novoStatus = acao === "aprovar" ? "aprovado" : "recusado";
+      await sb.from("agendamentos_pendentes").update({ status: novoStatus, decidido_em: new Date().toISOString() }).eq("id", id);
+      if (pendente.cliente_email && resendApiKey && emailRemetente) {
+        const dataFmt = pendente.data_solicitada ? String(pendente.data_solicitada).split("-").reverse().join("/") : "";
+        const msg = acao === "aprovar"
+          ? "Olá, " + pendente.cliente_nome + "! Seu agendamento com " + (pendente.profissional_nome || "nosso time") + " foi confirmado para " + dataFmt + (pendente.hora_solicitada ? " às " + pendente.hora_solicitada : "") + ". Te esperamos no estúdio!"
+          : "Olá, " + pendente.cliente_nome + "! Recebemos seu pedido de agendamento, mas o horário solicitado não pôde ser confirmado. Vamos te ligar em breve para combinar uma nova data.";
+        const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg + "</div>";
+        try {
+          await fetch("/api/resend", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ apiKey: resendApiKey, from: (nomeRemetente || studioName || "INK SYSTEM") + " <" + emailRemetente + ">", to: pendente.cliente_email, subject: acao === "aprovar" ? "Agendamento confirmado — " + (studioName || "INK SYSTEM") : "Sobre seu agendamento — " + (studioName || "INK SYSTEM"), html })
+          });
+        } catch {}
+      }
+      await addLog((acao === "aprovar" ? "✅ Agendamento aprovado" : "❌ Agendamento recusado") + " — " + pendente.cliente_nome + (pendente.profissional_nome ? " com " + pendente.profissional_nome : ""));
+      setAgendamentosPendentes(prev => prev.filter((p: any) => p.id !== id));
+    } catch {}
+    setProcessandoDecisao(false);
+    setDecisaoPendente(null);
+  };
+
   const salvarPvRegua = async (novaRegua: typeof pvRegua) => {
     setPvRegua(novaRegua);
     try {
@@ -6407,6 +6459,57 @@ export default function CRM() {
 
           return (
             <div className="pvw">
+              {/* ── AGENDAMENTOS PENDENTES (vindos da Aura do site) ── */}
+              {agendamentosPendentes.length > 0 && (
+                <div style={{ padding: "14px 16px", background: "rgba(212,130,10,.07)", border: "1px solid rgba(212,130,10,.3)", borderRadius: 9, margin: "8px 0 0", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--q2)" }}>🕒 Aguardando Aprovação</div>
+                    <div style={{ fontSize: 11, background: "var(--q2)", color: "#fff", borderRadius: 10, padding: "1px 8px", fontWeight: 700 }}>{agendamentosPendentes.length}</div>
+                  </div>
+                  {agendamentosPendentes.map((p: any) => {
+                    const dataFmt = p.data_solicitada ? String(p.data_solicitada).split("-").reverse().join("/") : "—";
+                    return (
+                      <div key={p.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>{p.cliente_nome}</div>
+                            <div style={{ fontSize: 11, color: "var(--tx2)" }}>{p.cliente_telefone || "sem telefone"}{p.profissional_nome ? " — com " + p.profissional_nome : ""}</div>
+                            <div style={{ fontSize: 11, color: "var(--tx2)" }}>{"Pedido: " + dataFmt + (p.hora_solicitada ? " às " + p.hora_solicitada : "") + (p.servico ? " — " + p.servico : "")}</div>
+                            {p.observacoes && <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2, fontStyle: "italic" }}>{p.observacoes}</div>}
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                            <button onClick={() => setDecisaoPendente({ id: p.id, acao: "aprovar", nome: p.cliente_nome })} style={{ background: "rgba(39,174,96,.12)", border: "1px solid rgba(39,174,96,.35)", borderRadius: 5, padding: "5px 10px", fontSize: 11, color: "var(--q3)", cursor: "pointer", fontWeight: 600 }}>✅ Aprovar</button>
+                            <button onClick={() => setDecisaoPendente({ id: p.id, acao: "recusar", nome: p.cliente_nome })} style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "5px 10px", fontSize: 11, color: "#C0392B", cursor: "pointer", fontWeight: 600 }}>❌ Recusar</button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ── MODAL: confirmação de aprovar/recusar agendamento pendente ── */}
+              {decisaoPendente && (
+                <div className="ov" style={{ zIndex: 9999 }} onClick={() => { if (!processandoDecisao) setDecisaoPendente(null); }}>
+                  <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(380px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>
+                      {decisaoPendente.acao === "aprovar" ? "Confirmar este agendamento?" : "Recusar este agendamento?"}
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>
+                      {decisaoPendente.acao === "aprovar"
+                        ? <>O cliente <strong>{decisaoPendente.nome}</strong> receberá um e-mail confirmando o agendamento.</>
+                        : <>O cliente <strong>{decisaoPendente.nome}</strong> receberá um e-mail avisando que você vai ligar para combinar outra data.</>}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button className="btn-c" disabled={processandoDecisao} onClick={() => setDecisaoPendente(null)}>Cancelar</button>
+                      <button className="btn-s" disabled={processandoDecisao} onClick={() => decidirAgendamentoPendente(decisaoPendente.id, decisaoPendente.acao)}>
+                        {processandoDecisao ? "Processando..." : "Confirmar"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* ── CANAIS HABILITADOS (status somente leitura, baseado em teste confirmado) ── */}
               <div style={{ padding: "14px 16px", background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 9, margin: "8px 0 0" }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", marginBottom: 4 }}>Canais habilitados</div>
