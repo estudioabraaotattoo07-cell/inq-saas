@@ -27,17 +27,25 @@ export default async function handler(req, res) {
   const descricao = [
     projeto ? "Projeto: " + projeto : "",
     regiao ? "Região: " + regiao : "",
-    orcamento ? "Orçamento estimado: " + orcamento : "",
+    orcamento ? "Orçamento: " + orcamento : "",
     cliente_insta ? "Instagram: @" + cliente_insta.replace("@", "") : ""
   ].filter(Boolean).join(" | ");
 
+  // Buscar dados do artista e configurações do estúdio
+  const [artistaRow, cfgRow] = await Promise.all([
+    artista
+      ? sb.from("artistas").select("nome,email,tel").ilike("nome", "%" + artista.split(" ")[0] + "%").eq("user_id", STUDIO_USER_ID).limit(1).single().then(r => r.data)
+      : Promise.resolve(null),
+    sb.from("configuracoes").select("studio_email,studio_name").eq("user_id", STUDIO_USER_ID).limit(1).single().then(r => r.data)
+  ]);
+
+  const emailArtista = artistaRow?.email || null;
+  const telArtista = artistaRow?.tel ? "55" + (artistaRow.tel).replace(/\D/g, "").replace(/^55/, "") : null;
+  const emailEstudio = cfgRow?.studio_email || "estudioabraaotattoo07@gmail.com";
+  const nomeEstudio = cfgRow?.studio_name || "Casa dos Carvalho Tattoo";
+
   let finalClienteId = cliente_id || null;
   if (!finalClienteId) {
-    const descricaoCliente = [
-      projeto ? "Projeto: " + projeto : "",
-      regiao ? "Região: " + regiao : "",
-      orcamento ? "Orçamento: " + orcamento : ""
-    ].filter(Boolean).join(" | ");
     const { data: novoCliente } = await sb.from("clientes").insert({
       user_id: STUDIO_USER_ID,
       nome: cliente_nome,
@@ -45,7 +53,7 @@ export default async function handler(req, res) {
       email: cliente_email || "",
       insta: cliente_insta || "",
       artista: artista || null,
-      descricao: descricaoCliente,
+      descricao,
       regiao: regiao || "",
       etapa: "aura_agend",
       orig: "Site - Aura Chat",
@@ -57,7 +65,7 @@ export default async function handler(req, res) {
     }).select("id").single();
     if (novoCliente) finalClienteId = novoCliente.id;
   } else {
-    await sb.from("clientes").update({ etapa: "aura_agend" }).eq("id", finalClienteId);
+    await sb.from("clientes").update({ etapa: "aura_agend", descricao: descricao || undefined }).eq("id", finalClienteId);
   }
 
   const { error: pendErr } = await sb.from("agendamentos_pendentes").insert({
@@ -81,62 +89,66 @@ export default async function handler(req, res) {
 
   const resendKey = process.env.RESEND_API_KEY;
   const emailRem = process.env.EMAIL_REMETENTE || "contato@acasadoscarvalhotattoo.com.br";
-  const emailPro = artista && artista.toLowerCase().includes("camilla")
-    ? "camilla-acampos@hotmail.com"
-    : "estudioabraaotattoo07@gmail.com";
   const tipoLabel = tipo === "sessao" ? "Sessão" : "Consulta";
   const dataFmt = data_solicitada ? data_solicitada.split("-").reverse().join("/") : "A confirmar";
 
   if (resendKey) {
-    const htmlPro = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;background:#fafafa;padding:24px;border-radius:8px'>" +
-      "<h2 style='color:#C9A84C;border-bottom:2px solid #C9A84C;padding-bottom:8px'>✦ " + tipoLabel + " solicitada via Aura</h2>" +
-      "<table style='width:100%;border-collapse:collapse;font-size:14px;margin-top:12px'>" +
-      "<tr><td style='padding:5px 0;font-weight:bold;color:#555;width:150px'>Tipo</td><td>" + tipoLabel + "</td></tr>" +
-      "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Artista</td><td>" + artista + "</td></tr>" +
-      "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Data solicitada</td><td>" + dataFmt + "</td></tr>" +
-      "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Horário</td><td>" + (hora_solicitada || "A combinar") + "</td></tr>" +
-      "<tr><td colspan='2' style='padding:14px 0 4px;color:#C9A84C;font-weight:bold;font-size:12px;text-transform:uppercase;letter-spacing:.06em'>Cliente</td></tr>" +
-      "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Nome</td><td>" + cliente_nome + "</td></tr>" +
-      "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>WhatsApp</td><td>" + (cliente_tel || "—") + "</td></tr>" +
-      "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>E-mail</td><td>" + (cliente_email || "—") + "</td></tr>" +
-      "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Instagram</td><td>" + (cliente_insta ? "@" + cliente_insta.replace("@", "") : "—") + "</td></tr>" +
-      "<tr><td colspan='2' style='padding:14px 0 4px;color:#C9A84C;font-weight:bold;font-size:12px;text-transform:uppercase;letter-spacing:.06em'>Projeto</td></tr>" +
-      "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Ideia</td><td>" + (projeto || "—") + "</td></tr>" +
-      "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Região</td><td>" + (regiao || "—") + "</td></tr>" +
-      "<tr><td style='padding:5px 0;font-weight:bold;color:#555'>Orçamento</td><td>" + (orcamento || "—") + "</td></tr>" +
+    const row = (label, val) => "<tr><td style='padding:6px 8px;font-weight:bold;color:#555;width:160px;vertical-align:top'>" + label + "</td><td style='padding:6px 8px'>" + (val || "—") + "</td></tr>";
+    const sec = (title) => "<tr><td colspan='2' style='padding:16px 8px 4px;color:#C9A84C;font-weight:bold;font-size:11px;text-transform:uppercase;letter-spacing:.08em;border-top:1px solid #eee'>" + title + "</td></tr>";
+    const htmlRico = "<div style='font-family:Arial,sans-serif;max-width:620px;margin:0 auto;color:#222;background:#fafafa;padding:28px;border-radius:10px;border:1px solid #e8e8e8'>" +
+      "<h2 style='margin:0 0 20px;color:#C9A84C;font-size:20px;border-bottom:2px solid #C9A84C;padding-bottom:10px'>✦ " + tipoLabel + " solicitada via Aura Chat</h2>" +
+      "<table style='width:100%;border-collapse:collapse;font-size:14px'>" +
+      sec("Agendamento") +
+      row("Tipo", "<strong>" + tipoLabel + "</strong>") +
+      row("Artista", artista) +
+      row("Data solicitada", "<strong>" + dataFmt + "</strong>") +
+      row("Horário", hora_solicitada || "A combinar") +
+      sec("Cliente") +
+      row("Nome", "<strong>" + cliente_nome + "</strong>") +
+      row("WhatsApp", cliente_tel ? "<a href='https://wa.me/55" + (cliente_tel).replace(/\D/g,"").replace(/^55/,"") + "' style='color:#25D366'>" + cliente_tel + "</a>" : "—") +
+      row("E-mail", cliente_email || "—") +
+      row("Instagram", cliente_insta ? "<a href='https://instagram.com/" + cliente_insta.replace("@","") + "' style='color:#C9A84C'>@" + cliente_insta.replace("@","") + "</a>" : "—") +
+      sec("Projeto") +
+      row("Descrição / Ideia", projeto || "—") +
+      row("Região do corpo", regiao || "—") +
+      row("Orçamento informado", orcamento ? "<strong style='color:#2d8a4e;font-size:15px'>" + orcamento + "</strong>" : "—") +
       "</table>" +
-      "<p style='margin-top:20px;font-size:12px;color:#aaa'>Solicitado via Aura Chat · Casa dos Carvalho · Confirme pelo WhatsApp do cliente.</p>" +
+      "<p style='margin:20px 0 0;font-size:11px;color:#bbb;border-top:1px solid #eee;padding-top:12px'>Solicitado via Aura Chat · " + nomeEstudio + " · Confirme pelo WhatsApp do cliente.</p>" +
       "</div>";
 
-    const emailEstudio = "estudioabraaotattoo07@gmail.com";
-    const toList = emailPro === emailEstudio ? [emailPro] : [emailPro, emailEstudio];
-    fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Authorization": "Bearer " + resendKey, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: "Casa dos Carvalho <" + emailRem + ">",
-        to: toList,
-        subject: "✦ " + tipoLabel + " solicitada — " + cliente_nome + " | " + dataFmt,
-        html: htmlPro
-      })
-    }).catch(e => console.warn("Email profissional error:", e));
+    const destsPro = [];
+    if (emailArtista) destsPro.push(emailArtista);
+    if (emailEstudio && !destsPro.includes(emailEstudio)) destsPro.push(emailEstudio);
+
+    if (destsPro.length > 0) {
+      fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + resendKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: nomeEstudio + " <" + emailRem + ">",
+          to: destsPro,
+          subject: "✦ " + tipoLabel + " | " + cliente_nome + " | " + dataFmt + (orcamento ? " | " + orcamento : ""),
+          html: htmlRico
+        })
+      }).catch(e => console.warn("Email profissional error:", e));
+    }
 
     if (cliente_email) {
       const fn = cliente_nome.trim().split(" ")[0];
       const htmlCli = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222'>" +
-        "<p>Olá, <strong>" + fn + "</strong>!</p>" +
-        "<p>Sua solicitação de <strong>" + tipoLabel.toLowerCase() + "</strong> com <strong>" + artista + "</strong> foi recebida. 🖤</p>" +
+        "<p>Olá, <strong>" + fn + "</strong>! 🖤</p>" +
+        "<p>Sua solicitação de <strong>" + tipoLabel.toLowerCase() + "</strong> com <strong>" + artista + "</strong> foi recebida com sucesso.</p>" +
         "<p><strong>Data solicitada:</strong> " + dataFmt + (hora_solicitada ? " às " + hora_solicitada : "") + "</p>" +
-        "<p>Nossa equipe vai entrar em contato pelo seu WhatsApp em breve para confirmar o horário exato.</p>" +
-        "<p style='margin-top:24px;font-size:12px;color:#999'>Casa dos Carvalho Tattoo · Vitória-ES</p>" +
+        "<p>Nossa equipe vai entrar em contato pelo seu WhatsApp em breve para confirmar o horário.</p>" +
+        "<p style='margin-top:24px;font-size:12px;color:#999'>" + nomeEstudio + " · Vitória-ES</p>" +
         "</div>";
       fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Authorization": "Bearer " + resendKey, "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: "Casa dos Carvalho <" + emailRem + ">",
+          from: nomeEstudio + " <" + emailRem + ">",
           to: [cliente_email],
-          subject: "Sua " + tipoLabel.toLowerCase() + " foi solicitada — Casa dos Carvalho Tattoo",
+          subject: "Sua " + tipoLabel.toLowerCase() + " foi solicitada — " + nomeEstudio,
           html: htmlCli
         })
       }).catch(e => console.warn("Email cliente error:", e));
@@ -145,8 +157,15 @@ export default async function handler(req, res) {
 
   const zenviaKey = process.env.ZENVIA_API_KEY;
   if (zenviaKey) {
-    const smsTo = artista && artista.toLowerCase().includes("camilla") ? "5527996941787" : "5527996929665";
-    const smsText = "✦ " + tipoLabel + " | " + cliente_nome + " | " + dataFmt + (hora_solicitada ? " " + hora_solicitada : "") + " | " + ((cliente_tel || "").replace(/\D/g, "").slice(-11) || "—");
+    const smsTo = telArtista || (artista && artista.toLowerCase().includes("camilla") ? "5527996941787" : "5527996929665");
+    const smsText = [
+      "✦ " + tipoLabel,
+      cliente_nome,
+      dataFmt + (hora_solicitada ? " " + hora_solicitada : ""),
+      "WA: " + ((cliente_tel || "").replace(/\D/g, "").slice(-11) || "—"),
+      orcamento ? "R$: " + orcamento : "",
+      projeto ? projeto.substring(0, 60) + (projeto.length > 60 ? "..." : "") : ""
+    ].filter(Boolean).join(" | ");
     fetch("https://api.zenvia.com/v2/channels/sms/messages", {
       method: "POST",
       headers: { "X-API-TOKEN": zenviaKey, "Content-Type": "application/json" },
