@@ -372,11 +372,18 @@ async function solicitarAgendamento(input) {
       return { ok: false, erro: pendErr.message };
     }
 
-    // Criar evento na agenda — awaited para garantir execução antes do return
+    // Criar evento na agenda — awaited, espelhando exatamente o que o CRM faz
     let agendaNaAgenda = false;
     if (data_solicitada) {
-      const tipoAgenda = artistaId
-        ? (tipo === "consulta" ? "cons_" + artistaId : "sess_" + artistaId)
+      // Fallback: se artistaId for null, busca qualquer artista do estúdio (como CRM faz com artists[0])
+      let artistaIdFinal = artistaId;
+      if (!artistaIdFinal) {
+        const { data: artistaPadrao } = await supabase
+          .from("artistas").select("id").eq("user_id", STUDIO_USER_ID).limit(1).single();
+        artistaIdFinal = artistaPadrao?.id || null;
+      }
+      const tipoAgenda = artistaIdFinal
+        ? (tipo === "consulta" ? "cons_" + artistaIdFinal : "sess_" + artistaIdFinal)
         : tipo;
       const horaInicio = hora_solicitada || "13:00";
       const horaInicioH = parseInt((horaInicio.split(":")[0]) || "13");
@@ -387,14 +394,14 @@ async function solicitarAgendamento(input) {
         titulo: "(Aguardando confirmação) " + (tipo === "consulta" ? "Consulta" : "Sessão") + " — " + cliente_nome,
         cliente_id: finalClienteId,
         cliente_nome,
+        artista: artistaIdFinal,   // sempre enviado — nunca omitido (coluna pode ser NOT NULL)
         data: data_solicitada,
         hora: horaInicio,
         hora_fim: horaFim,
         tipo: tipoAgenda
       };
-      if (artistaId) agendaRow.artista = artistaId;
       const agRes = await supabase.from("agenda").insert(agendaRow);
-      if (agRes.error) console.error("agenda insert error:", agRes.error);
+      if (agRes.error) console.error("agenda insert error:", JSON.stringify(agRes.error));
       agendaNaAgenda = !agRes.error;
     }
 
