@@ -3867,8 +3867,6 @@ export default function CRM() {
                 </div>
               </div>
             )}
-            <button className="theme-btn" onClick={() => setDark(d => !d)}>{dark ? "☀️" : "🌙"}</button>
-            <button className="theme-btn" onClick={() => setShowHistorico(true)} title="Histórico de ações">📋</button>
             <button className="theme-btn" title="Sair" onClick={async () => { await sb.auth.signOut(); setLogado(false); }} style={{ fontSize: 13 }}>🚪</button>
             <button className="btn-new" onClick={() => setShowForm(true)}>+ Novo Cliente</button>
           </div>
@@ -10557,27 +10555,25 @@ export default function CRM() {
                     {/* Modo claro/escuro */}
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
                       <span style={{ fontSize: 12, color: "var(--tx2)" }}>Modo:</span>
-                      <button onClick={() => setDark(false)} style={{ background: !dark ? "var(--gold-d)" : "var(--dk3)", border: `1px solid ${!dark ? "var(--gold)" : "var(--br)"}`, borderRadius: 6, padding: "5px 12px", fontSize: 12, color: !dark ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: !dark ? 600 : 400 }}>☀️ Claro</button>
-                      <button onClick={() => setDark(true)} style={{ background: dark ? "var(--gold-d)" : "var(--dk3)", border: `1px solid ${dark ? "var(--gold)" : "var(--br)"}`, borderRadius: 6, padding: "5px 12px", fontSize: 12, color: dark ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: dark ? 600 : 400 }}>🌙 Escuro</button>
+                      <button onClick={async () => { setDark(false); if (userId) await sb.from("configuracoes").update({ dark_mode: false }).eq("user_id", userId); }} style={{ background: !dark ? "var(--gold-d)" : "var(--dk3)", border: `1px solid ${!dark ? "var(--gold)" : "var(--br)"}`, borderRadius: 6, padding: "5px 12px", fontSize: 12, color: !dark ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: !dark ? 600 : 400 }}>☀️ Claro</button>
+                      <button onClick={async () => { setDark(true); if (userId) await sb.from("configuracoes").update({ dark_mode: true }).eq("user_id", userId); }} style={{ background: dark ? "var(--gold-d)" : "var(--dk3)", border: `1px solid ${dark ? "var(--gold)" : "var(--br)"}`, borderRadius: 6, padding: "5px 12px", fontSize: 12, color: dark ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: dark ? 600 : 400 }}>🌙 Escuro</button>
                     </div>
                     {/* Carrossel de temas */}
-                    <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6, scrollbarWidth: "none" }}>
+                    <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, scrollbarWidth: "none" }}>
                       {(Object.entries(THEMES) as [ThemeId, typeof THEMES[ThemeId]][]).map(([id, t]) => {
                         const ativo = tema === id;
-                        const bg = dark ? t.dark["--dk2"] : t.light["--dk2"];
+                        const bg = dark ? t.dark["--dk3"] : t.light["--dk3"];
                         const accent = dark ? t.dark["--gold"] : t.light["--gold"];
-                        const txColor = dark ? t.dark["--tx"] : t.light["--tx"];
-                        const tx2Color = dark ? t.dark["--tx2"] : t.light["--tx2"];
+                        const txColor = dark ? t.dark["--tx2"] : t.light["--tx2"];
                         return (
-                          <div key={id} onClick={() => setTema(id)} style={{ minWidth: 130, borderRadius: 10, border: `2px solid ${ativo ? "var(--gold)" : "var(--br)"}`, background: bg, padding: 12, cursor: "pointer", position: "relative", transition: "all .18s", flexShrink: 0, boxShadow: ativo ? "0 0 0 3px var(--gold-d)" : "none" }}>
-                            {ativo && <div style={{ position: "absolute", top: 6, right: 8, fontSize: 12, color: "var(--gold)", fontWeight: 700 }}>✓</div>}
-                            <div style={{ fontSize: 20, marginBottom: 6 }}>{t.emoji}</div>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: txColor, marginBottom: 4, fontFamily: "'Cormorant Garamond',serif" }}>{t.nome}</div>
-                            {/* Mini swatches */}
-                            <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
-                              <div style={{ width: 18, height: 18, borderRadius: 4, background: dark ? t.dark["--dk"] : t.light["--dk"], border: "1px solid rgba(128,128,128,0.2)" }} />
-                              <div style={{ width: 18, height: 18, borderRadius: 4, background: accent }} />
-                              <div style={{ width: 18, height: 18, borderRadius: 4, background: tx2Color }} />
+                          <div key={id} onClick={async () => { setTema(id); if (userId) await sb.from("configuracoes").update({ tema: id }).eq("user_id", userId); }} style={{ minWidth: 100, borderRadius: 8, border: `1px solid ${ativo ? accent : "var(--br)"}`, background: bg, padding: "8px 10px", cursor: "pointer", position: "relative", transition: "all .15s", flexShrink: 0 }}>
+                            {ativo && <div style={{ position: "absolute", top: 4, right: 6, fontSize: 10, color: accent, fontWeight: 700 }}>✓</div>}
+                            <div style={{ fontSize: 14, marginBottom: 4 }}>{t.emoji}</div>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: txColor, marginBottom: 6, whiteSpace: "nowrap" }}>{t.nome}</div>
+                            <div style={{ display: "flex", gap: 3 }}>
+                              <div style={{ width: 12, height: 12, borderRadius: 3, background: dark ? t.dark["--dk"] : t.light["--dk"], border: "1px solid rgba(128,128,128,0.2)" }} />
+                              <div style={{ width: 12, height: 12, borderRadius: 3, background: accent }} />
+                              <div style={{ width: 12, height: 12, borderRadius: 3, background: dark ? t.dark["--tx3"] : t.light["--tx3"] }} />
                             </div>
                           </div>
                         );
