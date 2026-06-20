@@ -79,6 +79,9 @@ Sempre que coletar o WhatsApp de alguém que disse ser novo, use \`verificar_cli
 - Se não tiver outro número e insistir: registre mesmo assim com obs "ATENÇÃO: número já cadastrado — verificar duplicidade." Inclua [LEAD:...] normalmente.
 - **REGRA ABSOLUTA: Nunca encerre sem salvar o lead de alguma forma.**
 
+## ATUALIZAÇÃO DE CADASTRO DE CLIENTE EXISTENTE
+Sempre que um cliente reconhecido por \`verificar_cliente_existente\` fornecer qualquer informação nova (orçamento, instagram, data de aniversário, observação, artista preferido), acione imediatamente \`atualizar_cliente\` com o cliente_id e os campos informados. Não espere o fim da conversa — atualize assim que o dado for coletado. O cliente não precisa saber que o cadastro foi atualizado.
+
 ## QUANDO CLIENTE EXISTENTE QUER AGENDAR
 Se o cliente reconhecido por \`verificar_cliente_existente\` quiser agendar:
 - Siga o Fluxo B, mas não peça dados que você já tem (nome, WhatsApp).
@@ -206,6 +209,22 @@ const TOOLS = [
     }
   },
   {
+    name: "atualizar_cliente",
+    description: "Atualiza campos do cadastro de um cliente já existente reconhecido via verificar_cliente_existente. Use sempre que o cliente fornecer informações novas (orçamento, observação, instagram, aniversário, etc.) durante a conversa. NUNCA use para clientes novos.",
+    input_schema: {
+      type: "object",
+      properties: {
+        cliente_id: { type: "string", description: "ID do cliente retornado por verificar_cliente_existente" },
+        orcamento: { type: "string", description: "Valor que o cliente pretende investir, se informado" },
+        obs: { type: "string", description: "Observação ou informação relevante adicional fornecida pelo cliente" },
+        insta: { type: "string", description: "Instagram do cliente sem @, se informado" },
+        nascimento: { type: "string", description: "Data de nascimento no formato YYYY-MM-DD, se informada" },
+        artista: { type: "string", description: "Nome do artista preferido (Abraão ou Camilla), se informado" }
+      },
+      required: ["cliente_id"]
+    }
+  },
+  {
     name: "notificar_solicitacao_agendamento",
     description: "Notifica a equipe do estúdio por SMS que um cliente JÁ CADASTRADO está pedindo para agendar uma sessão ou continuar um projeto. Use isso somente depois que verificar_cliente_existente confirmou que o telefone já pertence a um cliente, e o cliente confirmou que quer agendar. NUNCA use para clientes novos — clientes novos são tratados pela tag [LEAD:...] normalmente.",
     input_schema: {
@@ -260,6 +279,28 @@ async function verificarClienteExistente(telefoneInformado) {
     return { encontrado: false };
   } catch {
     return { encontrado: false };
+  }
+}
+
+async function atualizarCliente(input) {
+  try {
+    const { cliente_id, orcamento, obs, insta, nascimento, artista } = input;
+    if (!cliente_id) return { ok: false, erro: "cliente_id obrigatório" };
+    const campos = {};
+    if (orcamento) campos.val_a = parseFloat(orcamento.replace(/[^\d.,]/g, "").replace(",", ".")) || 0;
+    if (obs) campos.obs = obs;
+    if (insta) campos.insta = insta.replace("@", "");
+    if (nascimento) campos.nascimento = nascimento;
+    if (artista) {
+      const { data: artistaRow } = await supabase.from("artistas").select("id").ilike("nome", "%" + artista.split(" ")[0] + "%").eq("user_id", STUDIO_USER_ID).limit(1).single();
+      if (artistaRow) campos.artista = artistaRow.id;
+    }
+    if (Object.keys(campos).length === 0) return { ok: true, mensagem: "Nada para atualizar" };
+    const { error } = await supabase.from("clientes").update(campos).eq("id", cliente_id);
+    if (error) { console.error("atualizar_cliente error:", error); return { ok: false, erro: error.message }; }
+    return { ok: true, mensagem: "Cadastro atualizado com sucesso" };
+  } catch (e) {
+    return { ok: false, erro: String(e) };
   }
 }
 
@@ -489,6 +530,9 @@ async function solicitarAgendamento(input) {
 async function executarFerramenta(nome, input) {
   if (nome === "verificar_cliente_existente") {
     return await verificarClienteExistente(input.telefone);
+  }
+  if (nome === "atualizar_cliente") {
+    return await atualizarCliente(input);
   }
   if (nome === "notificar_solicitacao_agendamento") {
     return await notificarSolicitacaoAgendamento(input.nome, input.telefone, input.resumo);
