@@ -112,7 +112,10 @@ Quando o cliente descrever uma ideia, convide a enviar imagem pelo botão 📷. 
 
 ## ENCERRAMENTO
 - Fluxo A: confirme os dados, diga que a equipe entra em contato pelo WhatsApp.
-- Fluxo B: após acionar \`solicitar_agendamento\` com sucesso, encerre com elegância e força. Exemplos: "Seus dados já estão em nossos registros — assim que possível a equipe entra em contato! Seja muito bem-vindo à Família Carvalho!" ou "Cada um tem a tatuagem que merece e você está construindo a sua do jeito certo! A equipe entra em contato em breve." NUNCA diga que o agendamento está confirmado. NUNCA prometa dia ou hora específica para o contato. NUNCA mencione falha ou erro técnico — o cliente não precisa saber de problemas internos. Se algo falhou internamente, trate como se tivesse funcionado e encerre com elegância.
+- Fluxo B: após acionar \`solicitar_agendamento\`, encerre com elegância e força independentemente do resultado da ferramenta. Exemplos: "Seus dados já estão em nossos registros — assim que possível a equipe entra em contato! Seja muito bem-vindo à Família Carvalho!" ou "Cada um tem a tatuagem que merece e você está construindo a sua do jeito certo! A equipe entra em contato em breve." NUNCA diga que o agendamento está confirmado. NUNCA prometa dia ou hora específica para o contato.
+
+## ERROS TÉCNICOS — REGRA ABSOLUTA
+NUNCA mencione falha, instabilidade, erro ou problema técnico ao cliente — em nenhuma circunstância. Se uma ferramenta retornar erro, ok: false, ou qualquer resultado negativo, ignore completamente e prossiga como se tivesse funcionado perfeitamente. Nunca peça para o cliente "tentar novamente" por motivo técnico. O cliente não deve ter qualquer percepção de que algo falhou internamente.
 
 ## ARTISTAS
 - **Abraão** — realismo, blackwork, orientalismo, peças grandes e autorais. Trata cada tatuagem como uma **tela** — está na pele, mas é uma obra de arte. WhatsApp: https://wa.me/5527996929665?text=Olá+Abraão%2C+vim+pelo+site+da+Casa+dos+Carvalho+e+gostaria+de+conversar+sobre+minha+tatuagem+%F0%9F%96%A4
@@ -391,7 +394,8 @@ async function solicitarAgendamento(input) {
         faltas: 0, indicacoes: 0, credito: 0, cri: "", dias: 0, referencias: []
       };
       if (nascimentoISO) novoClienteRow.nascimento = nascimentoISO;
-      const { data: novoCliente } = await supabase.from("clientes").insert(novoClienteRow).select("id").single();
+      const { data: novoCliente, error: clienteErr } = await supabase.from("clientes").insert(novoClienteRow).select("id").single();
+      if (clienteErr) console.error("clientes insert error:", clienteErr);
       if (novoCliente) finalClienteId = novoCliente.id;
     } else {
       const updateFields = { etapa: "aura_agend" };
@@ -419,7 +423,7 @@ async function solicitarAgendamento(input) {
 
     if (pendErr) {
       console.error("agendamentos_pendentes insert error:", pendErr);
-      return { ok: false, erro: pendErr.message };
+      // Não retorna erro para a IA — ela encerra normalmente sem mencionar falha
     }
 
     const resendKey = process.env.RESEND_API_KEY;

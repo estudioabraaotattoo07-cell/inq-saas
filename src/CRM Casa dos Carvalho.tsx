@@ -363,7 +363,6 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const DEFAULT_STAGES = [
   { id: "lead", label: "Lead", color: "#5B8DEF", emoji: "🎯" },
-  { id: "qualificacao", label: "Qualificação", color: "#C9A84C", emoji: "🔍" },
   { id: "aura_agend", label: "Solicitação via Aura", color: "#8B5CF6", emoji: "✦" },
   { id: "cons_agendada", label: "Consulta Marcada", color: "#9B6BB5", emoji: "📅" },
   { id: "sessao_agend", label: "Sessão Marcada", color: "#4A9EBF", emoji: "✏️" },
@@ -377,7 +376,6 @@ const DEFAULT_STAGES = [
 
 const STAGE_INFO: Record<string, string> = {
   lead: "Primeiros contatos captados pelo site, redes sociais, indicação ou qualquer outro canal de entrada. O cliente demonstrou algum interesse mas ainda não foi qualificado. Seu papel aqui é iniciar o relacionamento: entender a ideia, o projeto e o nível de intenção. Quanto antes entrar em contato, maior a chance de conversão.",
-  qualificacao: "Leads que já demonstraram interesse real e merecem atenção. Avalie o projeto, o estilo desejado, o orçamento disponível e o encaixe com o estúdio. Aqui você decide se o cliente avança para um agendamento ou precisa de mais nutrição antes disso.",
   aura_agend: "Clientes que solicitaram agendamento diretamente pelo chat do site. Eles já forneceram informações do projeto e aguardam contato da equipe pelo WhatsApp para confirmar data e horário. Prioridade de retorno — esse cliente tomou a iniciativa.",
   cons_agendada: "Consulta presencial já confirmada. O cliente virá ao estúdio para uma conversa sobre o projeto: entender a proposta, alinhar expectativas, ver referências e definir o caminho antes de tatuar. Prepare o ambiente e o artista responsável.",
   sessao_agend: "Sessão de tatuagem agendada e confirmada. O projeto já foi discutido, o valor alinhado e o horário marcado. Tudo certo para tatuar na data combinada. Confirme com antecedência e certifique-se de que o cliente está preparado.",
@@ -1312,19 +1310,30 @@ export default function CRM() {
         if (etapasDB && etapasDB.length > 0) {
           setStages(etapasDB.map((e: any) => ({ id: e.slug, label: e.label, color: e.cor, emoji: e.emoji, fixo: e.fixo, dbId: e.id, ordem: e.ordem })));
         }
-        if (cls && cls.length > 0) setClients(cls.map((c: any) => ({
-          ...c,
-          hist: c.hist || [],
-          pv: c.followups || [],
-          faltas: c.faltas || 0,
-          indicacoes: c.indicacoes || 0,
-          credito: c.credito || 0,
-          desc: c.descricao || "",
-          projetos: c.projetos || [],
-          referencias: c.referencias || [],
-          orig: c.orig || c.origem || "",
-          campanha_id: c.campanha_id || null,
-        })));
+        if (cls && cls.length > 0) {
+          const clientesMapeados = cls.map((c: any) => ({
+            ...c,
+            etapa: c.etapa === "qualificacao" ? "lead" : c.etapa,
+            hist: c.hist || [],
+            pv: c.followups || [],
+            faltas: c.faltas || 0,
+            indicacoes: c.indicacoes || 0,
+            credito: c.credito || 0,
+            desc: c.descricao || "",
+            projetos: c.projetos || [],
+            referencias: c.referencias || [],
+            orig: c.orig || c.origem || "",
+            campanha_id: c.campanha_id || null,
+          }));
+          setClients(clientesMapeados);
+          // Migração: clientes antigos na etapa "qualificacao" (removida) vão para "lead"
+          const clientesParaMigrar = cls.filter((c: any) => c.etapa === "qualificacao");
+          if (clientesParaMigrar.length > 0) {
+            clientesParaMigrar.forEach((c: any) => {
+              sb.from("clientes").update({ etapa: "lead" }).eq("id", c.id).then(() => {});
+            });
+          }
+        }
         if (arts && arts.length > 0) {
           setArtists(arts);
         } else {
@@ -1958,7 +1967,7 @@ export default function CRM() {
     [clients]
   );
   const paraExcluir = useMemo(() =>
-    clients.filter(c => c.dias >= 40 && c.etapa === "qualificacao" && !["blacklist"].includes(c.etapa)),
+    clients.filter(c => c.dias >= 40 && c.etapa === "lead" && !["blacklist"].includes(c.etapa)),
     [clients]
   );
 
@@ -2186,7 +2195,7 @@ export default function CRM() {
     setClients(p => p.map(c => {
       if (c.id !== cid) return c;
       const novasFaltas = Math.max((c.faltas || 0) - 1, 0);
-      const novoEtapa = c.etapa === "blacklist" && (c.faltas || 0) <= 3 ? "qualificacao" : c.etapa;
+      const novoEtapa = c.etapa === "blacklist" && (c.faltas || 0) <= 3 ? "lead" : c.etapa;
       const audit = "Falta removida (correcao) — " + new Date().toLocaleDateString("pt-BR") + " — por " + artista;
       return { ...c, faltas: novasFaltas, etapa: novoEtapa, hist: [...c.hist, { t: audit, d: new Date().toLocaleString("pt-BR") }] };
     }));
@@ -2196,7 +2205,7 @@ export default function CRM() {
     setClients(p => p.map(c => {
       if (c.id !== cid) return c;
       const audit = "Removido da Blacklist — " + new Date().toLocaleDateString("pt-BR") + " — por " + artista;
-      return { ...c, etapa: "qualificacao", hist: [...c.hist, { t: audit, d: new Date().toLocaleString("pt-BR") }] };
+      return { ...c, etapa: "lead", hist: [...c.hist, { t: audit, d: new Date().toLocaleString("pt-BR") }] };
     }));
   };
 
@@ -2261,7 +2270,7 @@ export default function CRM() {
       const { data, error } = await sb.from("clientes").insert({
         nome: nc.nome, insta: nc.insta || "", tel: nc.tel || "",
         qual: nc.qual, artista: nc.artista || null,
-        etapa: nc.qual === "Q1" ? "lead" : "qualificacao",
+        etapa: "lead",
         orig: nc.orig || "Instagram Organico",
         email: nc.email || "",
         estilo: nc.estilo || "", regiao: nc.regiao || "",
@@ -2286,7 +2295,7 @@ export default function CRM() {
       }
       if (data) {
         // Definir etapa inicial baseada na qualificação
-        const etapaInicial = nc.qual === "Q1" ? "lead" : "qualificacao";
+        const etapaInicial = "lead";
         setClients(p => [{ ...nc, id: data.id, etapa: etapaInicial }, ...p]);
         // Salvar agendamento se marcado
         if (formAg.agendar && formAg.data) {
@@ -2400,7 +2409,7 @@ export default function CRM() {
       setAgEvents(p => p.map(e => e.id === editingEvent.id ? {
         ...data, title: data.titulo, date: data.data,
         start: parseInt(data.hora?.split(":")[0] || "9"),
-        end: parseInt(data.hora?.split(":")[0] || "9") + 2,
+        end: parseInt(data.hora_fim?.split(":")[0] || "11"),
         cliente_id: data.cliente_id, cliente_nome: data.cliente_nome
       } : e));
       setEditingEvent(null);
@@ -2413,9 +2422,9 @@ export default function CRM() {
       if (agClientVinc) {
         const tipoKey = (agForm.tipo || "").split("_")[0];
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
-        if (tipoKey === "cons" && cli && ["lead", "qualificacao"].includes(cli.etapa)) {
+        if (tipoKey === "cons" && cli && ["lead"].includes(cli.etapa)) {
           executarMove(agClientVinc.id, "cons_agendada");
-        } else if ((tipoKey === "sess" || tipoKey === "piercing") && cli && ["lead", "qualificacao", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"].includes(cli.etapa)) {
+        } else if ((tipoKey === "sess" || tipoKey === "piercing") && cli && ["lead", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"].includes(cli.etapa)) {
           executarMove(agClientVinc.id, "sessao_agend");
         }
       }
@@ -2458,7 +2467,7 @@ export default function CRM() {
     setAgEvents(p => [...p, {
       ...data, title: data.titulo || agForm.title, date: data.data || agForm.date,
       start: parseInt(data.hora?.split(":")[0] || String(agForm.start)),
-      end: parseInt(data.hora?.split(":")[0] || String(agForm.start)) + 2,
+      end: parseInt(data.hora_fim?.split(":")[0] || String(agForm.end || (agForm.start + 2))),
       cliente_id: data.cliente_id, cliente_nome: data.cliente_nome
     }]);
     setShowAgForm(false);
@@ -2495,12 +2504,12 @@ export default function CRM() {
       // Movimento automático de pipeline — único bloco, sem duplicação
       if (tipoKey === "cons") {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
-        if (cli && ["lead", "qualificacao"].includes(cli.etapa)) {
+        if (cli && ["lead"].includes(cli.etapa)) {
           executarMove(agClientVinc.id, "cons_agendada");
         }
       } else if (tipoKey === "sess" || tipoKey === "piercing") {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
-        if (cli && ["lead", "qualificacao", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"].includes(cli.etapa)) {
+        if (cli && ["lead", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"].includes(cli.etapa)) {
           if (cli.etapa === "hibernacao" && (cli.faltas || 0) > 0) {
             setTimeout(() => setShowAviso(`⚠️ ${cli.nome} estava em hibernação por desmarcação. Lembre de cobrar R$100,00 de taxa — conforme política do estúdio.`), 500);
           }
@@ -2874,7 +2883,7 @@ export default function CRM() {
           email: params.email || "",
           estilo: params.estilo || "",
           obs: params.obs || "",
-          etapa: "qualificacao",
+          etapa: "lead",
           qual: "Q2",
           orig: auraName || "IA",
           hist: [],
@@ -6843,7 +6852,7 @@ export default function CRM() {
                 if (diff < menorDiff) { menorDiff = diff; proximaData = { ...d, diff }; }
               });
               if (!proximaData || proximaData.diff > 30) return null;
-              const qtd = clients.filter(c => ["lead","qualificacao"].includes(c.etapa)).length;
+              const qtd = clients.filter(c => c.etapa === "lead").length;
               return (
                 <div style={{ background: "rgba(201,168,76,.08)", border: "1px solid rgba(201,168,76,.25)", borderRadius: 8, padding: "12px 16px", display: "flex", gap: 12, alignItems: "center" }}>
                   <span style={{ fontSize: 22 }}>{proximaData.icon}</span>
@@ -8943,7 +8952,7 @@ export default function CRM() {
                   };
                   const { data: dSinal2, error: errSinal2 } = await sb.from("agenda").insert(row2).select().single();
                   if (errSinal2) { setShowAviso(traduzirErro(errSinal2.message)); return; }
-                  setAgEvents(p => [...p, { ...dSinal2, title: dSinal2.titulo || agForm.title, date: dSinal2.data || agForm.date, start: parseInt(dSinal2.hora?.split(":")[0] || String(agForm.start)), end: parseInt(dSinal2.hora?.split(":")[0] || String(agForm.start)) + 2, cliente_id: dSinal2.cliente_id, cliente_nome: dSinal2.cliente_nome }]);
+                  setAgEvents(p => [...p, { ...dSinal2, title: dSinal2.titulo || agForm.title, date: dSinal2.data || agForm.date, start: parseInt(dSinal2.hora?.split(":")[0] || String(agForm.start)), end: parseInt(dSinal2.hora_fim?.split(":")[0] || String(agForm.end || (agForm.start + 2))), cliente_id: dSinal2.cliente_id, cliente_nome: dSinal2.cliente_nome }]);
                   setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch("");
                   const sinalValNum2 = parseFloat(String((agForm as any).sinal || "").replace(/\./g,"").replace(",",".")) || 0;
                   if (sinalValNum2 > 0 && agClientVinc) {
