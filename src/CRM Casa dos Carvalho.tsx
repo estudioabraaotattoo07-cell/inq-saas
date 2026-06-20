@@ -1189,6 +1189,12 @@ export default function CRM() {
     }
   }, [auraChatMessages, auraChatLoading]);
 
+  // Quando auraName muda, atualiza o label da etapa aura_agend dinamicamente
+  useEffect(() => {
+    if (!auraName) return;
+    setStages(p => p.map((s: any) => s.id === "aura_agend" ? { ...s, label: "Solicitação via " + auraName } : s));
+  }, [auraName]);
+
   useEffect(() => {
     const el = document.createElement("style");
     el.textContent = S;
