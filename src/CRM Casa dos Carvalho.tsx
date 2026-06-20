@@ -356,10 +356,10 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 `;
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const STAGES = [
+const DEFAULT_STAGES = [
   { id: "lead", label: "Lead", color: "#5B8DEF", emoji: "🎯" },
   { id: "qualificacao", label: "Qualificação", color: "#C9A84C", emoji: "🔍" },
-  { id: "aura_agend", label: "Agendado pela Aura", color: "#8B5CF6", emoji: "✦" },
+  { id: "aura_agend", label: "Solicitação via Aura", color: "#8B5CF6", emoji: "✦" },
   { id: "cons_agendada", label: "Consulta Marcada", color: "#9B6BB5", emoji: "📅" },
   { id: "sessao_agend", label: "Sessão Marcada", color: "#4A9EBF", emoji: "✏️" },
   { id: "tatuado", label: "Sessão Realizada", color: "#27AE60", emoji: "✅" },
@@ -1072,6 +1072,16 @@ export default function CRM() {
   const [showHistoricoModal, setShowHistoricoModal] = useState(false);
   const [showSaidaCatsModal, setShowSaidaCatsModal] = useState(false);
   const [showAvisoPastDate, setShowAvisoPastDate] = useState(false);
+  const [stages, setStages] = useState<any[]>(DEFAULT_STAGES);
+  const [editingStage, setEditingStage] = useState<any | null>(null);
+  const [editStageLabel, setEditStageLabel] = useState("");
+  const [editStageEmoji, setEditStageEmoji] = useState("");
+  const [editStageCor, setEditStageCor] = useState("");
+  const [showAddStage, setShowAddStage] = useState(false);
+  const [newStageLabel, setNewStageLabel] = useState("");
+  const [newStageEmoji, setNewStageEmoji] = useState("●");
+  const [newStageCor, setNewStageCor] = useState("#888888");
+  const [confirmDeleteStage, setConfirmDeleteStage] = useState<any | null>(null);
   const [proximaSessaoModal, setProximaSessaoModal] = useState<{cid: any; agEvent: any} | null>(null);
   const [editandoProjConc, setEditandoProjConc] = useState<{clienteId: any; projetoId: any} | null>(null);
   const [pgAvulso, setPgAvulso] = useState<{clienteId: any; clienteNome: string; artistaId: string; fase: "form"|"confirm"; valor: string; forma: string; obs: string} | null>(null);
@@ -1270,6 +1280,11 @@ export default function CRM() {
         if (orgs && orgs.length > 0) setOrigens(orgs);
         if (camps && camps.length > 0) setCampanhas(camps);
         if (eqs && eqs.length > 0) setEquipamentos(eqs);
+        // Carregar etapas do pipeline
+        const { data: etapasDB } = await sb.from("pipeline_etapas").select("*").eq("user_id", uid).order("ordem", { ascending: true });
+        if (etapasDB && etapasDB.length > 0) {
+          setStages(etapasDB.map((e: any) => ({ id: e.slug, label: e.label, color: e.cor, emoji: e.emoji, fixo: e.fixo, dbId: e.id, ordem: e.ordem })));
+        }
         if (cls && cls.length > 0) setClients(cls.map((c: any) => ({
           ...c,
           hist: c.hist || [],
@@ -1986,25 +2001,25 @@ export default function CRM() {
 
     // Pós-venda — observação opcional
     if (ns === "pos_venda") {
-      setPipelineMotivo({ cid, stage: STAGES.find(s => s.id === ns), motivo: "", dias: "" });
+      setPipelineMotivo({ cid, stage: stages.find(s => s.id === ns), motivo: "", dias: "" });
       return;
     }
 
     // Lista de Espera — motivo livre
     if (ns === "lista_espera") {
-      setPipelineMotivo({ cid, stage: STAGES.find(s => s.id === ns), motivo: "", dias: "" });
+      setPipelineMotivo({ cid, stage: stages.find(s => s.id === ns), motivo: "", dias: "" });
       return;
     }
 
     // Hibernação — motivo + sugestão de dias para Aura
     if (ns === "hibernacao") {
-      setPipelineMotivo({ cid, stage: STAGES.find(s => s.id === ns), motivo: "", dias: "30" });
+      setPipelineMotivo({ cid, stage: stages.find(s => s.id === ns), motivo: "", dias: "30" });
       return;
     }
 
     // Blacklist — motivo obrigatório
     if (ns === "blacklist") {
-      setPipelineMotivo({ cid, stage: STAGES.find(s => s.id === ns), motivo: "", dias: "" });
+      setPipelineMotivo({ cid, stage: stages.find(s => s.id === ns), motivo: "", dias: "" });
       return;
     }
 
@@ -2012,7 +2027,7 @@ export default function CRM() {
   };
 
   const executarMove = (cid: number, ns: string) => {
-    const lbl = STAGES.find(s => s.id === ns)?.label || ns;
+    const lbl = stages.find(s => s.id === ns)?.label || ns;
     const orq = ns === "sessao_agend";
     const tatuado = ns === "tatuado";
     const regraAtiva = pvRegua.length > 0 ? pvRegua : PV_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" }));
@@ -4099,7 +4114,7 @@ export default function CRM() {
           </div>
           {/* Seletor de coluna */}
           <div style={{ display: "flex", overflowX: "auto", gap: 6, padding: "8px 14px 6px", background: "var(--dk2)", borderBottom: "1px solid var(--br)", scrollbarWidth: "none" }}>
-            {STAGES.map(stage => (
+            {stages.map(stage => (
               <button key={stage.id} onClick={() => {
                 const kw = document.getElementById("kanban-body");
                 const el = document.getElementById("kcol-" + stage.id);
@@ -4108,6 +4123,10 @@ export default function CRM() {
                 {stage.emoji} {stage.label}
               </button>
             ))}
+            <button onClick={() => setShowAddStage(true)}
+              style={{ flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 600, borderRadius: 20, border: "1px dashed var(--gold)", background: "transparent", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
+              + Nova etapa
+            </button>
           </div>
           <div className="kw" id="kanban-body" onScroll={e => {
             const mirror = document.getElementById("kanban-scroll");
@@ -4122,7 +4141,7 @@ export default function CRM() {
               }, 600);
             }
           }}>
-            {STAGES.map(stage => {
+            {stages.map(stage => {
               const sc2 = getSC(stage.id);
               return (
                 <div className="kc" key={stage.id} id={"kcol-" + stage.id}>
@@ -4132,7 +4151,15 @@ export default function CRM() {
                         <span onClick={() => setNewLeadsBadge(0)} title="Novos leads — clique para dispensar" style={{ marginLeft: 6, background: "#E74C3C", color: "#fff", fontSize: 10, fontWeight: 700, borderRadius: 10, padding: "1px 6px", cursor: "pointer", verticalAlign: "middle", animation: "pulse 1.5s infinite" }}>{newLeadsBadge}</span>
                       )}
                     </span>
-                    <span className="kn">{sc2.length}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <span className="kn">{sc2.length}</span>
+                      <span title="Editar etapa" onClick={e => { e.stopPropagation(); setEditingStage(stage); setEditStageLabel(stage.label); setEditStageEmoji(stage.emoji || ""); setEditStageCor(stage.color || "#888"); }}
+                        style={{ cursor: "pointer", fontSize: 10, opacity: 0.45, lineHeight: 1, userSelect: "none" }}>✏️</span>
+                      {stage.fixo === false && (
+                        <span title="Excluir etapa" onClick={e => { e.stopPropagation(); setConfirmDeleteStage(stage); }}
+                          style={{ cursor: "pointer", fontSize: 10, opacity: 0.45, lineHeight: 1, userSelect: "none" }}>🗑</span>
+                      )}
+                    </div>
                   </div>
                   <div className="kb">
                     {sc2.length === 0 && <div className="ke">Nenhum cliente</div>}
@@ -4405,7 +4432,7 @@ export default function CRM() {
                           <td><span className={"qb " + QC[c.qual]}>{c.qual}</span></td>
                           <td>
                             <span className="eb" style={{ background: es.bg, color: es.color, border: "1px solid " + es.b }}>
-                              {STAGES.find(s => s.id === c.etapa)?.emoji} {STAGES.find(s => s.id === c.etapa)?.label}
+                              {stages.find(s => s.id === c.etapa)?.emoji} {stages.find(s => s.id === c.etapa)?.label}
                             </span>
                           </td>
                           <td>
@@ -5868,7 +5895,7 @@ export default function CRM() {
               <div className="dcard">
                 <div className="dch">📊 Pipeline</div>
                 <div className="dcb">
-                  {STAGES.map(s => {
+                  {stages.map(s => {
                     const c = clients.filter(x => x.etapa === s.id).length;
                     return c > 0 ? (
                       <div className="br-row" key={s.id}>
@@ -7753,7 +7780,7 @@ export default function CRM() {
                 <div>
                   <div className="stit">Mover no Pipeline</div>
                   <div className="pm">
-                    {STAGES.map(s => {
+                    {stages.map(s => {
                       const critica = ["cons_agendada","sessao_agend","tatuado"].includes(s.id);
                       return (
                         <button key={s.id} className={"sb" + (sc.etapa === s.id ? " cur" : "")}
@@ -8373,7 +8400,7 @@ export default function CRM() {
                 {agClientVinc && !(agForm.tipo || "").startsWith("bloq") && (() => {
                   const cli = clients.find(c => c.id === agClientVinc.id);
                   if (!cli) return null;
-                  const stage = STAGES.find(s => s.id === cli.etapa);
+                  const stage = stages.find(s => s.id === cli.etapa);
                   return (
                     <div className="ff">
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
@@ -8388,7 +8415,7 @@ export default function CRM() {
                       </div>
                       {agPipelineOpen && (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                          {STAGES.filter(s => !["blacklist"].includes(s.id)).map(s => (
+                          {stages.filter(s => !["blacklist"].includes(s.id)).map(s => (
                             <div key={s.id}
                               onMouseDown={() => {
                                 if (s.id !== cli.etapa) {
@@ -10773,6 +10800,131 @@ export default function CRM() {
             ✦ {(auraName && !auraName.includes("@")) ? auraName : "Configure sua agente"}
           </button>
         </div>
+
+        {/* ── MODAL: EDITAR ETAPA DO PIPELINE ── */}
+        {editingStage && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+            onClick={() => setEditingStage(null)}>
+            <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 14, padding: 28, minWidth: 340, maxWidth: 420 }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: "var(--gold)", marginBottom: 20 }}>✏️ Editar etapa</div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, color: "var(--tx2)", display: "block", marginBottom: 5 }}>Nome</label>
+                <input value={editStageLabel} onChange={e => setEditStageLabel(e.target.value)}
+                  style={{ width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "8px 12px", color: "var(--tx)", fontSize: 14, fontFamily: "'DM Sans',sans-serif", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, color: "var(--tx2)", display: "block", marginBottom: 5 }}>Emoji</label>
+                <input value={editStageEmoji} onChange={e => setEditStageEmoji(e.target.value)}
+                  style={{ width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "8px 12px", color: "var(--tx)", fontSize: 14, fontFamily: "'DM Sans',sans-serif", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 12, color: "var(--tx2)", display: "block", marginBottom: 5 }}>Cor</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input type="color" value={editStageCor} onChange={e => setEditStageCor(e.target.value)}
+                    style={{ width: 44, height: 36, border: "none", borderRadius: 8, cursor: "pointer", background: "none" }} />
+                  <input value={editStageCor} onChange={e => setEditStageCor(e.target.value)}
+                    style={{ flex: 1, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "8px 12px", color: "var(--tx)", fontSize: 14, fontFamily: "'DM Sans',sans-serif" }} />
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setEditingStage(null)}
+                  style={{ flex: 1, padding: "10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}>
+                  Cancelar
+                </button>
+                <button onClick={async () => {
+                  if (!editStageLabel.trim()) return;
+                  if (editingStage.dbId) {
+                    await sb.from("pipeline_etapas").update({ label: editStageLabel.trim(), emoji: editStageEmoji, cor: editStageCor }).eq("id", editingStage.dbId);
+                  }
+                  setStages((p: any[]) => p.map((s: any) => s.id === editingStage.id ? { ...s, label: editStageLabel.trim(), emoji: editStageEmoji, color: editStageCor } : s));
+                  setEditingStage(null);
+                }} style={{ flex: 1, padding: "10px", background: "var(--gold)", border: "none", borderRadius: 8, color: "#111", cursor: "pointer", fontWeight: 700, fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}>
+                  Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MODAL: NOVA ETAPA ── */}
+        {showAddStage && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+            onClick={() => setShowAddStage(false)}>
+            <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 14, padding: 28, minWidth: 340, maxWidth: 420 }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: "var(--gold)", marginBottom: 20 }}>+ Nova etapa</div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, color: "var(--tx2)", display: "block", marginBottom: 5 }}>Nome</label>
+                <input value={newStageLabel} onChange={e => setNewStageLabel(e.target.value)} placeholder="Ex: Em negociação"
+                  style={{ width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "8px 12px", color: "var(--tx)", fontSize: 14, fontFamily: "'DM Sans',sans-serif", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, color: "var(--tx2)", display: "block", marginBottom: 5 }}>Emoji</label>
+                <input value={newStageEmoji} onChange={e => setNewStageEmoji(e.target.value)}
+                  style={{ width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "8px 12px", color: "var(--tx)", fontSize: 14, fontFamily: "'DM Sans',sans-serif", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 12, color: "var(--tx2)", display: "block", marginBottom: 5 }}>Cor</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input type="color" value={newStageCor} onChange={e => setNewStageCor(e.target.value)}
+                    style={{ width: 44, height: 36, border: "none", borderRadius: 8, cursor: "pointer", background: "none" }} />
+                  <input value={newStageCor} onChange={e => setNewStageCor(e.target.value)}
+                    style={{ flex: 1, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "8px 12px", color: "var(--tx)", fontSize: 14, fontFamily: "'DM Sans',sans-serif" }} />
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowAddStage(false)}
+                  style={{ flex: 1, padding: "10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}>
+                  Cancelar
+                </button>
+                <button onClick={async () => {
+                  if (!newStageLabel.trim()) return;
+                  const slug = "custom_" + Date.now();
+                  const { data: nova } = await sb.from("pipeline_etapas").insert({
+                    user_id: userId, slug, label: newStageLabel.trim(), cor: newStageCor, emoji: newStageEmoji, ordem: stages.length, fixo: false
+                  }).select().single();
+                  if (nova) {
+                    setStages((p: any[]) => [...p, { id: slug, label: nova.label, color: nova.cor, emoji: nova.emoji, fixo: false, dbId: nova.id, ordem: nova.ordem }]);
+                  }
+                  setNewStageLabel(""); setNewStageEmoji("●"); setNewStageCor("#888888");
+                  setShowAddStage(false);
+                }} style={{ flex: 1, padding: "10px", background: "var(--gold)", border: "none", borderRadius: 8, color: "#111", cursor: "pointer", fontWeight: 700, fontFamily: "'DM Sans',sans-serif", fontSize: 13 }}>
+                  Criar etapa
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MODAL: CONFIRMAR EXCLUSÃO DE ETAPA ── */}
+        {confirmDeleteStage && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+            onClick={() => setConfirmDeleteStage(null)}>
+            <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 14, padding: 28, minWidth: 320 }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, color: "#E74C3C", marginBottom: 12 }}>Excluir etapa?</div>
+              <p style={{ fontSize: 13, color: "var(--tx2)", marginBottom: 20 }}>
+                A etapa <strong style={{ color: "var(--tx)" }}>{confirmDeleteStage.emoji} {confirmDeleteStage.label}</strong> será removida. Mova os clientes nela antes de excluir.
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setConfirmDeleteStage(null)}
+                  style={{ flex: 1, padding: "10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                  Cancelar
+                </button>
+                <button onClick={async () => {
+                  if (confirmDeleteStage.dbId) {
+                    await sb.from("pipeline_etapas").delete().eq("id", confirmDeleteStage.dbId);
+                  }
+                  setStages((p: any[]) => p.filter((s: any) => s.id !== confirmDeleteStage.id));
+                  setConfirmDeleteStage(null);
+                }} style={{ flex: 1, padding: "10px", background: "#E74C3C", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 700, fontFamily: "'DM Sans',sans-serif" }}>
+                  Excluir
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── MODAL: SESSÃO CONCLUÍDA — PROJETO COMPLETO? ── */}
         {agendarProximaModal && (

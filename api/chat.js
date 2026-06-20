@@ -46,7 +46,8 @@ Colete UM dado por mensagem, com naturalidade e sem pressa:
 9. Região do corpo onde será tatuado
 10. Orçamento estimado ("Qual o investimento que você tem em mente para esse projeto?")
 11. Referência de imagem (convide pelo botão 📷 — ao receber, confirme que foi salva)
-12. Data preferida e horário
+12. Data preferida
+13. Melhor horário para receber uma ligação da equipe ("Para a gente confirmar com você — qual o melhor horário para te ligar?")
 
 Após ter nome completo + WhatsApp + e-mail + tipo + artista + data → acione \`solicitar_agendamento\`.
 Se for cliente novo, inclua [LEAD:...] antes ou na mesma resposta que aciona o agendamento.
@@ -105,9 +106,7 @@ Quando o cliente descrever uma ideia, convide a enviar imagem pelo botão 📷. 
 
 ## ENCERRAMENTO
 - Fluxo A: confirme os dados, diga que a equipe entra em contato pelo WhatsApp.
-- Fluxo B: após acionar \`solicitar_agendamento\`, leia o retorno:
-  - Se \`na_agenda: true\`: confirme que o agendamento está marcado na data e hora combinadas. Diga que um e-mail foi enviado e a equipe pode entrar em contato pelo WhatsApp para detalhes.
-  - Se \`na_agenda: false\`: diga que a solicitação foi registrada e que a equipe vai confirmar o horário pelo WhatsApp em breve. NUNCA diga que o agendamento está confirmado ou que já está na agenda se \`na_agenda\` for false.
+- Fluxo B: após acionar \`solicitar_agendamento\`, confirme que a solicitação foi registrada. Diga que a equipe vai entrar em contato pelo WhatsApp para confirmar data e horário. NUNCA diga que o agendamento está confirmado ou que já está marcado na agenda — a confirmação é sempre feita pela equipe.
 
 ## ARTISTAS
 - **Abraão** — realismo, blackwork, orientalismo, peças grandes e autorais. WhatsApp: https://wa.me/5527996929665?text=Olá+Abraão%2C+vim+pelo+site+da+Casa+dos+Carvalho+e+gostaria+de+conversar+sobre+minha+tatuagem+%F0%9F%96%A4
@@ -169,6 +168,8 @@ Triage por estilo:
 - NUNCA sugerir consulta com Camilla — ela faz sessões diretas
 - NUNCA acionar solicitar_agendamento sem: nome completo, WhatsApp, e-mail, tipo, artista e data
 - Sempre inclua cliente_nascimento no solicitar_agendamento se tiver sido coletado
+- Sempre inclua horario_ligacao no solicitar_agendamento se tiver sido coletado
+- NUNCA dizer que o agendamento está confirmado — a equipe confirma pelo WhatsApp
 - NUNCA encerrar sem ter salvo o lead de alguma forma
 - Se não souber responder, diga que vai verificar com a equipe e peça o contato
 
@@ -228,7 +229,8 @@ const TOOLS = [
         hora_solicitada: { type: "string", description: "Horário preferido no formato HH:MM" },
         projeto: { type: "string", description: "Descrição detalhada do projeto/tatuagem desejada" },
         regiao: { type: "string", description: "Região do corpo onde será tatuado" },
-        orcamento: { type: "string", description: "Orçamento estimado informado pelo cliente" }
+        orcamento: { type: "string", description: "Orçamento estimado informado pelo cliente" },
+        horario_ligacao: { type: "string", description: "Melhor horário para a equipe ligar para o cliente (ex: 'manhãs', 'após 17h', 'qualquer hora')" }
       },
       required: ["cliente_nome", "cliente_email", "cliente_tel", "artista", "tipo", "data_solicitada"]
     }
@@ -275,7 +277,7 @@ async function notificarSolicitacaoAgendamento(nome, telefone, resumo) {
 
 async function solicitarAgendamento(input) {
   try {
-    const { cliente_id, cliente_nome, cliente_email, cliente_tel, cliente_insta, cliente_nascimento, artista, tipo, data_solicitada, hora_solicitada, projeto, regiao, orcamento } = input;
+    const { cliente_id, cliente_nome, cliente_email, cliente_tel, cliente_insta, cliente_nascimento, artista, tipo, data_solicitada, hora_solicitada, projeto, regiao, orcamento, horario_ligacao } = input;
 
     const descricao = [
       projeto ? "Projeto: " + projeto : "",
@@ -335,7 +337,7 @@ async function solicitarAgendamento(input) {
         etapa: "aura_agend",
         orig: "Site - Aura Chat",
         qual: "Q1",
-        obs: "Agendamento via Aura Chat",
+        obs: "Solicitação via Aura Chat." + (horario_ligacao ? " Melhor horário para ligação: " + horario_ligacao + "." : ""),
         estilo: "", tam: "Medio", intencao: "", cob: false, stars: 0,
         val_a: 0, val_c: 0, pgto: "", orcamento: false, contrato: false,
         faltas: 0, indicacoes: 0, credito: 0, cri: "", dias: 0, referencias: []
@@ -372,39 +374,6 @@ async function solicitarAgendamento(input) {
       return { ok: false, erro: pendErr.message };
     }
 
-    // Criar evento na agenda — awaited, espelhando exatamente o que o CRM faz
-    let agendaNaAgenda = false;
-    if (data_solicitada) {
-      // Fallback: se artistaId for null, busca qualquer artista do estúdio (como CRM faz com artists[0])
-      let artistaIdFinal = artistaId;
-      if (!artistaIdFinal) {
-        const { data: artistaPadrao } = await supabase
-          .from("artistas").select("id").eq("user_id", STUDIO_USER_ID).limit(1).single();
-        artistaIdFinal = artistaPadrao?.id || null;
-      }
-      const tipoAgenda = artistaIdFinal
-        ? (tipo === "consulta" ? "cons_" + artistaIdFinal : "sess_" + artistaIdFinal)
-        : tipo;
-      const horaInicio = hora_solicitada || "13:00";
-      const horaInicioH = parseInt((horaInicio.split(":")[0]) || "13");
-      const duracaoH = tipo === "consulta" ? 2 : 3;
-      const horaFim = String(horaInicioH + duracaoH).padStart(2, "0") + ":00";
-      const agendaRow = {
-        user_id: STUDIO_USER_ID,
-        titulo: "(Aguardando confirmação) " + (tipo === "consulta" ? "Consulta" : "Sessão") + " — " + cliente_nome,
-        cliente_id: finalClienteId,
-        cliente_nome,
-        artista: artistaIdFinal,   // sempre enviado — nunca omitido (coluna pode ser NOT NULL)
-        data: data_solicitada,
-        hora: horaInicio,
-        hora_fim: horaFim,
-        tipo: tipoAgenda
-      };
-      const agRes = await supabase.from("agenda").insert(agendaRow);
-      if (agRes.error) console.error("agenda insert error:", JSON.stringify(agRes.error));
-      agendaNaAgenda = !agRes.error;
-    }
-
     const resendKey = process.env.RESEND_API_KEY;
     const emailRem = process.env.EMAIL_REMETENTE || "contato@acasadoscarvalhotattoo.com.br";
     const tipoLabel = tipo === "sessao" ? "Sessão" : "Consulta";
@@ -431,6 +400,7 @@ async function solicitarAgendamento(input) {
         row("Descrição / Ideia", projeto || "—") +
         row("Região do corpo", regiao || "—") +
         row("Orçamento informado", orcamento ? "<strong style='color:#2d8a4e;font-size:15px'>" + orcamento + "</strong>" : "—") +
+        (horario_ligacao ? sec("Contato") + row("Melhor horário p/ ligação", "<strong>" + horario_ligacao + "</strong>") : "") +
         "</table>" +
         "<p style='margin:20px 0 0;font-size:11px;color:#bbb;border-top:1px solid #eee;padding-top:12px'>Solicitado via Aura Chat · " + nomeEstudio + " · Confirme pelo WhatsApp do cliente.</p>" +
         "</div>";
@@ -501,10 +471,7 @@ async function solicitarAgendamento(input) {
     return {
       ok: true,
       clienteId: finalClienteId,
-      na_agenda: agendaNaAgenda,
-      mensagem: agendaNaAgenda
-        ? "Agendamento registrado na agenda e profissional notificado."
-        : "Solicitação registrada. Profissional notificado, mas o evento na agenda requer confirmação da equipe."
+      mensagem: "Solicitação registrada. Profissional notificado — a equipe entrará em contato pelo WhatsApp para confirmar data e hora."
     };
   } catch (e) {
     console.error("solicitarAgendamento exception:", e);
