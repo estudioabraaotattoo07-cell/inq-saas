@@ -370,6 +370,20 @@ const DEFAULT_STAGES = [
   { id: "blacklist", label: "Blacklist", color: "#C0392B", emoji: "🚫" },
 ];
 
+const STAGE_INFO: Record<string, string> = {
+  lead: "Primeiros contatos captados pelo site, redes sociais, indicação ou qualquer outro canal de entrada. O cliente demonstrou algum interesse mas ainda não foi qualificado. Seu papel aqui é iniciar o relacionamento: entender a ideia, o projeto e o nível de intenção. Quanto antes entrar em contato, maior a chance de conversão.",
+  qualificacao: "Leads que já demonstraram interesse real e merecem atenção. Avalie o projeto, o estilo desejado, o orçamento disponível e o encaixe com o estúdio. Aqui você decide se o cliente avança para um agendamento ou precisa de mais nutrição antes disso.",
+  aura_agend: "Clientes que solicitaram agendamento diretamente pelo chat do site. Eles já forneceram informações do projeto e aguardam contato da equipe pelo WhatsApp para confirmar data e horário. Prioridade de retorno — esse cliente tomou a iniciativa.",
+  cons_agendada: "Consulta presencial já confirmada. O cliente virá ao estúdio para uma conversa sobre o projeto: entender a proposta, alinhar expectativas, ver referências e definir o caminho antes de tatuar. Prepare o ambiente e o artista responsável.",
+  sessao_agend: "Sessão de tatuagem agendada e confirmada. O projeto já foi discutido, o valor alinhado e o horário marcado. Tudo certo para tatuar na data combinada. Confirme com antecedência e certifique-se de que o cliente está preparado.",
+  tatuado: "Sessão concluída com sucesso. Agora é hora do pós-atendimento: acompanhe a cicatrização, peça feedback, solicite avaliação e mantenha o vínculo para futuras sessões ou indicações. Um cliente satisfeito é o melhor canal de aquisição.",
+  aguard_agend: "Cliente que confirmou interesse em agendar mas ainda não tem data definida — seja por indisponibilidade de agenda, aguardo de orçamento ou outro motivo. Monitore e entre em contato assim que houver abertura. Não deixe esfriar.",
+  pos_venda: "Clientes que passaram pela régua de pós-venda após a sessão. Foco em satisfação, cicatrização saudável e fidelização. Mantenha o relacionamento ativo: eles têm grande potencial para retornar e indicar novas pessoas.",
+  lista_espera: "Clientes que querem ser atendidos mas a agenda está sem disponibilidade no momento. Estão aguardando a vez. Contate assim que surgir uma abertura — eles já demonstraram comprometimento ao aceitar esperar.",
+  hibernacao: "Clientes inativos temporariamente: sem resposta, sem interesse imediato ou que pediram para ser contatados futuramente. A IA recontata automaticamente na data programada. Não descarte — muitos retornam quando o momento é certo.",
+  blacklist: "Clientes com ocorrências graves: faltas repetidas sem aviso, comportamento inadequado, inadimplência ou outros motivos que justifiquem a suspensão do atendimento. Registro para controle interno. Visível apenas pela equipe.",
+};
+
 const QC: Record<string, string> = {
   Q0: "q0c", Q1: "q1c", Q2: "q2c", Q3: "q3c"
 };
@@ -1082,6 +1096,7 @@ export default function CRM() {
   const [newStageEmoji, setNewStageEmoji] = useState("●");
   const [newStageCor, setNewStageCor] = useState("#888888");
   const [confirmDeleteStage, setConfirmDeleteStage] = useState<any | null>(null);
+  const [stageInfoOpen, setStageInfoOpen] = useState<string | null>(null);
   const [proximaSessaoModal, setProximaSessaoModal] = useState<{cid: any; agEvent: any} | null>(null);
   const [editandoProjConc, setEditandoProjConc] = useState<{clienteId: any; projetoId: any} | null>(null);
   const [pgAvulso, setPgAvulso] = useState<{clienteId: any; clienteNome: string; artistaId: string; fase: "form"|"confirm"; valor: string; forma: string; obs: string} | null>(null);
@@ -4139,8 +4154,10 @@ export default function CRM() {
           }}>
             {stages.map(stage => {
               const sc2 = getSC(stage.id);
+              const stageDesc = STAGE_INFO[stage.id] || "Etapa personalizada. Defina o critério e arraste os clientes conforme o seu fluxo de atendimento.";
+              const infoAberto = stageInfoOpen === stage.id;
               return (
-                <div className="kc" key={stage.id} id={"kcol-" + stage.id}>
+                <div className="kc" key={stage.id} id={"kcol-" + stage.id} onClick={() => { if (infoAberto) setStageInfoOpen(null); }}>
                   <div className="kh" style={{ borderBottomColor: stage.color }}>
                     <span className="kt" style={{ color: stage.color }}>{stage.emoji} {stage.label}
                       {stage.id === "lead" && newLeadsBadge > 0 && (
@@ -4149,6 +4166,18 @@ export default function CRM() {
                     </span>
                     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                       <span className="kn">{sc2.length}</span>
+                      {/* Botão ℹ️ — balão de descrição da etapa */}
+                      <div style={{ position: "relative" }}>
+                        <span onClick={e => { e.stopPropagation(); setStageInfoOpen(infoAberto ? null : stage.id); }}
+                          style={{ cursor: "pointer", fontSize: 11, opacity: infoAberto ? 0.9 : 0.45, lineHeight: 1, userSelect: "none", color: infoAberto ? stage.color : undefined }}>ℹ️</span>
+                        {infoAberto && (
+                          <div onClick={e => e.stopPropagation()}
+                            style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 300, width: 240, background: "var(--dk2)", border: "1px solid " + stage.color + "55", borderRadius: 10, padding: "12px 14px", boxShadow: "0 6px 24px rgba(0,0,0,.5)", animation: "fadeIn .15s ease" }}>
+                            <div style={{ fontSize: 11, color: stage.color, fontWeight: 700, marginBottom: 6, fontFamily: "'DM Sans',sans-serif" }}>{stage.emoji} {stage.label}</div>
+                            <div style={{ fontSize: 12, color: "var(--tx2)", lineHeight: 1.55, fontFamily: "'DM Sans',sans-serif" }}>{stageDesc}</div>
+                          </div>
+                        )}
+                      </div>
                       <span title="Editar etapa" onClick={e => { e.stopPropagation(); setEditingStage(stage); setEditStageLabel(stage.label); setEditStageEmoji(stage.emoji || ""); setEditStageCor(stage.color || "#888"); }}
                         style={{ cursor: "pointer", fontSize: 10, opacity: 0.45, lineHeight: 1, userSelect: "none" }}>✏️</span>
                       {stage.fixo === false && (
@@ -4158,7 +4187,12 @@ export default function CRM() {
                     </div>
                   </div>
                   <div className="kb">
-                    {sc2.length === 0 && <div className="ke">Nenhum cliente</div>}
+                    {sc2.length === 0 && (
+                      <div style={{ padding: "24px 16px", textAlign: "center" }}>
+                        <div style={{ fontSize: 22, marginBottom: 10, opacity: 0.3 }}>{stage.emoji}</div>
+                        <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.6, fontFamily: "'DM Sans',sans-serif" }}>{stageDesc}</div>
+                      </div>
+                    )}
                     {sc2.map(c => {
                       const m = miss(c); const ch = churn(c);
                       const anivMes = isAniversMes((c as any).nascimento || "");
