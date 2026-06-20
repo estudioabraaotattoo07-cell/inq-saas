@@ -4112,19 +4112,10 @@ export default function CRM() {
               <div id="kanban-scroll-spacer" style={{ height: 1 }} />
             </div>
           </div>
-          {/* Seletor de coluna */}
-          <div style={{ display: "flex", overflowX: "auto", gap: 6, padding: "8px 14px 6px", background: "var(--dk2)", borderBottom: "1px solid var(--br)", scrollbarWidth: "none" }}>
-            {stages.map(stage => (
-              <button key={stage.id} onClick={() => {
-                const kw = document.getElementById("kanban-body");
-                const el = document.getElementById("kcol-" + stage.id);
-                if (kw && el) kw.scrollTo({ left: el.offsetLeft - 14, behavior: "smooth" });
-              }} style={{ flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 600, borderRadius: 20, border: "1px solid var(--br)", background: "var(--dk3)", color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
-                {stage.emoji} {stage.label}
-              </button>
-            ))}
+          {/* Barra kanban — apenas nova etapa */}
+          <div style={{ display: "flex", alignItems: "center", padding: "6px 14px", background: "var(--dk2)", borderBottom: "1px solid var(--br)" }}>
             <button onClick={() => setShowAddStage(true)}
-              style={{ flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 600, borderRadius: 20, border: "1px dashed var(--gold)", background: "transparent", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
+              style={{ padding: "4px 14px", fontSize: 11, fontWeight: 600, borderRadius: 20, border: "1px dashed var(--gold)", background: "transparent", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
               + Nova etapa
             </button>
           </div>
@@ -7069,7 +7060,7 @@ export default function CRM() {
                           </div>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          <label style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Instrução para a Aura</label>
+                          <label style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Instrução para a {auraName || "IA"}</label>
                           <textarea defaultValue={"Enviar no dia do aniversário do cliente. Usar o nome do cliente. Parabenizar pelo aniversário de forma calorosa e personalizada. Mencionar o estilo de tatuagem favorito do cliente se disponível. Oferecer " + descontoAniversario + "% de desconto em qualquer sessão realizada durante o mês do aniversário. Tom: caloroso e pessoal, não promocional. Finalizar com convite para agendar."}
                             style={{ width: "100%", minHeight: 110, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", fontSize: 11, color: "var(--tx2)", fontFamily: "'DM Sans',sans-serif", resize: "vertical", outline: "none", lineHeight: 1.6 }} />
                           <div style={{ fontSize: 10, color: "var(--tx3)" }}>{"A " + (auraName || "IA") + " usa estas instruções para compor cada mensagem — personalizada com nome, estilo e artista do cliente."}</div>
@@ -7541,7 +7532,7 @@ export default function CRM() {
                   <div className="stit">Fotos de Referência</div>
                   <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px" }}>
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>
-                      {"Fotos enviadas pelo cliente via " + (auraName || "Aura") + " ou adicionadas manualmente."}
+                      {"Fotos enviadas pelo cliente via " + (auraName || "chat do site") + " ou adicionadas manualmente."}
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                       {((sc as any).referencias || []).map((url: string, i: number) => (
@@ -9460,7 +9451,7 @@ export default function CRM() {
                 />
                 {isHibernacao && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 12, color: "var(--tx2)" }}>Aura recontata em</span>
+                    <span style={{ fontSize: 12, color: "var(--tx2)" }}>{auraName || "IA"} recontata em</span>
                     <input type="number" min={1} value={pipelineMotivo.dias || "30"}
                       onChange={e => setPipelineMotivo(p => p ? { ...p, dias: e.target.value } : p)}
                       style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 9px", fontSize: 12, color: "var(--tx)", width: 70, outline: "none" }} />
@@ -10797,7 +10788,7 @@ export default function CRM() {
           <button
             onClick={() => setShowAuraChat(p => !p)}
             style={{ background: showAuraChat ? "var(--dk3)" : "var(--gold)", color: showAuraChat ? "var(--tx2)" : "#000", border: "1px solid var(--gold)", borderRadius: 50, padding: "12px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 20px rgba(201,168,76,.4)", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap", animation: showAuraChat ? "none" : "goldPulse 2.5s infinite" }}>
-            ✦ {(auraName && !auraName.includes("@")) ? auraName : "Configure sua agente"}
+            ✦ {(auraName && !auraName.includes("@")) ? auraName : "Configura a sua agente de IA"}
           </button>
         </div>
 
