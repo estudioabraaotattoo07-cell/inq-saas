@@ -7555,13 +7555,11 @@ export default function CRM() {
                             <div style={{ fontSize: 16, fontWeight: 700, color: credito > 0 ? "var(--gold)" : "var(--tx3)", fontFamily: "'Cormorant Garamond',serif" }}>{credito > 0 ? "R$ " + credito.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "—"}</div>
                           </div>
                         </div>
-                        {totalDevedor > 0 && (
-                          <button
-                            onClick={() => setPgAvulso({ clienteId: sc.id, clienteNome: sc.nome, artistaId: sc.artista || "", fase: "form", valor: "", forma: "Pix", obs: "" })}
-                            style={{ alignSelf: "flex-start", background: "rgba(201,168,76,.12)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 7, padding: "8px 14px", fontSize: 12, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                            + Registrar pagamento
-                          </button>
-                        )}
+                        <button
+                          onClick={() => setPgAvulso({ clienteId: sc.id, clienteNome: sc.nome, artistaId: sc.artista || "", fase: "form", valor: "", forma: "Pix", obs: "" })}
+                          style={{ alignSelf: "flex-start", background: "rgba(201,168,76,.12)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 7, padding: "8px 14px", fontSize: 12, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                          + Registrar pagamento
+                        </button>
                         {pagCliente.length > 0 && (
                           <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 13px" }}>
                             <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Histórico de Pagamentos</div>
