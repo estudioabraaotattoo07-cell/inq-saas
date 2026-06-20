@@ -46,30 +46,37 @@ async function dbDelete(table: string, id: any, onError?: (msg: string) => void)
   if (error) { console.error("delete", table, id, error.message); onError?.(error.message); }
 }
 
-// ─── THEME ───────────────────────────────────────────────────────────────────
-const DARK = {
-  "--dk": "#0E0E0E", "--dk2": "#161616", "--dk3": "#1E1E1E",
-  "--dk4": "#272727", "--dk5": "#303030", "--tx": "#E8E2D9",
-  "--tx2": "#A09585", "--tx3": "#706860",
-  "--br": "rgba(201,168,76,0.18)", "--brh": "rgba(201,168,76,0.45)",
-  "--card": "#161616", "--card-border": "rgba(201,168,76,0.12)",
-  "--input-bg": "#1E1E1E", "--input-border": "rgba(201,168,76,0.18)"
-};
-const LIGHT = {
-  "--dk": "#F2EDE6", "--dk2": "#EAE3DA", "--dk3": "#E0D8CE",
-  "--dk4": "#D4C9BC", "--dk5": "#C8BAA9", "--tx": "#141210",
-  "--tx2": "#3A302A", "--tx3": "#6B5E54",
-  "--br": "rgba(80,55,30,0.22)", "--brh": "rgba(80,55,30,0.5)",
-  "--card": "#EEE7DF", "--card-border": "rgba(80,55,30,0.18)",
-  "--input-bg": "#E8E0D6", "--input-border": "rgba(80,55,30,0.25)"
+// ─── THEMES ──────────────────────────────────────────────────────────────────
+type ThemeId = "carvalho" | "sangue" | "cobalto" | "mono";
+const THEMES: Record<ThemeId, { nome: string; emoji: string; dark: Record<string,string>; light: Record<string,string>; }> = {
+  carvalho: {
+    nome: "Original", emoji: "⚜️",
+    dark: { "--dk":"#0E0E0E","--dk2":"#161616","--dk3":"#1E1E1E","--dk4":"#272727","--dk5":"#303030","--tx":"#E8E2D9","--tx2":"#A09585","--tx3":"#706860","--br":"rgba(201,168,76,0.18)","--brh":"rgba(201,168,76,0.45)","--gold":"#C9A84C","--gold-l":"#E8C97A","--gold-d":"rgba(201,168,76,0.13)" },
+    light: { "--dk":"#F2EDE6","--dk2":"#EAE3DA","--dk3":"#E0D8CE","--dk4":"#D4C9BC","--dk5":"#C8BAA9","--tx":"#141210","--tx2":"#3A302A","--tx3":"#6B5E54","--br":"rgba(80,55,30,0.22)","--brh":"rgba(80,55,30,0.5)","--gold":"#9A7428","--gold-l":"#C49A30","--gold-d":"rgba(154,116,40,0.13)" },
+  },
+  sangue: {
+    nome: "Sangue & Cinza", emoji: "🩸",
+    dark: { "--dk":"#0A0A0A","--dk2":"#141414","--dk3":"#1C1C1C","--dk4":"#252525","--dk5":"#2E2E2E","--tx":"#EDE0DE","--tx2":"#A08880","--tx3":"#706058","--br":"rgba(192,57,43,0.18)","--brh":"rgba(192,57,43,0.45)","--gold":"#C0392B","--gold-l":"#E04030","--gold-d":"rgba(192,57,43,0.13)" },
+    light: { "--dk":"#F5EFEE","--dk2":"#EDE3E1","--dk3":"#E3D5D3","--dk4":"#D7C5C2","--dk5":"#CBB3B0","--tx":"#1A0B0A","--tx2":"#3D2420","--tx3":"#6B3B36","--br":"rgba(120,30,20,0.2)","--brh":"rgba(120,30,20,0.45)","--gold":"#A0200F","--gold-l":"#C0392B","--gold-d":"rgba(160,32,15,0.13)" },
+  },
+  cobalto: {
+    nome: "Noir Cobalto", emoji: "💠",
+    dark: { "--dk":"#080C12","--dk2":"#101520","--dk3":"#181F2E","--dk4":"#20283A","--dk5":"#283246","--tx":"#D6E8F5","--tx2":"#7AA5C0","--tx3":"#4A7090","--br":"rgba(74,158,191,0.18)","--brh":"rgba(74,158,191,0.45)","--gold":"#4A9EBF","--gold-l":"#6BBAD8","--gold-d":"rgba(74,158,191,0.13)" },
+    light: { "--dk":"#EAF2F8","--dk2":"#DDE9F2","--dk3":"#D0E0EC","--dk4":"#C1D3E3","--dk5":"#B0C6D8","--tx":"#060D14","--tx2":"#1A3A52","--tx3":"#3A6882","--br":"rgba(30,80,120,0.2)","--brh":"rgba(30,80,120,0.45)","--gold":"#1A6F8F","--gold-l":"#2A90B8","--gold-d":"rgba(26,111,143,0.13)" },
+  },
+  mono: {
+    nome: "Monocromático", emoji: "◻️",
+    dark: { "--dk":"#080808","--dk2":"#111111","--dk3":"#1A1A1A","--dk4":"#242424","--dk5":"#2E2E2E","--tx":"#F0F0F0","--tx2":"#A0A0A0","--tx3":"#686868","--br":"rgba(200,200,200,0.12)","--brh":"rgba(200,200,200,0.3)","--gold":"#C8C8C8","--gold-l":"#E0E0E0","--gold-d":"rgba(200,200,200,0.1)" },
+    light: { "--dk":"#F8F8F8","--dk2":"#EEEEEE","--dk3":"#E4E4E4","--dk4":"#D8D8D8","--dk5":"#CCCCCC","--tx":"#0A0A0A","--tx2":"#404040","--tx3":"#707070","--br":"rgba(80,80,80,0.18)","--brh":"rgba(80,80,80,0.4)","--gold":"#444444","--gold-l":"#666666","--gold-d":"rgba(68,68,68,0.13)" },
+  },
 };
 
-function applyTheme(dark: boolean) {
-  const v = dark ? DARK : LIGHT;
+function applyTheme(dark: boolean, tema: ThemeId = "carvalho") {
+  const t = THEMES[tema] || THEMES.carvalho;
+  const v = dark ? t.dark : t.light;
   Object.entries(v).forEach(([k, val]) =>
     document.documentElement.style.setProperty(k, val)
   );
-  // Adaptar cores de status para melhor contraste no modo claro
   if (!dark) {
     document.documentElement.style.setProperty("--ab", "#1A6F8F");
     document.documentElement.style.setProperty("--ca", "#6B3A8F");
@@ -77,7 +84,6 @@ function applyTheme(dark: boolean) {
     document.documentElement.style.setProperty("--q1", "#A01E14");
     document.documentElement.style.setProperty("--q2", "#9B5500");
     document.documentElement.style.setProperty("--q3", "#1A7A40");
-    document.documentElement.style.setProperty("--gold", "#9A7428");
   } else {
     document.documentElement.style.setProperty("--ab", "#4A9EBF");
     document.documentElement.style.setProperty("--ca", "#9B6BB5");
@@ -85,7 +91,6 @@ function applyTheme(dark: boolean) {
     document.documentElement.style.setProperty("--q1", "#C0392B");
     document.documentElement.style.setProperty("--q2", "#D4820A");
     document.documentElement.style.setProperty("--q3", "#27AE60");
-    document.documentElement.style.setProperty("--gold", "#C9A84C");
   }
 }
 
@@ -950,6 +955,7 @@ export default function CRM() {
   const [userId, setUserId] = useState<string>("");
   const [onbStep, setOnbStep] = useState(0);
   const [dark, setDark] = useState(true);
+  const [tema, setTema] = useState<ThemeId>("carvalho");
   const [studioName, setStudioName] = useState("");
   const [studioLogo, setStudioLogo] = useState<string>(() => localStorage.getItem("inq_logo") || "");
   const [studioTel, setStudioTel] = useState("");
@@ -1434,6 +1440,7 @@ export default function CRM() {
             setPreSessaoRegua(PRE_SESSAO_FLOW.map(p => ({ id: p.id, label: p.label, dias: p.dias, msg: p.msg, canal: "email" })));
           }
           setDark(cfg.dark_mode !== false);
+          if (cfg.tema) setTema(cfg.tema as ThemeId);
           // [X2] onboarding_done from Supabase (source of truth); localStorage as cache
           if (cfg.onboarding_done) {
             setOnboardingDone(true);
@@ -1831,7 +1838,7 @@ export default function CRM() {
     }
   }, [tab]);
 
-  useMemo(() => applyTheme(dark), [dark]);
+  useMemo(() => applyTheme(dark, tema), [dark, tema]);
   useMemo(() => {
     if (artists.length > 0) {
       const root = document.documentElement;
@@ -10545,6 +10552,39 @@ export default function CRM() {
                 {/* ── ABA SISTEMA ── */}
                 {settingsTab === "sistema" && <>
                   <div>
+                    <div className="stit">Aparência</div>
+                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 12 }}>Escolha o tema visual e o modo de exibição do sistema.</div>
+                    {/* Modo claro/escuro */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                      <span style={{ fontSize: 12, color: "var(--tx2)" }}>Modo:</span>
+                      <button onClick={() => setDark(false)} style={{ background: !dark ? "var(--gold-d)" : "var(--dk3)", border: `1px solid ${!dark ? "var(--gold)" : "var(--br)"}`, borderRadius: 6, padding: "5px 12px", fontSize: 12, color: !dark ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: !dark ? 600 : 400 }}>☀️ Claro</button>
+                      <button onClick={() => setDark(true)} style={{ background: dark ? "var(--gold-d)" : "var(--dk3)", border: `1px solid ${dark ? "var(--gold)" : "var(--br)"}`, borderRadius: 6, padding: "5px 12px", fontSize: 12, color: dark ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: dark ? 600 : 400 }}>🌙 Escuro</button>
+                    </div>
+                    {/* Carrossel de temas */}
+                    <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6, scrollbarWidth: "none" }}>
+                      {(Object.entries(THEMES) as [ThemeId, typeof THEMES[ThemeId]][]).map(([id, t]) => {
+                        const ativo = tema === id;
+                        const bg = dark ? t.dark["--dk2"] : t.light["--dk2"];
+                        const accent = dark ? t.dark["--gold"] : t.light["--gold"];
+                        const txColor = dark ? t.dark["--tx"] : t.light["--tx"];
+                        const tx2Color = dark ? t.dark["--tx2"] : t.light["--tx2"];
+                        return (
+                          <div key={id} onClick={() => setTema(id)} style={{ minWidth: 130, borderRadius: 10, border: `2px solid ${ativo ? "var(--gold)" : "var(--br)"}`, background: bg, padding: 12, cursor: "pointer", position: "relative", transition: "all .18s", flexShrink: 0, boxShadow: ativo ? "0 0 0 3px var(--gold-d)" : "none" }}>
+                            {ativo && <div style={{ position: "absolute", top: 6, right: 8, fontSize: 12, color: "var(--gold)", fontWeight: 700 }}>✓</div>}
+                            <div style={{ fontSize: 20, marginBottom: 6 }}>{t.emoji}</div>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: txColor, marginBottom: 4, fontFamily: "'Cormorant Garamond',serif" }}>{t.nome}</div>
+                            {/* Mini swatches */}
+                            <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+                              <div style={{ width: 18, height: 18, borderRadius: 4, background: dark ? t.dark["--dk"] : t.light["--dk"], border: "1px solid rgba(128,128,128,0.2)" }} />
+                              <div style={{ width: 18, height: 18, borderRadius: 4, background: accent }} />
+                              <div style={{ width: 18, height: 18, borderRadius: 4, background: tx2Color }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
                     <div className="stit">Tour Guiado</div>
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>Refaça o tour de apresentação do sistema a qualquer momento.</div>
                     <button style={{ background: "rgba(52,152,219,.12)", border: "1px solid rgba(52,152,219,.3)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "#3498DB", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
@@ -10633,7 +10673,7 @@ export default function CRM() {
                     cnpj, meta_mensal: metaMensal,
                     meta_sessoes: metaSessoes, meta_leads: metaLeads, meta_nps: metaNPS,
                     desconto_aniversario: descontoAniversario,
-                    horarios, dark_mode: dark,
+                    horarios, dark_mode: dark, tema,
                     studio_logo: studioLogo,
                     alerta_config: alertaConfig,
                     entrada_cats: entradaCats,
