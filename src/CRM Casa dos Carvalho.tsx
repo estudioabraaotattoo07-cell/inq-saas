@@ -4020,6 +4020,12 @@ export default function CRM() {
                 {a.nome.split(" ")[0]}
               </button>
             ))}
+            {tab === "kanban" && (
+              <button onClick={() => setShowAddStage(true)}
+                style={{ padding: "4px 12px", fontSize: 11, fontWeight: 600, borderRadius: 20, border: "1px dashed var(--gold)", background: "transparent", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
+                + Nova Etapa de Pipeline
+              </button>
+            )}
             {tab === "clientes" && campanhas.length > 0 && (() => {
               const hoje = new Date().toISOString().split("T")[0];
               const campAtiva = filtroExtra?.tipo === "campanha";
@@ -4111,13 +4117,6 @@ export default function CRM() {
               onScroll={e => { const body = document.getElementById("kanban-body"); if (body) body.scrollLeft = e.currentTarget.scrollLeft; }}>
               <div id="kanban-scroll-spacer" style={{ height: 1 }} />
             </div>
-          </div>
-          {/* Barra kanban — apenas nova etapa */}
-          <div style={{ display: "flex", alignItems: "center", padding: "6px 14px", background: "var(--dk2)", borderBottom: "1px solid var(--br)" }}>
-            <button onClick={() => setShowAddStage(true)}
-              style={{ padding: "4px 14px", fontSize: 11, fontWeight: 600, borderRadius: 20, border: "1px dashed var(--gold)", background: "transparent", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
-              + Nova etapa
-            </button>
           </div>
           <div className="kw" id="kanban-body" onScroll={e => {
             const mirror = document.getElementById("kanban-scroll");
@@ -10844,7 +10843,7 @@ export default function CRM() {
             onClick={() => setShowAddStage(false)}>
             <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 14, padding: 28, minWidth: 340, maxWidth: 420 }}
               onClick={e => e.stopPropagation()}>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: "var(--gold)", marginBottom: 20 }}>+ Nova etapa</div>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: "var(--gold)", marginBottom: 20 }}>+ Nova Etapa</div>
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 12, color: "var(--tx2)", display: "block", marginBottom: 5 }}>Nome</label>
                 <input value={newStageLabel} onChange={e => setNewStageLabel(e.target.value)} placeholder="Ex: Em negociação"
@@ -10872,9 +10871,10 @@ export default function CRM() {
                 <button onClick={async () => {
                   if (!newStageLabel.trim()) return;
                   const slug = "custom_" + Date.now();
-                  const { data: nova } = await sb.from("pipeline_etapas").insert({
+                  const { data: nova, error: errNova } = await sb.from("pipeline_etapas").insert({
                     user_id: userId, slug, label: newStageLabel.trim(), cor: newStageCor, emoji: newStageEmoji, ordem: stages.length, fixo: false
                   }).select().single();
+                  if (errNova) console.error("pipeline_etapas insert error:", errNova);
                   if (nova) {
                     setStages((p: any[]) => [...p, { id: slug, label: nova.label, color: nova.cor, emoji: nova.emoji, fixo: false, dbId: nova.id, ordem: nova.ordem }]);
                   }
