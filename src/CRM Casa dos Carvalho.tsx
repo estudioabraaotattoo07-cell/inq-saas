@@ -4628,6 +4628,7 @@ export default function CRM() {
                                 height: (duration * 46) - 4 + "px",
                                 zIndex: 10, borderRadius: 4, padding: "3px 5px",
                                 overflow: "hidden", fontSize: 10, fontWeight: 600, color: e.status === "cancelado" ? "#aaa" : "#fff",
+                                textShadow: e.status === "cancelado" ? "none" : "0 1px 2px rgba(0,0,0,.8), 0 0 4px rgba(0,0,0,.6)",
                                 cursor: "pointer", display: "flex", alignItems: "flex-start", justifyContent: "space-between",
                                 opacity: e.status === "concluido" ? 0.45 : e.status === "cancelado" ? 0.55 : 1,
                                 filter: e.status === "concluido" ? "saturate(0.4)" : "none",
@@ -4684,7 +4685,8 @@ export default function CRM() {
                                   height: (duration * 46) - 4 + "px",
                                   zIndex: 5, borderRadius: 5, padding: "5px 10px",
                                   display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-                                  cursor: "pointer",
+                                  cursor: "pointer", color: "#fff",
+                                  textShadow: e.status === "cancelado" ? "none" : "0 1px 2px rgba(0,0,0,.8), 0 0 4px rgba(0,0,0,.6)",
                                   opacity: e.status === "concluido" ? 0.45 : e.status === "cancelado" ? 0.55 : 1,
                                   filter: e.status === "concluido" ? "saturate(0.4)" : "none"
                                 }}
