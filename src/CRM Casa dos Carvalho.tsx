@@ -6097,25 +6097,24 @@ export default function CRM() {
             } catch {}
             setOrigenConfirmDel(null);
           };
-          {(() => {
-            const totalFrio = eventosTrafego.filter(e => e.tipo_evento === "LeadFrio").length;
-            const totalQuente = eventosTrafego.filter(e => e.tipo_evento === "LeadQuente").length;
-            const convGeral = totalFrio > 0 ? Math.round((totalQuente / totalFrio) * 100) : 0;
-            const tempoRelativo = (iso: string) => {
-              const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-              if (diff < 60) return "agora";
-              if (diff < 3600) return "há " + Math.floor(diff / 60) + "min";
-              if (diff < 86400) return "há " + Math.floor(diff / 3600) + "h";
-              return "há " + Math.floor(diff / 86400) + "d";
-            };
-            const origensComMetrica = origens.map(o => {
-              const frio = eventosTrafego.filter(e => e.tipo_evento === "LeadFrio" && e.origem === o.slug).length;
-              const quente = eventosTrafego.filter(e => e.tipo_evento === "LeadQuente" && e.origem === o.slug).length;
-              const conv = frio > 0 ? Math.round((quente / frio) * 100) : 0;
-              const ultimo = eventosTrafego.find(e => e.origem === o.slug);
-              return { ...o, frio, quente, conv, ultimo };
-            }).sort((a, b) => b.conv - a.conv);
-            return (
+          const totalFrio = eventosTrafego.filter(e => e.tipo_evento === "LeadFrio").length;
+          const totalQuente = eventosTrafego.filter(e => e.tipo_evento === "LeadQuente").length;
+          const convGeral = totalFrio > 0 ? Math.round((totalQuente / totalFrio) * 100) : 0;
+          const tempoRelativo = (iso: string) => {
+            const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+            if (diff < 60) return "agora";
+            if (diff < 3600) return "há " + Math.floor(diff / 60) + "min";
+            if (diff < 86400) return "há " + Math.floor(diff / 3600) + "h";
+            return "há " + Math.floor(diff / 86400) + "d";
+          };
+          const origensComMetrica = origens.map(o => {
+            const frio = eventosTrafego.filter(e => e.tipo_evento === "LeadFrio" && e.origem === o.slug).length;
+            const quente = eventosTrafego.filter(e => e.tipo_evento === "LeadQuente" && e.origem === o.slug).length;
+            const conv = frio > 0 ? Math.round((quente / frio) * 100) : 0;
+            const ultimo = eventosTrafego.find(e => e.origem === o.slug);
+            return { ...o, frio, quente, conv, ultimo };
+          }).sort((a, b) => b.conv - a.conv);
+          return (
               <div style={{ padding: "24px 16px", maxWidth: 740, margin: "0 auto" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🔗 Gerenciador de Origens</div>
