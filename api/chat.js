@@ -522,6 +522,7 @@ async function solicitarAgendamento(input) {
 
     return {
       ok: true,
+      agendamento: true,
       clienteId: finalClienteId,
       mensagem: "Solicitação registrada. Profissional notificado — a equipe entrará em contato pelo WhatsApp para confirmar data e hora."
     };
@@ -579,6 +580,7 @@ export default async function handler(req, res) {
   let workingMessages = [...messages];
   let finalText = "";
   let loopGuard = 0;
+  let agendamentoRealizado = false;
 
   while (loopGuard < 5) {
     loopGuard++;
@@ -616,6 +618,7 @@ export default async function handler(req, res) {
       const toolResults = [];
       for (const block of toolUseBlocks) {
         const resultado = await executarFerramenta(block.name, block.input);
+        if (resultado && resultado.agendamento) agendamentoRealizado = true;
         toolResults.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(resultado) });
       }
       workingMessages.push({ role: "user", content: toolResults });
@@ -645,5 +648,5 @@ export default async function handler(req, res) {
 
   const cleanText = text.replace(/\[LEAD:[\s\S]*?\]/g, "").replace(/\[CAMPANHA:\{[^}]+\}\]/g, "").trim();
 
-  return res.status(200).json({ text: cleanText, lead: leadData, campanha: campanhaData });
+  return res.status(200).json({ text: cleanText, lead: leadData, campanha: campanhaData, agendamento: agendamentoRealizado });
 }
