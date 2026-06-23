@@ -110,7 +110,7 @@ const S = `
   --ab:#4A9EBF;--ca:#9B6BB5;
 }
 body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
-.root{min-height:100vh;background:var(--dk);display:flex;flex-direction:column;}@media(max-width:768px){.kc{min-width:80vw!important;max-width:80vw!important;}.fmod{max-width:96vw!important;}.fr{flex-direction:column;}.fi,.fs{font-size:14px;padding:9px 11px;}}@media(max-width:480px){.kc{min-width:90vw!important;max-width:90vw!important;}}
+.root{min-height:100vh;background:var(--dk);display:flex;flex-direction:column;}@media(max-width:768px){.kc{min-width:42vw!important;max-width:42vw!important;}.fmod{max-width:96vw!important;}.fr{flex-direction:column;}.fi,.fs{font-size:14px;padding:9px 11px;}}@media(max-width:480px){.kc{min-width:42vw!important;max-width:42vw!important;}}
 .topbar{background:var(--dk2);border-bottom:1px solid var(--br);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
 .bmark{width:30px;height:30px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:700;color:#000;}
 .bname{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:600;letter-spacing:.08em;color:var(--tx);}
@@ -1183,6 +1183,9 @@ export default function CRM() {
   const [testandoCanal, setTestandoCanal] = useState<string | null>(null);
   const [auraApiKey, setAuraApiKey] = useState("");
   const [showAuraChat, setShowAuraChat] = useState(false);
+  const [auraBtnPos, setAuraBtnPos] = useState<{ x: number; y: number } | null>(null);
+  const [auraDragging, setAuraDragging] = useState(false);
+  const auraDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number; moved: boolean } | null>(null);
   const [auraChatMessages, setAuraChatMessages] = useState<{role: string; content: string}[]>([]);
   const [auraChatInput, setAuraChatInput] = useState("");
   const [auraChatLoading, setAuraChatLoading] = useState(false);
@@ -3194,6 +3197,51 @@ export default function CRM() {
       return "❌ Erro ao executar ação.";
     }
   };
+
+  const handleAuraDragStart = (clientX: number, clientY: number) => {
+    const btn = document.getElementById("aura-fab-btn");
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    auraDragRef.current = { startX: clientX, startY: clientY, origX: rect.left, origY: rect.top, moved: false };
+    setAuraDragging(true);
+  };
+
+  const handleAuraDragMove = (clientX: number, clientY: number) => {
+    if (!auraDragRef.current) return;
+    const dx = clientX - auraDragRef.current.startX;
+    const dy = clientY - auraDragRef.current.startY;
+    if (!auraDragRef.current.moved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+    auraDragRef.current.moved = true;
+    const btn = document.getElementById("aura-fab-btn");
+    const w = btn ? btn.offsetWidth : 120;
+    const h = btn ? btn.offsetHeight : 48;
+    const newX = Math.min(Math.max(0, auraDragRef.current.origX + dx), window.innerWidth - w);
+    const newY = Math.min(Math.max(0, auraDragRef.current.origY + dy), window.innerHeight - h);
+    setAuraBtnPos({ x: newX, y: newY });
+  };
+
+  const handleAuraDragEnd = () => {
+    auraDragRef.current = null;
+    setAuraDragging(false);
+  };
+
+  useEffect(() => {
+    if (!auraDragging) return;
+    const onMouseMove = (e: MouseEvent) => handleAuraDragMove(e.clientX, e.clientY);
+    const onMouseUp = () => handleAuraDragEnd();
+    const onTouchMove = (e: TouchEvent) => { if (e.touches[0]) handleAuraDragMove(e.touches[0].clientX, e.touches[0].clientY); };
+    const onTouchEnd = () => handleAuraDragEnd();
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [auraDragging]);
 
   const enviarMensagemAura = async (msgOverride?: string, imagemBase64?: string, imagemMediaType?: string) => {
     const userMsg = msgOverride !== undefined ? msgOverride : auraChatInput.trim();
@@ -10873,7 +10921,14 @@ export default function CRM() {
           </div>
         )}
         {/* ── AURA FLOATING CHAT ── */}
-        <div style={{ position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", right: 16, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
+        <div
+          id="aura-fab-btn"
+          style={auraBtnPos
+            ? { position: "fixed", top: auraBtnPos.y, left: auraBtnPos.x, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12, cursor: auraDragging ? "grabbing" : "grab" }
+            : { position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", right: 16, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12, cursor: "grab" }}
+          onMouseDown={e => { handleAuraDragStart(e.clientX, e.clientY); }}
+          onTouchStart={e => { if (e.touches[0]) handleAuraDragStart(e.touches[0].clientX, e.touches[0].clientY); }}
+        >
           {showAuraChat && (
             <div style={{ width: "min(400px, 92vw)", height: "min(500px, 75vh)", background: "var(--dk2)", border: "1px solid var(--gold)", borderRadius: 14, display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(0,0,0,.7)", overflow: "hidden" }}>
               <div style={{ padding: "12px 16px", background: "var(--dk3)", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
@@ -10991,7 +11046,8 @@ export default function CRM() {
             </div>
           )}
           <button
-            onClick={() => setShowAuraChat(p => !p)}
+            id="aura-fab-toggle"
+            onClick={() => { if (!auraDragRef.current?.moved) setShowAuraChat(p => !p); }}
             style={{ background: showAuraChat ? "var(--dk3)" : "var(--gold)", color: showAuraChat ? "var(--tx2)" : "#000", border: "1px solid var(--gold)", borderRadius: 50, padding: "12px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 20px rgba(201,168,76,.4)", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap", animation: showAuraChat ? "none" : "goldPulse 2.5s infinite" }}>
             ✦ {(auraName && !auraName.includes("@")) ? auraName : "Configura a sua agente de IA"}
           </button>
