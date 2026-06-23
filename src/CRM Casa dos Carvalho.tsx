@@ -10920,17 +10920,37 @@ export default function CRM() {
             </div>
           </div>
         )}
-        {/* ── AURA FLOATING CHAT ── */}
-        <div
-          id="aura-fab-btn"
-          style={auraBtnPos
-            ? { position: "fixed", top: auraBtnPos.y, left: auraBtnPos.x, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12, cursor: auraDragging ? "grabbing" : "grab" }
-            : { position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", right: 16, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12, cursor: "grab" }}
-          onMouseDown={e => { handleAuraDragStart(e.clientX, e.clientY); }}
-          onTouchStart={e => { if (e.touches[0]) handleAuraDragStart(e.touches[0].clientX, e.touches[0].clientY); }}
-        >
-          {showAuraChat && (
-            <div style={{ width: "min(400px, 92vw)", height: "min(500px, 75vh)", background: "var(--dk2)", border: "1px solid var(--gold)", borderRadius: 14, display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(0,0,0,.7)", overflow: "hidden" }}>
+        {/* ── AURA FLOATING CHAT ── painel independente do botão */}
+        {showAuraChat && (() => {
+          const chatW = Math.min(400, window.innerWidth * 0.92);
+          const chatH = Math.min(500, window.innerHeight * 0.75);
+          const margin = 12;
+          const btnH = 52;
+          const btnW = 180;
+          let chatTop: number | undefined, chatBottom: number | undefined, chatLeft: number | undefined, chatRight: number | undefined;
+          if (auraBtnPos) {
+            // Tenta abrir acima; se não couber, abre abaixo
+            if (auraBtnPos.y - chatH - margin >= 8) {
+              chatTop = auraBtnPos.y - chatH - margin;
+            } else {
+              chatTop = auraBtnPos.y + btnH + margin;
+            }
+            chatTop = Math.min(chatTop, window.innerHeight - chatH - 8);
+            chatTop = Math.max(chatTop, 8);
+            // Alinha pela direita do botão
+            let cl = auraBtnPos.x + btnW - chatW;
+            if (cl < 8) cl = 8;
+            if (cl + chatW > window.innerWidth - 8) cl = window.innerWidth - chatW - 8;
+            chatLeft = cl;
+          } else {
+            chatBottom = 80;
+            chatRight = 16;
+          }
+          return (
+            <div style={{ position: "fixed", zIndex: 10000, width: chatW, height: chatH,
+              ...(chatTop !== undefined ? { top: chatTop } : { bottom: chatBottom }),
+              ...(chatLeft !== undefined ? { left: chatLeft } : { right: chatRight }),
+              background: "var(--dk2)", border: "1px solid var(--gold)", borderRadius: 14, display: "flex", flexDirection: "column", boxShadow: "0 8px 40px rgba(0,0,0,.7)", overflow: "hidden" }}>
               <div style={{ padding: "12px 16px", background: "var(--dk3)", borderBottom: "1px solid var(--br)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--gold)" }}>✦ {(auraName && !auraName.includes("@")) ? auraName : "Assistente"} — INK SYSTEM</div>
@@ -11044,7 +11064,17 @@ export default function CRM() {
                 </button>
               </div>
             </div>
-          )}
+          );
+        })()}
+        {/* ── AURA FAB BUTTON ── */}
+        <div
+          id="aura-fab-btn"
+          style={auraBtnPos
+            ? { position: "fixed", top: auraBtnPos.y, left: auraBtnPos.x, zIndex: 9999, cursor: auraDragging ? "grabbing" : "grab" }
+            : { position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", right: 16, zIndex: 9999, cursor: "grab" }}
+          onMouseDown={e => { handleAuraDragStart(e.clientX, e.clientY); }}
+          onTouchStart={e => { if (e.touches[0]) handleAuraDragStart(e.touches[0].clientX, e.touches[0].clientY); }}
+        >
           <button
             id="aura-fab-toggle"
             onClick={() => { if (!auraDragRef.current?.moved) setShowAuraChat(p => !p); }}
