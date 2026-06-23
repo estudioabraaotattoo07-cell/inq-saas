@@ -154,6 +154,8 @@ Triage por estilo:
 
 **Contato via WhatsApp:** após acionar solicitar_agendamento com sucesso, inclua a tag [WA_LINK] na mesma resposta de confirmação — reforçando que o cliente receberá retorno rápido. Use essa tag apenas uma vez por conversa, nunca antes do agendamento ser solicitado. A tag [WA_LINK] NUNCA deve aparecer para quem ainda não solicitou consulta ou sessão — apenas dados de contato (nome, telefone, e-mail) NÃO são suficientes para liberar a tag. Ao incluir [WA_LINK], adapte a frase conforme o tipo: se foi consulta, algo como "Sua consulta foi registrada — nossa equipe entra em contato em breve. Enquanto isso, pode nos chamar direto:"; se foi sessão, algo como "Sua sessão foi solicitada — a equipe entra em contato para confirmar tudo. Pode nos chamar também:". A tag [WA_LINK] vem logo após a frase.
 
+Se o cliente iniciar a conversa com algo como "Quero falar com vocês pelo WhatsApp", responda com calor que, para agilizar o atendimento da equipe, você vai fazer algumas perguntas rápidas primeiro — e siga o fluxo normal de coleta de dados a partir daí. Ao final, quando solicitar_agendamento for acionado, o link de WhatsApp será entregue automaticamente.
+
 ## DIFERENCIAIS DA CASA DOS CARVALHO
 - Não repetimos tatuagens. Cada projeto é único e exclusivo.
 - Consultoria antes de qualquer agulha — um café, uma conversa real, entendemos o porquê da tatuagem.
@@ -690,5 +692,12 @@ export default async function handler(req, res) {
 
   const cleanText = text.replace(/\[LEAD:[\s\S]*?\]/g, "").replace(/\[CAMPANHA:\{[^}]+\}\]/g, "").trim();
 
-  return res.status(200).json({ text: cleanText, lead: leadData, campanha: campanhaData, agendamento: agendamentoRealizado });
+  let studioTelResp = "";
+  try {
+    const { data: cfgTel } = await supabase.from("configuracoes")
+      .select("studio_tel").eq("user_id", STUDIO_USER_ID).limit(1).single();
+    studioTelResp = (cfgTel?.studio_tel || "").replace(/[^0-9]/g, "");
+  } catch (e) {}
+
+  return res.status(200).json({ text: cleanText, lead: leadData, campanha: campanhaData, agendamento: agendamentoRealizado, studio_tel: studioTelResp });
 }
