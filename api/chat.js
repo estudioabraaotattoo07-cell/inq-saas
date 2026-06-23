@@ -144,15 +144,15 @@ Quando o cliente descrever uma ideia, convide a enviar imagem pelo botão 📷. 
 NUNCA mencione falha, instabilidade, erro ou problema técnico ao cliente — em nenhuma circunstância. Se uma ferramenta retornar erro, ok: false, ou qualquer resultado negativo, ignore completamente e prossiga como se tivesse funcionado perfeitamente. Nunca peça para o cliente "tentar novamente" por motivo técnico. O cliente não deve ter qualquer percepção de que algo falhou internamente.
 
 ## ARTISTAS
-- **Abraão** — realismo, blackwork, orientalismo, peças grandes e autorais. Trata cada tatuagem como uma **tela** — está na pele, mas é uma obra de arte. Desenvolveu o estilo próprio de **realismo em pontilhismo** — uma técnica única que combina a profundidade do realismo com a precisão dos pontos. Quando alguém mencionar "realismo em pontilhismo" ou "pontilhismo realista", destaque isso ativamente: _"Você escolheu bem — o realismo em pontilhismo é uma técnica que o Abraão desenvolveu com identidade própria. Cada ponto é uma decisão de artista, e o resultado é visceral."_ WhatsApp: https://wa.me/5527996929665?text=Olá+Abraão%2C+vim+pelo+site+da+Casa+dos+Carvalho+e+gostaria+de+conversar+sobre+minha+tatuagem+%F0%9F%96%A4
-- **Camilla** — floral, minimalismo, aquarela, fine line, peças delicadas e femininas. WhatsApp: https://wa.me/5527996941787?text=Olá+Camilla%2C+vim+pelo+site+da+Casa+dos+Carvalho+e+gostaria+de+conversar+sobre+minha+tatuagem+%F0%9F%96%A4
+- **Abraão** — realismo, blackwork, orientalismo, peças grandes e autorais. Trata cada tatuagem como uma **tela** — está na pele, mas é uma obra de arte. Desenvolveu o estilo próprio de **realismo em pontilhismo** — uma técnica única que combina a profundidade do realismo com a precisão dos pontos. Quando alguém mencionar "realismo em pontilhismo" ou "pontilhismo realista", destaque isso ativamente: _"Você escolheu bem — o realismo em pontilhismo é uma técnica que o Abraão desenvolveu com identidade própria. Cada ponto é uma decisão de artista, e o resultado é visceral."_
+- **Camilla** — floral, minimalismo, aquarela, fine line, peças delicadas e femininas.
 
 Triage por estilo:
 - Floral, delicado, fino, aquarela, minimalista, fine line, pontilhismo decorativo, geométrico → Camilla
 - Grande, realismo, blackwork, cobertura, oriental, japonesa, tribal, biomecânico, old school, **realismo em pontilhismo**, pontilhismo realista → Abraão
 - Ambíguo → a equipe indica na consultoria
 
-**Só libere link do artista se:** (1) dados coletados E (2) cliente pedir explicitamente.
+**Contato via WhatsApp:** após acionar solicitar_agendamento com sucesso, inclua a tag [WA_LINK] na mesma resposta de confirmação — reforçando que o cliente receberá retorno rápido. Use essa tag apenas uma vez por conversa, nunca antes do agendamento ser solicitado. A tag [WA_LINK] NUNCA deve aparecer para quem ainda não solicitou consulta ou sessão — apenas dados de contato (nome, telefone, e-mail) NÃO são suficientes para liberar a tag. Ao incluir [WA_LINK], adapte a frase conforme o tipo: se foi consulta, algo como "Sua consulta foi registrada — nossa equipe entra em contato em breve. Enquanto isso, pode nos chamar direto:"; se foi sessão, algo como "Sua sessão foi solicitada — a equipe entra em contato para confirmar tudo. Pode nos chamar também:". A tag [WA_LINK] vem logo após a frase.
 
 ## DIFERENCIAIS DA CASA DOS CARVALHO
 - Não repetimos tatuagens. Cada projeto é único e exclusivo.
@@ -409,7 +409,7 @@ async function solicitarAgendamento(input) {
       const matchExistente = (existentes || []).find(c => (c.tel || "").replace(/\D/g, "").slice(-8) === telDigits);
       if (matchExistente) {
         finalClienteId = matchExistente.id;
-        const upd = { etapa: "aura_agend" };
+        const upd = { etapa: (tipo === "consulta") ? "lead_morno" : "aura_agend" };
         if (descricao) upd.descricao = descricao;
         if (artistaId) upd.artista = artistaId;
         if (nascimentoISO) upd.nascimento = nascimentoISO;
@@ -426,7 +426,7 @@ async function solicitarAgendamento(input) {
         artista: artistaId || artista || null,
         descricao: descricao || "",
         regiao: regiao || "",
-        etapa: "aura_agend",
+        etapa: (tipo === "consulta") ? "lead_morno" : "aura_agend",
         orig: "Site - Aura Chat",
         qual: "Q1",
         obs: "Solicitação via Aura Chat." + (horario_ligacao ? " Melhor horário para ligação: " + horario_ligacao + "." : ""),
@@ -439,7 +439,7 @@ async function solicitarAgendamento(input) {
       if (clienteErr) console.error("clientes insert error:", clienteErr);
       if (novoCliente) finalClienteId = novoCliente.id;
     } else {
-      const updateFields = { etapa: "aura_agend" };
+      const updateFields = { etapa: (tipo === "consulta") ? "lead_morno" : "aura_agend" };
       if (descricao) updateFields.descricao = descricao;
       if (artistaId) updateFields.artista = artistaId;
       if (nascimentoISO) updateFields.nascimento = nascimentoISO;

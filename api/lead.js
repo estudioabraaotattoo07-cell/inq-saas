@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     email: email || "",
     insta: insta || "",
     qual: "Q1",
-    etapa: (email && String(email).trim()) ? "lead_morno" : "lead",
+    etapa: "lead",
     orig: orig || "Site",
     descricao: ideaFinal,
     nascimento: nascimentoISO,
