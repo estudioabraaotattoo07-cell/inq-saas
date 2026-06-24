@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { createClient } from "@supabase/supabase-js";
+import { jsPDF } from "jspdf";
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
 const SUPA_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -1229,6 +1230,11 @@ export default function CRM() {
   const [docsAssinando, setDocsAssinando] = useState<string|null>(null);
   const [docsCanvasRef, setDocsCanvasRef] = useState<HTMLCanvasElement|null>(null);
   const [docsCanvasDesenhando, setDocsCanvasDesenhando] = useState(false);
+  const [docsCanvasPaiRef, setDocsCanvasPaiRef] = useState<HTMLCanvasElement|null>(null);
+  const [docsCanvasMaeRef, setDocsCanvasMaeRef] = useState<HTMLCanvasElement|null>(null);
+  const [docsDesenhandoPai, setDocsDesenhandoPai] = useState(false);
+  const [docsDesenhandoMae, setDocsDesenhandoMae] = useState(false);
+  const [docsGerandoPdf, setDocsGerandoPdf] = useState(false);
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [editandoListas, setEditandoListas] = useState(false);
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
@@ -7864,6 +7870,79 @@ export default function CRM() {
                     { id: "cicatrizacao", label: "Tem historico de cicatrizacao lenta ou problemas de pele?" },
                   ];
 
+                  const gerarEsalvarPdf = async (docId: string) => {
+                    setDocsGerandoPdf(true);
+                    try {
+                      const doc = new jsPDF({ unit: "mm", format: "a4" });
+                      const W = 210; let y = 20;
+                      const ln = (texto: string, size=11, bold=false, cor: [number,number,number]=[30,30,30]) => {
+                        doc.setFontSize(size); doc.setFont("helvetica", bold?"bold":"normal"); doc.setTextColor(...cor);
+                        const linhas = doc.splitTextToSize(texto, W-40);
+                        linhas.forEach((l: string) => { if(y>270){doc.addPage();y=20;} doc.text(l,20,y); y+=size*0.45; });
+                        y+=2;
+                      };
+                      const titulos: Record<string,string> = { anamnese:"FICHA DE ANAMNESE",contrato:"CONTRATO DE EXECUCAO DE PROJETO ARTISTICO",menor:"AUTORIZACAO DE RESPONSAVEL LEGAL" };
+                      ln(titulos[docId]||"DOCUMENTO",16,true,[180,140,50]);
+                      y+=3;
+                      ln(`Cliente: ${sc.nome}  |  Data: ${new Date().toLocaleDateString("pt-BR")}`,10,false,[100,100,100]);
+                      y+=4;
+                      if(docId==="anamnese"){
+                        ln("QUESTIONARIO DE SAUDE",13,true);
+                        pergAnamnese.forEach(p => {
+                          const r = anamnese[p.id]?.resp;
+                          const det = anamnese[p.id]?.detalhe;
+                          ln(`${p.label}  →  ${r==="sim"?"SIM":r==="nao"?"NAO":"Nao respondido"}${det?` (${det})`:""}`);
+                        });
+                        if(anamnese.obs){y+=2;ln("Observacoes:",11,true);ln(anamnese.obs);}
+                      }
+                      if(docId==="contrato"){
+                        ln("TERMOS E CONDICOES",13,true);
+                        ["1. DO PROJETO: O projeto artistico (tatuagem) a ser realizado foi previamente acordado entre as partes, incluindo design, tamanho, local do corpo e valor.",
+                         "2. DO PAGAMENTO: O valor total acordado deve ser pago conforme combinado. Sinais e reservas de agenda nao sao reembolsaveis em caso de cancelamento com menos de 48h ou falta sem aviso.",
+                         "3. DA CICATRIZACAO: O resultado final depende dos cuidados pos-tatuagem do cliente. O estudio nao se responsabiliza por resultados decorrentes de negligencia ou condicoes de saude nao informadas.",
+                         "4. DOS RETOQUES: Retoques gratuitos em ate 60 dias, desde que o cliente siga os cuidados indicados.",
+                         "5. DA SAUDE: O cliente declara ter respondido com veracidade a ficha de anamnese.",
+                         "6. DOS DIREITOS DE IMAGEM: O estudio pode utilizar fotos do trabalho para divulgacao, salvo manifestacao contraria do cliente.",
+                         "7. DA CONCORDANCIA: Ao assinar, o cliente declara ter lido e concordado com todos os termos."
+                        ].forEach(t => { y+=2; ln(t); });
+                      }
+                      if(docId==="menor"){
+                        const pai: Record<string,string> = (sc as any).menor_responsavel||{};
+                        const mae: Record<string,string> = (sc as any).menor_responsavel_mae||{};
+                        ln(`Menor: ${sc.nome} (${idade} anos)  |  Servico: ${pai.servico||"—"}  |  Area: ${pai.area||"—"}`);
+                        y+=4;
+                        ln("RESPONSAVEL 1",12,true,[180,140,50]);
+                        ln(`Nome: ${pai.resp_nome||"—"}  |  CPF: ${pai.resp_cpf||"—"}  |  Tel: ${pai.resp_tel||"—"}  |  Parentesco: ${pai.resp_parentesco||"—"}`);
+                        if(pai.foto_doc){try{const r=await fetch(pai.foto_doc);const bl=await r.blob();const b64=await new Promise<string>(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result as string);fr.readAsDataURL(bl)});doc.addImage(b64,"JPEG",20,y,60,40);y+=44;}catch{}}
+                        y+=4;
+                        ln("RESPONSAVEL 2",12,true,[180,140,50]);
+                        ln(`Nome: ${mae.resp_nome||"—"}  |  CPF: ${mae.resp_cpf||"—"}  |  Tel: ${mae.resp_tel||"—"}  |  Parentesco: ${mae.resp_parentesco||"—"}`);
+                        if(mae.foto_doc){try{const r=await fetch(mae.foto_doc);const bl=await r.blob();const b64=await new Promise<string>(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result as string);fr.readAsDataURL(bl)});doc.addImage(b64,"JPEG",20,y,60,40);y+=44;}catch{}}
+                      }
+                      // assinaturas
+                      const campoA = docId==="anamnese"?"anamnese_assinatura":docId==="contrato"?"contrato_assinatura":"menor_assinatura";
+                      const assinA = (sc as any)[campoA];
+                      if(assinA){y+=6;ln("Assinatura"+(docId==="menor"?" — Responsavel 1":"")+" — Lei 14.063/2020",10,false,[120,120,120]);try{doc.addImage(assinA,"PNG",20,y,60,25);y+=28;}catch{}}
+                      if(docId==="menor"){
+                        const assinMae = (sc as any).menor_assinatura_mae;
+                        if(assinMae){y+=4;ln("Assinatura — Responsavel 2 — Lei 14.063/2020",10,false,[120,120,120]);try{doc.addImage(assinMae,"PNG",20,y,60,25);y+=28;}catch{}}
+                      }
+                      // salvar no Storage
+                      const pdfBlob = doc.output("blob");
+                      const pdfNome = `${titulos[docId]||"doc"}-${sc.nome}-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.pdf`;
+                      const fname = `pdf-${sc.id}-${docId}-${Date.now()}.pdf`;
+                      await sb.storage.from("referencias").upload(fname, pdfBlob, { contentType: "application/pdf", upsert: true });
+                      const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
+                      const arquivosAtuais: any[] = (sc as any).docs_arquivos || [];
+                      const novos = [...arquivosAtuais, { nome: pdfNome, url: pub.publicUrl, tipo: "pdf", criado_em: new Date().toISOString() }];
+                      await sb.from("clientes").update({ docs_arquivos: novos }).eq("id", sc.id);
+                      upCFicha(sc.id, "docs_arquivos", novos);
+                      setFichaEditada(false);
+                      alert("PDF gerado e salvo em Documentos Salvos!");
+                    } catch(e) { alert("Erro ao gerar PDF."); }
+                    setDocsGerandoPdf(false);
+                  };
+
                   const imprimirDoc = (docId: string) => {
                     const el = document.getElementById(`doc-print-${docId}`);
                     if (!el) return;
@@ -8057,34 +8136,134 @@ export default function CRM() {
                                 )}
 
                                 {/* ── MENOR ── */}
-                                {doc.id === "menor" && (
-                                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                    <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.8, background: "var(--dk3)", borderRadius: 7, padding: "12px 14px" }}>
-                                      <strong>AUTORIZACAO DE RESPONSAVEL LEGAL</strong><br/><br/>
-                                      Eu, responsavel legal pelo(a) menor <strong>{sc.nome}</strong> ({idade} anos), autorizo a realizacao do procedimento de tatuagem, declarando estar ciente de todos os termos do contrato de execucao e das informacoes prestadas na ficha de anamnese.
-                                    </div>
-                                    {[
-                                      { f: "resp_nome", l: "Nome do responsavel" },
-                                      { f: "resp_cpf", l: "CPF do responsavel" },
-                                      { f: "resp_tel", l: "Telefone do responsavel" },
-                                      { f: "resp_parentesco", l: "Parentesco" },
-                                    ].map(fd => {
-                                      const menorData: Record<string,string> = (sc as any).menor_responsavel || {};
-                                      return (
-                                        <div key={fd.f} className="fi2">
-                                          <div className="fil">{fd.l}</div>
-                                          <input className="ef" value={menorData[fd.f] || ""}
-                                            onChange={async e => {
-                                              const novo = { ...menorData, [fd.f]: e.target.value };
-                                              await sb.from("clientes").update({ menor_responsavel: novo }).eq("id", sc.id);
-                                              upCFicha(sc.id, "menor_responsavel", novo);
-                                              setFichaEditada(false);
-                                            }} />
+                                {doc.id === "menor" && (() => {
+                                  const pai: Record<string,string> = (sc as any).menor_responsavel || {};
+                                  const mae: Record<string,string> = (sc as any).menor_responsavel_mae || {};
+                                  const maskCpf = (v: string) => { const r = v.replace(/\D/g,"").slice(0,11); return r.length<=3?r:r.length<=6?r.slice(0,3)+"."+r.slice(3):r.length<=9?r.slice(0,3)+"."+r.slice(3,6)+"."+r.slice(6):r.slice(0,3)+"."+r.slice(3,6)+"."+r.slice(6,9)+"-"+r.slice(9); };
+                                  const maskTel = (v: string) => { const r = v.replace(/\D/g,"").slice(0,11); if(r.length<=2) return "("+r; if(r.length<=7) return "("+r.slice(0,2)+") "+r.slice(2); return "("+r.slice(0,2)+") "+r.slice(2,7)+"-"+r.slice(7); };
+                                  const salvarPai = async (campo: string, valor: string) => { const novo = {...pai,[campo]:valor}; await sb.from("clientes").update({menor_responsavel:novo}).eq("id",sc.id); upCFicha(sc.id,"menor_responsavel",novo); setFichaEditada(false); };
+                                  const salvarMae = async (campo: string, valor: string) => { const novo = {...mae,[campo]:valor}; await sb.from("clientes").update({menor_responsavel_mae:novo}).eq("id",sc.id); upCFicha(sc.id,"menor_responsavel_mae",novo); setFichaEditada(false); };
+                                  const uploadFotoDoc = async (pessoa: "pai"|"mae", file: File) => {
+                                    const fname = `doc-${sc.id}-${pessoa}-${Date.now()}.${file.name.split(".").pop()}`;
+                                    await sb.storage.from("referencias").upload(fname, file, { contentType: file.type, upsert: true });
+                                    const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
+                                    if (pessoa === "pai") await salvarPai("foto_doc", pub.publicUrl);
+                                    else await salvarMae("foto_doc", pub.publicUrl);
+                                  };
+                                  const campoAssinPai = "menor_assinatura";
+                                  const campoAssinMae = "menor_assinatura_mae";
+                                  const renderCanvas = (
+                                    quem: "pai"|"mae",
+                                    canvasRef: HTMLCanvasElement|null,
+                                    setRef: (c: HTMLCanvasElement) => void,
+                                    desenhando: boolean,
+                                    setDesenhando: (v: boolean) => void,
+                                    campoAssin: string
+                                  ) => (
+                                    <div>
+                                      <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 5, fontWeight: 600 }}>Assinatura do {quem === "pai" ? "Pai/Responsavel 1" : "Mae/Responsavel 2"}</div>
+                                      {(sc as any)[campoAssin] ? (
+                                        <div>
+                                          <img src={(sc as any)[campoAssin]} alt="Assinatura" style={{ maxWidth: "100%", height: 70, border: "1px solid var(--br)", borderRadius: 5, background: "#fff", display: "block" }} />
+                                          <button onClick={async () => { await salvarAssinatura(campoAssin, ""); }} style={{ marginTop: 4, background: "none", border: "none", fontSize: 10, color: "var(--tx3)", cursor: "pointer" }}>Remover</button>
                                         </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
+                                      ) : (
+                                        <div>
+                                          <canvas ref={el => { if(el) setRef(el); }}
+                                            width={340} height={100}
+                                            style={{ width: "100%", height: 100, background: "#fff", borderRadius: 6, border: "1px solid var(--br)", touchAction: "none", display: "block" }}
+                                            onMouseDown={e => { setDesenhando(true); const r=(e.target as HTMLCanvasElement).getBoundingClientRect(); const ctx=(e.target as HTMLCanvasElement).getContext("2d")!; ctx.beginPath(); ctx.moveTo(e.clientX-r.left,e.clientY-r.top); }}
+                                            onMouseMove={e => { if(!desenhando) return; const r=(e.target as HTMLCanvasElement).getBoundingClientRect(); const ctx=(e.target as HTMLCanvasElement).getContext("2d")!; ctx.lineWidth=2; ctx.strokeStyle="#111"; ctx.lineCap="round"; ctx.lineTo(e.clientX-r.left,e.clientY-r.top); ctx.stroke(); }}
+                                            onMouseUp={() => setDesenhando(false)} onMouseLeave={() => setDesenhando(false)}
+                                            onTouchStart={e => { e.preventDefault(); const r=(e.target as HTMLCanvasElement).getBoundingClientRect(); const ctx=(e.target as HTMLCanvasElement).getContext("2d")!; ctx.beginPath(); ctx.moveTo(e.touches[0].clientX-r.left,e.touches[0].clientY-r.top); setDesenhando(true); }}
+                                            onTouchMove={e => { e.preventDefault(); if(!desenhando) return; const r=(e.target as HTMLCanvasElement).getBoundingClientRect(); const ctx=(e.target as HTMLCanvasElement).getContext("2d")!; ctx.lineWidth=2; ctx.strokeStyle="#111"; ctx.lineCap="round"; ctx.lineTo(e.touches[0].clientX-r.left,e.touches[0].clientY-r.top); ctx.stroke(); }}
+                                            onTouchEnd={() => setDesenhando(false)} />
+                                          <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
+                                            <button onClick={() => { const ctx=canvasRef?.getContext("2d"); if(ctx&&canvasRef) ctx.clearRect(0,0,canvasRef.width,canvasRef.height); }} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "4px 10px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>Limpar</button>
+                                            <button onClick={async () => { if(!canvasRef) return; await salvarAssinatura(campoAssin, canvasRef.toDataURL("image/png")); await salvarDocsStatus("menor","assinado"); }} style={{ background: "var(--gold)", border: "none", borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>Confirmar</button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                  return (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                      <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.8, background: "var(--dk3)", borderRadius: 7, padding: "12px 14px" }}>
+                                        <strong>AUTORIZACAO DE RESPONSAVEL LEGAL</strong><br/>
+                                        Eu(s), responsavel(is) legal(is) pelo(a) menor <strong>{sc.nome}</strong> ({idade} anos), autorizo a realizacao do procedimento abaixo, declarando estar ciente de todos os termos do contrato de execucao e das informacoes prestadas na ficha de anamnese.
+                                      </div>
+                                      {/* servico e area */}
+                                      <div className="fg2">
+                                        <div className="fi2">
+                                          <div className="fil">Servico</div>
+                                          <select className="ef" value={pai.servico||""} onChange={e => salvarPai("servico", e.target.value)}>
+                                            <option value="">Selecione...</option>
+                                            <option value="Tatuagem">Tatuagem</option>
+                                            <option value="Piercing">Piercing</option>
+                                          </select>
+                                        </div>
+                                        <div className="fi2">
+                                          <div className="fil">Area de aplicacao</div>
+                                          <input className="ef" placeholder="Ex: braco direito, lobulo..." value={pai.area||""} onChange={e => salvarPai("area", e.target.value)} />
+                                        </div>
+                                      </div>
+                                      {/* PAI */}
+                                      <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "10px 12px" }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Responsavel 1 (Pai / Mae / Tutor)</div>
+                                        <div className="fg2" style={{ gap: 8 }}>
+                                          <div className="fi2"><div className="fil">Nome completo</div><input className="ef" value={pai.resp_nome||""} onChange={e => salvarPai("resp_nome", e.target.value)} /></div>
+                                          <div className="fi2"><div className="fil">CPF</div><input className="ef" placeholder="000.000.000-00" maxLength={14} value={pai.resp_cpf||""} onChange={e => salvarPai("resp_cpf", maskCpf(e.target.value))} /></div>
+                                          <div className="fi2"><div className="fil">Telefone</div><input className="ef" placeholder="(00) 00000-0000" maxLength={15} value={pai.resp_tel||""} onChange={e => salvarPai("resp_tel", maskTel(e.target.value))} /></div>
+                                          <div className="fi2"><div className="fil">Parentesco</div><input className="ef" value={pai.resp_parentesco||""} onChange={e => salvarPai("resp_parentesco", e.target.value)} /></div>
+                                        </div>
+                                        <div style={{ marginTop: 8 }}>
+                                          <div className="fil">Foto do Documento (RG/CNH)</div>
+                                          {pai.foto_doc ? (
+                                            <div style={{ marginTop: 4 }}>
+                                              <img src={pai.foto_doc} alt="Doc" style={{ maxWidth: "100%", maxHeight: 120, borderRadius: 5, border: "1px solid var(--br)" }} />
+                                              <button onClick={() => salvarPai("foto_doc","")} style={{ display: "block", marginTop: 4, background: "none", border: "none", fontSize: 10, color: "var(--tx3)", cursor: "pointer" }}>Remover foto</button>
+                                            </div>
+                                          ) : (
+                                            <label style={{ display: "block", marginTop: 4, background: "var(--dk4)", border: "1px dashed var(--br)", borderRadius: 6, padding: "10px", textAlign: "center", fontSize: 11, color: "var(--tx3)", cursor: "pointer" }}>
+                                              + Anexar foto do documento
+                                              <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f=e.target.files?.[0]; if(f) uploadFotoDoc("pai",f); }} />
+                                            </label>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {/* MAE */}
+                                      <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "10px 12px" }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Responsavel 2 (Mae / Pai / Tutor)</div>
+                                        <div className="fg2" style={{ gap: 8 }}>
+                                          <div className="fi2"><div className="fil">Nome completo</div><input className="ef" value={mae.resp_nome||""} onChange={e => salvarMae("resp_nome", e.target.value)} /></div>
+                                          <div className="fi2"><div className="fil">CPF</div><input className="ef" placeholder="000.000.000-00" maxLength={14} value={mae.resp_cpf||""} onChange={e => salvarMae("resp_cpf", maskCpf(e.target.value))} /></div>
+                                          <div className="fi2"><div className="fil">Telefone</div><input className="ef" placeholder="(00) 00000-0000" maxLength={15} value={mae.resp_tel||""} onChange={e => salvarMae("resp_tel", maskTel(e.target.value))} /></div>
+                                          <div className="fi2"><div className="fil">Parentesco</div><input className="ef" value={mae.resp_parentesco||""} onChange={e => salvarMae("resp_parentesco", e.target.value)} /></div>
+                                        </div>
+                                        <div style={{ marginTop: 8 }}>
+                                          <div className="fil">Foto do Documento (RG/CNH)</div>
+                                          {mae.foto_doc ? (
+                                            <div style={{ marginTop: 4 }}>
+                                              <img src={mae.foto_doc} alt="Doc" style={{ maxWidth: "100%", maxHeight: 120, borderRadius: 5, border: "1px solid var(--br)" }} />
+                                              <button onClick={() => salvarMae("foto_doc","")} style={{ display: "block", marginTop: 4, background: "none", border: "none", fontSize: 10, color: "var(--tx3)", cursor: "pointer" }}>Remover foto</button>
+                                            </div>
+                                          ) : (
+                                            <label style={{ display: "block", marginTop: 4, background: "var(--dk4)", border: "1px dashed var(--br)", borderRadius: 6, padding: "10px", textAlign: "center", fontSize: 11, color: "var(--tx3)", cursor: "pointer" }}>
+                                              + Anexar foto do documento
+                                              <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f=e.target.files?.[0]; if(f) uploadFotoDoc("mae",f); }} />
+                                            </label>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {/* assinaturas */}
+                                      <div style={{ borderTop: "1px solid var(--br)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 12 }}>
+                                        <div style={{ fontSize: 11, color: "var(--tx2)", fontWeight: 600 }}>Assinaturas — Lei 14.063/2020</div>
+                                        {renderCanvas("pai", docsCanvasPaiRef, setDocsCanvasPaiRef, docsDesenhandoPai, setDocsDesenhandoPai, campoAssinPai)}
+                                        {renderCanvas("mae", docsCanvasMaeRef, setDocsCanvasMaeRef, docsDesenhandoMae, setDocsDesenhandoMae, campoAssinMae)}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
 
                                 {/* ── AREA DE ASSINATURA ── */}
                                 <div style={{ borderTop: "1px solid var(--br)", paddingTop: 10 }}>
@@ -8167,9 +8346,13 @@ export default function CRM() {
 
                                 {/* ── ACOES ── */}
                                 <div style={{ display: "flex", gap: 7, flexWrap: "wrap", borderTop: "1px solid var(--br)", paddingTop: 10 }}>
+                                  <button onClick={() => gerarEsalvarPdf(doc.id)} disabled={docsGerandoPdf}
+                                    style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "var(--tx2)", cursor: "pointer", opacity: docsGerandoPdf ? 0.6 : 1 }}>
+                                    {docsGerandoPdf ? "Gerando..." : "Gerar e Salvar PDF"}
+                                  </button>
                                   <button onClick={() => imprimirDoc(doc.id)}
                                     style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>
-                                    Imprimir / PDF
+                                    Imprimir
                                   </button>
                                   <button onClick={() => enviarEmail(doc.id)}
                                     style={{ background: "rgba(201,168,76,.12)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "var(--gold)", cursor: "pointer", fontWeight: 600 }}>
@@ -8594,15 +8777,46 @@ export default function CRM() {
                 </div>
 
                 <div>
-                  <div className="stit">Comprovante de Pagamento</div>
-                  <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px" }}>
-                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 6 }}>
-                      {"Comprovante coletado pela " + (auraName || "IA") + " após a sessão."}
-                    </div>
-                    <div style={{ background: "var(--dk4)", border: "1px dashed var(--br)", borderRadius: 6, padding: "18px", textAlign: "center" }}>
-                      <div style={{ fontSize: 24, marginBottom: 6 }}>🧾</div>
-                      <div style={{ fontSize: 11, color: "var(--tx3)" }}>Integração com armazenamento em breve.</div>
-                    </div>
+                  <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>Documentos Salvos</span>
+                    <label style={{ fontSize: 11, fontWeight: 600, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "3px 10px", color: "var(--gold)", cursor: "pointer" }}>
+                      + Anexar
+                      <input type="file" accept="image/*,application/pdf" multiple style={{ display: "none" }} onChange={async e => {
+                        const files = Array.from(e.target.files || []);
+                        for (const file of files) {
+                          const fname = `doc-${sc.id}-${Date.now()}-${file.name.replace(/\s/g,"_")}`;
+                          await sb.storage.from("referencias").upload(fname, file, { contentType: file.type, upsert: true });
+                          const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
+                          const arquivosAtuais: any[] = (sc as any).docs_arquivos || [];
+                          const novos = [...arquivosAtuais, { nome: file.name, url: pub.publicUrl, tipo: file.type.includes("pdf") ? "pdf" : "imagem", criado_em: new Date().toISOString() }];
+                          await sb.from("clientes").update({ docs_arquivos: novos }).eq("id", sc.id);
+                          upCFicha(sc.id, "docs_arquivos", novos);
+                          setFichaEditada(false);
+                        }
+                        e.target.value = "";
+                      }} />
+                    </label>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {((sc as any).docs_arquivos || []).length === 0 && (
+                      <div style={{ background: "var(--dk3)", border: "1px dashed var(--br)", borderRadius: 7, padding: "16px", textAlign: "center", fontSize: 11, color: "var(--tx3)" }}>
+                        Nenhum documento salvo ainda. PDFs gerados e anexos aparecem aqui.
+                      </div>
+                    )}
+                    {((sc as any).docs_arquivos || []).map((arq: any, i: number) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 12px" }}>
+                        <span style={{ fontSize: 16 }}>{arq.tipo === "pdf" ? "📄" : "🖼"}</span>
+                        <span style={{ flex: 1, fontSize: 12, color: "var(--tx)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{arq.nome}</span>
+                        <span style={{ fontSize: 10, color: "var(--tx3)" }}>{arq.criado_em ? new Date(arq.criado_em).toLocaleDateString("pt-BR") : ""}</span>
+                        <a href={arq.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "var(--gold)", textDecoration: "none", fontWeight: 600 }}>Abrir</a>
+                        <button onClick={async () => {
+                          const novos = ((sc as any).docs_arquivos || []).filter((_: any, idx: number) => idx !== i);
+                          await sb.from("clientes").update({ docs_arquivos: novos }).eq("id", sc.id);
+                          upCFicha(sc.id, "docs_arquivos", novos);
+                          setFichaEditada(false);
+                        }} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
