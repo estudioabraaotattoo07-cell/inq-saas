@@ -302,7 +302,7 @@ export default async function handler(req, res) {
           const jaEnviouAvaliacao = disparosEnviados && disparosEnviados["__avaliacao_google__"];
           if (diasPv >= 1 && !jaEnviouAvaliacao) {
             const fn = (cliente.nome || "").trim().split(" ")[0];
-            const linkAvaliacao = "https://inq-saas.vercel.app/api/avaliar?token=" + cliente.id;
+            const linkAvaliacao = "https://inq-saas.vercel.app/api/lead?token=" + cliente.id;
             const htmlAvaliacao =
               "<div style='font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px'>" +
               "<p style='font-size:22px;font-weight:bold;color:#1a1a1a;margin-bottom:4px'>Casa dos Carvalho Tattoo</p>" +

@@ -6,12 +6,107 @@ const sb = createClient(
   { auth: { persistSession: false } }
 );
 
+const GOOGLE_REVIEW_URL = "https://g.page/r/CSIFD3cla6rxEBM/review";
+
+function paginaAvaliacao(token, mensagem, mostrarFeedback) {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Avaliação — Casa dos Carvalho</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{background:#1a1a1a;border:1px solid #333;border-radius:12px;max-width:480px;width:100%;padding:40px 32px;text-align:center}
+  .logo{font-size:13px;letter-spacing:3px;color:#d4a84b;text-transform:uppercase;margin-bottom:24px}
+  h1{font-size:22px;font-weight:normal;color:#f0ede8;line-height:1.5;margin-bottom:12px}
+  .sub{font-size:14px;color:#888;line-height:1.7;margin-bottom:28px}
+  .notas{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:28px}
+  .notas a{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:8px;text-decoration:none;font-size:16px;font-weight:bold}
+  .nota-baixa{background:#2a2a2a;color:#aaa;border:1px solid #333}
+  .nota-alta{background:#d4a84b;color:#111;border:1px solid #d4a84b}
+  .icon{font-size:48px;margin-bottom:16px}
+  textarea{width:100%;background:#111;border:1px solid #333;border-radius:8px;color:#f0ede8;font-family:Georgia,serif;font-size:14px;padding:12px;resize:vertical;min-height:100px;margin-bottom:16px}
+  button{background:#d4a84b;color:#111;border:none;border-radius:8px;padding:12px 28px;font-size:14px;font-weight:bold;cursor:pointer;width:100%}
+  .footer{font-size:11px;color:#444;margin-top:28px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Casa dos Carvalho Tattoo</div>
+  ${mensagem}
+  ${mostrarFeedback ? `<form method="POST" action="/api/lead?acao=feedback&token=${token}"><textarea name="feedback" placeholder="Conta pra gente o que aconteceu..."></textarea><button type="submit">Enviar feedback</button></form>` : ""}
+  <div class="footer">Vitória, ES • acasadoscarvalhotattoo.com.br</div>
+</div>
+</body>
+</html>`;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
+
+  // ── ROTA DE AVALIAÇÃO (/api/lead?acao=avaliar ou ?acao=feedback) ──
+  const acao = req.query && req.query.acao;
+  const token = req.query && req.query.token;
+  const nota = req.query && req.query.nota;
+
+  if (acao === "avaliar" || (acao === "feedback") || (token && nota)) {
+    if (acao === "feedback" && req.method === "POST") {
+      const feedback = (req.body && req.body.feedback) || "";
+      if (feedback && token) {
+        try {
+          const { data: cli } = await sb.from("clientes").select("nome, obs, user_id").eq("id", token).single();
+          if (cli) {
+            const novaObs = (cli.obs ? cli.obs + "\n" : "") + "[Feedback avaliação]: " + feedback;
+            await sb.from("clientes").update({ obs: novaObs }).eq("id", token);
+            await sb.from("historico").insert({
+              data: new Date().toLocaleDateString("pt-BR"),
+              hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+              acao: "Feedback de avaliação recebido — " + cli.nome,
+              user_id: cli.user_id
+            });
+          }
+        } catch {}
+      }
+      const msg = "<div class='icon'>🙏</div><h1>Obrigado pelo feedback!</h1><p class='sub'>Cada retorno é muito valioso pra gente. Vamos trabalhar para melhorar sempre.</p>";
+      return res.status(200).send(paginaAvaliacao(token, msg, false));
+    }
+
+    if (token && nota) {
+      const notaNum = parseInt(nota, 10);
+      if (!isNaN(notaNum) && notaNum >= 1 && notaNum <= 10) {
+        try {
+          await sb.from("clientes").update({ stars: notaNum }).eq("id", token);
+          const { data: cli } = await sb.from("clientes").select("nome, user_id").eq("id", token).single();
+          if (cli) {
+            await sb.from("historico").insert({
+              data: new Date().toLocaleDateString("pt-BR"),
+              hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+              acao: "Avaliação recebida: " + notaNum + "/10 — " + cli.nome,
+              user_id: cli.user_id
+            });
+          }
+        } catch {}
+        if (notaNum >= 8) return res.redirect(302, GOOGLE_REVIEW_URL);
+        const msg = "<div class='icon'>💬</div><h1>Que pena que não foi perfeito...</h1><p class='sub'>Nos conta o que aconteceu. Levamos cada feedback muito a sério.</p>";
+        return res.status(200).send(paginaAvaliacao(token, msg, true));
+      }
+    }
+
+    if (!nota) {
+      const botoes = [1,2,3,4,5,6,7,8,9,10].map(n =>
+        `<a href="/api/lead?token=${token}&nota=${n}" class="${n >= 8 ? "nota-alta" : "nota-baixa"}">${n}</a>`
+      ).join("");
+      const msg = "<h1>Como foi sua experiência<br>na Casa dos Carvalho?</h1><p class='sub'>De 1 a 10 — sua avaliação nos ajuda a continuar fazendo o que amamos. 🖤</p><div class='notas'>" + botoes + "</div>";
+      return res.status(200).send(paginaAvaliacao(token, msg, false));
+    }
+  }
+
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra } = req.body;
