@@ -1224,6 +1224,10 @@ export default function CRM() {
   const [jornadaNovaEtapa, setJornadaNovaEtapa] = useState(false);
   const [jornadaNovoNome, setJornadaNovoNome] = useState("");
   const [jornadaUndoDelete, setJornadaUndoDelete] = useState<{etapa: any; timer: any}|null>(null);
+  const [docsAberto, setDocsAberto] = useState<string|null>(null);
+  const [docsAssinando, setDocsAssinando] = useState<string|null>(null);
+  const [docsCanvasRef, setDocsCanvasRef] = useState<HTMLCanvasElement|null>(null);
+  const [docsCanvasDesenhando, setDocsCanvasDesenhando] = useState(false);
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [editandoListas, setEditandoListas] = useState(false);
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
@@ -7798,11 +7802,332 @@ export default function CRM() {
                   );
                 })()}
 
-                {fichaTab === "docs" && (
-                  <div style={{ padding: "20px 0", textAlign: "center", color: "var(--tx2)", fontSize: 13 }}>
-                    Aba Documentos — em construção
-                  </div>
-                )}
+                {fichaTab === "docs" && (() => {
+                  const docsStatus: Record<string,string> = (sc as any).docs_status || {};
+                  const anamnese: Record<string,any> = (sc as any).anamnese || {};
+                  const stCorDoc = (s: string) => s === "assinado" ? "#27ae60" : s === "enviado" ? "var(--gold)" : "var(--tx3)";
+                  const stLblDoc = (s: string) => s === "assinado" ? "Assinado" : s === "enviado" ? "Enviado" : "Pendente";
+
+                  const salvarAnamnese = async (campos: any) => {
+                    await sb.from("clientes").update({ anamnese: campos }).eq("id", sc.id);
+                    upCFicha(sc.id, "anamnese", campos);
+                    setFichaEditada(false);
+                  };
+                  const salvarDocsStatus = async (doc: string, status: string) => {
+                    const novo = { ...docsStatus, [doc]: status };
+                    await sb.from("clientes").update({ docs_status: novo }).eq("id", sc.id);
+                    upCFicha(sc.id, "docs_status", novo);
+                    setFichaEditada(false);
+                  };
+                  const salvarAssinatura = async (campo: string, base64: string) => {
+                    await sb.from("clientes").update({ [campo]: base64 }).eq("id", sc.id);
+                    upCFicha(sc.id, campo, base64);
+                    setFichaEditada(false);
+                  };
+
+                  const capturarAssinatura = () => {
+                    if (!docsCanvasRef) return null;
+                    return docsCanvasRef.toDataURL("image/png");
+                  };
+                  const limparCanvas = () => {
+                    if (!docsCanvasRef) return;
+                    const ctx = docsCanvasRef.getContext("2d");
+                    if (ctx) ctx.clearRect(0, 0, docsCanvasRef.width, docsCanvasRef.height);
+                  };
+
+                  const calcIdade = () => {
+                    const nasc = (sc as any).nascimento;
+                    if (!nasc) return null;
+                    const [d, m, a] = nasc.split("/").map(Number);
+                    if (!a) return null;
+                    const hoje = new Date();
+                    let idade = hoje.getFullYear() - a;
+                    if (hoje.getMonth() + 1 < m || (hoje.getMonth() + 1 === m && hoje.getDate() < d)) idade--;
+                    return idade;
+                  };
+                  const idade = calcIdade();
+                  const eMenor = idade !== null && idade < 18;
+
+                  const pergAnamnese = [
+                    { id: "alergia", label: "Tem alguma alergia?", detalhe: true },
+                    { id: "diabetes", label: "Tem diabetes?" },
+                    { id: "coagulacao", label: "Tem problemas de coagulacao ou hemofilia?" },
+                    { id: "autoimune", label: "Tem doenca autoimune?", detalhe: true },
+                    { id: "epilepsia", label: "Tem epilepsia?" },
+                    { id: "gravida", label: "Esta gravida ou amamentando?" },
+                    { id: "anticoagulante", label: "Faz uso de anticoagulantes?", detalhe: true },
+                    { id: "pressao", label: "Tem pressao alta ou problemas cardiacos?" },
+                    { id: "queloides", label: "Tem tendencia a queloides?" },
+                    { id: "alcool", label: "Ingeriu alcool nas ultimas 24h?" },
+                    { id: "aspirina", label: "Tomou aspirina nos ultimos 7 dias?" },
+                    { id: "cicatrizacao", label: "Tem historico de cicatrizacao lenta ou problemas de pele?" },
+                  ];
+
+                  const imprimirDoc = (docId: string) => {
+                    const el = document.getElementById(`doc-print-${docId}`);
+                    if (!el) return;
+                    const w = window.open("", "_blank");
+                    if (!w) return;
+                    w.document.write(`<html><head><title>Documento</title><style>body{font-family:Arial,sans-serif;font-size:13px;padding:30px;color:#111;}h2{font-size:16px;}h3{font-size:14px;margin-top:20px;}p,li{line-height:1.8;}img{max-width:300px;border:1px solid #ccc;margin-top:8px;}.assinatura{margin-top:30px;border-top:1px solid #ccc;padding-top:10px;}</style></head><body>`);
+                    w.document.write(el.innerHTML);
+                    w.document.write(`</body></html>`);
+                    w.document.close();
+                    w.print();
+                  };
+
+                  const enviarWhatsApp = (docId: string) => {
+                    const tel = sc.tel?.replace(/\D/g, "");
+                    if (!tel) return;
+                    const msgs: Record<string,string> = {
+                      anamnese: `Ola ${sc.nome}, tudo bem? Antes da sua sessao precisamos que voce preencha a ficha de anamnese. Responda as perguntas diretamente com o artista no dia ou acesse pelo link abaixo.`,
+                      contrato: `Ola ${sc.nome}! Segue o contrato de execucao do seu projeto. Por favor revise e assine antes da sessao.`,
+                      menor: `Ola! Seguimos com a autorizacao de responsavel para o procedimento. Por favor traga assinado no dia da sessao.`,
+                    };
+                    window.open(`https://wa.me/55${tel}?text=${encodeURIComponent(msgs[docId] || "")}`, "_blank");
+                    salvarDocsStatus(docId, "enviado");
+                  };
+
+                  const docs = [
+                    { id: "anamnese", titulo: "Ficha de Anamnese", subtitulo: "Questionario de saude pre-tatuagem" },
+                    { id: "contrato", titulo: "Contrato de Execucao", subtitulo: "Termos e condicoes do projeto artistico" },
+                    ...(eMenor ? [{ id: "menor", titulo: "Autorizacao de Menor", subtitulo: "Responsavel legal — cliente menor de 18 anos" }] : []),
+                  ];
+
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div className="stit">Documentos do Cliente</div>
+
+                      {docs.map(doc => {
+                        const aberto = docsAberto === doc.id;
+                        const st = docsStatus[doc.id] || "pendente";
+                        return (
+                          <div key={doc.id} style={{ border: `1px solid ${aberto ? "var(--gold)" : "var(--br)"}`, borderRadius: 9, overflow: "hidden" }}>
+                            {/* header do card */}
+                            <div onClick={() => setDocsAberto(aberto ? null : doc.id)}
+                              style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", background: "var(--dk3)", cursor: "pointer" }}>
+                              <span style={{ width: 8, height: 8, borderRadius: "50%", background: stCorDoc(st), flexShrink: 0, display: "inline-block" }} />
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)" }}>{doc.titulo}</div>
+                                <div style={{ fontSize: 11, color: "var(--tx2)" }}>{doc.subtitulo}</div>
+                              </div>
+                              <span style={{ fontSize: 10, color: stCorDoc(st), fontWeight: 600 }}>{stLblDoc(st)}</span>
+                              <span style={{ fontSize: 12, color: "var(--tx3)" }}>{aberto ? "▲" : "▼"}</span>
+                            </div>
+
+                            {/* conteudo expandido */}
+                            {aberto && (
+                              <div style={{ padding: "14px", background: "var(--dk2)", display: "flex", flexDirection: "column", gap: 12 }}>
+
+                                {/* ── ANAMNESE ── */}
+                                {doc.id === "anamnese" && (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                    {pergAnamnese.map(p => (
+                                      <div key={p.id} style={{ background: "var(--dk3)", borderRadius: 7, padding: "8px 10px" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                          <span style={{ flex: 1, fontSize: 12, color: "var(--tx)" }}>{p.label}</span>
+                                          <div style={{ display: "flex", gap: 4 }}>
+                                            {["sim", "nao"].map(op => (
+                                              <button key={op} onClick={async () => {
+                                                const novo = { ...anamnese, [p.id]: { ...anamnese[p.id], resp: op } };
+                                                await salvarAnamnese(novo);
+                                              }} style={{ padding: "3px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer", border: "1px solid var(--br)", background: anamnese[p.id]?.resp === op ? (op === "sim" ? "rgba(192,57,43,.25)" : "rgba(39,174,96,.2)") : "var(--dk4)", color: anamnese[p.id]?.resp === op ? (op === "sim" ? "var(--q1)" : "#27ae60") : "var(--tx3)" }}>
+                                                {op === "sim" ? "Sim" : "Nao"}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+                                        {(p as any).detalhe && anamnese[p.id]?.resp === "sim" && (
+                                          <input className="ef" placeholder="Qual?" value={anamnese[p.id]?.detalhe || ""}
+                                            onChange={async e => {
+                                              const novo = { ...anamnese, [p.id]: { ...anamnese[p.id], detalhe: e.target.value } };
+                                              await salvarAnamnese(novo);
+                                            }}
+                                            style={{ marginTop: 6, fontSize: 11, width: "100%" }} />
+                                        )}
+                                      </div>
+                                    ))}
+                                    <div style={{ background: "var(--dk3)", borderRadius: 7, padding: "8px 10px" }}>
+                                      <div style={{ fontSize: 12, color: "var(--tx)", marginBottom: 5 }}>Observacoes adicionais</div>
+                                      <textarea value={anamnese.obs || ""} onChange={async e => {
+                                        const novo = { ...anamnese, obs: e.target.value };
+                                        await salvarAnamnese(novo);
+                                      }} style={{ width: "100%", minHeight: 50, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "6px 8px", fontSize: 11, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", outline: "none", resize: "vertical" }} />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* ── CONTRATO ── */}
+                                {doc.id === "contrato" && (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                    <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.8, background: "var(--dk3)", borderRadius: 7, padding: "12px 14px" }}>
+                                      <strong>CONTRATO DE EXECUCAO DE PROJETO ARTISTICO</strong><br/><br/>
+                                      Pelo presente instrumento, o(a) cliente <strong>{sc.nome}</strong>, declara estar ciente e de acordo com os seguintes termos:<br/><br/>
+                                      <strong>1. DO PROJETO:</strong> O projeto artistico (tatuagem) a ser realizado foi previamente acordado entre as partes, incluindo design, tamanho, local do corpo e valor.<br/><br/>
+                                      <strong>2. DO PAGAMENTO:</strong> O valor total acordado deve ser pago conforme combinado. Sinais e reservas de agenda nao sao reembolsaveis em caso de cancelamento com menos de 48h de antecedencia ou falta sem aviso.<br/><br/>
+                                      <strong>3. DA CICATRIZACAO:</strong> O cliente declara estar ciente de que o resultado final depende tambem dos cuidados pos-tatuagem seguidos por ele. O estudio nao se responsabiliza por resultados insatisfatorios decorrentes de negligencia nos cuidados ou condicoes de saude nao informadas.<br/><br/>
+                                      <strong>4. DOS RETOQUES:</strong> Retoques gratuitos estao disponiveis em ate 60 dias apos a sessao, desde que o cliente siga corretamente os cuidados indicados. Apos esse prazo ou em caso de negligencia, retoques serao cobrados.<br/><br/>
+                                      <strong>5. DA SAUDE:</strong> O cliente declara ter respondido com veracidade a ficha de anamnese e nao ter condicoes de saude que contraindiquem o procedimento. Em caso de omissao, o estudio se exime de qualquer responsabilidade.<br/><br/>
+                                      <strong>6. DOS DIREITOS DE IMAGEM:</strong> O estudio pode utilizar fotos do trabalho realizado para fins de divulgacao em redes sociais e portfolio, salvo manifestacao contraria expressa do cliente.<br/><br/>
+                                      <strong>7. DA CONCORDANCIA:</strong> Ao assinar este contrato, o cliente declara ter lido, compreendido e concordado com todos os termos acima.
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* ── MENOR ── */}
+                                {doc.id === "menor" && (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                    <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.8, background: "var(--dk3)", borderRadius: 7, padding: "12px 14px" }}>
+                                      <strong>AUTORIZACAO DE RESPONSAVEL LEGAL</strong><br/><br/>
+                                      Eu, responsavel legal pelo(a) menor <strong>{sc.nome}</strong> ({idade} anos), autorizo a realizacao do procedimento de tatuagem, declarando estar ciente de todos os termos do contrato de execucao e das informacoes prestadas na ficha de anamnese.
+                                    </div>
+                                    {[
+                                      { f: "resp_nome", l: "Nome do responsavel" },
+                                      { f: "resp_cpf", l: "CPF do responsavel" },
+                                      { f: "resp_tel", l: "Telefone do responsavel" },
+                                      { f: "resp_parentesco", l: "Parentesco" },
+                                    ].map(fd => {
+                                      const menorData: Record<string,string> = (sc as any).menor_responsavel || {};
+                                      return (
+                                        <div key={fd.f} className="fi2">
+                                          <div className="fil">{fd.l}</div>
+                                          <input className="ef" value={menorData[fd.f] || ""}
+                                            onChange={async e => {
+                                              const novo = { ...menorData, [fd.f]: e.target.value };
+                                              await sb.from("clientes").update({ menor_responsavel: novo }).eq("id", sc.id);
+                                              upCFicha(sc.id, "menor_responsavel", novo);
+                                              setFichaEditada(false);
+                                            }} />
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {/* ── AREA DE ASSINATURA ── */}
+                                <div style={{ borderTop: "1px solid var(--br)", paddingTop: 10 }}>
+                                  <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 6, fontWeight: 600 }}>Assinatura eletronica — Lei 14.063/2020</div>
+                                  {docsAssinando === doc.id ? (
+                                    <div>
+                                      <canvas ref={el => { if (el) setDocsCanvasRef(el); }}
+                                        width={340} height={120}
+                                        style={{ width: "100%", height: 120, background: "#fff", borderRadius: 6, border: "1px solid var(--br)", touchAction: "none", display: "block" }}
+                                        onMouseDown={e => {
+                                          setDocsCanvasDesenhando(true);
+                                          const r = (e.target as HTMLCanvasElement).getBoundingClientRect();
+                                          const ctx = (e.target as HTMLCanvasElement).getContext("2d")!;
+                                          ctx.beginPath(); ctx.moveTo(e.clientX - r.left, e.clientY - r.top);
+                                        }}
+                                        onMouseMove={e => {
+                                          if (!docsCanvasDesenhando) return;
+                                          const r = (e.target as HTMLCanvasElement).getBoundingClientRect();
+                                          const ctx = (e.target as HTMLCanvasElement).getContext("2d")!;
+                                          ctx.lineWidth = 2; ctx.strokeStyle = "#111"; ctx.lineCap = "round";
+                                          ctx.lineTo(e.clientX - r.left, e.clientY - r.top); ctx.stroke();
+                                        }}
+                                        onMouseUp={() => setDocsCanvasDesenhando(false)}
+                                        onMouseLeave={() => setDocsCanvasDesenhando(false)}
+                                        onTouchStart={e => {
+                                          e.preventDefault();
+                                          const r = (e.target as HTMLCanvasElement).getBoundingClientRect();
+                                          const ctx = (e.target as HTMLCanvasElement).getContext("2d")!;
+                                          ctx.beginPath(); ctx.moveTo(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top);
+                                          setDocsCanvasDesenhando(true);
+                                        }}
+                                        onTouchMove={e => {
+                                          e.preventDefault();
+                                          if (!docsCanvasDesenhando) return;
+                                          const r = (e.target as HTMLCanvasElement).getBoundingClientRect();
+                                          const ctx = (e.target as HTMLCanvasElement).getContext("2d")!;
+                                          ctx.lineWidth = 2; ctx.strokeStyle = "#111"; ctx.lineCap = "round";
+                                          ctx.lineTo(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top); ctx.stroke();
+                                        }}
+                                        onTouchEnd={() => setDocsCanvasDesenhando(false)}
+                                      />
+                                      <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
+                                        <button onClick={limparCanvas} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "5px 12px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>Limpar</button>
+                                        <button onClick={async () => {
+                                          const b64 = capturarAssinatura();
+                                          if (!b64) return;
+                                          const campo = doc.id === "anamnese" ? "anamnese_assinatura" : doc.id === "contrato" ? "contrato_assinatura" : "menor_assinatura";
+                                          await salvarAssinatura(campo, b64);
+                                          await salvarDocsStatus(doc.id, "assinado");
+                                          setDocsAssinando(null);
+                                        }} style={{ background: "var(--gold)", border: "none", borderRadius: 5, padding: "5px 14px", fontSize: 11, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>Confirmar assinatura</button>
+                                        <button onClick={() => setDocsAssinando(null)} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 5, padding: "5px 10px", fontSize: 11, color: "var(--tx3)", cursor: "pointer" }}>Cancelar</button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      {(() => {
+                                        const campoAssin = doc.id === "anamnese" ? "anamnese_assinatura" : doc.id === "contrato" ? "contrato_assinatura" : "menor_assinatura";
+                                        const assin = (sc as any)[campoAssin];
+                                        return assin ? (
+                                          <div>
+                                            <img src={assin} alt="Assinatura" style={{ maxWidth: "100%", height: 80, border: "1px solid var(--br)", borderRadius: 5, background: "#fff", display: "block" }} />
+                                            <button onClick={async () => {
+                                              if (window.confirm("Remover assinatura?")) {
+                                                await salvarAssinatura(campoAssin, "");
+                                                await salvarDocsStatus(doc.id, "pendente");
+                                              }
+                                            }} style={{ marginTop: 5, background: "none", border: "none", fontSize: 10, color: "var(--tx3)", cursor: "pointer" }}>Remover assinatura</button>
+                                          </div>
+                                        ) : (
+                                          <button onClick={() => setDocsAssinando(doc.id)}
+                                            style={{ background: "var(--dk3)", border: "1px dashed var(--br)", borderRadius: 6, padding: "10px 18px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", width: "100%", textAlign: "center" }}>
+                                            + Coletar assinatura
+                                          </button>
+                                        );
+                                      })()}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* ── ACOES ── */}
+                                <div style={{ display: "flex", gap: 7, flexWrap: "wrap", borderTop: "1px solid var(--br)", paddingTop: 10 }}>
+                                  <button onClick={() => imprimirDoc(doc.id)}
+                                    style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>
+                                    Imprimir / PDF
+                                  </button>
+                                  <button onClick={() => enviarWhatsApp(doc.id)}
+                                    style={{ background: "rgba(37,211,102,.12)", border: "1px solid rgba(37,211,102,.3)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "#25d366", cursor: "pointer", fontWeight: 600 }}>
+                                    Enviar WhatsApp
+                                  </button>
+                                  {st !== "assinado" && (
+                                    <button onClick={() => salvarDocsStatus(doc.id, "assinado")}
+                                      style={{ background: "rgba(39,174,96,.12)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "#27ae60", cursor: "pointer" }}>
+                                      Marcar como assinado
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* div oculta para impressao */}
+                                <div id={`doc-print-${doc.id}`} style={{ display: "none" }}>
+                                  <h2>{doc.titulo}</h2>
+                                  <p><strong>Cliente:</strong> {sc.nome} | <strong>Tel:</strong> {sc.tel} | <strong>Data:</strong> {new Date().toLocaleDateString("pt-BR")}</p>
+                                  {doc.id === "anamnese" && (
+                                    <div>
+                                      <h3>Questionario de Saude</h3>
+                                      <ul>{pergAnamnese.map(p => <li key={p.id}>{p.label} <strong>{anamnese[p.id]?.resp === "sim" ? "Sim" : anamnese[p.id]?.resp === "nao" ? "Nao" : "Nao respondido"}</strong>{anamnese[p.id]?.detalhe ? ` — ${anamnese[p.id].detalhe}` : ""}</li>)}</ul>
+                                      {anamnese.obs && <p><strong>Obs:</strong> {anamnese.obs}</p>}
+                                    </div>
+                                  )}
+                                  {doc.id === "contrato" && <div><h3>Termos do Contrato</h3><p>Contrato de execucao de projeto artistico conforme termos exibidos e aceitos digitalmente.</p></div>}
+                                  {doc.id === "menor" && <div><h3>Dados do Responsavel</h3>{Object.entries((sc as any).menor_responsavel || {}).map(([k,v]) => <p key={k}><strong>{k}:</strong> {String(v)}</p>)}</div>}
+                                  {(() => {
+                                    const campoA = doc.id === "anamnese" ? "anamnese_assinatura" : doc.id === "contrato" ? "contrato_assinatura" : "menor_assinatura";
+                                    const assin = (sc as any)[campoA];
+                                    return assin ? <div className="assinatura"><p><strong>Assinatura:</strong></p><img src={assin} alt="Assinatura" style={{ maxWidth: 300 }} /></div> : <div className="assinatura"><p>Assinatura: ___________________________________</p></div>;
+                                  })()}
+                                </div>
+
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
 
                 {fichaTab === "historico" && (
                   <div style={{ padding: "20px 0", textAlign: "center", color: "var(--tx2)", fontSize: 13 }}>
