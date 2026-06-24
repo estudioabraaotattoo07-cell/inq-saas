@@ -8400,11 +8400,56 @@ export default function CRM() {
                   );
                 })()}
 
-                {fichaTab === "historico" && (
-                  <div style={{ padding: "20px 0", textAlign: "center", color: "var(--tx2)", fontSize: 13 }}>
-                    Aba Histórico — em construção
-                  </div>
-                )}
+                {fichaTab === "historico" && (() => {
+                  const hist: any[] = [...(sc.hist || [])];
+                  // enriquecer com eventos de documentos
+                  const docsArqs: any[] = (sc as any).docs_arquivos || [];
+                  docsArqs.forEach(arq => {
+                    if (arq.criado_em) hist.push({ t: `Documento gerado: ${arq.nome}`, d: new Date(arq.criado_em).toLocaleString("pt-BR") });
+                  });
+                  const docsStatus: Record<string,string> = (sc as any).docs_status || {};
+                  const docsNomes: Record<string,string> = { anamnese: "Ficha de Anamnese", contrato: "Contrato de Execucao", menor: "Autorizacao de Menor" };
+                  Object.entries(docsStatus).forEach(([doc, st]) => {
+                    if (st === "assinado" || st === "enviado") hist.push({ t: `${docsNomes[doc] || doc}: ${st}`, d: "" });
+                  });
+                  // ordenar por data decrescente (os que tem data)
+                  const comData = hist.filter(h => h.d).sort((a,b) => new Date(b.d).getTime() - new Date(a.d).getTime());
+                  const semData = hist.filter(h => !h.d);
+                  const todos = [...semData, ...comData];
+                  const icone = (t: string) => {
+                    if (t.toLowerCase().includes("documento") || t.toLowerCase().includes("contrato") || t.toLowerCase().includes("anamnese") || t.toLowerCase().includes("autorizacao")) return "📄";
+                    if (t.toLowerCase().includes("agend")) return "📅";
+                    if (t.toLowerCase().includes("email") || t.toLowerCase().includes("enviado")) return "✉";
+                    if (t.toLowerCase().includes("pagamento") || t.toLowerCase().includes("pago")) return "💰";
+                    if (t.toLowerCase().includes("sessao") || t.toLowerCase().includes("sessão")) return "🎨";
+                    if (t.toLowerCase().includes("lead") || t.toLowerCase().includes("cadastro")) return "👤";
+                    return "•";
+                  };
+                  return (
+                    <div>
+                      <div className="stit">Historico do Cliente</div>
+                      {todos.length === 0 && (
+                        <div style={{ textAlign: "center", color: "var(--tx3)", fontSize: 12, padding: "20px 0" }}>Nenhum evento registrado ainda.</div>
+                      )}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                        {todos.map((h: any, i: number) => (
+                          <div key={i} style={{ display: "flex", gap: 10, paddingBottom: 12, position: "relative" }}>
+                            {/* linha vertical */}
+                            {i < todos.length - 1 && <div style={{ position: "absolute", left: 14, top: 22, bottom: 0, width: 1, background: "var(--br)" }} />}
+                            {/* icone */}
+                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--dk3)", border: "1px solid var(--br)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, zIndex: 1 }}>
+                              {icone(h.t)}
+                            </div>
+                            <div style={{ paddingTop: 4, flex: 1 }}>
+                              <div style={{ fontSize: 12, color: "var(--tx)", lineHeight: 1.5 }}>{h.t}</div>
+                              {h.d && <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 2 }}>{h.d}</div>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {fichaTab === "dados" && <>
                 <div>
@@ -9077,15 +9122,6 @@ export default function CRM() {
                   )}
                 </div>
 
-                <div>
-                  <div className="stit">Historico</div>
-                  {[...sc.hist].reverse().map((h: any, i: number) => (
-                    <div className="hi" key={i}>
-                      <div className="hd" />
-                      <div><div className="ht">{h.t}</div><div className="hdt">{h.d}</div></div>
-                    </div>
-                  ))}
-                </div>
                 </>}
 
                 {fichaTab === "dados" && selCtx === "clientes" && (
