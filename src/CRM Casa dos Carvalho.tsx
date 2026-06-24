@@ -119,12 +119,12 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .fi,.fs{font-size:16px;padding:9px 11px;}
   .fta{font-size:16px;}
   /* Overlay e modal ficha do cliente */
-  .ov{align-items:flex-start!important;padding:max(env(safe-area-inset-top),52px) 8px max(env(safe-area-inset-bottom),80px)!important;}
-  .fov{align-items:flex-start!important;padding:max(env(safe-area-inset-top),52px) 8px max(env(safe-area-inset-bottom),80px)!important;}
-  .modal{max-width:100vw!important;border-radius:10px;max-height:100%!important;}
-  .fmod{max-width:100vw!important;max-height:100%!important;}
-  .mh{padding:12px 14px!important;}
-  .mb{padding:12px 14px!important;gap:12px!important;}
+  .ov{align-items:flex-start!important;padding:max(env(safe-area-inset-top),52px) 8px max(env(safe-area-inset-bottom),12px)!important;overflow-y:auto!important;}
+  .fov{align-items:flex-start!important;padding:max(env(safe-area-inset-top),52px) 8px max(env(safe-area-inset-bottom),12px)!important;overflow-y:auto!important;}
+  .modal{max-width:100vw!important;border-radius:10px;max-height:calc(100dvh - max(env(safe-area-inset-top),52px) - max(env(safe-area-inset-bottom),12px))!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;}
+  .fmod{max-width:100vw!important;max-height:calc(100dvh - max(env(safe-area-inset-top),52px) - max(env(safe-area-inset-bottom),12px))!important;}
+  .mh{padding:12px 14px!important;flex-shrink:0!important;}
+  .mb{padding:12px 14px!important;gap:12px!important;overflow-y:auto!important;flex:1!important;-webkit-overflow-scrolling:touch!important;}
   .mn{font-size:20px!important;}
   .ms{font-size:10px!important;}
   .fg2{grid-template-columns:1fr!important;}
