@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const sb = createClient(
   process.env.SUPABASE_URL || "https://zkzsykmnhrkwmvgekshh.supabase.co",
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY,
   { auth: { persistSession: false } }
 );
 
