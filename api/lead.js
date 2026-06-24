@@ -147,11 +147,40 @@ export default async function handler(req, res) {
   const resendKey = process.env.RESEND_API_KEY;
   if (resendKey && email) {
     const emailFrom = process.env.EMAIL_REMETENTE || "contato@acasadoscarvalhotattoo.com.br";
-    const htmlBoasVindas = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222'>" +
-      "<p>Olá, <strong>" + fn + "</strong>!</p>" +
-      "<p>Recebemos suas informações com sucesso. Em breve, nossa equipe entrará em contato com você diretamente pelo WhatsApp para darmos continuidade ao seu atendimento.</p>" +
-      "<p>Fique à vontade para explorar nossas redes sociais e conhecer mais sobre o nosso trabalho enquanto isso.</p>" +
-      "<p style='margin-top:24px;font-size:12px;color:#999'>Casa dos Carvalho Tattoo</p>" +
+    const artistaNome = artista && artista.toLowerCase().includes("camilla") ? "a Camilla" : artista ? "o Abraão" : null;
+    const waNumero = artista && artista.toLowerCase().includes("camilla") ? "5527996941787" : "5527996929665";
+    const waLink = "https://wa.me/" + waNumero;
+    const ni = "Não informado";
+    const nascFormatado = nascimentoISO
+      ? nascimentoISO.split("-").reverse().join("/")
+      : ni;
+    const resumoDados =
+      "<table style='width:100%;border-collapse:collapse;font-size:13px;margin:16px 0'>" +
+      "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555;width:140px'>Nome</td><td style='padding:8px 12px;color:#222'>" + nome + "</td></tr>" +
+      "<tr><td style='padding:8px 12px;color:#555'>Telefone</td><td style='padding:8px 12px;color:#222'>" + (tel || ni) + "</td></tr>" +
+      "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>E-mail</td><td style='padding:8px 12px;color:#222'>" + (email || ni) + "</td></tr>" +
+      "<tr><td style='padding:8px 12px;color:#555'>Artista</td><td style='padding:8px 12px;color:#222'>" + (artista || ni) + "</td></tr>" +
+      "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Ideia / projeto</td><td style='padding:8px 12px;color:#222'>" + (ideaFinal || ni) + "</td></tr>" +
+      "<tr><td style='padding:8px 12px;color:#555'>Região do corpo</td><td style='padding:8px 12px;color:#222'>" + (regiao || ni) + "</td></tr>" +
+      "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Instagram</td><td style='padding:8px 12px;color:#222'>" + (insta || ni) + "</td></tr>" +
+      "<tr><td style='padding:8px 12px;color:#555'>Data de nascimento</td><td style='padding:8px 12px;color:#222'>" + nascFormatado + "</td></tr>" +
+      (obsExtra ? "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Observações</td><td style='padding:8px 12px;color:#222'>" + obsExtra + "</td></tr>" : "") +
+      "</table>";
+    const htmlBoasVindas =
+      "<div style='font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px'>" +
+      "<p style='font-size:22px;font-weight:bold;color:#1a1a1a;margin-bottom:4px'>Casa dos Carvalho Tattoo</p>" +
+      "<hr style='border:none;border-top:1px solid #d4a84b;margin-bottom:24px'>" +
+      "<p style='font-size:16px'>Olá, <strong>" + fn + "</strong>!</p>" +
+      "<p style='line-height:1.8;color:#333'>Que alegria receber sua ideia aqui na Casa dos Carvalho. Já registramos tudo com cuidado" +
+      (artistaNome ? " — e vimos que você tem interesse em tatuar com <strong>" + artistaNome + "</strong>!" : "!") + "</p>" +
+      "<p style='line-height:1.8;color:#333'>Em até 24h, alguém da nossa equipe vai te ligar pessoalmente para conversar sobre os detalhes do seu projeto. Sem formulário, sem robô — conversa de gente pra gente.</p>" +
+      "<p style='line-height:1.8;color:#333'>Se preferir adiantar por WhatsApp, é só chamar a gente aqui:</p>" +
+      "<p><a href='" + waLink + "' style='display:inline-block;background:#d4a84b;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:bold'>💬 Chamar no WhatsApp</a></p>" +
+      "<p style='line-height:1.8;color:#333;margin-top:20px'>Trabalhamos só com hora marcada, então cada projeto recebe atenção total — do primeiro traço ao último detalhe.</p>" +
+      "<p style='margin-top:8px;line-height:1.8;color:#333'><strong>Resumo do que registramos:</strong></p>" +
+      resumoDados +
+      "<p style='line-height:1.8;color:#333;margin-top:16px'>Obrigado por escolher fazer parte da família Carvalho. Já estamos ansiosos para te conhecer. 🖤</p>" +
+      "<p style='margin-top:32px;font-size:12px;color:#999'>Com carinho,<br><strong>Casa dos Carvalho Tattoo</strong> — Vitória, ES</p>" +
       "</div>";
     fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -159,7 +188,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         from: emailFrom,
         to: [email],
-        subject: "Recebemos seu contato — Casa dos Carvalho Tattoo",
+        subject: "Recebemos sua mensagem, " + fn + "! 🖤",
         html: htmlBoasVindas
       })
     }).catch(e => console.warn("Email boas-vindas error:", e));

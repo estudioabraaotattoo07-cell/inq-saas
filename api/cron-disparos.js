@@ -296,6 +296,48 @@ export default async function handler(req, res) {
           }
         }
 
+        // ── AVALIAÇÃO GOOGLE (sistema fixo — D+1 após sessão concluída) ────
+        if (cliente.sessao_concluida_em && cfg.resend_api_key && cliente.email) {
+          const diasPv = diasEntre(cliente.sessao_concluida_em, hoje);
+          const jaEnviouAvaliacao = disparosEnviados && disparosEnviados["__avaliacao_google__"];
+          if (diasPv >= 1 && !jaEnviouAvaliacao) {
+            const fn = (cliente.nome || "").trim().split(" ")[0];
+            const linkAvaliacao = "https://inq-saas.vercel.app/api/avaliar?token=" + cliente.id;
+            const htmlAvaliacao =
+              "<div style='font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px'>" +
+              "<p style='font-size:22px;font-weight:bold;color:#1a1a1a;margin-bottom:4px'>Casa dos Carvalho Tattoo</p>" +
+              "<hr style='border:none;border-top:1px solid #d4a84b;margin-bottom:24px'>" +
+              "<p style='font-size:16px'>Olá, <strong>" + fn + "</strong>! 🖤</p>" +
+              "<p style='line-height:1.8;color:#333'>Foi um prazer enorme ter você aqui. A sua tatuagem foi feita com muito cuidado e carinho — e adoraríamos saber o que você achou.</p>" +
+              "<p style='line-height:1.8;color:#333'><strong>De 1 a 10, como foi sua experiência na Casa dos Carvalho?</strong></p>" +
+              "<p style='margin:24px 0;text-align:center'>" +
+              [1,2,3,4,5,6,7,8,9,10].map(n =>
+                "<a href='" + linkAvaliacao + "&nota=" + n + "' style='display:inline-block;margin:4px;width:40px;height:40px;line-height:40px;text-align:center;background:" + (n >= 8 ? "#d4a84b" : "#eee") + ";color:" + (n >= 8 ? "#fff" : "#555") + ";text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px'>" + n + "</a>"
+              ).join("") +
+              "</p>" +
+              "<p style='font-size:12px;color:#aaa;margin-top:32px'>Com carinho, Casa dos Carvalho Tattoo — Vitória, ES</p>" +
+              "</div>";
+            const okAv = await dispararEmail({
+              apiKey: cfg.resend_api_key,
+              from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+              nome_remetente: studioName,
+              to: cliente.email,
+              subject: "Como foi sua experiência, " + fn + "? 🖤",
+              html: htmlAvaliacao
+            });
+            if (okAv) {
+              let disparosAtuais = {};
+              try {
+                const { data: cliAtual } = await sb.from("clientes").select("disparos_enviados").eq("id", cliente.id).single();
+                disparosAtuais = cliAtual?.disparos_enviados || {};
+              } catch {}
+              await marcarEnviado(cliente.id, "__avaliacao_google__", disparosAtuais);
+              await registrarHistorico(userId, "Avaliação Google enviada — " + cliente.nome);
+              totalDisparos++;
+            }
+          }
+        }
+
         // ── PRÉ-VENDA ───────────────────────────────────────────────────────
         const etapaCliente = cliente.etapa || "";
         const etapaMapeadas = { lead: "lead", qualificacao: "qualificacao", hibernacao: "hibernacao", aguard_agend: "aguard_agend" };
