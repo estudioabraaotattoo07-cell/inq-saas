@@ -118,8 +118,11 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .fr{grid-template-columns:1fr!important;}
   .fi,.fs{font-size:16px;padding:9px 11px;}
   .fta{font-size:16px;}
-  /* Modal ficha do cliente */
-  .modal{max-width:100vw!important;border-radius:10px;max-height:94vh;}
+  /* Overlay e modal ficha do cliente */
+  .ov{align-items:flex-start!important;padding:max(env(safe-area-inset-top),52px) 8px max(env(safe-area-inset-bottom),80px)!important;}
+  .fov{align-items:flex-start!important;padding:max(env(safe-area-inset-top),52px) 8px max(env(safe-area-inset-bottom),80px)!important;}
+  .modal{max-width:100vw!important;border-radius:10px;max-height:100%!important;}
+  .fmod{max-width:100vw!important;max-height:100%!important;}
   .mh{padding:12px 14px!important;}
   .mb{padding:12px 14px!important;gap:12px!important;}
   .mn{font-size:20px!important;}
