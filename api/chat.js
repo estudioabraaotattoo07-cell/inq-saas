@@ -222,30 +222,29 @@ Se o cliente iniciar a conversa com algo como "Quero falar com vocês pelo Whats
 - Se não souber responder, diga que vai verificar com a equipe e peça o contato
 
 ## SALVAMENTO PROGRESSIVO DO LEAD
-A partir do momento em que tiver **nome + WhatsApp**, inclua no final da sua resposta (invisível ao usuário) a tag [LEAD:...] com os dados coletados até agora. Continue incluindo essa tag em TODAS as respostas seguintes, sempre atualizada com os novos dados coletados. Assim, mesmo que a conversa seja interrompida, os dados parciais são salvos.
+A partir do momento em que tiver **apenas o nome**, inclua no final da sua resposta (invisível ao usuário) a tag [LEAD:...] com os dados coletados até agora. Continue incluindo essa tag em TODAS as respostas seguintes, sempre atualizada com os novos dados coletados. Assim, mesmo que a conversa seja interrompida, os dados parciais são salvos.
 
-**Classificação progressiva na obs:** desde o primeiro [LEAD:...], a obs deve refletir o estado atual:
-- Só tem nome + WhatsApp, sem ideia → "🧊 LEAD SUPER FRIO — dados parciais. Conversa em andamento ou cliente abandonou."
-- Tem dados + ideia mas sem compromisso de agendar → "❄️ LEAD — interesse demonstrado, sem agendamento. [avaliação do perfil]"
-- Solicitou agendamento / quer tatuar → use solicitar_agendamento com obs "🔥 LEAD QUENTE — [avaliação]"
+**Classificacao progressiva na obs:** desde o primeiro [LEAD:...], a obs deve refletir o estado atual:
+- So tem nome, sem contato → obs: "LEAD SUPER FRIO — so nome coletado. Sem WhatsApp ou email. Conversa abandonada."
+- Tem nome + algum dado de contato (WhatsApp ou email) mas nenhum interesse concreto → obs: "LEAD SUPER FRIO — dados minimos. Sem ideia ou intencao clara."
+- Tem dados de contato + demonstrou interesse mas nao solicitou nada → obs: "LEAD — interesse demonstrado, sem agendamento. [avaliacao do perfil]"
+- Solicitou consulta ou sessao → use solicitar_agendamento (o pixel e o CRM classificam automaticamente)
 
 [LEAD:{"nome":"...","email":"...","tel":"...","nascimento":"","ideia":"...","regiao":"","insta":"","artista":"...","obs":""}]
 
 Regras da tag:
-- Dispare assim que tiver nome + WhatsApp (e-mail pode estar vazio "")
+- Dispare assim que tiver o nome (WhatsApp e email podem estar vazios "")
 - Atualize a tag em cada resposta seguinte com os novos dados coletados
 - O campo "artista" deve ser "Abraão", "Camilla" ou "" se indeterminado
 - O campo "ideia" deve conter TUDO que foi coletado na conversa — não apenas a ideia do projeto. Formato obrigatório: "[ideia do projeto] | Região: [região] | Estilo: [estilo] | Data preferida: [data] | Investimento: R$[valor] | Aniversário: [data nascimento] | Melhor horário p/ ligação: [período] | Instagram: @[usuario] | Referência visual: [sim/não] | [qualquer outro detalhe relevante]". Omita apenas o que realmente não foi coletado.
-- O campo "obs" deve sempre conter a classificação do lead + avaliação honesta baseada na conversa. Use obrigatoriamente uma das três categorias abaixo como abertura da obs:
+- O campo "obs" deve sempre conter a classificação do lead + avaliação honesta baseada na conversa. Use obrigatoriamente uma das categorias abaixo como abertura da obs — sem emojis, sem caracteres especiais:
 
-  **🧊 LEAD SUPER FRIO** — usada quando o cliente passou poucos dados e sumiu, ou não demonstrou nenhum interesse concreto. Ex: "🧊 LEAD SUPER FRIO — abandonou a conversa após passar nome e WhatsApp. Nenhuma ideia coletada. Tentativa de contato recomendada."
+  LEAD SUPER FRIO — usada quando o cliente passou poucos dados e sumiu, ou nao demonstrou nenhum interesse concreto. Ex: "LEAD SUPER FRIO — abandonou a conversa apos passar nome e WhatsApp. Nenhuma ideia coletada. Tentativa de contato recomendada."
 
-  **❄️ LEAD** — usada quando o cliente deixou dados, mas está indeciso, quer consulta sem compromisso, ou não tem ideia clara do que quer. Ex: "❄️ LEAD — quer fazer uma consulta antes de qualquer compromisso. Ideia vaga: algo no braço. Requer orientação da equipe na ligação."
+  LEAD — usada quando o cliente deixou dados de contato (WhatsApp ou email), mas esta indeciso, nao tem ideia clara, ou disse que nao e hora. Ex: "LEAD — tem contato, demonstrou interesse vago. Requer orientacao da equipe na ligacao."
 
-  **🔥 LEAD QUENTE** — usada quando o cliente já quer tatuar, tem ideia, tem orçamento e solicitou agendamento. Ex: "🔥 LEAD QUENTE — pronto para tatuar. Ideia clara, orçamento definido, data solicitada. Alta prioridade de retorno."
-
-  Se houver duplicidade de número, adicione ao final: "⚠️ ATENÇÃO: número já cadastrado — verificar duplicidade."
-  Seja direto e útil para quem vai ligar. Não seja genérico.
+  Se houver duplicidade de número, adicione ao final: "ATENCAO: numero ja cadastrado — verificar duplicidade."
+  Seja direto e util para quem vai ligar. Nao seja generico.
 - Campos não coletados ficam com string vazia ""
 - NUNCA inclua [LEAD:...] para cliente já reconhecido como existente via verificar_cliente_existente`;
 
@@ -586,6 +585,7 @@ async function solicitarAgendamento(input) {
     return {
       ok: true,
       agendamento: true,
+      tipo: tipo || "",
       clienteId: finalClienteId,
       mensagem: "Solicitação registrada. Profissional notificado — a equipe entrará em contato pelo WhatsApp para confirmar data e hora."
     };
@@ -644,6 +644,7 @@ export default async function handler(req, res) {
   let finalText = "";
   let loopGuard = 0;
   let agendamentoRealizado = false;
+  let agendamentoTipo = "";
 
   while (loopGuard < 5) {
     loopGuard++;
@@ -681,7 +682,7 @@ export default async function handler(req, res) {
       const toolResults = [];
       for (const block of toolUseBlocks) {
         const resultado = await executarFerramenta(block.name, block.input);
-        if (resultado && resultado.agendamento) agendamentoRealizado = true;
+        if (resultado && resultado.agendamento) { agendamentoRealizado = true; agendamentoTipo = resultado.tipo || ""; }
         toolResults.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(resultado) });
       }
       workingMessages.push({ role: "user", content: toolResults });
@@ -704,7 +705,7 @@ export default async function handler(req, res) {
     const raw = leadMatch[1];
     const nome = extrairCampoLead(raw, "nome");
     const tel  = extrairCampoLead(raw, "tel");
-    if (nome || tel) {
+    if (nome) {
       leadData = {
         nome,
         email:      extrairCampoLead(raw, "email"),
@@ -716,14 +717,11 @@ export default async function handler(req, res) {
         artista:    extrairCampoLead(raw, "artista"),
         obs:        extrairCampoLead(raw, "obs"),
       };
-      if (!nome || !tel) {
-        console.error("[LEAD erro] nome ou tel ausentes | raw:", raw);
-      }
-      if (!leadData.ideia || !leadData.obs) {
-        console.warn("[LEAD aviso] ideia ou obs vazios | nome:", nome, "tel:", tel);
+      if (!leadData.obs) {
+        console.warn("[LEAD aviso] obs vazio | nome:", nome, "tel:", tel);
       }
     } else {
-      console.error("[LEAD parse ignorado — nome e tel vazios] | raw:", raw);
+      console.error("[LEAD parse ignorado — nome vazio] | raw:", raw);
     }
   }
 
@@ -742,5 +740,5 @@ export default async function handler(req, res) {
     studioTelResp = (cfgTel?.studio_tel || "").replace(/[^0-9]/g, "");
   } catch (e) {}
 
-  return res.status(200).json({ text: cleanText, lead: leadData, campanha: campanhaData, agendamento: agendamentoRealizado, studio_tel: studioTelResp });
+  return res.status(200).json({ text: cleanText, lead: leadData, campanha: campanhaData, agendamento: agendamentoRealizado, agendamento_tipo: agendamentoTipo, studio_tel: studioTelResp });
 }
