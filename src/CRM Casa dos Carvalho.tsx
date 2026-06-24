@@ -7702,61 +7702,28 @@ export default function CRM() {
                           const isEditando = jornadaEditandoId === etapa.id;
                           const isUndo = jornadaUndoDelete?.etapa?.id === etapa.id;
                           if (isUndo) return null;
+                          const moverEtapa = async (de: number, para: number) => {
+                            if (para < 0 || para >= jornadaEtapas.length) return;
+                            const nova = [...jornadaEtapas];
+                            const [mov] = nova.splice(de, 1);
+                            nova.splice(para, 0, mov);
+                            const reordenada = nova.map((e, i) => ({ ...e, ordem: i + 1 }));
+                            setJornadaEtapas(reordenada);
+                            await salvarOrdemEtapas(reordenada);
+                          };
                           return (
                             <div key={etapa.id}
                               draggable
                               onDragStart={() => setJornadaDragIdx(idx)}
-                              onDragOver={e => { e.preventDefault(); }}
+                              onDragOver={e => e.preventDefault()}
                               onDrop={async () => {
                                 if (jornadaDragIdx === null || jornadaDragIdx === idx) return;
-                                const nova = [...jornadaEtapas];
-                                const [mov] = nova.splice(jornadaDragIdx, 1);
-                                nova.splice(idx, 0, mov);
-                                const reordenada = nova.map((e, i) => ({ ...e, ordem: i + 1 }));
-                                setJornadaEtapas(reordenada);
+                                await moverEtapa(jornadaDragIdx, idx);
                                 setJornadaDragIdx(null);
-                                await salvarOrdemEtapas(reordenada);
                               }}
                               onDragEnd={() => setJornadaDragIdx(null)}
-                              onTouchStart={e => {
-                                const el = e.currentTarget as any;
-                                el._touchY = e.touches[0].clientY;
-                                el._touchActive = false;
-                                el._longPressTimer = setTimeout(() => {
-                                  el._touchActive = true;
-                                  setJornadaDragIdx(idx);
-                                }, 1000);
-                              }}
-                              onTouchMove={e => {
-                                const el = e.currentTarget as any;
-                                if (!el._touchActive) { clearTimeout(el._longPressTimer); return; }
-                                e.preventDefault();
-                                const touchY = e.touches[0].clientY;
-                                const startY = el._touchY;
-                                const diff = touchY - startY;
-                                if (Math.abs(diff) < 28) return;
-                                const targetIdx = diff > 0 ? Math.min(idx + 1, jornadaEtapas.length - 1) : Math.max(idx - 1, 0);
-                                if (targetIdx === idx) return;
-                                const nova = [...jornadaEtapas];
-                                const [mov] = nova.splice(idx, 1);
-                                nova.splice(targetIdx, 0, mov);
-                                const reordenada = nova.map((e, i) => ({ ...e, ordem: i + 1 }));
-                                setJornadaEtapas(reordenada);
-                                setJornadaDragIdx(targetIdx);
-                                el._touchY = touchY;
-                              }}
-                              onTouchEnd={async e => {
-                                const el = e.currentTarget as any;
-                                clearTimeout(el._longPressTimer);
-                                if (!el._touchActive) { setJornadaDragIdx(null); return; }
-                                el._touchActive = false;
-                                await salvarOrdemEtapas(jornadaEtapas);
-                                setJornadaDragIdx(null);
-                              }}
-                              style={{ display: "flex", alignItems: "center", gap: 8, background: jornadaDragIdx === idx ? "var(--dk4)" : "var(--dk3)", border: `1px solid ${jornadaDragIdx === idx ? "var(--gold)" : "var(--br)"}`, borderRadius: 8, padding: "9px 10px", cursor: "grab", opacity: jornadaDragIdx === idx ? 0.6 : 1, touchAction: "pan-y" }}>
-                              {/* drag handle */}
-                              <span style={{ color: "var(--tx3)", fontSize: 14, cursor: "grab", userSelect: "none" }}>⠿</span>
-                              {/* status dot clicável */}
+                              style={{ display: "flex", alignItems: "center", gap: 8, background: jornadaDragIdx === idx ? "var(--dk4)" : "var(--dk3)", border: `1px solid ${jornadaDragIdx === idx ? "var(--gold)" : "var(--br)"}`, borderRadius: 8, padding: "9px 10px", cursor: "default", opacity: jornadaDragIdx === idx ? 0.5 : 1 }}>
+                              {/* status dot */}
                               <button title={`Status: ${statusLabel[st]} — clique para alternar`}
                                 onClick={() => salvarStatus(etapa.id, proximoStatus(st))}
                                 style={{ width: 12, height: 12, borderRadius: "50%", background: cor, border: "none", cursor: "pointer", flexShrink: 0, padding: 0 }} />
@@ -7779,14 +7746,19 @@ export default function CRM() {
                                   style={{ flex: 1, fontSize: 12 }} />
                               ) : (
                                 <span onDoubleClick={() => { setJornadaEditandoId(etapa.id); setJornadaEditNome(etapa.nome); }}
-                                  style={{ flex: 1, fontSize: 12, color: "var(--tx)", cursor: "text" }} title="Duplo clique para editar">
+                                  style={{ flex: 1, fontSize: 12, color: "var(--tx)", cursor: "text", userSelect: "none" }} title="Duplo clique para editar">
                                   {etapa.nome}
                                 </span>
                               )}
                               {/* status label */}
                               <span style={{ fontSize: 10, color: cor, fontWeight: 600, whiteSpace: "nowrap" }}>{statusLabel[st]}</span>
+                              {/* setas reordenar */}
+                              <button onClick={() => moverEtapa(idx, idx - 1)} disabled={idx === 0}
+                                style={{ background: "none", border: "none", color: idx === 0 ? "var(--dk4)" : "var(--tx3)", cursor: idx === 0 ? "default" : "pointer", fontSize: 13, padding: "0 1px", lineHeight: 1 }} title="Mover para cima">&#8593;</button>
+                              <button onClick={() => moverEtapa(idx, idx + 1)} disabled={idx === jornadaEtapas.length - 1}
+                                style={{ background: "none", border: "none", color: idx === jornadaEtapas.length - 1 ? "var(--dk4)" : "var(--tx3)", cursor: idx === jornadaEtapas.length - 1 ? "default" : "pointer", fontSize: 13, padding: "0 1px", lineHeight: 1 }} title="Mover para baixo">&#8595;</button>
                               {/* toggle auto/manual */}
-                              <button title={etapa.tipo === "auto" ? "Automatico — clique para tornar manual" : "Manual — clique para tornar automatico"}
+                              <button title={etapa.tipo === "auto" ? "Automatico — clique para manual" : "Manual — clique para automatico"}
                                 onClick={async () => {
                                   const novoTipo = etapa.tipo === "auto" ? "manual" : "auto";
                                   await sb.from("jornada_etapas").update({ tipo: novoTipo }).eq("id", etapa.id);
@@ -7804,7 +7776,7 @@ export default function CRM() {
                                   setJornadaUndoDelete(null);
                                 }, 8000);
                                 setJornadaUndoDelete({ etapa, timer });
-                              }} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 13, padding: "0 2px" }} title="Excluir etapa">✕</button>
+                              }} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 13, padding: "0 2px" }} title="Excluir etapa">&#10005;</button>
                             </div>
                           );
                         })}
