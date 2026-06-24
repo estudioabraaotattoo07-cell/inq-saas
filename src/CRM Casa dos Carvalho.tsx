@@ -7891,21 +7891,12 @@ export default function CRM() {
                       menor: "Autorizacao de Responsavel Legal",
                     };
                     const titulo = titulos[docId] || "Documento";
+                    const studioNomeFormatado = (studioName || "A Casa dos Carvalho").replace(/_/g, " ");
                     const campoAssin = docId === "anamnese" ? "anamnese_assinatura" : docId === "contrato" ? "contrato_assinatura" : "menor_assinatura";
                     const assinBase64 = (sc as any)[campoAssin] || "";
 
-                    // upload da assinatura para Storage para URL publica no email (base64 e bloqueado por clientes de email)
-                    let assinImg = "";
-                    if (assinBase64.startsWith("data:")) {
-                      try {
-                        const b64 = assinBase64.split(",")[1];
-                        const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-                        const fname = `assin-${sc.id}-${docId}.png`;
-                        await sb.storage.from("referencias").upload(fname, bytes, { contentType: "image/png", upsert: true });
-                        const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
-                        assinImg = pub.publicUrl;
-                      } catch { assinImg = ""; }
-                    }
+                    // usa base64 direto no src — funciona no Gmail desktop e na maioria dos clientes
+                    const assinImg = assinBase64 || "";
 
                     const projetos = (sc as any).projetos || [];
                     const ultimoProjeto = projetos[projetos.length - 1];
@@ -7914,7 +7905,7 @@ export default function CRM() {
                     const htmlEmail = `
                       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;">
                         <div style="background:#1a1a1a;padding:24px 32px;text-align:center;">
-                          <span style="color:#c9a84c;font-size:22px;font-weight:700;letter-spacing:.05em;">${studioName || "A Casa dos Carvalho"}</span>
+                          <span style="color:#c9a84c;font-size:22px;font-weight:700;letter-spacing:.05em;">${studioNomeFormatado}</span>
                         </div>
                         <div style="padding:32px;">
                           <p style="font-size:15px;">Ola, <strong>${sc.nome}</strong>! Tudo bem?</p>
@@ -7939,7 +7930,7 @@ export default function CRM() {
                           ` : `<p style="color:#e67e22;font-size:12px;">Documento ainda nao assinado.</p>`}
                           <hr style="margin:24px 0;border:none;border-top:1px solid #eee;"/>
                           <p style="font-size:13px;color:#555;">Qualquer duvida estamos a disposicao. Com carinho,</p>
-                          <p style="font-size:14px;font-weight:700;color:#1a1a1a;">${studioName || "A Casa dos Carvalho"}</p>
+                          <p style="font-size:14px;font-weight:700;color:#1a1a1a;">${studioNomeFormatado}</p>
                         </div>
                         <div style="background:#f7f7f7;padding:12px 32px;font-size:11px;color:#aaa;text-align:center;">
                           Este e um documento oficial do estudio. Guarde para seus registros.
@@ -7952,9 +7943,9 @@ export default function CRM() {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                           apiKey: resendApiKey,
-                          from: `${nomeRemetente || studioName || "A Casa dos Carvalho"} <${emailRemetente}>`,
+                          from: `${nomeRemetente || studioNomeFormatado} <${emailRemetente}>`,
                           to: sc.email,
-                          subject: `${titulo} — ${studioName || "A Casa dos Carvalho"}`,
+                          subject: `${titulo} — ${studioNomeFormatado}`,
                           html: htmlEmail,
                         }),
                       });
