@@ -673,13 +673,37 @@ export default async function handler(req, res) {
 
   const text = finalText;
 
-  const leadMatch = text.match(/\[LEAD:(\{[^}]+\}(?:[^[]*\})?)\]/s);
+  function extrairCampoLead(raw, campo) {
+    const m = raw.match(new RegExp('"' + campo + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"'));
+    return m ? m[1] : "";
+  }
+
+  const leadMatch = text.match(/\[LEAD:(\{[\s\S]*?\})\]/);
   let leadData = null;
   if (leadMatch) {
-    try {
-      leadData = JSON.parse(leadMatch[1]);
-    } catch (e) {
-      // ignore parse error
+    const raw = leadMatch[1];
+    const nome = extrairCampoLead(raw, "nome");
+    const tel  = extrairCampoLead(raw, "tel");
+    if (nome || tel) {
+      leadData = {
+        nome,
+        email:      extrairCampoLead(raw, "email"),
+        tel,
+        nascimento: extrairCampoLead(raw, "nascimento"),
+        ideia:      extrairCampoLead(raw, "ideia"),
+        regiao:     extrairCampoLead(raw, "regiao"),
+        insta:      extrairCampoLead(raw, "insta"),
+        artista:    extrairCampoLead(raw, "artista"),
+        obs:        extrairCampoLead(raw, "obs"),
+      };
+      if (!nome || !tel) {
+        console.error("[LEAD erro] nome ou tel ausentes | raw:", raw);
+      }
+      if (!leadData.ideia || !leadData.obs) {
+        console.warn("[LEAD aviso] ideia ou obs vazios | nome:", nome, "tel:", tel);
+      }
+    } else {
+      console.error("[LEAD parse ignorado — nome e tel vazios] | raw:", raw);
     }
   }
 
