@@ -1081,6 +1081,10 @@ export default function CRM() {
   const [confirmExcluir, setConfirmExcluir] = useState<any>(null);
   const [confirmRemoverArtista, setConfirmRemoverArtista] = useState<any>(null);
   const [confirmExcluirCliente, setConfirmExcluirCliente] = useState<any>(null);
+  const [lixeiraTab, setLixeiraTab] = useState<"clientes"|"orfaos">("clientes");
+  const [lixeiraClientes, setLixeiraClientes] = useState<any[]>([]);
+  const [lixeiraOrfaos, setLixeiraOrfaos] = useState<any[]>([]);
+  const [lixeiraLoading, setLixeiraLoading] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetUndo, setResetUndo] = useState(false);
   const [resetTimer, setResetTimer] = useState<any>(null);
@@ -1307,8 +1311,12 @@ export default function CRM() {
           if (!uid) return await sb.from("configuracoes").select("*").limit(1).single().then(r => r.data ? [r.data] : null);
           return await sb.from("configuracoes").select("*").eq("user_id", uid).limit(1).single().then(r => r.data ? [r.data] : null);
         };
+        const loadClientes = async () => {
+          if (!uid) return await sb.from("clientes").select("*").is("excluido_em", null).then(r => r.data);
+          return await sb.from("clientes").select("*").or(`user_id.eq.${uid},user_id.is.null`).is("excluido_em", null).then(r => r.data);
+        };
         const [cls, arts, fins, sds, ags, cfgs, eqs, orgs, camps, evts] = await Promise.all([
-          loadWithUser("clientes"), loadWithUser("artistas"), loadWithUser("financeiro"),
+          loadClientes(), loadWithUser("artistas"), loadWithUser("financeiro"),
           loadWithUser("saidas"), loadWithUser("agenda"), loadCfg(), loadWithUser("equipamentos"),
           uid ? sb.from("origens").select("*").eq("user_id", uid).order("criado_em", { ascending: true }).then(r => r.data) : Promise.resolve([]),
           uid ? sb.from("campanhas").select("*").eq("user_id", uid).order("criado_em", { ascending: true }).then(r => r.data) : Promise.resolve([]),
@@ -2264,14 +2272,44 @@ export default function CRM() {
     const nome = clients.find(c => c.id === cid)?.nome || "cliente";
     setClients(p => p.filter(c => c.id !== cid));
     setSel(null);
-    // Apaga em cascata: financeiro e agenda vinculados
+    await sb.from("clientes").update({ excluido_em: new Date().toISOString() }).eq("id", cid);
+    addLog(`Cliente "${nome}" movido para a Lixeira`);
+    setConfirmExcluirCliente(null);
+  };
+
+  const deleteClientDefinitivo = async (cid: string) => {
+    await sb.from("agendamentos_pendentes").delete().eq("cliente_id", cid);
+    await sb.from("eventos_trafego").delete().eq("cliente_id", cid);
     await sb.from("financeiro").delete().eq("cliente_id", cid);
     await sb.from("agenda").delete().eq("cliente_id", cid);
-    await dbDelete("clientes", cid);
-    setFin(p => p.filter((f: any) => f.cliente_id !== cid));
-    setAgEvents(p => p.filter(e => e.cliente_id !== cid));
-    addLog(`Cliente "${nome}" excluído`);
-    setConfirmExcluirCliente(null);
+    await sb.from("clientes").delete().eq("id", cid);
+  };
+
+  const carregarLixeira = async () => {
+    if (!userId) return;
+    setLixeiraLoading(true);
+    try {
+      const { data: excluidos } = await sb.from("clientes")
+        .select("id, nome, tel, email, excluido_em")
+        .eq("user_id", userId)
+        .not("excluido_em", "is", null)
+        .order("excluido_em", { ascending: false });
+      setLixeiraClientes(excluidos || []);
+
+      const { data: todos } = await sb.from("agendamentos_pendentes")
+        .select("id, created_at, cliente_id, cliente_nome, cliente_email, cliente_tel, tipo, data_solicitada, status")
+        .eq("user_id", userId)
+        .not("cliente_id", "is", null);
+      const clienteIds = [...new Set((todos || []).map((r: any) => r.cliente_id))];
+      let idsValidos = new Set<string>();
+      if (clienteIds.length > 0) {
+        const { data: validos } = await sb.from("clientes").select("id").in("id", clienteIds);
+        idsValidos = new Set((validos || []).map((c: any) => String(c.id)));
+      }
+      setLixeiraOrfaos((todos || []).filter((r: any) => !idsValidos.has(String(r.cliente_id))));
+    } finally {
+      setLixeiraLoading(false);
+    }
   };
 
   const registrarIndicação = (cid: number, artista: string) => {
@@ -10803,6 +10841,65 @@ export default function CRM() {
                     <button onClick={() => setShowHistoricoModal(true)} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "var(--tx)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", gap: 6 }}>
                       📋 Ver Histórico de Atividades {historico.length > 0 && <span style={{ background: "var(--gold)", color: "#1a1a1a", borderRadius: 10, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>{historico.length}</span>}
                     </button>
+                  </div>
+                  <div>
+                    <div className="stit">🗑 Lixeira</div>
+                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>Clientes excluídos ficam aqui por 30 dias antes da remoção definitiva.</div>
+                    <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                      {(["clientes", "orfaos"] as const).map(tab => (
+                        <button key={tab} onClick={() => { setLixeiraTab(tab); carregarLixeira(); }}
+                          style={{ background: lixeiraTab === tab ? "var(--gold-d)" : "var(--dk3)", border: `1px solid ${lixeiraTab === tab ? "var(--gold)" : "var(--br)"}`, borderRadius: 6, padding: "5px 12px", fontSize: 12, color: lixeiraTab === tab ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontWeight: lixeiraTab === tab ? 600 : 400 }}>
+                          {tab === "clientes" ? "Clientes" : "Registros Órfãos"}
+                        </button>
+                      ))}
+                      <button onClick={carregarLixeira} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 10px", fontSize: 11, color: "var(--tx3)", cursor: "pointer" }}>↻</button>
+                    </div>
+                    {lixeiraLoading && <div style={{ fontSize: 12, color: "var(--tx3)" }}>Carregando...</div>}
+                    {!lixeiraLoading && lixeiraTab === "clientes" && (
+                      lixeiraClientes.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--tx3)" }}>Nenhum cliente na lixeira.</div>
+                        : lixeiraClientes.map((c: any) => {
+                            const excl = new Date(c.excluido_em);
+                            const expira = new Date(excl.getTime() + 30 * 24 * 60 * 60 * 1000);
+                            const diasRestantes = Math.max(0, Math.ceil((expira.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+                            return (
+                              <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--br)", fontSize: 12 }}>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontWeight: 600, color: "var(--tx)" }}>{c.nome}</div>
+                                  <div style={{ color: "var(--tx3)" }}>{c.tel}{c.email ? ` · ${c.email}` : ""}</div>
+                                  <div style={{ color: diasRestantes <= 3 ? "#C0392B" : "var(--tx3)", marginTop: 2 }}>
+                                    Excluído em {excl.toLocaleDateString("pt-BR")} · restam {diasRestantes} dia{diasRestantes !== 1 ? "s" : ""}
+                                  </div>
+                                </div>
+                                <button onClick={async () => { await sb.from("clientes").update({ excluido_em: null }).eq("id", c.id); carregarLixeira(); addLog(`Cliente "${c.nome}" restaurado da Lixeira`); }}
+                                  style={{ background: "rgba(39,174,96,.12)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 6, padding: "5px 10px", fontSize: 11, color: "#27AE60", cursor: "pointer", whiteSpace: "nowrap" }}>
+                                  Restaurar
+                                </button>
+                                <button onClick={async () => { await deleteClientDefinitivo(c.id); carregarLixeira(); addLog(`Cliente "${c.nome}" excluído definitivamente`); }}
+                                  style={{ background: "rgba(192,57,43,.12)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "5px 10px", fontSize: 11, color: "#C0392B", cursor: "pointer", whiteSpace: "nowrap" }}>
+                                  Excluir agora
+                                </button>
+                              </div>
+                            );
+                          })
+                    )}
+                    {!lixeiraLoading && lixeiraTab === "orfaos" && (
+                      lixeiraOrfaos.length === 0
+                        ? <div style={{ fontSize: 12, color: "var(--tx3)" }}>Nenhum registro órfão encontrado.</div>
+                        : lixeiraOrfaos.map((r: any) => (
+                            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--br)", fontSize: 12 }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 600, color: "var(--tx)" }}>{r.cliente_nome || "—"}</div>
+                                <div style={{ color: "var(--tx3)" }}>{r.cliente_tel}{r.cliente_email ? ` · ${r.cliente_email}` : ""}</div>
+                                <div style={{ color: "var(--tx3)", marginTop: 2 }}>{r.tipo} · {r.data_solicitada || "sem data"} · status: {r.status}</div>
+                              </div>
+                              <button onClick={async () => { await sb.from("agendamentos_pendentes").delete().eq("id", r.id); carregarLixeira(); }}
+                                style={{ background: "rgba(192,57,43,.12)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "5px 10px", fontSize: 11, color: "#C0392B", cursor: "pointer", whiteSpace: "nowrap" }}>
+                                Excluir
+                              </button>
+                            </div>
+                          ))
+                    )}
                   </div>
                   <div>
                     <div className="stit" style={{ color: "#C0392B" }}>Zona de Perigo</div>

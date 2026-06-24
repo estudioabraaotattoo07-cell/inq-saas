@@ -193,6 +193,23 @@ export default async function handler(req, res) {
       const userId = cfg.user_id;
       if (!userId) continue;
 
+      // Exclusão definitiva: clientes na lixeira há mais de 30 dias
+      const limite30 = new Date(hoje);
+      limite30.setDate(limite30.getDate() - 30);
+      const { data: expirados } = await sb
+        .from("clientes")
+        .select("id")
+        .eq("user_id", userId)
+        .not("excluido_em", "is", null)
+        .lt("excluido_em", limite30.toISOString());
+      for (const cli of expirados || []) {
+        await sb.from("agendamentos_pendentes").delete().eq("cliente_id", cli.id);
+        await sb.from("eventos_trafego").delete().eq("cliente_id", cli.id);
+        await sb.from("financeiro").delete().eq("cliente_id", cli.id);
+        await sb.from("agenda").delete().eq("cliente_id", cli.id);
+        await sb.from("clientes").delete().eq("id", cli.id);
+      }
+
       // Parse canais_habilitados
       let canaisHabilitados = { email: true, whatsapp: false, sms: false };
       try {
@@ -238,7 +255,8 @@ export default async function handler(req, res) {
         const { data: cliData } = await sb
           .from("clientes")
           .select("id, nome, email, tel, etapa, etapa_desde, sessao_concluida_em, disparos_enviados, hist, followups")
-          .eq("user_id", userId);
+          .eq("user_id", userId)
+          .is("excluido_em", null);
         if (cliData) clientes = cliData;
       } catch {
         continue;
