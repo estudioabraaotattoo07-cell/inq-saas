@@ -124,6 +124,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .modal{max-width:100vw!important;border-radius:10px;max-height:calc(100dvh - max(env(safe-area-inset-top),52px) - max(env(safe-area-inset-bottom),12px))!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;}
   .fmod{max-width:100vw!important;max-height:calc(100dvh - max(env(safe-area-inset-top),52px) - max(env(safe-area-inset-bottom),12px))!important;}
   .mh{padding:12px 14px!important;flex-shrink:0!important;}
+  .modal>div[style*="flex-shrink"]{flex-shrink:0!important;}
   .mb{padding:12px 14px!important;gap:12px!important;overflow-y:auto!important;flex:1!important;-webkit-overflow-scrolling:touch!important;}
   .mn{font-size:20px!important;}
   .ms{font-size:10px!important;}
@@ -7519,7 +7520,7 @@ export default function CRM() {
                 <button className="mc" onClick={() => { if (fichaEditada) { setFichaWarnSair(true); } else { setSel(null); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); } }}>✕</button>
               </div>
               {/* ── TABS DA FICHA ── */}
-              <div style={{ display: "flex", borderBottom: "1px solid var(--br)", background: "var(--dk2)", overflowX: "auto" }}>
+              <div style={{ display: "flex", borderBottom: "1px solid var(--br)", background: "var(--dk2)", overflowX: "auto", flexShrink: 0, WebkitOverflowScrolling: "touch" as any }}>
                 {(["dados","jornada","docs","historico"] as const).map(tab => {
                   const labels: Record<string,string> = { dados: "Dados", jornada: "Jornada", docs: "Documentos", historico: "Histórico" };
                   return (
