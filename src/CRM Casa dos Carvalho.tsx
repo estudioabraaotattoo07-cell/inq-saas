@@ -1212,6 +1212,11 @@ export default function CRM() {
   const [presencaMotivo, setPresencaMotivo] = useState("");
   const [confirmTrocarProfissional, setConfirmTrocarProfissional] = useState<{clienteId: any; novoArtista: string; antigoArtista: string} | null>(null);
   const [nascDraft, setNascDraft] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
+  const [fichaTab, setFichaTab] = useState<"dados"|"jornada"|"docs"|"historico">("dados");
+  const [fichaEditada, setFichaEditada] = useState(false);
+  const [fichaSaveStep, setFichaSaveStep] = useState(0);
+  const [fichaTabPendente, setFichaTabPendente] = useState<string|null>(null);
+  const [fichaWarnSair, setFichaWarnSair] = useState(false);
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [editandoListas, setEditandoListas] = useState(false);
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
@@ -2303,6 +2308,10 @@ export default function CRM() {
   // O save acontece no onBlur via upC
   const upCLocal = (cid: number, f: string, v: any) => {
     setClients(p => p.map(c => c.id !== cid ? c : { ...c, [f]: v }));
+  };
+  const upCFicha = (cid: number, f: string, v: any) => {
+    setClients(p => p.map(c => c.id !== cid ? c : { ...c, [f]: v }));
+    setFichaEditada(true);
   };
 
   const registrarFalta = (cid: number, artista: string) => {
@@ -4131,7 +4140,7 @@ export default function CRM() {
                   <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: "var(--gold)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>🎂 Aniversários nos próximos 7 dias</div>
                     {aniversariantes.map((c: any) => (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags">
                           <span className="atag" style={{ color: "var(--gold)" }}>
@@ -4151,7 +4160,7 @@ export default function CRM() {
                   <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: "#E67E22", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>🛡 Garantias vencendo (D+30 a D+37)</div>
                     {garantias.map(c => (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags"><span className="atag" style={{ color: "#E67E22" }}>D+{c.dias} — {37 - c.dias} dias restantes</span></div>
                       </div>
@@ -4167,7 +4176,7 @@ export default function CRM() {
                   <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: "#888", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>💤 Inativos há 40+ dias</div>
                     {inativos.map(c => (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags"><span className="atag" style={{ color: "#888" }}>Inativo há {c.dias}d</span></div>
                       </div>
@@ -4191,7 +4200,7 @@ export default function CRM() {
                     const m = miss(c); const ch = churn(c);
                     const projSemValor = (c.projetos || []).some((p: any) => { const vt = Number(String(p.valorTotal || "0").replace(/\./g,"").replace(",",".")); return p.status !== "concluido" && p.status !== "cancelado" && vt <= 0; }) && c.etapa !== "lead";
                     return (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags">
                           {ch === "red" && <span className="co co-r">🔴 1a sem retorno</span>}
@@ -4421,7 +4430,7 @@ export default function CRM() {
                       const anivMes = isAniversMes((c as any).nascimento || "");
                       const anivHoje = isAniversHoje((c as any).nascimento || "");
                       return (
-                        <div key={c.id} className="card" onClick={() => { setSel(c); setSelCtx("clientes"); }} style={{ animation: "fadeSlideIn .22s ease both" }}>
+                        <div key={c.id} className="card" onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }} style={{ animation: "fadeSlideIn .22s ease both" }}>
                           <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "3px", background: aColor(c.artista), borderRadius: "7px 0 0 7px" }} />
                           <div className="ctop">
                             <div className="cname">{anivHoje ? "🎂 " : ""}{c.nome}</div>
@@ -6172,7 +6181,7 @@ export default function CRM() {
                     : alertas.map(c => {
                       const m = miss(c); const ch = churn(c);
                       return (
-                        <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); }} style={{ padding: "8px 10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, marginBottom: 5, cursor: "pointer" }}>
+                        <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }} style={{ padding: "8px 10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, marginBottom: 5, cursor: "pointer" }}>
                           <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, marginBottom: 3 }}>{c.nome}</div>
                           <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                             {m.map(x => <span key={x} className="atag">⚠ Sem {x}</span>)}
@@ -6246,7 +6255,7 @@ export default function CRM() {
                   {reativacao.length === 0
                     ? <div style={{ color: "var(--tx3)", fontSize: 12 }}>Nenhum cliente para reativar.</div>
                     : reativacao.map(c => (
-                      <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); }} style={{ padding: "8px 10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, marginBottom: 5, cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
+                      <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }} style={{ padding: "8px 10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, marginBottom: 5, cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontWeight: 600, color: "var(--tx)" }}>{c.nome}</div>
                           <div style={{ fontSize: 11, color: "var(--tx2)" }}>{c.dias} dias sem movimento {c.qual}</div>
@@ -6909,7 +6918,7 @@ export default function CRM() {
                           {c.nps && <span style={{ marginLeft: 9, color: "var(--gold)", fontWeight: 600 }}>NPS: {c.nps}/10</span>}
                         </div>
                       </div>
-                      <button className="mc" style={{ width: "auto", padding: "0 9px", fontSize: 11 }} onClick={() => { setSel(c); setSelCtx("clientes"); }}>Ver ficha</button>
+                      <button className="mc" style={{ width: "auto", padding: "0 9px", fontSize: 11 }} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>Ver ficha</button>
                     </div>
                     <div className="pvt">
                       {c.pv.map((p: any, i: number) => (
@@ -7429,9 +7438,45 @@ export default function CRM() {
           </div>
         )}
 
+        {/* ── AVISO ALTERAÇÕES NÃO SALVAS ── */}
+        {(fichaWarnSair || fichaTabPendente) && (
+          <div className="ov" style={{ zIndex: 350 }}>
+            <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 11, padding: "24px 28px", maxWidth: 380, width: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--tx)" }}>Alterações não salvas</div>
+              <div style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.6 }}>Você fez alterações que ainda não foram salvas. O que deseja fazer?</div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                <button onClick={() => { setFichaWarnSair(false); setFichaTabPendente(null); }}
+                  style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer" }}>
+                  Continuar editando
+                </button>
+                <button onClick={() => {
+                  if (fichaTabPendente) {
+                    setFichaTab(fichaTabPendente as any);
+                    setFichaTabPendente(null);
+                    setFichaEditada(false);
+                    setFichaSaveStep(0);
+                  } else {
+                    setSel(null);
+                    setFichaWarnSair(false);
+                    setFichaEditada(false);
+                    setFichaSaveStep(0);
+                    setFichaTab("dados");
+                  }
+                }} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "7px 14px", fontSize: 12, color: "var(--q1)", cursor: "pointer", fontWeight: 600 }}>
+                  Descartar alterações
+                </button>
+                <button onClick={() => { setFichaWarnSair(false); setFichaTabPendente(null); setFichaSaveStep(1); }}
+                  style={{ background: "var(--gold)", border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 12, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>
+                  Salvar antes
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── MODAL CLIENTE ── */}
         {sc && (
-          <div className="ov" onClick={e => { if (e.target === e.currentTarget) setSel(null); }}>
+          <div className="ov" onClick={e => { if (e.target === e.currentTarget) { if (fichaEditada) { setFichaWarnSair(true); } else { setSel(null); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); } } }}>
             <div className="modal">
               <div className="mh" style={{ position: "relative" }}>
                 <div style={{ flex: 1 }}>
@@ -7457,7 +7502,21 @@ export default function CRM() {
                     {miss(sc).map((m: string) => <span key={m} className="atag">⚠ Sem {m}</span>)}
                   </div>
                 </div>
-                <button className="mc" onClick={() => setSel(null)}>✕</button>
+                <button className="mc" onClick={() => { if (fichaEditada) { setFichaWarnSair(true); } else { setSel(null); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); } }}>✕</button>
+              </div>
+              {/* ── TABS DA FICHA ── */}
+              <div style={{ display: "flex", borderBottom: "1px solid var(--br)", background: "var(--dk2)", overflowX: "auto" }}>
+                {(["dados","jornada","docs","historico"] as const).map(tab => {
+                  const labels: Record<string,string> = { dados: "Dados", jornada: "Jornada", docs: "Documentos", historico: "Histórico" };
+                  return (
+                    <button key={tab} onClick={() => {
+                      if (tab === fichaTab) return;
+                      if (fichaEditada) { setFichaTabPendente(tab); } else { setFichaTab(tab); }
+                    }} style={{ padding: "9px 14px", fontSize: 12, fontWeight: 500, color: fichaTab === tab ? "var(--gold)" : "var(--tx2)", background: "none", border: "none", borderBottom: fichaTab === tab ? "2px solid var(--gold)" : "2px solid transparent", cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'DM Sans',sans-serif" }}>
+                      {labels[tab]}{fichaEditada && tab === fichaTab ? " •" : ""}
+                    </button>
+                  );
+                })}
               </div>
               <div className="mb">
                 {(() => {
@@ -7471,7 +7530,7 @@ export default function CRM() {
                   ) : null;
                 })()}
 
-                <div>
+                {fichaTab === "dados" && <div>
                   <div className="stit">Dados Básicos</div>
                   <div className="fg2">
                     {[
@@ -7481,8 +7540,7 @@ export default function CRM() {
                       <div className="fi2" key={i}>
                         <div className="fil">{fd.l}{(fd as any).w ? " ⚠" : ""}</div>
                         <input className="ef" value={(sc as any)[fd.f] || ""} placeholder={(fd as any).w ? "Clique para adicionar" : ""}
-                          onChange={e => upCLocal(sc.id, fd.f, e.target.value)}
-                          onBlur={e => upC(sc.id, fd.f, e.target.value)}
+                          onChange={e => upCFicha(sc.id, fd.f, e.target.value)}
                           style={{ borderColor: fd.f === "email" && (sc as any).email && !validarEmail((sc as any).email) ? "var(--q1)" : (fd as any).w && !(sc as any)[fd.f] ? "var(--q2)" : "var(--br)" }} />
                         {fd.f === "email" && (sc as any).email && !validarEmail((sc as any).email) && (
                           <span style={{ fontSize: 10, color: "var(--q1)", marginTop: 3, display: "block" }}>Email inválido</span>
@@ -7569,20 +7627,31 @@ export default function CRM() {
                             : raw.length <= 6 ? raw.slice(0,3) + "." + raw.slice(3)
                             : raw.length <= 9 ? raw.slice(0,3) + "." + raw.slice(3,6) + "." + raw.slice(6)
                             : raw.slice(0,3) + "." + raw.slice(3,6) + "." + raw.slice(6,9) + "-" + raw.slice(9);
-                          upCLocal(sc.id, "documento", fmt);
-                        }}
-                        onBlur={e => {
-                          const raw = e.target.value.replace(/\D/g, "").slice(0, 11);
-                          const fmt = raw.length <= 3 ? raw
-                            : raw.length <= 6 ? raw.slice(0,3) + "." + raw.slice(3)
-                            : raw.length <= 9 ? raw.slice(0,3) + "." + raw.slice(3,6) + "." + raw.slice(6)
-                            : raw.slice(0,3) + "." + raw.slice(3,6) + "." + raw.slice(6,9) + "-" + raw.slice(9);
-                          upC(sc.id, "documento", fmt);
+                          upCFicha(sc.id, "documento", fmt);
                         }} />
                     </div>
                   </div>
-                </div>
+                </div>}
 
+                {fichaTab === "jornada" && (
+                  <div style={{ padding: "20px 0", textAlign: "center", color: "var(--tx2)", fontSize: 13 }}>
+                    Aba Jornada — em construção
+                  </div>
+                )}
+
+                {fichaTab === "docs" && (
+                  <div style={{ padding: "20px 0", textAlign: "center", color: "var(--tx2)", fontSize: 13 }}>
+                    Aba Documentos — em construção
+                  </div>
+                )}
+
+                {fichaTab === "historico" && (
+                  <div style={{ padding: "20px 0", textAlign: "center", color: "var(--tx2)", fontSize: 13 }}>
+                    Aba Histórico — em construção
+                  </div>
+                )}
+
+                {fichaTab === "dados" && <>
                 <div>
                   <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span>Solicitações</span>
@@ -8231,22 +8300,38 @@ export default function CRM() {
                     </div>
                   ))}
                 </div>
+                </>}
 
-                {selCtx === "clientes" && (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--br)", marginTop: 8 }}>
+                {fichaTab === "dados" && selCtx === "clientes" && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--br)", marginTop: 8, gap: 8, flexWrap: "wrap" }}>
                     <button onClick={() => setConfirmExcluirCliente(sc)} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "7px 16px", fontSize: 12, color: "var(--q1)", cursor: "pointer", fontWeight: 600 }}>🗑 Excluir cliente</button>
-                    <button onClick={() => {
-                      const updated = clients.find(c => c.id === sc.id);
-                      if (updated) { saveClientDb(updated); setSel(null); }
-                    }} style={{ background: "var(--gold)", border: "none", borderRadius: 6, padding: "7px 20px", fontSize: 12, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>💾 Salvar</button>
-                  </div>
-                )}
-                {selCtx !== "clientes" && (
-                  <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 12, borderTop: "1px solid var(--br)", marginTop: 8 }}>
-                    <button onClick={() => {
-                      const updated = clients.find(c => c.id === sc.id);
-                      if (updated) { saveClientDb(updated); setSel(null); }
-                    }} style={{ background: "var(--gold)", border: "none", borderRadius: 6, padding: "7px 20px", fontSize: 12, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>💾 Salvar</button>
+                    <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+                      {fichaSaveStep === 0 && (
+                        <button onClick={() => { if (fichaEditada) setFichaSaveStep(1); }} disabled={!fichaEditada}
+                          style={{ background: fichaEditada ? "var(--gold)" : "var(--dk3)", border: "none", borderRadius: 6, padding: "7px 20px", fontSize: 12, color: fichaEditada ? "#1a1a1a" : "var(--tx3)", cursor: fichaEditada ? "pointer" : "not-allowed", fontWeight: 700, opacity: fichaEditada ? 1 : 0.5 }}>
+                          💾 Salvar{fichaEditada ? " *" : ""}
+                        </button>
+                      )}
+                      {fichaSaveStep === 1 && (
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 8, padding: "6px 12px" }}>
+                          <span style={{ fontSize: 12, color: "var(--tx2)" }}>Confirmar alterações?</span>
+                          <button onClick={() => setFichaSaveStep(0)} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "4px 10px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>Cancelar</button>
+                          <button onClick={() => setFichaSaveStep(2)} style={{ background: "var(--gold)", border: "none", borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>Confirmar</button>
+                        </div>
+                      )}
+                      {fichaSaveStep === 2 && (
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 8, padding: "6px 12px" }}>
+                          <span style={{ fontSize: 12, color: "var(--q1)", fontWeight: 600 }}>Esta ação é definitiva. Prosseguir?</span>
+                          <button onClick={() => setFichaSaveStep(1)} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "4px 10px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>Voltar</button>
+                          <button onClick={async () => {
+                            const updated = clients.find(c => c.id === sc.id);
+                            if (updated) { await saveClientDb(updated); }
+                            setFichaEditada(false);
+                            setFichaSaveStep(0);
+                          }} style={{ background: "var(--q1)", border: "none", borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 700 }}>Salvar definitivamente</button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
