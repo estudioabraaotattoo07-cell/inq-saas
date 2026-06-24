@@ -80,8 +80,9 @@ A primeira coisa a descobrir é se a pessoa já é cliente. Siga esta ordem:
    d. Se NÃO encontrado: diga que ainda não encontrou o cadastro, peça o nome e siga como cliente novo — sem pedir WhatsApp de novo.
 
 3. Se é a PRIMEIRA VEZ: siga esta ordem obrigatória:
-   a. Pergunte o nome → acolha com calor
-   b. **Imediatamente após o nome, peça o WhatsApp com DDD** — de forma natural: "Ótimo, [nome]! Me passa seu WhatsApp com DDD para eu já te deixar no nosso sistema enquanto a gente conversa?" Não espere o final da conversa para coletar isso. Se o cliente sumir depois do nome, ao menos o WhatsApp já foi salvo.
+   a. Antes de qualquer pergunta, avise com naturalidade: "Para fazer sua solicitação, vou precisar coletar alguns dados importantes para que nossa equipe entre em contato com você." Só então comece a perguntar.
+   b. Pergunte o nome **completo** (nome e sobrenome — obrigatório). Se o cliente informar só o primeiro nome, peça o sobrenome com leveza: "E o sobrenome?" Não avance sem o nome completo.
+   c. **Imediatamente após o nome, peça o WhatsApp com DDD** — de forma natural: "Ótimo, [nome]! Me passa seu WhatsApp com DDD para eu já te deixar no nosso sistema enquanto a gente conversa?" Não espere o final da conversa para coletar isso. Se o cliente sumir depois do nome, ao menos o WhatsApp já foi salvo.
    c. Após WhatsApp, inclua o [LEAD:...] inicial (super frio) e **continue a conversa** perguntando sobre a ideia: "Agora me conta — você já sabe qual arte deseja eternizar na sua pele, ou ainda está construindo isso?"
    d. Continue coletando os dados restantes naturalmente ao longo da conversa.
    e. Quando o momento for natural, pergunte diretamente: "Me responda uma coisa — você já está pronto para tatuar ou quer marcar uma consulta com [profissional responsável]?" NUNCA ofereça a saída "quando você estiver no seu tempo" — isso abre brecha para o lead esfriar. Direcione sempre para uma ação concreta.
@@ -98,9 +99,9 @@ Se o cliente disser que errou o WhatsApp ou e-mail, pergunte o correto imediatam
 Sempre que coletar o WhatsApp de alguém que disse ser novo, use \`verificar_cliente_existente\` silenciosamente para checar duplicidade.
 
 **Se o número JÁ existir e a pessoa disse ser nova:**
-- Informe com delicadeza: "Encontrei um registro interno associado a esse número. Por questões de privacidade, não posso dizer a quem pertence — mas não consigo usá-lo para um novo cadastro assim."
-- Ofereça alternativa: "Você teria outro número? Ou prefere que nossa equipe entre em contato de outra forma?"
-- Se perguntar de quem são os dados: "Não tenho autorização para compartilhar informações internas. O que posso dizer é que esse número já está em nosso sistema."
+- O sistema verifica automaticamente se nome e e-mail também batem com o cadastro existente.
+- Se nome e e-mail **batem**: é o mesmo cliente — reconheça e siga como cliente existente.
+- Se nome ou e-mail **divergem**: o sistema cria um cadastro novo automaticamente, sem tocar no registro existente. Não mencione isso para o cliente — siga a conversa normalmente.
 - Se não tiver outro número e insistir: registre mesmo assim com obs "ATENÇÃO: número já cadastrado — verificar duplicidade." Inclua [LEAD:...] normalmente.
 - **REGRA ABSOLUTA: Nunca encerre sem salvar o lead de alguma forma.**
 
@@ -402,19 +403,32 @@ async function solicitarAgendamento(input) {
       }
     }
 
-    // Para clientes novos: verifica por telefone antes de criar (evita duplicatas com lead.js)
+    // Para clientes novos: verifica por telefone + nome + email antes de associar
+    function normalizarNome(str) {
+      return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+    }
+
     let finalClienteId = cliente_id || null;
     if (!finalClienteId && cliente_tel) {
       const telDigits = (cliente_tel || "").replace(/[^0-9]/g, "").slice(-11);
-      const { data: existentes } = await supabase.from("clientes").select("id,tel").eq("user_id", STUDIO_USER_ID);
-      const matchExistente = (existentes || []).find(c => (c.tel || "").replace(/[^0-9]/g, "").slice(-11) === telDigits);
-      if (matchExistente) {
-        finalClienteId = matchExistente.id;
-        const upd = { etapa: (tipo === "consulta") ? "lead_morno" : "aura_agend" };
-        if (descricao) upd.descricao = descricao;
-        if (artistaId) upd.artista = artistaId;
-        if (nascimentoISO) upd.nascimento = nascimentoISO;
-        await supabase.from("clientes").update(upd).eq("id", finalClienteId);
+      const { data: existentes } = await supabase.from("clientes").select("id,tel,nome,email").eq("user_id", STUDIO_USER_ID);
+      const matchTel = (existentes || []).find(c => (c.tel || "").replace(/[^0-9]/g, "").slice(-11) === telDigits);
+      if (matchTel) {
+        const nomeNovo = normalizarNome(cliente_nome);
+        const nomeExistente = normalizarNome(matchTel.nome);
+        const emailNovo = (cliente_email || "").toLowerCase().trim();
+        const emailExistente = (matchTel.email || "").toLowerCase().trim();
+        const nomesBatem = nomeNovo && nomeExistente && nomeNovo === nomeExistente;
+        const emailsBatem = !emailNovo || !emailExistente || emailNovo === emailExistente;
+        if (nomesBatem && emailsBatem) {
+          finalClienteId = matchTel.id;
+          const upd = { etapa: (tipo === "consulta") ? "lead_morno" : "aura_agend", excluido_em: null };
+          if (descricao) upd.descricao = descricao;
+          if (artistaId) upd.artista = artistaId;
+          if (nascimentoISO) upd.nascimento = nascimentoISO;
+          await supabase.from("clientes").update(upd).eq("id", finalClienteId);
+        }
+        // Se nome ou email divergem: ignora o registro existente e cria novo
       }
     }
     if (!finalClienteId) {

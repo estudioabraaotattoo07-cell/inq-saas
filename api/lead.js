@@ -61,31 +61,40 @@ export default async function handler(req, res) {
 
   row.user_id = "2d366d35-1cae-40d5-ba92-06fe2ab8a763";
 
-  // Upsert: se o telefone já existe, atualiza em vez de inserir
+  // Identificação de cliente existente: telefone + nome (tolerante) + email
+  function normalizarNome(str) {
+    return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+  }
+
   let clienteId = null;
   let isNewClient = true;
   if (tel) {
     const telDigits = tel.replace(/[^0-9]/g, "").slice(-11);
-    const { data: existentes } = await sb.from("clientes").select("id,tel").eq("user_id", row.user_id);
-    const match = (existentes || []).find(c => (c.tel || "").replace(/[^0-9]/g, "").slice(-11) === telDigits);
-    if (match) {
-      const updateRow = { ...row };
-      delete updateRow.user_id; delete updateRow.etapa; delete updateRow.orig;
-      // Só atualiza campos que vieram preenchidos
-      const updateFields = {};
-      if (nome) updateFields.nome = updateRow.nome;
-      if (email) updateFields.email = updateRow.email;
-      if (insta) updateFields.insta = updateRow.insta;
-      if (ideaFinal) updateFields.descricao = ideaFinal;
-      if (nascimentoISO) updateFields.nascimento = nascimentoISO;
-      if (artista) updateFields.artista = updateRow.artista;
-      if (regiao) updateFields.regiao = updateRow.regiao;
-      if (obsExtra) updateFields.obs = updateRow.obs;
-      if (Object.keys(updateFields).length > 0) {
-        await sb.from("clientes").update(updateFields).eq("id", match.id);
+    const { data: existentes } = await sb.from("clientes").select("id,tel,nome,email").eq("user_id", row.user_id);
+    const matchTel = (existentes || []).find(c => (c.tel || "").replace(/[^0-9]/g, "").slice(-11) === telDigits);
+    if (matchTel) {
+      const nomeNovo = normalizarNome(nome);
+      const nomeExistente = normalizarNome(matchTel.nome);
+      const emailNovo = (email || "").toLowerCase().trim();
+      const emailExistente = (matchTel.email || "").toLowerCase().trim();
+      const nomesBatem = nomeNovo && nomeExistente && nomeNovo === nomeExistente;
+      const emailsBatem = !emailNovo || !emailExistente || emailNovo === emailExistente;
+      if (nomesBatem && emailsBatem) {
+        // Mesmo cliente confirmado — atualiza só campos preenchidos e limpa lixeira se necessário
+        const updateFields = { excluido_em: null };
+        if (nome) updateFields.nome = nome;
+        if (email) updateFields.email = email;
+        if (insta) updateFields.insta = insta;
+        if (ideaFinal) updateFields.descricao = ideaFinal;
+        if (nascimentoISO) updateFields.nascimento = nascimentoISO;
+        if (artista) updateFields.artista = artista;
+        if (regiao) updateFields.regiao = regiao;
+        if (obsExtra) updateFields.obs = `Lead captado via Aura Chat no site. ${obsExtra}`;
+        await sb.from("clientes").update(updateFields).eq("id", matchTel.id);
+        clienteId = matchTel.id;
+        isNewClient = false;
       }
-      clienteId = match.id;
-      isNewClient = false;
+      // Se nome ou email divergem: ignora o registro existente e cria novo
     }
   }
 
