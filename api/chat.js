@@ -77,7 +77,7 @@ A primeira coisa a descobrir é se a pessoa já é cliente. Siga esta ordem:
    a. Peça o WhatsApp com DDD: "Deixa eu confirmar — pode me passar seu WhatsApp com DDD?"
    b. Use \`verificar_cliente_existente\` com esse telefone.
    c. Se encontrado: cumprimente pelo nome retornado. Pergunte o que precisa hoje. NÃO peça o nome de novo.
-   d. Se NÃO encontrado: diga que ainda não encontrou o cadastro, peça o nome e siga como cliente novo — sem pedir WhatsApp de novo.
+   d. Se NÃO encontrado: diga que ainda não encontrou o cadastro, peça o nome e siga EXATAMENTE como cliente novo — sem pedir WhatsApp de novo. REGRA ABSOLUTA: se verificar_cliente_existente retornou "nao encontrado", o cliente e tratado como novo para todos os efeitos — isso inclui emitir [LEAD:...] obrigatoriamente assim que tiver o nome, e seguir o Fluxo B completo de coleta de dados. Nunca pule o [LEAD:...] porque o cliente disse que ja e cliente — o que importa e o que o sistema retornou.
 
 3. Se é a PRIMEIRA VEZ: siga esta ordem obrigatória:
    a. Antes de qualquer pergunta, avise com naturalidade: "Para fazer sua solicitação, vou precisar coletar alguns dados importantes para que nossa equipe entre em contato com você." Só então comece a perguntar.
@@ -365,7 +365,7 @@ async function notificarSolicitacaoAgendamento(nome, telefone, resumo) {
       body: JSON.stringify({
         from: "estudio.abraao.tattoo",
         to: "5527996929665",
-        contents: [{ type: "text", text: "✦ Cliente já cadastrado quer agendar: " + nome + " | " + telefone + " | " + resumo }]
+        contents: [{ type: "text", text: "CLIENTE JA CADASTRADO QUER AGENDAR: " + nome + " | " + telefone + " | " + resumo }]
       })
     });
     return { enviado: true };
@@ -564,7 +564,7 @@ async function solicitarAgendamento(input) {
     if (zenviaKey) {
       const smsTo = telArtista || (artista && artista.toLowerCase().includes("camilla") ? "5527996941787" : "5527996929665");
       const smsText = [
-        "✦ " + tipoLabel,
+        tipoLabel.toUpperCase(),
         cliente_nome,
         dataFmt + (hora_solicitada ? " " + hora_solicitada : ""),
         "WA: " + ((cliente_tel || "").replace(/\D/g, "").slice(-11) || "—"),
