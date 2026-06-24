@@ -303,7 +303,7 @@ const TOOLS = [
         cliente_insta: { type: "string", description: "Instagram do cliente sem @, se informado" },
         cliente_nascimento: { type: "string", description: "Data de aniversário do cliente no formato DD/MM/AAAA, se informada" },
         artista: { type: "string", description: "Nome do artista: Abraão ou Camilla" },
-        tipo: { type: "string", enum: ["consulta", "sessao"], description: "Tipo: consulta (~1h30-2h, somente Abraão) ou sessao (a tatuagem em si, ~3h)" },
+        tipo: { type: "string", enum: ["consulta", "sessao"], description: "REGRA: use 'sessao' se o cliente disse qualquer variação de 'quero tatuar', 'tatuar logo', 'quero fazer a tatuagem', 'já quero tatuar', ou se o artista for Camilla (ela não faz consulta — sempre sessao). Use 'consulta' apenas se o cliente pediu explicitamente uma conversa antes de tatuar E o artista for Abraão." },
         data_solicitada: { type: "string", description: "Data preferida no formato YYYY-MM-DD" },
         hora_solicitada: { type: "string", description: "Horário preferido no formato HH:MM" },
         projeto: { type: "string", description: "Descrição detalhada do projeto/tatuagem desejada" },
