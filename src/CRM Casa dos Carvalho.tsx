@@ -7891,7 +7891,21 @@ export default function CRM() {
                     };
                     const titulo = titulos[docId] || "Documento";
                     const campoAssin = docId === "anamnese" ? "anamnese_assinatura" : docId === "contrato" ? "contrato_assinatura" : "menor_assinatura";
-                    const assinImg = (sc as any)[campoAssin];
+                    const assinBase64 = (sc as any)[campoAssin] || "";
+
+                    // upload da assinatura para Storage para URL publica no email (base64 e bloqueado por clientes de email)
+                    let assinImg = "";
+                    if (assinBase64.startsWith("data:")) {
+                      try {
+                        const b64 = assinBase64.split(",")[1];
+                        const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+                        const fname = `assin-${sc.id}-${docId}.png`;
+                        await sb.storage.from("referencias").upload(fname, bytes, { contentType: "image/png", upsert: true });
+                        const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
+                        assinImg = pub.publicUrl;
+                      } catch { assinImg = ""; }
+                    }
+
                     const projetos = (sc as any).projetos || [];
                     const ultimoProjeto = projetos[projetos.length - 1];
                     const descProjeto = ultimoProjeto ? `<p><strong>Projeto:</strong> ${ultimoProjeto.estilo || ""} — ${ultimoProjeto.tam || ""} — ${ultimoProjeto.servico || ""}</p>` : "";
