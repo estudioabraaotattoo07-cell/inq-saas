@@ -7718,12 +7718,23 @@ export default function CRM() {
                                 await salvarOrdemEtapas(reordenada);
                               }}
                               onDragEnd={() => setJornadaDragIdx(null)}
-                              onTouchStart={e => { setJornadaDragIdx(idx); (e.currentTarget as any)._touchY = e.touches[0].clientY; }}
+                              onTouchStart={e => {
+                                const el = e.currentTarget as any;
+                                el._touchY = e.touches[0].clientY;
+                                el._touchActive = false;
+                                el._longPressTimer = setTimeout(() => {
+                                  el._touchActive = true;
+                                  setJornadaDragIdx(idx);
+                                }, 1000);
+                              }}
                               onTouchMove={e => {
+                                const el = e.currentTarget as any;
+                                if (!el._touchActive) { clearTimeout(el._longPressTimer); return; }
+                                e.preventDefault();
                                 const touchY = e.touches[0].clientY;
-                                const startY = (e.currentTarget as any)._touchY;
+                                const startY = el._touchY;
                                 const diff = touchY - startY;
-                                if (Math.abs(diff) < 20) return;
+                                if (Math.abs(diff) < 28) return;
                                 const targetIdx = diff > 0 ? Math.min(idx + 1, jornadaEtapas.length - 1) : Math.max(idx - 1, 0);
                                 if (targetIdx === idx) return;
                                 const nova = [...jornadaEtapas];
@@ -7732,13 +7743,17 @@ export default function CRM() {
                                 const reordenada = nova.map((e, i) => ({ ...e, ordem: i + 1 }));
                                 setJornadaEtapas(reordenada);
                                 setJornadaDragIdx(targetIdx);
-                                (e.currentTarget as any)._touchY = touchY;
+                                el._touchY = touchY;
                               }}
-                              onTouchEnd={async () => {
+                              onTouchEnd={async e => {
+                                const el = e.currentTarget as any;
+                                clearTimeout(el._longPressTimer);
+                                if (!el._touchActive) { setJornadaDragIdx(null); return; }
+                                el._touchActive = false;
                                 await salvarOrdemEtapas(jornadaEtapas);
                                 setJornadaDragIdx(null);
                               }}
-                              style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--dk3)", border: `1px solid ${jornadaDragIdx === idx ? "var(--gold)" : "var(--br)"}`, borderRadius: 8, padding: "9px 10px", cursor: "grab", opacity: jornadaDragIdx === idx ? 0.5 : 1, touchAction: "none" }}>
+                              style={{ display: "flex", alignItems: "center", gap: 8, background: jornadaDragIdx === idx ? "var(--dk4)" : "var(--dk3)", border: `1px solid ${jornadaDragIdx === idx ? "var(--gold)" : "var(--br)"}`, borderRadius: 8, padding: "9px 10px", cursor: "grab", opacity: jornadaDragIdx === idx ? 0.6 : 1, touchAction: "pan-y" }}>
                               {/* drag handle */}
                               <span style={{ color: "var(--tx3)", fontSize: 14, cursor: "grab", userSelect: "none" }}>⠿</span>
                               {/* status dot clicável */}
