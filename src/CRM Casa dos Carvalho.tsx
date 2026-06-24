@@ -7875,16 +7875,83 @@ export default function CRM() {
                     w.print();
                   };
 
-                  const enviarWhatsApp = (docId: string) => {
-                    const tel = sc.tel?.replace(/\D/g, "");
-                    if (!tel) return;
-                    const msgs: Record<string,string> = {
-                      anamnese: `Ola ${sc.nome}, tudo bem? Antes da sua sessao precisamos que voce preencha a ficha de anamnese. Responda as perguntas diretamente com o artista no dia ou acesse pelo link abaixo.`,
-                      contrato: `Ola ${sc.nome}! Segue o contrato de execucao do seu projeto. Por favor revise e assine antes da sessao.`,
-                      menor: `Ola! Seguimos com a autorizacao de responsavel para o procedimento. Por favor traga assinado no dia da sessao.`,
+                  const enviarEmail = async (docId: string) => {
+                    if (!resendApiKey || !emailRemetente) {
+                      alert("Configure a Resend API Key e o Email Remetente nas Configuracoes do estudio.");
+                      return;
+                    }
+                    if (!sc.email) {
+                      alert("Este cliente nao tem email cadastrado.");
+                      return;
+                    }
+                    const titulos: Record<string,string> = {
+                      anamnese: "Ficha de Anamnese",
+                      contrato: "Contrato de Execucao de Projeto Artistico",
+                      menor: "Autorizacao de Responsavel Legal",
                     };
-                    window.open(`https://wa.me/55${tel}?text=${encodeURIComponent(msgs[docId] || "")}`, "_blank");
-                    salvarDocsStatus(docId, "enviado");
+                    const titulo = titulos[docId] || "Documento";
+                    const campoAssin = docId === "anamnese" ? "anamnese_assinatura" : docId === "contrato" ? "contrato_assinatura" : "menor_assinatura";
+                    const assinImg = (sc as any)[campoAssin];
+                    const projetos = (sc as any).projetos || [];
+                    const ultimoProjeto = projetos[projetos.length - 1];
+                    const descProjeto = ultimoProjeto ? `<p><strong>Projeto:</strong> ${ultimoProjeto.estilo || ""} — ${ultimoProjeto.tam || ""} — ${ultimoProjeto.servico || ""}</p>` : "";
+
+                    const htmlEmail = `
+                      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;">
+                        <div style="background:#1a1a1a;padding:24px 32px;text-align:center;">
+                          <span style="color:#c9a84c;font-size:22px;font-weight:700;letter-spacing:.05em;">${studioName || "A Casa dos Carvalho"}</span>
+                        </div>
+                        <div style="padding:32px;">
+                          <p style="font-size:15px;">Ola, <strong>${sc.nome}</strong>! Tudo bem?</p>
+                          <p>Em anexo esta o seu <strong>${titulo}</strong>. Por favor leia com atencao antes da sua sessao.</p>
+                          ${descProjeto}
+                          <hr style="margin:24px 0;border:none;border-top:1px solid #eee;"/>
+                          ${docId === "anamnese" ? `
+                            <h3 style="font-size:14px;margin-bottom:12px;">Suas respostas da Anamnese</h3>
+                            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                              ${pergAnamnese.map(p => `<tr style="border-bottom:1px solid #f0f0f0;">
+                                <td style="padding:7px 4px;">${p.label}</td>
+                                <td style="padding:7px 4px;font-weight:600;color:${anamnese[p.id]?.resp === "sim" ? "#c0392b" : "#27ae60"};">${anamnese[p.id]?.resp === "sim" ? "Sim" : anamnese[p.id]?.resp === "nao" ? "Nao" : "—"}${anamnese[p.id]?.detalhe ? ` (${anamnese[p.id].detalhe})` : ""}</td>
+                              </tr>`).join("")}
+                            </table>
+                          ` : ""}
+                          ${docId === "contrato" ? `<p style="font-size:12px;color:#555;line-height:1.8;">Contrato de execucao de projeto artistico conforme termos apresentados e aceitos no estudio.</p>` : ""}
+                          ${assinImg ? `
+                            <div style="margin-top:20px;">
+                              <p style="font-size:12px;color:#888;">Assinatura eletronica coletada — Lei 14.063/2020</p>
+                              <img src="${assinImg}" alt="Assinatura" style="max-width:240px;border:1px solid #ddd;border-radius:4px;padding:6px;background:#fff;"/>
+                            </div>
+                          ` : `<p style="color:#e67e22;font-size:12px;">Documento ainda nao assinado.</p>`}
+                          <hr style="margin:24px 0;border:none;border-top:1px solid #eee;"/>
+                          <p style="font-size:13px;color:#555;">Qualquer duvida estamos a disposicao. Com carinho,</p>
+                          <p style="font-size:14px;font-weight:700;color:#1a1a1a;">${studioName || "A Casa dos Carvalho"}</p>
+                        </div>
+                        <div style="background:#f7f7f7;padding:12px 32px;font-size:11px;color:#aaa;text-align:center;">
+                          Este e um documento oficial do estudio. Guarde para seus registros.
+                        </div>
+                      </div>`;
+
+                    try {
+                      const r = await fetch("/api/resend", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          apiKey: resendApiKey,
+                          from: `${nomeRemetente || studioName || "A Casa dos Carvalho"} <${emailRemetente}>`,
+                          to: sc.email,
+                          subject: `${titulo} — ${studioName || "A Casa dos Carvalho"}`,
+                          html: htmlEmail,
+                        }),
+                      });
+                      if (r.ok) {
+                        await salvarDocsStatus(docId, "enviado");
+                        alert(`Email enviado para ${sc.email}`);
+                      } else {
+                        alert("Erro ao enviar email. Verifique as configuracoes do Resend.");
+                      }
+                    } catch {
+                      alert("Erro de conexao ao enviar email.");
+                    }
                   };
 
                   const docs = [
@@ -8088,8 +8155,12 @@ export default function CRM() {
                                     style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>
                                     Imprimir / PDF
                                   </button>
-                                  <button onClick={() => enviarWhatsApp(doc.id)}
-                                    style={{ background: "rgba(37,211,102,.12)", border: "1px solid rgba(37,211,102,.3)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "#25d366", cursor: "pointer", fontWeight: 600 }}>
+                                  <button onClick={() => enviarEmail(doc.id)}
+                                    style={{ background: "rgba(201,168,76,.12)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "var(--gold)", cursor: "pointer", fontWeight: 600 }}>
+                                    Enviar por Email
+                                  </button>
+                                  <button disabled title="WhatsApp sera habilitado nas Configuracoes do estudio"
+                                    style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "var(--tx3)", cursor: "not-allowed", opacity: 0.45 }}>
                                     Enviar WhatsApp
                                   </button>
                                   {st !== "assinado" && (
