@@ -267,7 +267,7 @@ const TOOLS = [
       type: "object",
       properties: {
         cliente_id: { type: "string", description: "ID do cliente retornado por verificar_cliente_existente" },
-        orcamento: { type: "string", description: "Valor que o cliente pretende investir, se informado" },
+        orcamento: { type: "string", description: "OBRIGATORIO: valor que o cliente pretende investir. Se o cliente mencionou qualquer valor em qualquer momento da conversa (ex: 'tenho 700', 'uns 500 reais', 'posso gastar ate 1000'), extraia o numero e preencha aqui. Nunca deixe vazio se o valor foi mencionado." },
         obs: { type: "string", description: "Observação ou informação relevante adicional fornecida pelo cliente" },
         insta: { type: "string", description: "Instagram do cliente sem @, se informado" },
         nascimento: { type: "string", description: "Data de nascimento no formato YYYY-MM-DD, se informada" },
