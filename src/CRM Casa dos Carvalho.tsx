@@ -1236,6 +1236,7 @@ export default function CRM() {
   const [docsDesenhandoMae, setDocsDesenhandoMae] = useState(false);
   const [docsGerandoPdf, setDocsGerandoPdf] = useState(false);
   const [docsEnviandoLink, setDocsEnviandoLink] = useState<string|null>(null);
+  const [menorSalvarConfirm, setMenorSalvarConfirm] = useState(false);
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [editandoListas, setEditandoListas] = useState(false);
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
@@ -8231,14 +8232,26 @@ export default function CRM() {
                                   const mae: Record<string,string> = (sc as any).menor_responsavel_mae || {};
                                   const maskCpf = (v: string) => { const r = v.replace(/\D/g,"").slice(0,11); return r.length<=3?r:r.length<=6?r.slice(0,3)+"."+r.slice(3):r.length<=9?r.slice(0,3)+"."+r.slice(3,6)+"."+r.slice(6):r.slice(0,3)+"."+r.slice(3,6)+"."+r.slice(6,9)+"-"+r.slice(9); };
                                   const maskTel = (v: string) => { const r = v.replace(/\D/g,"").slice(0,11); if(r.length<=2) return "("+r; if(r.length<=7) return "("+r.slice(0,2)+") "+r.slice(2); return "("+r.slice(0,2)+") "+r.slice(2,7)+"-"+r.slice(7); };
-                                  const salvarPai = async (campo: string, valor: string) => { const novo = {...pai,[campo]:valor}; await sb.from("clientes").update({menor_responsavel:novo}).eq("id",sc.id); upCFicha(sc.id,"menor_responsavel",novo); setFichaEditada(false); };
-                                  const salvarMae = async (campo: string, valor: string) => { const novo = {...mae,[campo]:valor}; await sb.from("clientes").update({menor_responsavel_mae:novo}).eq("id",sc.id); upCFicha(sc.id,"menor_responsavel_mae",novo); setFichaEditada(false); };
+                                  const salvarPai = (campo: string, valor: string) => { const novo = {...pai,[campo]:valor}; upCFicha(sc.id,"menor_responsavel",novo); };
+                                  const salvarMae = (campo: string, valor: string) => { const novo = {...mae,[campo]:valor}; upCFicha(sc.id,"menor_responsavel_mae",novo); };
+                                  const confirmarSalvarResp = async () => {
+                                    const paiAtual: Record<string,string> = (sc as any).menor_responsavel || {};
+                                    const maeAtual: Record<string,string> = (sc as any).menor_responsavel_mae || {};
+                                    await sb.from("clientes").update({ menor_responsavel: paiAtual, menor_responsavel_mae: maeAtual }).eq("id", sc.id);
+                                    setFichaEditada(false);
+                                    setMenorSalvarConfirm(false);
+                                  };
                                   const uploadFotoDoc = async (pessoa: "pai"|"mae", file: File) => {
                                     const fname = `doc-${sc.id}-${pessoa}-${Date.now()}.${file.name.split(".").pop()}`;
                                     await sb.storage.from("referencias").upload(fname, file, { contentType: file.type, upsert: true });
                                     const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
-                                    if (pessoa === "pai") await salvarPai("foto_doc", pub.publicUrl);
-                                    else await salvarMae("foto_doc", pub.publicUrl);
+                                    salvarPai("foto_doc", pub.publicUrl);
+                                  };
+                                  const uploadFotoDocMae = async (file: File) => {
+                                    const fname = `doc-${sc.id}-mae-${Date.now()}.${file.name.split(".").pop()}`;
+                                    await sb.storage.from("referencias").upload(fname, file, { contentType: file.type, upsert: true });
+                                    const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
+                                    salvarMae("foto_doc", pub.publicUrl);
                                   };
                                   const campoAssinPai = "menor_assinatura";
                                   const campoAssinMae = "menor_assinatura_mae";
@@ -8378,11 +8391,36 @@ export default function CRM() {
                                           ) : (
                                             <label style={{ display: "block", marginTop: 4, background: "var(--dk4)", border: "1px dashed var(--br)", borderRadius: 6, padding: "10px", textAlign: "center", fontSize: 11, color: "var(--tx3)", cursor: "pointer" }}>
                                               + Anexar foto do documento
-                                              <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f=e.target.files?.[0]; if(f) uploadFotoDoc("mae",f); }} />
+                                              <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f=e.target.files?.[0]; if(f) uploadFotoDocMae(f); }} />
                                             </label>
                                           )}
                                         </div>
                                       </div>
+                                      {/* botao salvar responsaveis */}
+                                      {fichaEditada && !menorSalvarConfirm && (
+                                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                                          <button onClick={() => setMenorSalvarConfirm(true)}
+                                            style={{ background: "var(--gold)", border: "none", borderRadius: 6, padding: "7px 16px", fontSize: 12, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>
+                                            Salvar dados dos responsaveis
+                                          </button>
+                                        </div>
+                                      )}
+                                      {menorSalvarConfirm && (
+                                        <div style={{ background: "rgba(201,168,76,.08)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                                          <div style={{ fontSize: 12, color: "var(--tx)", fontWeight: 600 }}>Confirmar salvamento dos dados?</div>
+                                          <div style={{ fontSize: 11, color: "var(--tx3)" }}>Os dados preenchidos acima serao salvos permanentemente na ficha.</div>
+                                          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                                            <button onClick={() => setMenorSalvarConfirm(false)}
+                                              style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>
+                                              Cancelar
+                                            </button>
+                                            <button onClick={confirmarSalvarResp}
+                                              style={{ background: "var(--gold)", border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 11, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>
+                                              Salvar
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
                                       {/* assinaturas */}
                                       <div style={{ borderTop: "1px solid var(--br)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 12 }}>
                                         <div style={{ fontSize: 11, color: "var(--tx2)", fontWeight: 600 }}>Assinaturas — Lei 14.063/2020</div>

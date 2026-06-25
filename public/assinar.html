@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Assinar Documento</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;padding:20px 14px 60px}
@@ -69,6 +70,7 @@
 <script>
 const SUPA_URL = "https://zkzsykmnhrkwmvgekshh.supabase.co";
 const SUPA_KEY = "sb_publishable_YxW3K62M-aYXetcPxBqwtA_JUFMSaG4";
+const supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 
 const PERGUNTAS = [
   {id:"alergia",label:"Tem alguma alergia?",det:true},
@@ -252,13 +254,11 @@ window.limpar=function(){if(!cvs)return;ctx.clearRect(0,0,cvs.width,cvs.height);
 
 async function uploadArquivo(blob, fname, contentType){
   try{
-    const r=await fetch(`${SUPA_URL}/storage/v1/object/referencias/${fname}`,{
-      method:"POST",
-      headers:{"Authorization":`Bearer ${SUPA_KEY}`,"apikey":SUPA_KEY,"Content-Type":contentType,"x-upsert":"true"},
-      body:blob
-    });
-    if(r.ok) return `${SUPA_URL}/storage/v1/object/public/referencias/${fname}`;
-  }catch{}
+    const {error}=await supa.storage.from("referencias").upload(fname, blob, {contentType, upsert:true});
+    if(error) throw error;
+    const {data}=supa.storage.from("referencias").getPublicUrl(fname);
+    return data.publicUrl;
+  }catch(e){console.error("Upload erro:",e);}
   return null;
 }
 
