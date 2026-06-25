@@ -39,6 +39,7 @@
     .err p{color:#e74c3c;font-size:14px}
     .footer{font-size:11px;color:#333;text-align:center;margin-top:20px}
     textarea.q-det{min-height:70px}
+    @media(max-width:600px){input.q-det,textarea.q-det{font-size:16px !important}}
     .parentesco-opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
     .p-btn{padding:7px 14px;border:1px solid #333;border-radius:6px;background:#1a1a1a;color:#888;font-size:12px;cursor:pointer;flex:none}
     .p-btn.sel{background:rgba(201,168,76,.2);border-color:#c9a84c;color:#c9a84c;font-weight:700}
@@ -253,7 +254,7 @@ async function uploadArquivo(blob, fname, contentType){
   try{
     const r=await fetch(`${SUPA_URL}/storage/v1/object/referencias/${fname}`,{
       method:"POST",
-      headers:{"Authorization":`Bearer ${SUPA_KEY}`,"Content-Type":contentType,"x-upsert":"true"},
+      headers:{"Authorization":`Bearer ${SUPA_KEY}`,"apikey":SUPA_KEY,"Content-Type":contentType,"x-upsert":"true"},
       body:blob
     });
     if(r.ok) return `${SUPA_URL}/storage/v1/object/public/referencias/${fname}`;

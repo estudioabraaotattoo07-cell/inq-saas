@@ -8076,7 +8076,7 @@ export default function CRM() {
                       const linksAtuais: Record<string,any> = (sc as any).assinar_link || {};
                       const novosLinks = { ...linksAtuais, [docId]: { token, exp } };
                       await sb.from("clientes").update({ assinar_link: novosLinks }).eq("id", sc.id);
-                      upCFicha(sc.id, "assinar_link", novosLinks);
+                      setClients(p => p.map(c => c.id !== sc.id ? c : { ...c, assinar_link: novosLinks }));
 
                       const studioNomeFormatado = (studioName || "A Casa dos Carvalho").replace(/_/g, " ");
                       const titulos: Record<string,string> = {
