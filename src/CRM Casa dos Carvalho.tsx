@@ -1235,6 +1235,7 @@ export default function CRM() {
   const [docsDesenhandoPai, setDocsDesenhandoPai] = useState(false);
   const [docsDesenhandoMae, setDocsDesenhandoMae] = useState(false);
   const [docsGerandoPdf, setDocsGerandoPdf] = useState(false);
+  const [docsEnviandoLink, setDocsEnviandoLink] = useState<string|null>(null);
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [editandoListas, setEditandoListas] = useState(false);
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
@@ -8050,6 +8051,78 @@ export default function CRM() {
                     }
                   };
 
+                  const enviarParaAssinar = async (docId: string) => {
+                    if (!resendApiKey || !emailRemetente) {
+                      alert("Configure a Resend API Key e o Email Remetente nas Configuracoes do estudio.");
+                      return;
+                    }
+                    if (!sc.email) {
+                      alert("Este cliente nao tem email cadastrado.");
+                      return;
+                    }
+                    setDocsEnviandoLink(docId);
+                    try {
+                      const token = crypto.randomUUID();
+                      const exp = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+                      const linksAtuais: Record<string,any> = (sc as any).assinar_link || {};
+                      const novosLinks = { ...linksAtuais, [docId]: { token, exp } };
+                      await sb.from("clientes").update({ assinar_link: novosLinks }).eq("id", sc.id);
+                      upCFicha(sc.id, "assinar_link", novosLinks);
+
+                      const studioNomeFormatado = (studioName || "A Casa dos Carvalho").replace(/_/g, " ");
+                      const titulos: Record<string,string> = {
+                        anamnese: "Ficha de Anamnese",
+                        contrato: "Contrato de Execucao de Projeto Artistico",
+                        menor: "Autorizacao de Responsavel Legal",
+                      };
+                      const titulo = titulos[docId] || "Documento";
+                      const link = `https://inq-saas.vercel.app/assinar.html?token=${token}`;
+                      const fn = (sc.nome || "").split(" ")[0];
+
+                      const htmlEmail = `
+                        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;">
+                          <div style="background:#1a1a1a;padding:24px 32px;text-align:center;">
+                            <span style="color:#c9a84c;font-size:22px;font-weight:700;letter-spacing:.05em;">${studioNomeFormatado}</span>
+                          </div>
+                          <div style="padding:32px;">
+                            <p style="font-size:15px;">Ola, <strong>${fn}</strong>!</p>
+                            <p style="line-height:1.8;margin-top:10px;">Preparamos o seu <strong>${titulo}</strong> para assinatura digital. Por favor, acesse o link abaixo, leia o documento com atencao e assine.</p>
+                            <p style="line-height:1.8;color:#888;font-size:12px;margin-top:8px;">O link e valido por 7 dias.</p>
+                            <div style="text-align:center;margin:28px 0;">
+                              <a href="${link}" style="display:inline-block;background:#c9a84c;color:#111;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:bold;">Assinar documento</a>
+                            </div>
+                            <p style="font-size:12px;color:#999;line-height:1.8;">Caso o botao nao funcione, copie e cole este link no seu navegador:<br><span style="color:#c9a84c;">${link}</span></p>
+                            <hr style="margin:24px 0;border:none;border-top:1px solid #eee;"/>
+                            <p style="font-size:13px;color:#555;">Qualquer duvida estamos a disposicao.</p>
+                            <p style="font-size:14px;font-weight:700;color:#1a1a1a;">${studioNomeFormatado}</p>
+                          </div>
+                          <div style="background:#f7f7f7;padding:12px 32px;font-size:11px;color:#aaa;text-align:center;">
+                            Assinatura eletronica com validade legal — Lei 14.063/2020
+                          </div>
+                        </div>`;
+
+                      const r = await fetch("/api/resend", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          apiKey: resendApiKey,
+                          from: `${nomeRemetente || studioNomeFormatado} <${emailRemetente}>`,
+                          to: sc.email,
+                          subject: `Assine seu ${titulo} — ${studioNomeFormatado}`,
+                          html: htmlEmail,
+                        }),
+                      });
+                      if (r.ok) {
+                        alert(`Link de assinatura enviado para ${sc.email}. Valido por 7 dias.`);
+                      } else {
+                        alert("Erro ao enviar email. Verifique as configuracoes do Resend.");
+                      }
+                    } catch {
+                      alert("Erro ao gerar link de assinatura.");
+                    }
+                    setDocsEnviandoLink(null);
+                  };
+
                   const docs = [
                     { id: "anamnese", titulo: "Ficha de Anamnese", subtitulo: "Questionario de saude pre-tatuagem" },
                     { id: "contrato", titulo: "Contrato de Execucao", subtitulo: "Termos e condicoes do projeto artistico" },
@@ -8358,6 +8431,10 @@ export default function CRM() {
                                   <button onClick={() => enviarEmail(doc.id)}
                                     style={{ background: "rgba(201,168,76,.12)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "var(--gold)", cursor: "pointer", fontWeight: 600 }}>
                                     Enviar por Email
+                                  </button>
+                                  <button onClick={() => enviarParaAssinar(doc.id)} disabled={docsEnviandoLink === doc.id}
+                                    style={{ background: "rgba(100,149,237,.12)", border: "1px solid rgba(100,149,237,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "#6495ed", cursor: "pointer", fontWeight: 600, opacity: docsEnviandoLink === doc.id ? 0.6 : 1 }}>
+                                    {docsEnviandoLink === doc.id ? "Enviando..." : "Enviar para Assinar (Remoto)"}
                                   </button>
                                   <button disabled title="WhatsApp sera habilitado nas Configuracoes do estudio"
                                     style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "var(--tx3)", cursor: "not-allowed", opacity: 0.45 }}>

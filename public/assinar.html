@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Assinar Documento</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;padding:20px 14px 60px}
+    .logo{font-size:11px;letter-spacing:3px;color:#c9a84c;text-transform:uppercase;margin-bottom:20px;text-align:center}
+    .card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:20px;max-width:600px;margin:0 auto}
+    h1{font-size:19px;font-weight:normal;margin-bottom:6px;color:#f0ede8}
+    h2{font-size:12px;color:#c9a84c;margin:18px 0 8px;letter-spacing:1.5px;text-transform:uppercase}
+    .meta{font-size:13px;color:#888;margin-bottom:16px;line-height:1.7}
+    .alerta{background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:10px 14px;font-size:12px;color:#c9a84c;margin-bottom:14px;line-height:1.6}
+    .question{margin-bottom:10px;background:#111;border:1px solid #2a2a2a;border-radius:8px;padding:11px 13px}
+    .question label{font-size:13px;color:#ddd;display:block;margin-bottom:7px;line-height:1.5}
+    .q-opts{display:flex;gap:7px}
+    .q-btn{flex:1;padding:8px;border:1px solid #333;border-radius:6px;background:#1a1a1a;color:#888;font-size:12px;cursor:pointer;text-align:center;transition:all .15s}
+    .q-btn.sim{background:rgba(192,57,43,.2);border-color:#c0392b;color:#e74c3c;font-weight:700}
+    .q-btn.nao{background:rgba(39,174,96,.15);border-color:#27ae60;color:#27ae60;font-weight:700}
+    .q-det{width:100%;margin-top:7px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:6px;color:#f0ede8;font-size:12px;padding:7px 9px;font-family:Georgia,serif;resize:none}
+    .termo{font-size:13px;color:#aaa;line-height:1.8;margin-bottom:10px;padding-left:12px;border-left:2px solid #2a2a2a}
+    .canvas-label{font-size:11px;color:#666;margin-bottom:5px}
+    .canvas-wrap{background:#fff;border-radius:8px;margin:8px 0 4px;touch-action:none;cursor:crosshair}
+    canvas{display:block;width:100%;height:130px}
+    .btn-limpar{background:none;border:1px solid #2a2a2a;color:#666;border-radius:6px;padding:4px 11px;font-size:11px;cursor:pointer;margin-bottom:6px}
+    .btn-assinar{width:100%;background:#c9a84c;color:#111;border:none;border-radius:8px;padding:14px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:18px}
+    .btn-assinar:disabled{opacity:.5;cursor:not-allowed}
+    .legal{font-size:11px;color:#444;text-align:center;margin-top:10px}
+    .success{text-align:center;padding:40px 16px}
+    .success .ok-icon{font-size:52px;margin-bottom:16px}
+    .success h1{color:#27ae60;font-size:22px}
+    .success p{color:#888;margin-top:10px;font-size:13px;line-height:1.8}
+    .err{text-align:center;padding:40px 16px}
+    .err p{color:#e74c3c;font-size:14px}
+    .footer{font-size:11px;color:#333;text-align:center;margin-top:20px}
+    textarea.q-det{min-height:60px}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">A Casa dos Carvalho Tattoo</div>
+  <div id="loading" style="text-align:center;color:#555;padding:40px 0">Carregando documento...</div>
+  <div id="main" style="display:none"></div>
+  <div id="success" class="success" style="display:none">
+    <div class="ok-icon">&#10003;</div>
+    <h1>Documento assinado!</h1>
+    <p>Sua assinatura foi registrada com sucesso.<br>Em breve nossa equipe entrara em contato.</p>
+    <p style="color:#333;margin-top:24px;font-size:11px">Casa dos Carvalho Tattoo — Vitoria, ES</p>
+  </div>
+  <div id="error" class="err" style="display:none">
+    <p id="err-msg">Link invalido ou expirado.</p>
+    <p style="color:#555;font-size:12px;margin-top:10px">Entre em contato com o estudio para solicitar um novo link.</p>
+  </div>
+</div>
+<div class="footer">Lei 14.063/2020 — Assinatura Eletronica Simples</div>
+
+<script>
+const PERGUNTAS = [
+  {id:"alergia",label:"Tem alguma alergia?",det:true},
+  {id:"diabetes",label:"Tem diabetes?"},
+  {id:"coagulacao",label:"Tem problemas de coagulacao ou hemofilia?"},
+  {id:"autoimune",label:"Tem doenca autoimune?",det:true},
+  {id:"epilepsia",label:"Tem epilepsia?"},
+  {id:"gravida",label:"Esta gravida ou amamentando?"},
+  {id:"anticoagulante",label:"Faz uso de anticoagulantes?",det:true},
+  {id:"pressao",label:"Tem pressao alta ou problemas cardiacos?"},
+  {id:"queloides",label:"Tem tendencia a queloides?"},
+  {id:"alcool",label:"Ingeriu alcool nas ultimas 24h?"},
+  {id:"aspirina",label:"Tomou aspirina nos ultimos 7 dias?"},
+  {id:"cicatrizacao",label:"Tem historico de cicatrizacao lenta ou problemas de pele?"},
+];
+
+const token = new URLSearchParams(location.search).get("token");
+let dados = null;
+let cvs = null;
+let ctx = null;
+let desenhando = false;
+let temAssin = false;
+
+function show(id){["loading","main","success","error"].forEach(i=>document.getElementById(i).style.display=i===id?"":"none");}
+
+async function init(){
+  if(!token){document.getElementById("err-msg").textContent="Link invalido.";show("error");return;}
+  try{
+    const r=await fetch("/api/assinar?token="+token);
+    dados=await r.json();
+    if(!r.ok){document.getElementById("err-msg").textContent=dados.error||"Link invalido.";show("error");return;}
+    if(dados.ja_assinado){show("success");return;}
+    render();
+    show("main");
+  }catch{document.getElementById("err-msg").textContent="Erro de conexao.";show("error");}
+}
+
+function render(){
+  const el=document.getElementById("main");
+  const titulos={anamnese:"Ficha de Anamnese",contrato:"Contrato de Execucao",menor:"Autorizacao de Menor"};
+  let html=`<h1>${titulos[dados.doc]||"Documento"}</h1><p class="meta">Ola, <strong>${dados.nome}</strong>. Por favor leia e assine o documento abaixo.</p>`;
+
+  if(dados.doc==="anamnese"){
+    html+=`<h2>Questionario de Saude</h2><div class="alerta">Responda com honestidade. Estas informacoes sao confidenciais e protegem sua saude durante o procedimento.</div>`;
+    PERGUNTAS.forEach(p=>{
+      const resp=dados.anamnese?.[p.id]?.resp||"";
+      const det=dados.anamnese?.[p.id]?.detalhe||"";
+      html+=`<div class="question"><label>${p.label}</label><div class="q-opts">
+        <div class="q-btn${resp==="sim"?" sim":""}" onclick="setR('${p.id}','sim',this)">Sim</div>
+        <div class="q-btn${resp==="nao"?" nao":""}" onclick="setR('${p.id}','nao',this)">Nao</div>
+      </div>${p.det?`<input class="q-det" id="d-${p.id}" type="text" placeholder="Se sim, qual?" value="${det}" style="display:${resp==="sim"?"block":"none"}"/>`:""}
+      </div>`;
+    });
+    const obs=dados.anamnese?.obs||"";
+    html+=`<h2>Observacoes</h2><textarea class="q-det" id="a-obs" rows="3" placeholder="Alguma informacao adicional?">${obs}</textarea>`;
+  }
+
+  if(dados.doc==="contrato"){
+    html+=`<h2>Termos e Condicoes</h2>`;
+    ["1. DO PROJETO: O projeto artistico (tatuagem) a ser realizado foi previamente acordado entre as partes, incluindo design, tamanho, local do corpo e valor.",
+     "2. DO PAGAMENTO: O valor total acordado deve ser pago conforme combinado. Sinais e reservas de agenda nao sao reembolsaveis em caso de cancelamento com menos de 48h ou falta sem aviso.",
+     "3. DA CICATRIZACAO: O resultado final depende dos cuidados pos-tatuagem do cliente. O estudio nao se responsabiliza por resultados decorrentes de negligencia ou condicoes de saude nao informadas.",
+     "4. DOS RETOQUES: Retoques gratuitos em ate 60 dias, desde que o cliente siga os cuidados indicados.",
+     "5. DA SAUDE: O cliente declara ter respondido com veracidade a ficha de anamnese.",
+     "6. DOS DIREITOS DE IMAGEM: O estudio pode utilizar fotos do trabalho para divulgacao, salvo manifestacao contraria do cliente.",
+     "7. DA CONCORDANCIA: Ao assinar, o cliente declara ter lido e concordado com todos os termos."
+    ].forEach(t=>{html+=`<div class="termo">${t}</div>`;});
+  }
+
+  if(dados.doc==="menor"){
+    const pai=dados.menor_responsavel||{};
+    html+=`<h2>Dados do Responsavel</h2><div style="font-size:13px;color:#bbb;line-height:2.1">
+      <p><strong>Menor:</strong> ${dados.nome}</p>
+      <p><strong>Responsavel 1:</strong> ${pai.resp_nome||"—"}</p>
+      <p><strong>CPF:</strong> ${pai.resp_cpf||"—"}</p>
+      <p><strong>Parentesco:</strong> ${pai.resp_parentesco||"—"}</p>
+    </div>
+    <div class="alerta">Ao assinar, o responsavel legal autoriza o procedimento artistico no menor de 18 anos acima identificado.</div>`;
+  }
+
+  html+=`<h2>Assinatura</h2>
+    <p class="canvas-label">Assine com o dedo ou mouse na area abaixo:</p>
+    <button class="btn-limpar" onclick="limpar()">Limpar</button>
+    <div class="canvas-wrap"><canvas id="cvs" width="600" height="140"></canvas></div>
+    <button class="btn-assinar" id="btn" onclick="assinar()">Confirmar e Assinar</button>
+    <p class="legal">Assinatura eletronica com validade legal — Lei 14.063/2020</p>`;
+
+  el.innerHTML=html;
+
+  cvs=document.getElementById("cvs");
+  ctx=cvs.getContext("2d");
+  ctx.strokeStyle="#111";ctx.lineWidth=2.5;ctx.lineCap="round";ctx.lineJoin="round";
+
+  function pos(e){const r=cvs.getBoundingClientRect();const sx=cvs.width/r.width;const sy=cvs.height/r.height;const s=e.touches?e.touches[0]:e;return{x:(s.clientX-r.left)*sx,y:(s.clientY-r.top)*sy};}
+  cvs.addEventListener("mousedown",e=>{desenhando=true;const p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);});
+  cvs.addEventListener("mousemove",e=>{if(!desenhando)return;const p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();temAssin=true;});
+  cvs.addEventListener("mouseup",()=>desenhando=false);
+  cvs.addEventListener("mouseleave",()=>desenhando=false);
+  cvs.addEventListener("touchstart",e=>{e.preventDefault();desenhando=true;const p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);},{passive:false});
+  cvs.addEventListener("touchmove",e=>{e.preventDefault();if(!desenhando)return;const p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();temAssin=true;},{passive:false});
+  cvs.addEventListener("touchend",()=>desenhando=false);
+}
+
+window.setR=function(id,val,el){
+  el.closest(".question").querySelectorAll(".q-btn").forEach(b=>{b.className="q-btn";});
+  el.className="q-btn "+val;
+  const d=document.getElementById("d-"+id);
+  if(d){d.style.display=val==="sim"?"block":"none";if(val==="nao")d.value="";}
+};
+
+window.limpar=function(){if(!cvs)return;ctx.clearRect(0,0,cvs.width,cvs.height);temAssin=false;};
+
+window.assinar=async function(){
+  if(!temAssin){alert("Por favor, assine o documento antes de confirmar.");return;}
+  const btn=document.getElementById("btn");
+  btn.disabled=true;btn.textContent="Salvando...";
+
+  let anamneseDados=null;
+  if(dados.doc==="anamnese"){
+    anamneseDados={};
+    PERGUNTAS.forEach(p=>{
+      const sim=document.querySelector(`.question [onclick*="'${p.id}','sim'"]`);
+      const nao=document.querySelector(`.question [onclick*="'${p.id}','nao'"]`);
+      const resp=sim?.classList.contains("sim")?"sim":nao?.classList.contains("nao")?"nao":"";
+      if(resp){const d=document.getElementById("d-"+p.id);anamneseDados[p.id]={resp,detalhe:d?d.value:""};}
+    });
+    const obs=document.getElementById("a-obs");
+    if(obs)anamneseDados.obs=obs.value;
+  }
+
+  try{
+    const r=await fetch("/api/assinar",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({token,assinatura:cvs.toDataURL("image/png"),doc:dados.doc,anamnese:anamneseDados})
+    });
+    const res=await r.json();
+    if(r.ok){show("success");}
+    else{alert(res.error||"Erro ao salvar.");btn.disabled=false;btn.textContent="Confirmar e Assinar";}
+  }catch{alert("Erro de conexao. Tente novamente.");btn.disabled=false;btn.textContent="Confirmar e Assinar";}
+};
+
+init();
+</script>
+</body>
+</html>
