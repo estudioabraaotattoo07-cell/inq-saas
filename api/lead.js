@@ -114,7 +114,7 @@ export default async function handler(req, res) {
 
     const { data: clientes } = await sb
       .from("clientes")
-      .select("id, nome, email, tel, nascimento, anamnese, menor_responsavel, docs_status, assinar_link")
+      .select("id, nome, email, tel, nascimento, anamnese, menor_responsavel, docs_status, assinar_link, docs_arquivos")
       .not("assinar_link", "is", null);
 
     let cliente = null;
@@ -144,7 +144,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { assinatura, anamnese } = req.body;
+      const { assinatura, anamnese, pdf_url, pdf_nome } = req.body;
       if (!assinatura) return res.status(400).json({ error: "Assinatura obrigatoria" });
 
       const campoAssin = docTipo === "anamnese" ? "anamnese_assinatura" : docTipo === "contrato" ? "contrato_assinatura" : "menor_assinatura";
@@ -170,6 +170,11 @@ export default async function handler(req, res) {
       };
       if (docTipo === "anamnese" && anamnese && typeof anamnese === "object") {
         updateFields.anamnese = anamnese;
+      }
+
+      if (pdf_url && pdf_nome) {
+        const arquivosAtuais = cliente.docs_arquivos || [];
+        updateFields.docs_arquivos = [...arquivosAtuais, { nome: pdf_nome, url: pdf_url, tipo: "pdf", criado_em: new Date().toISOString() }];
       }
 
       await sb.from("clientes").update(updateFields).eq("id", cliente.id);

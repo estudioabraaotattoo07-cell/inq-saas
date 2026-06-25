@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Assinar Documento</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;padding:20px 14px 60px}
@@ -57,6 +58,9 @@
 <div class="footer">Lei 14.063/2020 — Assinatura Eletronica Simples</div>
 
 <script>
+const SUPA_URL = "https://zkzsykmnhrkwmvgekshh.supabase.co";
+const SUPA_KEY = "sb_publishable_YxW3K62M-aYXetcPxBqwtA_JUFMSaG4";
+
 const PERGUNTAS = [
   {id:"alergia",label:"Tem alguma alergia?",det:true},
   {id:"diabetes",label:"Tem diabetes?"},
@@ -70,6 +74,16 @@ const PERGUNTAS = [
   {id:"alcool",label:"Ingeriu alcool nas ultimas 24h?"},
   {id:"aspirina",label:"Tomou aspirina nos ultimos 7 dias?"},
   {id:"cicatrizacao",label:"Tem historico de cicatrizacao lenta ou problemas de pele?"},
+];
+
+const TERMOS = [
+  "1. DO PROJETO: O projeto artistico (tatuagem) a ser realizado foi previamente acordado entre as partes, incluindo design, tamanho, local do corpo e valor.",
+  "2. DO PAGAMENTO: O valor total acordado deve ser pago conforme combinado. Sinais e reservas de agenda nao sao reembolsaveis em caso de cancelamento com menos de 48h ou falta sem aviso.",
+  "3. DA CICATRIZACAO: O resultado final depende dos cuidados pos-tatuagem do cliente. O estudio nao se responsabiliza por resultados decorrentes de negligencia ou condicoes de saude nao informadas.",
+  "4. DOS RETOQUES: Retoques gratuitos em ate 60 dias, desde que o cliente siga os cuidados indicados.",
+  "5. DA SAUDE: O cliente declara ter respondido com veracidade a ficha de anamnese.",
+  "6. DOS DIREITOS DE IMAGEM: O estudio pode utilizar fotos do trabalho para divulgacao, salvo manifestacao contraria do cliente.",
+  "7. DA CONCORDANCIA: Ao assinar, o cliente declara ter lido e concordado com todos os termos.",
 ];
 
 const token = new URLSearchParams(location.search).get("token");
@@ -115,14 +129,7 @@ function render(){
 
   if(dados.doc==="contrato"){
     html+=`<h2>Termos e Condicoes</h2>`;
-    ["1. DO PROJETO: O projeto artistico (tatuagem) a ser realizado foi previamente acordado entre as partes, incluindo design, tamanho, local do corpo e valor.",
-     "2. DO PAGAMENTO: O valor total acordado deve ser pago conforme combinado. Sinais e reservas de agenda nao sao reembolsaveis em caso de cancelamento com menos de 48h ou falta sem aviso.",
-     "3. DA CICATRIZACAO: O resultado final depende dos cuidados pos-tatuagem do cliente. O estudio nao se responsabiliza por resultados decorrentes de negligencia ou condicoes de saude nao informadas.",
-     "4. DOS RETOQUES: Retoques gratuitos em ate 60 dias, desde que o cliente siga os cuidados indicados.",
-     "5. DA SAUDE: O cliente declara ter respondido com veracidade a ficha de anamnese.",
-     "6. DOS DIREITOS DE IMAGEM: O estudio pode utilizar fotos do trabalho para divulgacao, salvo manifestacao contraria do cliente.",
-     "7. DA CONCORDANCIA: Ao assinar, o cliente declara ter lido e concordado com todos os termos."
-    ].forEach(t=>{html+=`<div class="termo">${t}</div>`;});
+    TERMOS.forEach(t=>{html+=`<div class="termo">${t}</div>`;});
   }
 
   if(dados.doc==="menor"){
@@ -168,10 +175,63 @@ window.setR=function(id,val,el){
 
 window.limpar=function(){if(!cvs)return;ctx.clearRect(0,0,cvs.width,cvs.height);temAssin=false;};
 
+async function gerarPdf(assinBase64, anamneseDados){
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({unit:"mm",format:"a4"});
+  const W=210; let y=20;
+  const ln=(txt,size=11,bold=false,cor=[30,30,30])=>{
+    doc.setFontSize(size);doc.setFont("helvetica",bold?"bold":"normal");doc.setTextColor(...cor);
+    const ls=doc.splitTextToSize(txt,W-40);
+    ls.forEach(l=>{if(y>270){doc.addPage();y=20;}doc.text(l,20,y);y+=size*0.45;});
+    y+=2;
+  };
+  const titulos={anamnese:"FICHA DE ANAMNESE",contrato:"CONTRATO DE EXECUCAO DE PROJETO ARTISTICO",menor:"AUTORIZACAO DE RESPONSAVEL LEGAL"};
+  ln(titulos[dados.doc]||"DOCUMENTO",16,true,[180,140,50]);
+  y+=3;
+  ln(`Cliente: ${dados.nome}  |  Data: ${new Date().toLocaleDateString("pt-BR")}`,10,false,[100,100,100]);
+  y+=4;
+  if(dados.doc==="anamnese"){
+    ln("QUESTIONARIO DE SAUDE",13,true);
+    PERGUNTAS.forEach(p=>{
+      const r=anamneseDados?.[p.id]?.resp;
+      const det=anamneseDados?.[p.id]?.detalhe;
+      ln(`${p.label}  ->  ${r==="sim"?"SIM":r==="nao"?"NAO":"Nao respondido"}${det?` (${det})`:""}`);
+    });
+    if(anamneseDados?.obs){y+=2;ln("Observacoes:",11,true);ln(anamneseDados.obs);}
+  }
+  if(dados.doc==="contrato"){
+    ln("TERMOS E CONDICOES",13,true);
+    TERMOS.forEach(t=>{y+=2;ln(t);});
+  }
+  if(dados.doc==="menor"){
+    const pai=dados.menor_responsavel||{};
+    ln(`Menor: ${dados.nome}`,11);
+    y+=4;ln("RESPONSAVEL 1",12,true,[180,140,50]);
+    ln(`Nome: ${pai.resp_nome||"—"}  |  CPF: ${pai.resp_cpf||"—"}  |  Parentesco: ${pai.resp_parentesco||"—"}`);
+  }
+  y+=6;
+  ln("Assinatura — Lei 14.063/2020",10,false,[120,120,120]);
+  try{doc.addImage(assinBase64,"PNG",20,y,60,25);y+=28;}catch{}
+  return doc.output("blob");
+}
+
+async function uploadPdf(pdfBlob){
+  const fname=`pdf-remoto-${Date.now()}-${dados.doc}.pdf`;
+  try{
+    const r=await fetch(`${SUPA_URL}/storage/v1/object/referencias/${fname}`,{
+      method:"POST",
+      headers:{"Authorization":`Bearer ${SUPA_KEY}`,"Content-Type":"application/pdf","x-upsert":"true"},
+      body:pdfBlob
+    });
+    if(r.ok) return `${SUPA_URL}/storage/v1/object/public/referencias/${fname}`;
+  }catch{}
+  return null;
+}
+
 window.assinar=async function(){
   if(!temAssin){alert("Por favor, assine o documento antes de confirmar.");return;}
   const btn=document.getElementById("btn");
-  btn.disabled=true;btn.textContent="Salvando...";
+  btn.disabled=true;
 
   let anamneseDados=null;
   if(dados.doc==="anamnese"){
@@ -186,11 +246,26 @@ window.assinar=async function(){
     if(obs)anamneseDados.obs=obs.value;
   }
 
+  const assinBase64=cvs.toDataURL("image/png");
+
+  btn.textContent="Gerando PDF...";
+  let pdfUrl=null, pdfNome=null;
+  try{
+    const pdfBlob=await gerarPdf(assinBase64,anamneseDados);
+    btn.textContent="Salvando PDF...";
+    pdfUrl=await uploadPdf(pdfBlob);
+    if(pdfUrl){
+      const titulosNome={anamnese:"FICHA-DE-ANAMNESE",contrato:"CONTRATO-DE-EXECUCAO",menor:"AUTORIZACAO-DE-MENOR"};
+      pdfNome=`${titulosNome[dados.doc]||"DOCUMENTO"}-${dados.nome.replace(/ /g,"-")}-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.pdf`;
+    }
+  }catch{}
+
+  btn.textContent="Confirmando...";
   try{
     const r=await fetch("/api/lead?acao=assinar",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({token,assinatura:cvs.toDataURL("image/png"),doc:dados.doc,anamnese:anamneseDados,acao:"assinar"})
+      body:JSON.stringify({token,assinatura:assinBase64,doc:dados.doc,anamnese:anamneseDados,acao:"assinar",pdf_url:pdfUrl,pdf_nome:pdfNome})
     });
     const res=await r.json();
     if(r.ok){show("success");}
