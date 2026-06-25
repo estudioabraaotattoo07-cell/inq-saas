@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Assinar Documento</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;padding:20px 14px 60px}
@@ -70,7 +69,6 @@
 <script>
 const SUPA_URL = "https://zkzsykmnhrkwmvgekshh.supabase.co";
 const SUPA_KEY = "sb_publishable_YxW3K62M-aYXetcPxBqwtA_JUFMSaG4";
-const supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 
 const PERGUNTAS = [
   {id:"alergia",label:"Tem alguma alergia?",det:true},
@@ -252,14 +250,23 @@ window.maskTel=function(el){
 
 window.limpar=function(){if(!cvs)return;ctx.clearRect(0,0,cvs.width,cvs.height);temAssin=false;};
 
-async function uploadArquivo(blob, fname, contentType){
-  try{
-    const {error}=await supa.storage.from("referencias").upload(fname, blob, {contentType, upsert:true});
-    if(error) throw error;
-    const {data}=supa.storage.from("referencias").getPublicUrl(fname);
-    return data.publicUrl;
-  }catch(e){console.error("Upload erro:",e);}
-  return null;
+async function blobParaBase64(blob){
+  return new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.readAsDataURL(blob);});
+}
+
+async function imagemComprimida(file, maxW=900, q=0.75){
+  return new Promise(res=>{
+    const img=new Image();
+    const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const scale=Math.min(1,maxW/img.width);
+      const c=document.createElement("canvas");
+      c.width=img.width*scale; c.height=img.height*scale;
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+      c.toBlob(b=>{URL.revokeObjectURL(url);const r2=new FileReader();r2.onload=()=>res(r2.result.split(",")[1]);r2.readAsDataURL(b);},"image/jpeg",q);
+    };
+    img.src=url;
+  });
 }
 
 async function gerarPdf(assinBase64, anamneseDados, responsavelDados, fotoDocUrl){
@@ -344,7 +351,7 @@ window.assinar=async function(){
 
   // Coletar dados do responsavel (menor)
   let responsavelDados=null;
-  let fotoDocUrl=null;
+  let fotoBase64=null, fotoTipo="image/jpeg";
   if(eMenorResp){
     responsavelDados={
       resp_nome:document.getElementById("r-nome")?.value||"",
@@ -354,35 +361,30 @@ window.assinar=async function(){
       descricao:document.getElementById("r-descricao")?.value||"",
     };
 
-    // Upload foto do documento
     const fotoInput=document.getElementById("foto-doc");
     const fotoFile=fotoInput?.files?.[0];
     if(fotoFile){
-      btn.textContent="Enviando foto...";
-      const fotoFname=`doc-menor-${Date.now()}.jpg`;
-      fotoDocUrl=await uploadArquivo(fotoFile,fotoFname,fotoFile.type);
-      if(fotoDocUrl) responsavelDados.foto_doc=fotoDocUrl;
+      btn.textContent="Processando foto...";
+      fotoBase64=await imagemComprimida(fotoFile);
     }
   }
 
-  // Gerar PDF
+  // Gerar PDF como base64
   btn.textContent="Gerando PDF...";
-  let pdfUrl=null,pdfNome=null;
+  let pdfBase64=null,pdfNome=null;
   try{
-    const pdfBlob=await gerarPdf(assinBase64,anamneseDados,responsavelDados,fotoDocUrl);
-    btn.textContent="Salvando PDF...";
+    const pdfBlob=await gerarPdf(assinBase64,anamneseDados,responsavelDados,null);
     const titulosNome={anamnese:"FICHA-DE-ANAMNESE",contrato:"CONTRATO-DE-EXECUCAO",menor_resp1:"AUTORIZACAO-RESPONSAVEL-1",menor_resp2:"AUTORIZACAO-RESPONSAVEL-2"};
-    const fname=`pdf-remoto-${Date.now()}-${dados.doc}.pdf`;
-    pdfUrl=await uploadArquivo(pdfBlob,fname,"application/pdf");
-    if(pdfUrl) pdfNome=`${titulosNome[dados.doc]||"DOCUMENTO"}-${dados.nome.replace(/ /g,"-")}-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.pdf`;
-  }catch{}
+    pdfNome=`${titulosNome[dados.doc]||"DOCUMENTO"}-${dados.nome.replace(/ /g,"-")}-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.pdf`;
+    pdfBase64=await blobParaBase64(pdfBlob);
+  }catch(e){console.error("PDF erro:",e);}
 
   btn.textContent="Confirmando...";
   try{
     const r=await fetch("/api/lead?acao=assinar",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({token,assinatura:assinBase64,doc:dados.doc,anamnese:anamneseDados,responsavel_dados:responsavelDados,acao:"assinar",pdf_url:pdfUrl,pdf_nome:pdfNome})
+      body:JSON.stringify({token,assinatura:assinBase64,doc:dados.doc,anamnese:anamneseDados,responsavel_dados:responsavelDados,foto_base64:fotoBase64,foto_tipo:fotoTipo,pdf_base64:pdfBase64,pdf_nome:pdfNome})
     });
     const res=await r.json();
     if(r.ok){show("success");}

@@ -146,7 +146,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { assinatura, anamnese, responsavel_dados, pdf_url, pdf_nome } = req.body;
+      const { assinatura, anamnese, responsavel_dados, foto_base64, foto_tipo, pdf_base64, pdf_nome } = req.body;
       if (!assinatura) return res.status(400).json({ error: "Assinatura obrigatoria" });
 
       const eMenorResp = docTipo === "menor_resp1" || docTipo === "menor_resp2";
@@ -180,15 +180,35 @@ export default async function handler(req, res) {
         updateFields.anamnese = anamnese;
       }
 
+      // Upload foto do documento via servidor (service key)
+      let fotoUrl = null;
+      if (eMenorResp && foto_base64) {
+        try {
+          const fotoBuffer = Buffer.from(foto_base64, "base64");
+          const fotoFname = `doc-menor-${cliente.id}-${docTipo}-${Date.now()}.jpg`;
+          await sb.storage.from("referencias").upload(fotoFname, fotoBuffer, { contentType: foto_tipo || "image/jpeg", upsert: true });
+          const { data: pub } = sb.storage.from("referencias").getPublicUrl(fotoFname);
+          fotoUrl = pub.publicUrl;
+          if (responsavel_dados) responsavel_dados.foto_doc = fotoUrl;
+        } catch {}
+      }
+
       if (eMenorResp && responsavel_dados && typeof responsavel_dados === "object") {
         const campoResp = docTipo === "menor_resp1" ? "menor_responsavel" : "menor_responsavel_mae";
         const respAtual = docTipo === "menor_resp1" ? (cliente.menor_responsavel || {}) : (cliente.menor_responsavel_mae || {});
         updateFields[campoResp] = { ...respAtual, ...responsavel_dados };
       }
 
-      if (pdf_url && pdf_nome) {
-        const arquivosAtuais = cliente.docs_arquivos || [];
-        updateFields.docs_arquivos = [...arquivosAtuais, { nome: pdf_nome, url: pdf_url, tipo: "pdf", criado_em: new Date().toISOString() }];
+      // Upload PDF via servidor (service key)
+      if (pdf_base64 && pdf_nome) {
+        try {
+          const pdfBuffer = Buffer.from(pdf_base64, "base64");
+          const pdfFname = `pdf-remoto-${cliente.id}-${docTipo}-${Date.now()}.pdf`;
+          await sb.storage.from("referencias").upload(pdfFname, pdfBuffer, { contentType: "application/pdf", upsert: true });
+          const { data: pub } = sb.storage.from("referencias").getPublicUrl(pdfFname);
+          const arquivosAtuais = cliente.docs_arquivos || [];
+          updateFields.docs_arquivos = [...arquivosAtuais, { nome: pdf_nome, url: pub.publicUrl, tipo: "pdf", criado_em: new Date().toISOString() }];
+        } catch {}
       }
 
       await sb.from("clientes").update(updateFields).eq("id", cliente.id);
