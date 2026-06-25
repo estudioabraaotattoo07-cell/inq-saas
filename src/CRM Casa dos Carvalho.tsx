@@ -8058,8 +8058,15 @@ export default function CRM() {
                       alert("Configure a Resend API Key e o Email Remetente nas Configuracoes do estudio.");
                       return;
                     }
-                    if (!sc.email) {
-                      alert("Este cliente nao tem email cadastrado.");
+                    const respDadosPai: Record<string,string> = (sc as any).menor_responsavel || {};
+                    const respDadosMae: Record<string,string> = (sc as any).menor_responsavel_mae || {};
+                    const emailDestino = docId === "menor_resp1" ? (respDadosPai.resp_email || sc.email)
+                      : docId === "menor_resp2" ? (respDadosMae.resp_email || sc.email)
+                      : sc.email;
+                    if (!emailDestino) {
+                      alert(docId === "menor_resp1" ? "Cadastre o email do Responsavel 1 antes de enviar."
+                        : docId === "menor_resp2" ? "Cadastre o email do Responsavel 2 antes de enviar."
+                        : "Este cliente nao tem email cadastrado.");
                       return;
                     }
                     setDocsEnviandoLink(docId);
@@ -8081,7 +8088,8 @@ export default function CRM() {
                       };
                       const titulo = titulos[docId] || "Documento";
                       const link = `https://inq-saas.vercel.app/assinar.html?token=${token}`;
-                      const fn = (sc.nome || "").split(" ")[0];
+                      const nomeResp = docId === "menor_resp1" ? respDadosPai.resp_nome : docId === "menor_resp2" ? respDadosMae.resp_nome : "";
+                      const fn = (nomeResp || sc.nome || "").split(" ")[0];
 
                       const htmlEmail = `
                         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;">
@@ -8111,13 +8119,13 @@ export default function CRM() {
                         body: JSON.stringify({
                           apiKey: resendApiKey,
                           from: `${nomeRemetente || studioNomeFormatado} <${emailRemetente}>`,
-                          to: sc.email,
+                          to: emailDestino,
                           subject: `Assine seu ${titulo} — ${studioNomeFormatado}`,
                           html: htmlEmail,
                         }),
                       });
                       if (r.ok) {
-                        alert(`Link de assinatura enviado para ${sc.email}. Valido por 7 dias.`);
+                        alert(`Link de assinatura enviado para ${emailDestino}. Valido por 7 dias.`);
                       } else {
                         alert("Erro ao enviar email. Verifique as configuracoes do Resend.");
                       }
@@ -8302,6 +8310,7 @@ export default function CRM() {
                                         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Responsavel 1 (Pai / Mae / Tutor)</div>
                                         <div className="fg2" style={{ gap: 8 }}>
                                           <div className="fi2"><div className="fil">Nome completo</div><input className="ef" value={pai.resp_nome||""} onChange={e => salvarPai("resp_nome", e.target.value)} /></div>
+                                          <div className="fi2"><div className="fil">Email</div><input className="ef" type="email" placeholder="email@exemplo.com" value={pai.resp_email||""} onChange={e => salvarPai("resp_email", e.target.value)} /></div>
                                           <div className="fi2"><div className="fil">CPF</div><input className="ef" placeholder="000.000.000-00" maxLength={14} value={pai.resp_cpf||""} onChange={e => salvarPai("resp_cpf", maskCpf(e.target.value))} /></div>
                                           <div className="fi2"><div className="fil">Telefone</div><input className="ef" placeholder="(00) 00000-0000" maxLength={15} value={pai.resp_tel||""} onChange={e => salvarPai("resp_tel", maskTel(e.target.value))} /></div>
                                           <div className="fi2">
@@ -8340,6 +8349,7 @@ export default function CRM() {
                                         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Responsavel 2 (Mae / Pai / Tutor)</div>
                                         <div className="fg2" style={{ gap: 8 }}>
                                           <div className="fi2"><div className="fil">Nome completo</div><input className="ef" value={mae.resp_nome||""} onChange={e => salvarMae("resp_nome", e.target.value)} /></div>
+                                          <div className="fi2"><div className="fil">Email</div><input className="ef" type="email" placeholder="email@exemplo.com" value={mae.resp_email||""} onChange={e => salvarMae("resp_email", e.target.value)} /></div>
                                           <div className="fi2"><div className="fil">CPF</div><input className="ef" placeholder="000.000.000-00" maxLength={14} value={mae.resp_cpf||""} onChange={e => salvarMae("resp_cpf", maskCpf(e.target.value))} /></div>
                                           <div className="fi2"><div className="fil">Telefone</div><input className="ef" placeholder="(00) 00000-0000" maxLength={15} value={mae.resp_tel||""} onChange={e => salvarMae("resp_tel", maskTel(e.target.value))} /></div>
                                           <div className="fi2">
