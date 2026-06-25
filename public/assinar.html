@@ -20,7 +20,9 @@
     .q-btn{flex:1;padding:8px;border:1px solid #333;border-radius:6px;background:#1a1a1a;color:#888;font-size:12px;cursor:pointer;text-align:center;transition:all .15s}
     .q-btn.sim{background:rgba(192,57,43,.2);border-color:#c0392b;color:#e74c3c;font-weight:700}
     .q-btn.nao{background:rgba(39,174,96,.15);border-color:#27ae60;color:#27ae60;font-weight:700}
-    .q-det{width:100%;margin-top:7px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:6px;color:#f0ede8;font-size:12px;padding:7px 9px;font-family:Georgia,serif;resize:none}
+    .q-btn.sel{background:rgba(201,168,76,.2);border-color:#c9a84c;color:#c9a84c;font-weight:700}
+    .q-det{width:100%;margin-top:7px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:6px;color:#f0ede8;font-size:13px;padding:9px 10px;font-family:Georgia,serif;resize:none}
+    .q-det::placeholder{color:#444}
     .termo{font-size:13px;color:#aaa;line-height:1.8;margin-bottom:10px;padding-left:12px;border-left:2px solid #2a2a2a}
     .canvas-label{font-size:11px;color:#666;margin-bottom:5px}
     .canvas-wrap{background:#fff;border-radius:8px;margin:8px 0 4px;touch-action:none;cursor:crosshair}
@@ -36,7 +38,13 @@
     .err{text-align:center;padding:40px 16px}
     .err p{color:#e74c3c;font-size:14px}
     .footer{font-size:11px;color:#333;text-align:center;margin-top:20px}
-    textarea.q-det{min-height:60px}
+    textarea.q-det{min-height:70px}
+    .parentesco-opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+    .p-btn{padding:7px 14px;border:1px solid #333;border-radius:6px;background:#1a1a1a;color:#888;font-size:12px;cursor:pointer;flex:none}
+    .p-btn.sel{background:rgba(201,168,76,.2);border-color:#c9a84c;color:#c9a84c;font-weight:700}
+    .foto-preview{margin-top:8px}
+    .foto-preview img{max-width:100%;max-height:180px;border-radius:8px;border:1px solid #333}
+    .foto-label{display:block;margin-top:8px;background:#111;border:1px dashed #333;border-radius:6px;padding:14px;text-align:center;font-size:12px;color:#555;cursor:pointer}
   </style>
 </head>
 <body>
@@ -86,6 +94,8 @@ const TERMOS = [
   "7. DA CONCORDANCIA: Ao assinar, o cliente declara ter lido e concordado com todos os termos.",
 ];
 
+const PARENTESCOS = ["Pai","Mae","Responsavel Legal","Avo / Avo","Outro"];
+
 const token = new URLSearchParams(location.search).get("token");
 let dados = null;
 let cvs = null;
@@ -104,13 +114,17 @@ async function init(){
     if(dados.ja_assinado){show("success");return;}
     render();
     show("main");
-  }catch{document.getElementById("err-msg").textContent="Erro de conexao.";show("error");}
+  }catch(e){document.getElementById("err-msg").textContent="Erro de conexao.";show("error");}
 }
 
 function render(){
   const el=document.getElementById("main");
-  const titulos={anamnese:"Ficha de Anamnese",contrato:"Contrato de Execucao",menor:"Autorizacao de Menor"};
-  let html=`<h1>${titulos[dados.doc]||"Documento"}</h1><p class="meta">Ola, <strong>${dados.nome}</strong>. Por favor leia e assine o documento abaixo.</p>`;
+  const eMenorResp = dados.doc==="menor_resp1"||dados.doc==="menor_resp2";
+  const respLabel = dados.doc==="menor_resp1"?"Responsavel 1":"Responsavel 2";
+  const respDados = dados.doc==="menor_resp1"?(dados.menor_responsavel||{}):(dados.menor_responsavel_mae||{});
+
+  const titulos={anamnese:"Ficha de Anamnese",contrato:"Contrato de Execucao",menor_resp1:"Autorizacao de Menor — Responsavel 1",menor_resp2:"Autorizacao de Menor — Responsavel 2"};
+  let html=`<h1>${titulos[dados.doc]||"Documento"}</h1><p class="meta">Ola! Por favor preencha seus dados, leia e assine o documento abaixo.</p>`;
 
   if(dados.doc==="anamnese"){
     html+=`<h2>Questionario de Saude</h2><div class="alerta">Responda com honestidade. Estas informacoes sao confidenciais e protegem sua saude durante o procedimento.</div>`;
@@ -132,15 +146,42 @@ function render(){
     TERMOS.forEach(t=>{html+=`<div class="termo">${t}</div>`;});
   }
 
-  if(dados.doc==="menor"){
-    const pai=dados.menor_responsavel||{};
-    html+=`<h2>Dados do Responsavel</h2><div style="font-size:13px;color:#bbb;line-height:2.1">
-      <p><strong>Menor:</strong> ${dados.nome}</p>
-      <p><strong>Responsavel 1:</strong> ${pai.resp_nome||"—"}</p>
-      <p><strong>CPF:</strong> ${pai.resp_cpf||"—"}</p>
-      <p><strong>Parentesco:</strong> ${pai.resp_parentesco||"—"}</p>
-    </div>
-    <div class="alerta">Ao assinar, o responsavel legal autoriza o procedimento artistico no menor de 18 anos acima identificado.</div>`;
+  if(eMenorResp){
+    html+=`<h2>Dados do ${respLabel}</h2>`;
+    html+=`<p style="font-size:13px;color:#888;margin-bottom:12px"><strong>Menor:</strong> ${dados.nome}</p>`;
+
+    html+=`<div class="question"><label>Nome completo</label>
+      <input class="q-det" id="r-nome" type="text" placeholder="Nome completo do responsavel" value="${respDados.resp_nome||""}"/></div>`;
+
+    html+=`<div class="question"><label>CPF</label>
+      <input class="q-det" id="r-cpf" type="text" placeholder="000.000.000-00" maxlength="14" value="${respDados.resp_cpf||""}" oninput="maskCpf(this)"/></div>`;
+
+    html+=`<div class="question"><label>Telefone</label>
+      <input class="q-det" id="r-tel" type="tel" placeholder="(00) 00000-0000" maxlength="15" value="${respDados.resp_tel||""}" oninput="maskTel(this)"/></div>`;
+
+    const pAtual=respDados.resp_parentesco||"";
+    html+=`<div class="question"><label>Grau de parentesco</label>
+      <div class="parentesco-opts">
+        ${PARENTESCOS.map(p=>`<div class="p-btn${pAtual===p?" sel":""}" onclick="setParentesco('${p}',this)">${p}</div>`).join("")}
+      </div>
+      <input type="hidden" id="r-parentesco" value="${pAtual}"/>
+    </div>`;
+
+    html+=`<div class="question"><label>O que esta autorizando?</label>
+      <textarea class="q-det" id="r-descricao" rows="4" placeholder="Ex: Autorizo meu filho(a) ${dados.nome} a realizar tatuagem na regiao do braco direito no estudio Casa dos Carvalho Tattoo.">${respDados.descricao||""}</textarea>
+    </div>`;
+
+    html+=`<div class="question"><label>Foto do documento (RG ou CNH)</label>
+      <div class="foto-preview" id="foto-preview">
+        ${respDados.foto_doc?`<img src="${respDados.foto_doc}" alt="Documento"/>`:""}
+      </div>
+      <label class="foto-label">
+        + Anexar foto do documento
+        <input type="file" id="foto-doc" accept="image/jpeg,image/png,image/jpg" style="display:none" onchange="previewFoto(this)"/>
+      </label>
+    </div>`;
+
+    html+=`<div class="alerta">Ao assinar, confirmo que li e concordo com as informacoes acima, autorizando o procedimento no menor identificado.</div>`;
   }
 
   html+=`<h2>Assinatura</h2>
@@ -173,23 +214,69 @@ window.setR=function(id,val,el){
   if(d){d.style.display=val==="sim"?"block":"none";if(val==="nao")d.value="";}
 };
 
+window.setParentesco=function(val,el){
+  el.closest(".parentesco-opts").querySelectorAll(".p-btn").forEach(b=>{b.className="p-btn";});
+  el.className="p-btn sel";
+  document.getElementById("r-parentesco").value=val;
+};
+
+window.previewFoto=function(input){
+  const f=input.files?.[0];
+  if(!f)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const prev=document.getElementById("foto-preview");
+    prev.innerHTML=`<img src="${e.target.result}" alt="Documento" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid #333"/>`;
+  };
+  reader.readAsDataURL(f);
+};
+
+window.maskCpf=function(el){
+  let v=el.value.replace(/\D/g,"").slice(0,11);
+  if(v.length>9)v=v.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/,"$1.$2.$3-$4");
+  else if(v.length>6)v=v.replace(/(\d{3})(\d{3})(\d{0,3})/,"$1.$2.$3");
+  else if(v.length>3)v=v.replace(/(\d{3})(\d{0,3})/,"$1.$2");
+  el.value=v;
+};
+
+window.maskTel=function(el){
+  let v=el.value.replace(/\D/g,"").slice(0,11);
+  if(v.length>10)v=v.replace(/(\d{2})(\d{5})(\d{4})/,"($1) $2-$3");
+  else if(v.length>6)v=v.replace(/(\d{2})(\d{4})(\d{0,4})/,"($1) $2-$3");
+  else if(v.length>2)v=v.replace(/(\d{2})(\d{0,5})/,"($1) $2");
+  el.value=v;
+};
+
 window.limpar=function(){if(!cvs)return;ctx.clearRect(0,0,cvs.width,cvs.height);temAssin=false;};
 
-async function gerarPdf(assinBase64, anamneseDados){
-  const {jsPDF} = window.jspdf;
-  const doc = new jsPDF({unit:"mm",format:"a4"});
-  const W=210; let y=20;
+async function uploadArquivo(blob, fname, contentType){
+  try{
+    const r=await fetch(`${SUPA_URL}/storage/v1/object/referencias/${fname}`,{
+      method:"POST",
+      headers:{"Authorization":`Bearer ${SUPA_KEY}`,"Content-Type":contentType,"x-upsert":"true"},
+      body:blob
+    });
+    if(r.ok) return `${SUPA_URL}/storage/v1/object/public/referencias/${fname}`;
+  }catch{}
+  return null;
+}
+
+async function gerarPdf(assinBase64, anamneseDados, responsavelDados, fotoDocUrl){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:"mm",format:"a4"});
+  const W=210;let y=20;
   const ln=(txt,size=11,bold=false,cor=[30,30,30])=>{
     doc.setFontSize(size);doc.setFont("helvetica",bold?"bold":"normal");doc.setTextColor(...cor);
     const ls=doc.splitTextToSize(txt,W-40);
     ls.forEach(l=>{if(y>270){doc.addPage();y=20;}doc.text(l,20,y);y+=size*0.45;});
     y+=2;
   };
-  const titulos={anamnese:"FICHA DE ANAMNESE",contrato:"CONTRATO DE EXECUCAO DE PROJETO ARTISTICO",menor:"AUTORIZACAO DE RESPONSAVEL LEGAL"};
+  const titulos={anamnese:"FICHA DE ANAMNESE",contrato:"CONTRATO DE EXECUCAO DE PROJETO ARTISTICO",menor_resp1:"AUTORIZACAO DE RESPONSAVEL LEGAL — RESPONSAVEL 1",menor_resp2:"AUTORIZACAO DE RESPONSAVEL LEGAL — RESPONSAVEL 2"};
   ln(titulos[dados.doc]||"DOCUMENTO",16,true,[180,140,50]);
   y+=3;
-  ln(`Cliente: ${dados.nome}  |  Data: ${new Date().toLocaleDateString("pt-BR")}`,10,false,[100,100,100]);
+  ln(`Cliente/Menor: ${dados.nome}  |  Data: ${new Date().toLocaleDateString("pt-BR")}`,10,false,[100,100,100]);
   y+=4;
+
   if(dados.doc==="anamnese"){
     ln("QUESTIONARIO DE SAUDE",13,true);
     PERGUNTAS.forEach(p=>{
@@ -199,33 +286,37 @@ async function gerarPdf(assinBase64, anamneseDados){
     });
     if(anamneseDados?.obs){y+=2;ln("Observacoes:",11,true);ln(anamneseDados.obs);}
   }
+
   if(dados.doc==="contrato"){
     ln("TERMOS E CONDICOES",13,true);
     TERMOS.forEach(t=>{y+=2;ln(t);});
   }
-  if(dados.doc==="menor"){
-    const pai=dados.menor_responsavel||{};
-    ln(`Menor: ${dados.nome}`,11);
-    y+=4;ln("RESPONSAVEL 1",12,true,[180,140,50]);
-    ln(`Nome: ${pai.resp_nome||"—"}  |  CPF: ${pai.resp_cpf||"—"}  |  Parentesco: ${pai.resp_parentesco||"—"}`);
+
+  if(dados.doc==="menor_resp1"||dados.doc==="menor_resp2"){
+    const rl=dados.doc==="menor_resp1"?"RESPONSAVEL 1":"RESPONSAVEL 2";
+    ln(`DADOS DO ${rl}`,13,true);
+    ln(`Nome: ${responsavelDados?.resp_nome||"—"}`);
+    ln(`CPF: ${responsavelDados?.resp_cpf||"—"}  |  Telefone: ${responsavelDados?.resp_tel||"—"}`);
+    ln(`Grau de parentesco: ${responsavelDados?.resp_parentesco||"—"}`);
+    if(responsavelDados?.descricao){y+=4;ln("AUTORIZACAO:",12,true);ln(responsavelDados.descricao);}
+    // foto do documento
+    if(fotoDocUrl){
+      try{
+        const fr=await fetch(fotoDocUrl);
+        const bl=await fr.blob();
+        const b64=await new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result);r.readAsDataURL(bl)});
+        y+=4;ln("Documento de identificacao:",10,false,[100,100,100]);
+        if(y>200){doc.addPage();y=20;}
+        doc.addImage(b64,"JPEG",20,y,80,55);y+=60;
+      }catch{}
+    }
   }
+
   y+=6;
   ln("Assinatura — Lei 14.063/2020",10,false,[120,120,120]);
   try{doc.addImage(assinBase64,"PNG",20,y,60,25);y+=28;}catch{}
-  return doc.output("blob");
-}
 
-async function uploadPdf(pdfBlob){
-  const fname=`pdf-remoto-${Date.now()}-${dados.doc}.pdf`;
-  try{
-    const r=await fetch(`${SUPA_URL}/storage/v1/object/referencias/${fname}`,{
-      method:"POST",
-      headers:{"Authorization":`Bearer ${SUPA_KEY}`,"Content-Type":"application/pdf","x-upsert":"true"},
-      body:pdfBlob
-    });
-    if(r.ok) return `${SUPA_URL}/storage/v1/object/public/referencias/${fname}`;
-  }catch{}
-  return null;
+  return doc.output("blob");
 }
 
 window.assinar=async function(){
@@ -233,6 +324,10 @@ window.assinar=async function(){
   const btn=document.getElementById("btn");
   btn.disabled=true;
 
+  const assinBase64=cvs.toDataURL("image/png");
+  const eMenorResp=dados.doc==="menor_resp1"||dados.doc==="menor_resp2";
+
+  // Coletar dados da anamnese
   let anamneseDados=null;
   if(dados.doc==="anamnese"){
     anamneseDados={};
@@ -246,18 +341,39 @@ window.assinar=async function(){
     if(obs)anamneseDados.obs=obs.value;
   }
 
-  const assinBase64=cvs.toDataURL("image/png");
+  // Coletar dados do responsavel (menor)
+  let responsavelDados=null;
+  let fotoDocUrl=null;
+  if(eMenorResp){
+    responsavelDados={
+      resp_nome:document.getElementById("r-nome")?.value||"",
+      resp_cpf:document.getElementById("r-cpf")?.value||"",
+      resp_tel:document.getElementById("r-tel")?.value||"",
+      resp_parentesco:document.getElementById("r-parentesco")?.value||"",
+      descricao:document.getElementById("r-descricao")?.value||"",
+    };
 
-  btn.textContent="Gerando PDF...";
-  let pdfUrl=null, pdfNome=null;
-  try{
-    const pdfBlob=await gerarPdf(assinBase64,anamneseDados);
-    btn.textContent="Salvando PDF...";
-    pdfUrl=await uploadPdf(pdfBlob);
-    if(pdfUrl){
-      const titulosNome={anamnese:"FICHA-DE-ANAMNESE",contrato:"CONTRATO-DE-EXECUCAO",menor:"AUTORIZACAO-DE-MENOR"};
-      pdfNome=`${titulosNome[dados.doc]||"DOCUMENTO"}-${dados.nome.replace(/ /g,"-")}-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.pdf`;
+    // Upload foto do documento
+    const fotoInput=document.getElementById("foto-doc");
+    const fotoFile=fotoInput?.files?.[0];
+    if(fotoFile){
+      btn.textContent="Enviando foto...";
+      const fotoFname=`doc-menor-${Date.now()}.jpg`;
+      fotoDocUrl=await uploadArquivo(fotoFile,fotoFname,fotoFile.type);
+      if(fotoDocUrl) responsavelDados.foto_doc=fotoDocUrl;
     }
+  }
+
+  // Gerar PDF
+  btn.textContent="Gerando PDF...";
+  let pdfUrl=null,pdfNome=null;
+  try{
+    const pdfBlob=await gerarPdf(assinBase64,anamneseDados,responsavelDados,fotoDocUrl);
+    btn.textContent="Salvando PDF...";
+    const titulosNome={anamnese:"FICHA-DE-ANAMNESE",contrato:"CONTRATO-DE-EXECUCAO",menor_resp1:"AUTORIZACAO-RESPONSAVEL-1",menor_resp2:"AUTORIZACAO-RESPONSAVEL-2"};
+    const fname=`pdf-remoto-${Date.now()}-${dados.doc}.pdf`;
+    pdfUrl=await uploadArquivo(pdfBlob,fname,"application/pdf");
+    if(pdfUrl) pdfNome=`${titulosNome[dados.doc]||"DOCUMENTO"}-${dados.nome.replace(/ /g,"-")}-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.pdf`;
   }catch{}
 
   btn.textContent="Confirmando...";
@@ -265,7 +381,7 @@ window.assinar=async function(){
     const r=await fetch("/api/lead?acao=assinar",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({token,assinatura:assinBase64,doc:dados.doc,anamnese:anamneseDados,acao:"assinar",pdf_url:pdfUrl,pdf_nome:pdfNome})
+      body:JSON.stringify({token,assinatura:assinBase64,doc:dados.doc,anamnese:anamneseDados,responsavel_dados:responsavelDados,acao:"assinar",pdf_url:pdfUrl,pdf_nome:pdfNome})
     });
     const res=await r.json();
     if(r.ok){show("success");}

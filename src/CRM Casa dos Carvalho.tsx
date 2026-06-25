@@ -7914,11 +7914,13 @@ export default function CRM() {
                         y+=4;
                         ln("RESPONSAVEL 1",12,true,[180,140,50]);
                         ln(`Nome: ${pai.resp_nome||"—"}  |  CPF: ${pai.resp_cpf||"—"}  |  Tel: ${pai.resp_tel||"—"}  |  Parentesco: ${pai.resp_parentesco||"—"}`);
-                        if(pai.foto_doc){try{const r=await fetch(pai.foto_doc);const bl=await r.blob();const b64=await new Promise<string>(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result as string);fr.readAsDataURL(bl)});doc.addImage(b64,"JPEG",20,y,60,40);y+=44;}catch{}}
+                        if(pai.descricao){y+=2;ln("Autorizacao: "+pai.descricao);}
+                        if(pai.foto_doc){try{const r=await fetch(pai.foto_doc);const bl=await r.blob();const b64=await new Promise<string>(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result as string);fr.readAsDataURL(bl)});if(y>200){doc.addPage();y=20;}doc.addImage(b64,"JPEG",20,y,70,50);y+=54;}catch{}}
                         y+=4;
                         ln("RESPONSAVEL 2",12,true,[180,140,50]);
                         ln(`Nome: ${mae.resp_nome||"—"}  |  CPF: ${mae.resp_cpf||"—"}  |  Tel: ${mae.resp_tel||"—"}  |  Parentesco: ${mae.resp_parentesco||"—"}`);
-                        if(mae.foto_doc){try{const r=await fetch(mae.foto_doc);const bl=await r.blob();const b64=await new Promise<string>(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result as string);fr.readAsDataURL(bl)});doc.addImage(b64,"JPEG",20,y,60,40);y+=44;}catch{}}
+                        if(mae.descricao){y+=2;ln("Autorizacao: "+mae.descricao);}
+                        if(mae.foto_doc){try{const r=await fetch(mae.foto_doc);const bl=await r.blob();const b64=await new Promise<string>(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result as string);fr.readAsDataURL(bl)});if(y>200){doc.addPage();y=20;}doc.addImage(b64,"JPEG",20,y,70,50);y+=54;}catch{}}
                       }
                       // assinaturas
                       const campoA = docId==="anamnese"?"anamnese_assinatura":docId==="contrato"?"contrato_assinatura":"menor_assinatura";
@@ -8074,6 +8076,8 @@ export default function CRM() {
                         anamnese: "Ficha de Anamnese",
                         contrato: "Contrato de Execucao de Projeto Artistico",
                         menor: "Autorizacao de Responsavel Legal",
+                        menor_resp1: "Autorizacao de Responsavel Legal — Responsavel 1",
+                        menor_resp2: "Autorizacao de Responsavel Legal — Responsavel 2",
                       };
                       const titulo = titulos[docId] || "Documento";
                       const link = `https://inq-saas.vercel.app/assinar.html?token=${token}`;
@@ -8135,7 +8139,11 @@ export default function CRM() {
 
                       {docs.map(doc => {
                         const aberto = docsAberto === doc.id;
-                        const st = docsStatus[doc.id] || "pendente";
+                        const st = doc.id === "menor"
+                          ? (docsStatus["menor_resp1"] === "assinado" && docsStatus["menor_resp2"] === "assinado" ? "assinado"
+                            : docsStatus["menor_resp1"] === "assinado" || docsStatus["menor_resp2"] === "assinado" ? "enviado"
+                            : docsStatus[doc.id] || "pendente")
+                          : docsStatus[doc.id] || "pendente";
                         return (
                           <div key={doc.id} style={{ border: `1px solid ${aberto ? "var(--gold)" : "var(--br)"}`, borderRadius: 9, overflow: "hidden" }}>
                             {/* header do card */}
@@ -8281,6 +8289,14 @@ export default function CRM() {
                                           <input className="ef" placeholder="Ex: braco direito, lobulo..." value={pai.area||""} onChange={e => salvarPai("area", e.target.value)} />
                                         </div>
                                       </div>
+                                      {/* Status por responsavel */}
+                                      <div style={{ display: "flex", gap: 8 }}>
+                                        {(["menor_resp1","menor_resp2"] as const).map((k,i) => (
+                                          <span key={k} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: docsStatus[k]==="assinado"?"rgba(39,174,96,.15)":"var(--dk3)", color: docsStatus[k]==="assinado"?"#27ae60":"var(--tx3)", border: `1px solid ${docsStatus[k]==="assinado"?"rgba(39,174,96,.4)":"var(--br)"}` }}>
+                                            Resp. {i+1}: {docsStatus[k]==="assinado"?"Assinado":"Pendente"}
+                                          </span>
+                                        ))}
+                                      </div>
                                       {/* PAI */}
                                       <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "10px 12px" }}>
                                         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Responsavel 1 (Pai / Mae / Tutor)</div>
@@ -8288,7 +8304,21 @@ export default function CRM() {
                                           <div className="fi2"><div className="fil">Nome completo</div><input className="ef" value={pai.resp_nome||""} onChange={e => salvarPai("resp_nome", e.target.value)} /></div>
                                           <div className="fi2"><div className="fil">CPF</div><input className="ef" placeholder="000.000.000-00" maxLength={14} value={pai.resp_cpf||""} onChange={e => salvarPai("resp_cpf", maskCpf(e.target.value))} /></div>
                                           <div className="fi2"><div className="fil">Telefone</div><input className="ef" placeholder="(00) 00000-0000" maxLength={15} value={pai.resp_tel||""} onChange={e => salvarPai("resp_tel", maskTel(e.target.value))} /></div>
-                                          <div className="fi2"><div className="fil">Parentesco</div><input className="ef" value={pai.resp_parentesco||""} onChange={e => salvarPai("resp_parentesco", e.target.value)} /></div>
+                                          <div className="fi2">
+                                            <div className="fil">Parentesco</div>
+                                            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 3 }}>
+                                              {["Pai","Mae","Responsavel Legal","Avo / Avo","Outro"].map(p => (
+                                                <span key={p} onClick={() => salvarPai("resp_parentesco", p)}
+                                                  style={{ padding: "4px 10px", borderRadius: 5, border: `1px solid ${pai.resp_parentesco===p?"var(--gold)":"var(--br)"}`, background: pai.resp_parentesco===p?"rgba(201,168,76,.2)":"var(--dk4)", color: pai.resp_parentesco===p?"var(--gold)":"var(--tx3)", fontSize: 11, cursor: "pointer" }}>
+                                                  {p}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div style={{ marginTop: 8 }}>
+                                          <div className="fil">Descricao — o que esta autorizando?</div>
+                                          <textarea className="ef" rows={3} placeholder="Ex: Autorizo meu filho(a) a realizar tatuagem na regiao do braco direito..." value={pai.descricao||""} onChange={e => salvarPai("descricao", e.target.value)} style={{ resize: "vertical", minHeight: 62 }} />
                                         </div>
                                         <div style={{ marginTop: 8 }}>
                                           <div className="fil">Foto do Documento (RG/CNH)</div>
@@ -8312,7 +8342,21 @@ export default function CRM() {
                                           <div className="fi2"><div className="fil">Nome completo</div><input className="ef" value={mae.resp_nome||""} onChange={e => salvarMae("resp_nome", e.target.value)} /></div>
                                           <div className="fi2"><div className="fil">CPF</div><input className="ef" placeholder="000.000.000-00" maxLength={14} value={mae.resp_cpf||""} onChange={e => salvarMae("resp_cpf", maskCpf(e.target.value))} /></div>
                                           <div className="fi2"><div className="fil">Telefone</div><input className="ef" placeholder="(00) 00000-0000" maxLength={15} value={mae.resp_tel||""} onChange={e => salvarMae("resp_tel", maskTel(e.target.value))} /></div>
-                                          <div className="fi2"><div className="fil">Parentesco</div><input className="ef" value={mae.resp_parentesco||""} onChange={e => salvarMae("resp_parentesco", e.target.value)} /></div>
+                                          <div className="fi2">
+                                            <div className="fil">Parentesco</div>
+                                            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 3 }}>
+                                              {["Pai","Mae","Responsavel Legal","Avo / Avo","Outro"].map(p => (
+                                                <span key={p} onClick={() => salvarMae("resp_parentesco", p)}
+                                                  style={{ padding: "4px 10px", borderRadius: 5, border: `1px solid ${mae.resp_parentesco===p?"var(--gold)":"var(--br)"}`, background: mae.resp_parentesco===p?"rgba(201,168,76,.2)":"var(--dk4)", color: mae.resp_parentesco===p?"var(--gold)":"var(--tx3)", fontSize: 11, cursor: "pointer" }}>
+                                                  {p}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div style={{ marginTop: 8 }}>
+                                          <div className="fil">Descricao — o que esta autorizando?</div>
+                                          <textarea className="ef" rows={3} placeholder="Ex: Autorizo meu filho(a) a realizar tatuagem na regiao do braco direito..." value={mae.descricao||""} onChange={e => salvarMae("descricao", e.target.value)} style={{ resize: "vertical", minHeight: 62 }} />
                                         </div>
                                         <div style={{ marginTop: 8 }}>
                                           <div className="fil">Foto do Documento (RG/CNH)</div>
@@ -8432,10 +8476,21 @@ export default function CRM() {
                                     style={{ background: "rgba(201,168,76,.12)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "var(--gold)", cursor: "pointer", fontWeight: 600 }}>
                                     Enviar por Email
                                   </button>
-                                  <button onClick={() => enviarParaAssinar(doc.id)} disabled={docsEnviandoLink === doc.id}
-                                    style={{ background: "rgba(100,149,237,.12)", border: "1px solid rgba(100,149,237,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "#6495ed", cursor: "pointer", fontWeight: 600, opacity: docsEnviandoLink === doc.id ? 0.6 : 1 }}>
-                                    {docsEnviandoLink === doc.id ? "Enviando..." : "Enviar para Assinar (Remoto)"}
-                                  </button>
+                                  {doc.id === "menor" ? (<>
+                                    <button onClick={() => enviarParaAssinar("menor_resp1")} disabled={docsEnviandoLink === "menor_resp1"}
+                                      style={{ background: "rgba(100,149,237,.12)", border: "1px solid rgba(100,149,237,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "#6495ed", cursor: "pointer", fontWeight: 600, opacity: docsEnviandoLink === "menor_resp1" ? 0.6 : 1 }}>
+                                      {docsEnviandoLink === "menor_resp1" ? "Enviando..." : "Assinar Remoto — Resp. 1"}
+                                    </button>
+                                    <button onClick={() => enviarParaAssinar("menor_resp2")} disabled={docsEnviandoLink === "menor_resp2"}
+                                      style={{ background: "rgba(100,149,237,.12)", border: "1px solid rgba(100,149,237,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "#6495ed", cursor: "pointer", fontWeight: 600, opacity: docsEnviandoLink === "menor_resp2" ? 0.6 : 1 }}>
+                                      {docsEnviandoLink === "menor_resp2" ? "Enviando..." : "Assinar Remoto — Resp. 2"}
+                                    </button>
+                                  </>) : (
+                                    <button onClick={() => enviarParaAssinar(doc.id)} disabled={docsEnviandoLink === doc.id}
+                                      style={{ background: "rgba(100,149,237,.12)", border: "1px solid rgba(100,149,237,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "#6495ed", cursor: "pointer", fontWeight: 600, opacity: docsEnviandoLink === doc.id ? 0.6 : 1 }}>
+                                      {docsEnviandoLink === doc.id ? "Enviando..." : "Enviar para Assinar (Remoto)"}
+                                    </button>
+                                  )}
                                   <button disabled title="WhatsApp sera habilitado nas Configuracoes do estudio"
                                     style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "var(--tx3)", cursor: "not-allowed", opacity: 0.45 }}>
                                     Enviar WhatsApp

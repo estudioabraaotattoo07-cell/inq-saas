@@ -114,7 +114,7 @@ export default async function handler(req, res) {
 
     const { data: clientes } = await sb
       .from("clientes")
-      .select("id, nome, email, tel, nascimento, anamnese, menor_responsavel, docs_status, assinar_link, docs_arquivos")
+      .select("id, nome, email, tel, nascimento, anamnese, menor_responsavel, menor_responsavel_mae, docs_status, assinar_link, docs_arquivos")
       .not("assinar_link", "is", null);
 
     let cliente = null;
@@ -137,17 +137,24 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true, doc: docTipo,
         nome: cliente.nome, email: cliente.email, tel: cliente.tel, nascimento: cliente.nascimento,
-        anamnese: cliente.anamnese || {}, menor_responsavel: cliente.menor_responsavel || {},
+        anamnese: cliente.anamnese || {},
+        menor_responsavel: cliente.menor_responsavel || {},
+        menor_responsavel_mae: cliente.menor_responsavel_mae || {},
         docs_status: cliente.docs_status || {},
         ja_assinado: (cliente.docs_status || {})[docTipo] === "assinado",
       });
     }
 
     if (req.method === "POST") {
-      const { assinatura, anamnese, pdf_url, pdf_nome } = req.body;
+      const { assinatura, anamnese, responsavel_dados, pdf_url, pdf_nome } = req.body;
       if (!assinatura) return res.status(400).json({ error: "Assinatura obrigatoria" });
 
-      const campoAssin = docTipo === "anamnese" ? "anamnese_assinatura" : docTipo === "contrato" ? "contrato_assinatura" : "menor_assinatura";
+      const eMenorResp = docTipo === "menor_resp1" || docTipo === "menor_resp2";
+      const campoAssin = docTipo === "anamnese" ? "anamnese_assinatura"
+        : docTipo === "contrato" ? "contrato_assinatura"
+        : docTipo === "menor_resp1" ? "menor_assinatura"
+        : docTipo === "menor_resp2" ? "menor_assinatura_mae"
+        : "menor_assinatura";
 
       let assinSalva = assinatura;
       try {
@@ -168,8 +175,15 @@ export default async function handler(req, res) {
         docs_status: novoStatus,
         assinar_link: Object.keys(novoLink).length ? novoLink : null,
       };
+
       if (docTipo === "anamnese" && anamnese && typeof anamnese === "object") {
         updateFields.anamnese = anamnese;
+      }
+
+      if (eMenorResp && responsavel_dados && typeof responsavel_dados === "object") {
+        const campoResp = docTipo === "menor_resp1" ? "menor_responsavel" : "menor_responsavel_mae";
+        const respAtual = docTipo === "menor_resp1" ? (cliente.menor_responsavel || {}) : (cliente.menor_responsavel_mae || {});
+        updateFields[campoResp] = { ...respAtual, ...responsavel_dados };
       }
 
       if (pdf_url && pdf_nome) {
