@@ -84,7 +84,7 @@ function show(id){["loading","main","success","error"].forEach(i=>document.getEl
 async function init(){
   if(!token){document.getElementById("err-msg").textContent="Link invalido.";show("error");return;}
   try{
-    const r=await fetch("/api/assinar?token="+token);
+    const r=await fetch("/api/lead?acao=assinar&token="+token);
     dados=await r.json();
     if(!r.ok){document.getElementById("err-msg").textContent=dados.error||"Link invalido.";show("error");return;}
     if(dados.ja_assinado){show("success");return;}
@@ -187,10 +187,10 @@ window.assinar=async function(){
   }
 
   try{
-    const r=await fetch("/api/assinar",{
+    const r=await fetch("/api/lead?acao=assinar",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({token,assinatura:cvs.toDataURL("image/png"),doc:dados.doc,anamnese:anamneseDados})
+      body:JSON.stringify({token,assinatura:cvs.toDataURL("image/png"),doc:dados.doc,anamnese:anamneseDados,acao:"assinar"})
     });
     const res=await r.json();
     if(r.ok){show("success");}
