@@ -11455,31 +11455,18 @@ export default function CRM() {
               const { count: cDisparos } = await sb.from("disparos").select("id", { count: "exact", head: true });
               stats.supabase = { clientes: cClientes ?? 0, licencas: cLicencas ?? 0, configuracoes: cConfigs ?? 0, disparos: cDisparos ?? 0, total: (cClientes ?? 0) + (cLicencas ?? 0) + (cConfigs ?? 0) + (cDisparos ?? 0) };
             } catch { stats.supabase = { erro: true }; }
-            // Resend — valida chave e tenta contar emails do mês
-            if (resendApiKey) {
-              try {
-                const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-                const r = await fetch("https://api.resend.com/emails?limit=100", { headers: { Authorization: "Bearer " + resendApiKey } });
-                if (r.ok) {
-                  const d = await r.json();
-                  const emails = Array.isArray(d.data) ? d.data : [];
-                  const doMes = emails.filter((e: any) => e.created_at && e.created_at >= primeiroDiaMes);
-                  const hoje = new Date().toISOString().split("T")[0];
-                  const deHoje = emails.filter((e: any) => e.created_at && e.created_at.startsWith(hoje));
-                  stats.resend = { mes: doMes.length, hoje: deHoje.length, keyOk: true };
-                } else { stats.resend = { keyOk: false }; }
-              } catch { stats.resend = { keyOk: false }; }
-            } else { stats.resend = { semChave: true }; }
-            // Vercel — deploys do mês
+            // Resend — CORS bloqueia chamada direta; mostrar chave configurada apenas
+            stats.resend = resendApiKey ? { dashboard: true } : { semChave: true };
+            // Vercel — deploys do mês (filtrar por createdAt >= primeiro dia do mês)
             if (vercelToken) {
               try {
-                const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-                const r = await fetch("https://api.vercel.com/v6/deployments?limit=100", { headers: { Authorization: "Bearer " + vercelToken } });
+                const agora = new Date();
+                const primeiroDiaMes = new Date(agora.getFullYear(), agora.getMonth(), 1).getTime();
+                const r = await fetch(`https://api.vercel.com/v6/deployments?limit=100&since=${primeiroDiaMes}`, { headers: { Authorization: "Bearer " + vercelToken } });
                 if (r.ok) {
                   const d = await r.json();
                   const deploys = Array.isArray(d.deployments) ? d.deployments : [];
-                  const doMes = deploys.filter((dep: any) => dep.createdAt && dep.createdAt >= primeiroDiaMes);
-                  stats.vercel = { mes: doMes.length, total: deploys.length, keyOk: true };
+                  stats.vercel = { mes: deploys.length, keyOk: true };
                 } else { stats.vercel = { keyOk: false }; }
               } catch { stats.vercel = { keyOk: false }; }
             } else { stats.vercel = { semChave: true }; }
@@ -11539,7 +11526,7 @@ export default function CRM() {
                       {/* Supabase */}
                       <div style={C_CARD}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                          <span style={{ fontSize: 18 }}>⚡</span>
+                          <svg width="22" height="22" viewBox="0 0 109 113" fill="none" style={{ flexShrink: 0 }}><path d="M63.708 110.284c-2.86 3.601-8.658 1.628-8.727-2.97l-1.007-67.251h45.22c8.19 0 12.758 9.46 7.665 15.874L63.708 110.284z" fill="url(#supaA)"/><path d="M63.708 110.284c-2.86 3.601-8.658 1.628-8.727-2.97l-1.007-67.251h45.22c8.19 0 12.758 9.46 7.665 15.874L63.708 110.284z" fill="url(#supaB)" fillOpacity=".2"/><path d="M45.317 2.071c2.86-3.601 8.657-1.628 8.726 2.97l.442 67.251H9.83c-8.19 0-12.759-9.46-7.665-15.875L45.317 2.071z" fill="#3ECF8E"/><defs><linearGradient id="supaA" x1="53.974" y1="54.974" x2="94.163" y2="71.829" gradientUnits="userSpaceOnUse"><stop stopColor="#249361"/><stop offset="1" stopColor="#3ECF8E"/></linearGradient><linearGradient id="supaB" x1="36.156" y1="30.578" x2="54.484" y2="65.081" gradientUnits="userSpaceOnUse"><stop/><stop offset="1" stopOpacity="0"/></linearGradient></defs></svg>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>Supabase</div>
                             <div style={{ fontSize: 10, color: "var(--tx3)" }}>Free Plan</div>
@@ -11564,7 +11551,7 @@ export default function CRM() {
                       {/* Vercel */}
                       <div style={C_CARD}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                          <span style={{ fontSize: 18 }}>▲</span>
+                          <svg width="22" height="22" viewBox="0 0 76 65" fill="currentColor" style={{ color: "var(--tx)", flexShrink: 0 }}><path d="M37.5274 0L75.0548 65H0L37.5274 0Z"/></svg>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>Vercel</div>
                             <div style={{ fontSize: 10, color: "var(--tx3)" }}>Hobby Plan</div>
@@ -11585,28 +11572,21 @@ export default function CRM() {
                       {/* Resend */}
                       <div style={C_CARD}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                          <span style={{ fontSize: 18 }}>✉️</span>
+                          <svg width="22" height="22" viewBox="0 0 60 60" fill="none" style={{ flexShrink: 0 }}><circle cx="30" cy="30" r="30" fill="#000"/><path d="M18 20h24l-12 12L18 20z" fill="#fff"/><path d="M18 20v20h24V20" stroke="#fff" strokeWidth="2" fill="none"/></svg>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>Resend</div>
                             <div style={{ fontSize: 10, color: "var(--tx3)" }}>Free Plan</div>
                           </div>
-                          {infraStats.resend?.keyOk ? <span style={{ ...C_BADGE_OK, marginLeft: "auto" }}>LIVE</span> : infraStats.resend?.semChave ? <span style={{ ...C_BADGE_WARN, marginLeft: "auto" }}>SEM CHAVE</span> : <span style={{ ...C_BADGE_ERR, marginLeft: "auto" }}>ERRO</span>}
+                          {infraStats.resend?.dashboard ? <span style={{ ...C_BADGE_OK, marginLeft: "auto" }}>CONFIG</span> : <span style={{ ...C_BADGE_WARN, marginLeft: "auto" }}>SEM CHAVE</span>}
                         </div>
                         <div style={C_LABEL}>Emails disparados / mês</div>
-                        <div style={C_VAL}>{infraStats.resend?.keyOk ? infraStats.resend.mes : "—"}</div>
-                        <div style={C_SUB}>{infraStats.resend?.keyOk ? `${infraStats.resend.mes} / 3.000 · Hoje: ${infraStats.resend.hoje}` : infraStats.resend?.semChave ? "Configure a Resend API Key em Chaves de Acesso" : "Verifique a chave"}</div>
-                        {infraStats.resend?.keyOk && (
-                          <div style={{ marginTop: 12 }}>
-                            <div style={{ height: 4, background: "var(--dk4)", borderRadius: 4, overflow: "hidden" }}>
-                              <div style={{ height: "100%", width: Math.min((infraStats.resend.mes / 3000) * 100, 100) + "%", background: infraStats.resend.mes > 2500 ? "#C0392B" : "var(--gold)", borderRadius: 4 }} />
-                            </div>
-                          </div>
-                        )}
+                        <div style={C_VAL}>—</div>
+                        <div style={C_SUB}>{infraStats.resend?.dashboard ? "Consulte em resend.com/emails" : "Configure a Resend API Key em Chaves de Acesso"}</div>
                       </div>
                       {/* GitHub */}
                       <div style={C_CARD}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                          <span style={{ fontSize: 18 }}>🐙</span>
+                          <svg width="22" height="22" viewBox="0 0 98 96" fill="currentColor" style={{ color: "var(--tx)", flexShrink: 0 }}><path fillRule="evenodd" clipRule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z"/></svg>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>GitHub</div>
                             <div style={{ fontSize: 10, color: "var(--tx3)" }}>Free Plan</div>
@@ -11620,7 +11600,7 @@ export default function CRM() {
                       {/* Anthropic */}
                       <div style={C_CARD}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                          <span style={{ fontSize: 18 }}>✳️</span>
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style={{ color: "#D97757", flexShrink: 0 }}><path d="M13.827 3.52h3.603L24 20h-3.603l-6.57-16.48zm-3.654 0H6.57L0 20h3.603l1.498-3.818h6.366l1.498 3.818h3.603L10.173 3.52zm-3.27 9.796 2.096-5.338 2.096 5.338H6.903z"/></svg>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>Anthropic</div>
                             <div style={{ fontSize: 10, color: "var(--tx3)" }}>Pay as you go</div>
@@ -11634,7 +11614,7 @@ export default function CRM() {
                       {/* Zenvia */}
                       <div style={C_CARD}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                          <span style={{ fontSize: 18 }}>💬</span>
+                          <svg width="22" height="22" viewBox="0 0 40 40" fill="none" style={{ flexShrink: 0 }}><rect width="40" height="40" rx="8" fill="#00B4D8"/><path d="M8 14h24M8 20h16M8 26h20" stroke="#fff" strokeWidth="3" strokeLinecap="round"/></svg>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>Zenvia</div>
                             <div style={{ fontSize: 10, color: "var(--tx3)" }}>SMS / WhatsApp</div>
