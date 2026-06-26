@@ -11480,16 +11480,15 @@ export default function CRM() {
             } catch { stats.supabase = { erro: true }; }
             // Resend — CORS bloqueia chamada direta; mostrar chave configurada apenas
             stats.resend = resendApiKey ? { dashboard: true } : { semChave: true };
-            // Vercel — deploys do mês (buscar 100 e filtrar localmente por createdAt)
+            // Vercel — deploys do mês usando parâmetro since (ms timestamp)
             if (vercelToken) {
               try {
                 const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-                const r = await fetch("https://api.vercel.com/v6/deployments?limit=100", { headers: { Authorization: "Bearer " + vercelToken } });
+                const r = await fetch(`https://api.vercel.com/v6/deployments?limit=100&since=${primeiroDiaMes}`, { headers: { Authorization: "Bearer " + vercelToken } });
                 if (r.ok) {
                   const d = await r.json();
                   const deploys = Array.isArray(d.deployments) ? d.deployments : [];
-                  const doMes = deploys.filter((dep: any) => dep.createdAt && Number(dep.createdAt) >= primeiroDiaMes);
-                  stats.vercel = { mes: doMes.length, keyOk: true };
+                  stats.vercel = { mes: deploys.length, keyOk: true };
                 } else { stats.vercel = { keyOk: false }; }
               } catch { stats.vercel = { keyOk: false }; }
             } else { stats.vercel = { semChave: true }; }
