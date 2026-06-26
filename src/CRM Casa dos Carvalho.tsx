@@ -1277,6 +1277,12 @@ export default function CRM() {
   const [testeCanalEnviado, setTesteCanalEnviado] = useState<{canal: "email" | "sms" | "whatsapp"; destino: string} | null>(null);
   const [testandoCanal, setTestandoCanal] = useState<string | null>(null);
   const [auraApiKey, setAuraApiKey] = useState("");
+  const [vercelToken, setVercelToken] = useState("");
+  const [githubToken, setGithubToken] = useState("");
+  const [githubRepo, setGithubRepo] = useState("");
+  const [infraStats, setInfraStats] = useState<any>(null);
+  const [infraLoading, setInfraLoading] = useState(false);
+  const [licencasSubTab, setLicencasSubTab] = useState<"monitoramento"|"chaves"|"licencas">("monitoramento");
   const [showAuraChat, setShowAuraChat] = useState(false);
   const [auraBtnPos, setAuraBtnPos] = useState<{ x: number; y: number } | null>(null);
   const [auraDragging, setAuraDragging] = useState(false);
@@ -1533,6 +1539,9 @@ export default function CRM() {
           if (cfg.zenvia_numero) setZenviaNumero(cfg.zenvia_numero);
           if (cfg.aura_api_key) setAuraApiKey(cfg.aura_api_key);
           if (cfg.aura_instrucoes) setAuraInstrucoes(cfg.aura_instrucoes);
+          if (cfg.vercel_token) setVercelToken(cfg.vercel_token);
+          if (cfg.github_token) setGithubToken(cfg.github_token);
+          if (cfg.github_repo) setGithubRepo(cfg.github_repo);
           // ── CANAIS HABILITADOS ──
           if (cfg.canais_habilitados) {
             try {
@@ -11434,7 +11443,70 @@ export default function CRM() {
         )}
 
         {/* ── LICENÇAS (dono do sistema) ── */}
-        {tab === "licencas" && authEmail === OWNER_EMAIL && (
+        {tab === "licencas" && authEmail === OWNER_EMAIL && (() => {
+          const carregarInfra = async () => {
+            setInfraLoading(true);
+            const stats: any = {};
+            // Supabase — contagem de linhas
+            try {
+              const { count: cClientes } = await sb.from("clientes").select("id", { count: "exact", head: true });
+              const { count: cLicencas } = await sb.from("licencas").select("id", { count: "exact", head: true });
+              const { count: cConfigs } = await sb.from("configuracoes").select("id", { count: "exact", head: true });
+              const { count: cDisparos } = await sb.from("disparos").select("id", { count: "exact", head: true });
+              stats.supabase = { clientes: cClientes ?? 0, licencas: cLicencas ?? 0, configuracoes: cConfigs ?? 0, disparos: cDisparos ?? 0, total: (cClientes ?? 0) + (cLicencas ?? 0) + (cConfigs ?? 0) + (cDisparos ?? 0) };
+            } catch { stats.supabase = { erro: true }; }
+            // Resend — valida chave e tenta contar emails do mês
+            if (resendApiKey) {
+              try {
+                const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                const r = await fetch("https://api.resend.com/emails?limit=100", { headers: { Authorization: "Bearer " + resendApiKey } });
+                if (r.ok) {
+                  const d = await r.json();
+                  const emails = Array.isArray(d.data) ? d.data : [];
+                  const doMes = emails.filter((e: any) => e.created_at && e.created_at >= primeiroDiaMes);
+                  const hoje = new Date().toISOString().split("T")[0];
+                  const deHoje = emails.filter((e: any) => e.created_at && e.created_at.startsWith(hoje));
+                  stats.resend = { mes: doMes.length, hoje: deHoje.length, keyOk: true };
+                } else { stats.resend = { keyOk: false }; }
+              } catch { stats.resend = { keyOk: false }; }
+            } else { stats.resend = { semChave: true }; }
+            // Vercel — deploys do mês
+            if (vercelToken) {
+              try {
+                const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+                const r = await fetch("https://api.vercel.com/v6/deployments?limit=100", { headers: { Authorization: "Bearer " + vercelToken } });
+                if (r.ok) {
+                  const d = await r.json();
+                  const deploys = Array.isArray(d.deployments) ? d.deployments : [];
+                  const doMes = deploys.filter((dep: any) => dep.createdAt && dep.createdAt >= primeiroDiaMes);
+                  stats.vercel = { mes: doMes.length, total: deploys.length, keyOk: true };
+                } else { stats.vercel = { keyOk: false }; }
+              } catch { stats.vercel = { keyOk: false }; }
+            } else { stats.vercel = { semChave: true }; }
+            // GitHub — Actions runs do mês
+            if (githubToken && githubRepo) {
+              try {
+                const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+                const r = await fetch(`https://api.github.com/repos/${githubRepo}/actions/runs?per_page=100&created=>=${primeiroDiaMes}`, { headers: { Authorization: "Bearer " + githubToken, Accept: "application/vnd.github+json" } });
+                if (r.ok) {
+                  const d = await r.json();
+                  stats.github = { mes: d.total_count ?? 0, keyOk: true };
+                } else { stats.github = { keyOk: false }; }
+              } catch { stats.github = { keyOk: false }; }
+            } else { stats.github = { semChave: true }; }
+            setInfraStats(stats);
+            setInfraLoading(false);
+          };
+
+          const C_CARD = { background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, padding: "16px 18px", minWidth: 200, flex: "1 1 200px" };
+          const C_LABEL = { fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase" as const, letterSpacing: ".07em", marginBottom: 4 };
+          const C_VAL = { fontSize: 26, fontWeight: 700, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif" };
+          const C_SUB = { fontSize: 11, color: "var(--tx3)", marginTop: 3 };
+          const C_BADGE_OK = { fontSize: 10, padding: "2px 8px", borderRadius: 20, background: "rgba(39,174,96,.15)", color: "#27AE60", border: "1px solid rgba(39,174,96,.3)", display: "inline-block" };
+          const C_BADGE_ERR = { fontSize: 10, padding: "2px 8px", borderRadius: 20, background: "rgba(192,57,43,.15)", color: "#C0392B", border: "1px solid rgba(192,57,43,.3)", display: "inline-block" };
+          const C_BADGE_WARN = { fontSize: 10, padding: "2px 8px", borderRadius: 20, background: "rgba(230,126,34,.15)", color: "#E67E22", border: "1px solid rgba(230,126,34,.3)", display: "inline-block" };
+
+          return (
           <div style={{ flex: 1, padding: "20px", overflowY: "auto" }}>
             <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 700, color: "var(--tx)", marginBottom: 4 }}>Gestão de Licenças</div>
             <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 20 }}>Todos os estúdios cadastrados no sistema.</div>
@@ -12193,6 +12265,9 @@ export default function CRM() {
                     zenvia_numero: zenviaNumero,
                     aura_api_key: auraApiKey,
                     aura_instrucoes: auraInstrucoes,
+                    vercel_token: vercelToken,
+                    github_token: githubToken,
+                    github_repo: githubRepo,
                     user_id: userId,
                     updated_at: new Date().toISOString()
                   };
