@@ -11480,16 +11480,34 @@ export default function CRM() {
             } catch { stats.supabase = { erro: true }; }
             // Resend — CORS bloqueia chamada direta; mostrar chave configurada apenas
             stats.resend = resendApiKey ? { dashboard: true } : { semChave: true };
-            // Vercel — deploys do mês usando parâmetro since (ms timestamp)
+            // Vercel — deploys do mês com paginação (until = createdAt do último item)
             if (vercelToken) {
               try {
                 const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-                const r = await fetch(`https://api.vercel.com/v6/deployments?limit=100&since=${primeiroDiaMes}`, { headers: { Authorization: "Bearer " + vercelToken } });
-                if (r.ok) {
+                let total = 0;
+                let until: number | null = null;
+                let continua = true;
+                let paginas = 0;
+                while (continua && paginas < 20) {
+                  const url = `https://api.vercel.com/v6/deployments?limit=100${until ? "&until=" + until : ""}`;
+                  const r = await fetch(url, { headers: { Authorization: "Bearer " + vercelToken } });
+                  if (!r.ok) { continua = false; break; }
                   const d = await r.json();
-                  const deploys = Array.isArray(d.deployments) ? d.deployments : [];
-                  stats.vercel = { mes: deploys.length, keyOk: true };
-                } else { stats.vercel = { keyOk: false }; }
+                  const deploys: any[] = Array.isArray(d.deployments) ? d.deployments : [];
+                  if (deploys.length === 0) break;
+                  for (const dep of deploys) {
+                    const ts = Number(dep.createdAt);
+                    if (ts < primeiroDiaMes) { continua = false; break; }
+                    total++;
+                  }
+                  if (continua) {
+                    const ultimo = deploys[deploys.length - 1];
+                    until = Number(ultimo.createdAt) - 1;
+                    if (deploys.length < 100) continua = false;
+                  }
+                  paginas++;
+                }
+                stats.vercel = { mes: total, keyOk: true };
               } catch { stats.vercel = { keyOk: false }; }
             } else { stats.vercel = { semChave: true }; }
             // GitHub — Actions runs do mês
