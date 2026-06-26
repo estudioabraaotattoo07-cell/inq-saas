@@ -11471,12 +11471,12 @@ export default function CRM() {
               const { count: cClientes } = await sb.from("clientes").select("id", { count: "exact", head: true });
               const { count: cLicencas } = await sb.from("licencas").select("id", { count: "exact", head: true });
               const { count: cConfigs } = await sb.from("configuracoes").select("id", { count: "exact", head: true });
-              const { count: cDisparos } = await sb.from("disparos").select("id", { count: "exact", head: true });
-              const { data: disparosMes } = await sb.from("disparos").select("canal, created_at").gte("created_at", primeiroDiaMes);
-              const emailsMes = (disparosMes || []).filter((d: any) => d.canal === "email").length;
-              const smsMes = (disparosMes || []).filter((d: any) => d.canal === "sms").length;
-              const waMes = (disparosMes || []).filter((d: any) => d.canal === "whatsapp").length;
-              stats.supabase = { clientes: cClientes ?? 0, licencas: cLicencas ?? 0, configuracoes: cConfigs ?? 0, disparos: cDisparos ?? 0, total: (cClientes ?? 0) + (cLicencas ?? 0) + (cConfigs ?? 0) + (cDisparos ?? 0), emailsMes, smsMes, waMes };
+              const { count: cHistorico } = await sb.from("historico").select("id", { count: "exact", head: true });
+              const { data: disparosMes } = await sb.from("historico").select("acao, created_at").gte("created_at", primeiroDiaMes).ilike("acao", "Disparo em massa%");
+              const emailsMes = (disparosMes || []).filter((d: any) => d.acao?.includes("[EMAIL]")).length;
+              const smsMes = (disparosMes || []).filter((d: any) => d.acao?.includes("[SMS]")).length;
+              const waMes = (disparosMes || []).filter((d: any) => d.acao?.includes("[WHATSAPP]")).length;
+              stats.supabase = { clientes: cClientes ?? 0, licencas: cLicencas ?? 0, configuracoes: cConfigs ?? 0, historico: cHistorico ?? 0, total: (cClientes ?? 0) + (cLicencas ?? 0) + (cConfigs ?? 0) + (cHistorico ?? 0), emailsMes, smsMes, waMes };
             } catch { stats.supabase = { erro: true }; }
             // Resend — CORS bloqueia chamada direta; mostrar chave configurada apenas
             stats.resend = resendApiKey ? { dashboard: true } : { semChave: true };
@@ -11590,7 +11590,7 @@ export default function CRM() {
                         </div>
                         <div style={C_ROW}><span style={C_RK}>Clientes</span><span style={C_RV}>{infraStats.supabase?.clientes ?? "—"}</span></div>
                         <div style={C_ROW}><span style={C_RK}>Licenças</span><span style={C_RV}>{infraStats.supabase?.licencas ?? "—"}</span></div>
-                        <div style={C_ROW}><span style={C_RK}>Disparos (histórico)</span><span style={C_RV}>{infraStats.supabase?.disparos ?? "—"}</span></div>
+                        <div style={C_ROW}><span style={C_RK}>Histórico de ações</span><span style={C_RV}>{infraStats.supabase?.historico ?? "—"}</span></div>
                         <div style={C_ROW}><span style={C_RK}>Total de linhas</span><span style={C_RV}>{infraStats.supabase?.total ?? "—"}</span></div>
                         <Barra v={infraStats.supabase?.total ?? 0} max={50000} />
                         <div style={{ ...C_SUB, marginTop: 6 }}>~{((infraStats.supabase?.total ?? 0) * 2).toFixed(0)} KB estimado / 500 MB</div>
