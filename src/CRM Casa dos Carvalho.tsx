@@ -11603,10 +11603,10 @@ export default function CRM() {
                           {infraStats.vercel?.keyOk ? <span style={C_BADGE_OK}>LIVE</span> : infraStats.vercel?.semChave ? <span style={C_BADGE_WARN}>SEM CHAVE</span> : <span style={C_BADGE_ERR}>ERRO</span>}
                         </div>
                         {infraStats.vercel?.keyOk ? <>
-                          <div style={C_ROW}><span style={C_RK}>Deploys este mês</span><span style={C_RV}>{infraStats.vercel.mes}</span></div>
-                          <div style={C_ROW}><span style={C_RK}>Limite mensal</span><span style={C_RV}>100 deploys</span></div>
-                          <div style={C_ROW}><span style={C_RK}>Restam</span><span style={{ ...C_RV, color: (100 - infraStats.vercel.mes) < 20 ? "#C0392B" : "#27AE60" }}>{100 - infraStats.vercel.mes} deploys</span></div>
-                          <Barra v={infraStats.vercel.mes} max={100} warn={80} />
+                          <div style={C_ROW}><span style={C_RK}>Deploys este mês</span><span style={{ ...C_RV, color: "#27AE60" }}>{infraStats.vercel.mes}</span></div>
+                          <div style={C_ROW}><span style={C_RK}>Limite de deploys</span><span style={{ ...C_RV, color: "#27AE60" }}>Sem limite</span></div>
+                          <div style={C_ROW}><span style={C_RK}>Cobrança por deploy</span><span style={{ ...C_RV, color: "#27AE60" }}>Gratuito</span></div>
+                          <div style={{ ...C_SUB, marginTop: 10 }}>Limites reais: 100 GB bandwidth · 12 serverless functions</div>
                         </> : <div style={C_SUB}>Configure o Vercel Token em Chaves de Acesso</div>}
                       </div>
                       {/* Resend */}
