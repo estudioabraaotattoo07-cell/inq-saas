@@ -8118,7 +8118,8 @@ export default function CRM() {
                       const enviado_em = new Date().toISOString();
                       const linksAtuais: Record<string,any> = (sc as any).assinar_link || {};
                       const novosLinks = { ...linksAtuais, [docId]: { token, exp, enviado_em } };
-                      await sb.from("clientes").update({ assinar_link: novosLinks }).eq("id", sc.id);
+                      const { error: erroLink } = await sb.from("clientes").update({ assinar_link: novosLinks }).eq("id", sc.id);
+                      if (erroLink) { alert("ERRO ao salvar link: " + JSON.stringify(erroLink)); console.error("Erro update assinar_link:", erroLink); return; }
                       setClients(p => p.map(c => c.id !== sc.id ? c : { ...c, assinar_link: novosLinks }));
 
                       const studioNomeFormatado = (studioName || "A Casa dos Carvalho").replace(/_/g, " ");

@@ -218,8 +218,9 @@ export default async function handler(req, res) {
         } catch {}
       }
 
-      await sb.from("clientes").update(updateFields).eq("id", cliente.id);
-      return res.status(200).json({ ok: true });
+      const { error: erroUpdate } = await sb.from("clientes").update(updateFields).eq("id", cliente.id);
+      if (erroUpdate) { console.error("ERRO update pos-assinatura:", JSON.stringify(erroUpdate), "campos:", Object.keys(updateFields)); }
+      return res.status(200).json({ ok: true, debug_erro: erroUpdate || null });
     }
 
     return res.status(405).json({ error: "Method not allowed" });
