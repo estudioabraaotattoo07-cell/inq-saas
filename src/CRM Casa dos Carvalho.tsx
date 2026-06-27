@@ -11648,7 +11648,7 @@ export default function CRM() {
                         <div style={C_ROW}><span style={C_RK}>Gasto este mês</span><span style={C_RV}>{anthropicGasto ? "US$ " + anthropicGasto : "—"}</span></div>
                         <div style={C_ROW}><span style={C_RK}>Limite mensal</span><span style={C_RV}>{anthropicLimite ? "US$ " + anthropicLimite : "—"}</span></div>
                         <div style={C_ROW}><span style={C_RK}>Renovação</span><span style={C_RV}>1 jul 2026</span></div>
-                        {anthropicSaldo && anthropicGasto && <Barra v={Number(anthropicGasto)} max={Number(anthropicGasto) + Number(anthropicSaldo)} />}
+                        {anthropicSaldo && anthropicGasto && (() => { const g = Number(anthropicGasto.replace(",",".")); const s = Number(anthropicSaldo.replace(",",".")); return <Barra v={g} max={g + s} />; })()}
                         <div style={{ ...C_SUB, marginTop: 6 }}>Atualize manualmente em Chaves de Acesso após consultar console.anthropic.com/billing</div>
                       </div>
                       {/* Zenvia */}
