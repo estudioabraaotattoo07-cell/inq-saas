@@ -159,13 +159,13 @@ function render(){
     }
 
     html+=`<div class="question"><label>Nome completo</label>
-      <input class="q-det" id="r-nome" type="text" placeholder="Nome completo do responsavel" value="${respDados.resp_nome||""}"${dis}/></div>`;
+      <input class="q-det" id="r-nome" type="text" placeholder="Nome completo do responsavel" value="${respDados.resp_nome||""}" oninput="atualizarTextoAut()"${dis}/></div>`;
 
     html+=`<div class="question"><label>CPF</label>
-      <input class="q-det" id="r-cpf" type="text" placeholder="000.000.000-00" maxlength="14" value="${respDados.resp_cpf||""}" oninput="maskCpf(this)"${dis}/></div>`;
+      <input class="q-det" id="r-cpf" type="text" placeholder="000.000.000-00" maxlength="14" value="${respDados.resp_cpf||""}" oninput="maskCpf(this);atualizarTextoAut()"${dis}/></div>`;
 
     html+=`<div class="question"><label>RG</label>
-      <input class="q-det" id="r-rg" type="text" placeholder="00.000.000-0" maxlength="12" value="${respDados.resp_rg||""}"${dis}/></div>`;
+      <input class="q-det" id="r-rg" type="text" placeholder="00.000.000-0" maxlength="12" value="${respDados.resp_rg||""}" oninput="atualizarTextoAut()"${dis}/></div>`;
 
     html+=`<div class="question"><label>Telefone</label>
       <input class="q-det" id="r-tel" type="tel" placeholder="(00) 00000-0000" maxlength="15" value="${respDados.resp_tel||""}" oninput="maskTel(this)"${dis}/></div>`;
@@ -183,7 +183,8 @@ function render(){
       <input type="hidden" id="r-parentesco" value="${pAtual}"/>
     </div>`;
 
-    const idadeMin=(()=>{if(!dados.nascimento)return null;const d=new Date(dados.nascimento);const h=new Date();let a=h.getFullYear()-d.getFullYear();if(h.getMonth()<d.getMonth()||(h.getMonth()===d.getMonth()&&h.getDate()<d.getDate()))a--;return a;})();
+    if(!window.idadeMin&&dados.nascimento){const d=new Date(dados.nascimento);const h=new Date();let a=h.getFullYear()-d.getFullYear();if(h.getMonth()<d.getMonth()||(h.getMonth()===d.getMonth()&&h.getDate()<d.getDate()))a--;window.idadeMin=a;}
+    const idadeMin=window.idadeMin||null;
     const nomeResp=respDados.resp_nome||"[nome do responsavel]";
     const cpfResp=respDados.resp_cpf||"[CPF]";
     const rgResp=respDados.resp_rg||"[RG]";
@@ -217,6 +218,10 @@ function render(){
 
   el.innerHTML=html;
 
+  // detecta edição manual no textarea de autorização — para auto-update
+  const taDesc=document.getElementById("r-descricao");
+  if(taDesc) taDesc.addEventListener("input",()=>{textoAutEditadoManualmente=true;});
+
   cvs=document.getElementById("cvs");
   ctx=cvs.getContext("2d");
   ctx.strokeStyle="#111";ctx.lineWidth=2.5;ctx.lineCap="round";ctx.lineJoin="round";
@@ -242,7 +247,20 @@ window.setParentesco=function(val,el){
   el.closest(".parentesco-opts").querySelectorAll(".p-btn").forEach(b=>{b.className="p-btn";});
   el.className="p-btn sel";
   document.getElementById("r-parentesco").value=val;
+  atualizarTextoAut();
 };
+
+let textoAutEditadoManualmente=false;
+function atualizarTextoAut(){
+  const ta=document.getElementById("r-descricao");
+  if(!ta||textoAutEditadoManualmente)return;
+  const nome=document.getElementById("r-nome")?.value||"[nome do responsavel]";
+  const cpf=document.getElementById("r-cpf")?.value||"[CPF]";
+  const rg=document.getElementById("r-rg")?.value||"[RG]";
+  const par=document.getElementById("r-parentesco")?.value||"[parentesco]";
+  const idade=window.idadeMin||null;
+  ta.value=`Eu, ${nome}, portador(a) do CPF ${cpf}, RG ${rg}, ${par} do(a) menor ${dados.nome||""}${idade?`, de ${idade} anos`:""}, autorizo a realizacao do procedimento de tatuagem artistica a ser executado pelo Estudio A Casa dos Carvalho. Declaro estar ciente dos cuidados pos-tatuagem e dos riscos inerentes ao procedimento.`;
+}
 
 window.previewFoto=function(input){
   const f=input.files?.[0];

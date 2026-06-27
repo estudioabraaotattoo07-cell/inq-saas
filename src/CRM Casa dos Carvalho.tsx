@@ -8181,8 +8181,8 @@ export default function CRM() {
                             <span style="color:#c9a84c;font-size:22px;font-weight:700;letter-spacing:.05em;">${studioNomeFormatado}</span>
                           </div>
                           <div style="padding:32px;">
-                            <p style="font-size:15px;">Ola, <strong>${fn}</strong>!</p>
-                            <p style="line-height:1.8;margin-top:10px;">Preparamos o seu <strong>${titulo}</strong> para assinatura digital. Por favor, acesse o link abaixo, leia o documento com atencao e assine.</p>
+                            <p style="font-size:15px;">Ola, <strong>${nomeResp ? fn : `responsavel de ${sc.nome}`}</strong>!</p>
+                            <p style="line-height:1.8;margin-top:10px;">${nomeResp ? `Preparamos o seu <strong>${titulo}</strong>` : `Preparamos o documento de <strong>${titulo}</strong> referente ao(a) menor <strong>${sc.nome}</strong>`} para assinatura digital. Por favor, acesse o link abaixo, leia e preencha o documento com atencao e, ao final, assine.</p>
                             <p style="line-height:1.8;color:#888;font-size:12px;margin-top:8px;">O link e valido por 7 dias.</p>
                             <div style="text-align:center;margin:28px 0;">
                               <a href="${link}" style="display:inline-block;background:#c9a84c;color:#111;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:bold;">Assinar documento</a>
