@@ -7986,7 +7986,7 @@ export default function CRM() {
                           ln2(`Menor: ${sc.nome} (${idade} anos)  |  Data: ${new Date().toLocaleDateString("pt-BR")}`,10,false,[100,100,100]);
                           y2+=4;
                           ln2(resp.label,12,true,[180,140,50]);
-                          ln2(`Nome: ${resp.dados.resp_nome||"—"}  |  CPF: ${resp.dados.resp_cpf||"—"}  |  Tel: ${resp.dados.resp_tel||"—"}  |  Parentesco: ${resp.dados.resp_parentesco||"—"}`);
+                          ln2(`Nome: ${resp.dados.resp_nome||"—"}  |  CPF: ${resp.dados.resp_cpf||"—"}  |  RG: ${resp.dados.resp_rg||"—"}  |  Tel: ${resp.dados.resp_tel||"—"}  |  Parentesco: ${resp.dados.resp_parentesco||"—"}`);
                           if(resp.dados.descricao){y2+=2;ln2("Autorizacao: "+resp.dados.descricao);}
                           y2+=6;
                           ln2("Assinatura — Lei 14.063/2020",10,false,[120,120,120]);
@@ -8408,6 +8408,7 @@ export default function CRM() {
                                           <div className="fi2"><div className="fil">Nome completo</div><input className="ef" value={pai.resp_nome||""} onChange={e => salvarPai("resp_nome", e.target.value)} /></div>
                                           <div className="fi2"><div className="fil">Email</div><input className="ef" type="email" placeholder="email@exemplo.com" value={pai.resp_email||""} onChange={e => salvarPai("resp_email", e.target.value)} /></div>
                                           <div className="fi2"><div className="fil">CPF</div><input className="ef" placeholder="000.000.000-00" maxLength={14} value={pai.resp_cpf||""} onChange={e => salvarPai("resp_cpf", maskCpf(e.target.value))} /></div>
+                                          <div className="fi2"><div className="fil">RG</div><input className="ef" placeholder="00.000.000-0" maxLength={12} value={pai.resp_rg||""} onChange={e => salvarPai("resp_rg", e.target.value)} /></div>
                                           <div className="fi2"><div className="fil">Telefone</div><input className="ef" placeholder="(00) 00000-0000" maxLength={15} value={pai.resp_tel||""} onChange={e => salvarPai("resp_tel", maskTel(e.target.value))} /></div>
                                           <div className="fi2">
                                             <div className="fil">Parentesco</div>
@@ -8447,6 +8448,7 @@ export default function CRM() {
                                           <div className="fi2"><div className="fil">Nome completo</div><input className="ef" value={mae.resp_nome||""} onChange={e => salvarMae("resp_nome", e.target.value)} /></div>
                                           <div className="fi2"><div className="fil">Email</div><input className="ef" type="email" placeholder="email@exemplo.com" value={mae.resp_email||""} onChange={e => salvarMae("resp_email", e.target.value)} /></div>
                                           <div className="fi2"><div className="fil">CPF</div><input className="ef" placeholder="000.000.000-00" maxLength={14} value={mae.resp_cpf||""} onChange={e => salvarMae("resp_cpf", maskCpf(e.target.value))} /></div>
+                                          <div className="fi2"><div className="fil">RG</div><input className="ef" placeholder="00.000.000-0" maxLength={12} value={mae.resp_rg||""} onChange={e => salvarMae("resp_rg", e.target.value)} /></div>
                                           <div className="fi2"><div className="fil">Telefone</div><input className="ef" placeholder="(00) 00000-0000" maxLength={15} value={mae.resp_tel||""} onChange={e => salvarMae("resp_tel", maskTel(e.target.value))} /></div>
                                           <div className="fi2">
                                             <div className="fil">Parentesco</div>

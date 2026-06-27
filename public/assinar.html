@@ -164,6 +164,9 @@ function render(){
     html+=`<div class="question"><label>CPF</label>
       <input class="q-det" id="r-cpf" type="text" placeholder="000.000.000-00" maxlength="14" value="${respDados.resp_cpf||""}" oninput="maskCpf(this)"${dis}/></div>`;
 
+    html+=`<div class="question"><label>RG</label>
+      <input class="q-det" id="r-rg" type="text" placeholder="00.000.000-0" maxlength="12" value="${respDados.resp_rg||""}"${dis}/></div>`;
+
     html+=`<div class="question"><label>Telefone</label>
       <input class="q-det" id="r-tel" type="tel" placeholder="(00) 00000-0000" maxlength="15" value="${respDados.resp_tel||""}" oninput="maskTel(this)"${dis}/></div>`;
 
@@ -180,8 +183,16 @@ function render(){
       <input type="hidden" id="r-parentesco" value="${pAtual}"/>
     </div>`;
 
-    html+=`<div class="question"><label>O que esta autorizando?</label>
-      <textarea class="q-det" id="r-descricao" rows="4" placeholder="Ex: Autorizo meu filho(a) ${dados.nome} a realizar tatuagem na regiao do braco direito no estudio Casa dos Carvalho Tattoo."${dis}>${respDados.descricao||""}</textarea>
+    const idadeMin=(()=>{if(!dados.nascimento)return null;const d=new Date(dados.nascimento);const h=new Date();let a=h.getFullYear()-d.getFullYear();if(h.getMonth()<d.getMonth()||(h.getMonth()===d.getMonth()&&h.getDate()<d.getDate()))a--;return a;})();
+    const nomeResp=respDados.resp_nome||"[nome do responsavel]";
+    const cpfResp=respDados.resp_cpf||"[CPF]";
+    const rgResp=respDados.resp_rg||"[RG]";
+    const parResp=respDados.resp_parentesco||"[parentesco]";
+    const autoTexto=`Eu, ${nomeResp}, portador(a) do CPF ${cpfResp}, RG ${rgResp}, ${parResp} do(a) menor ${dados.nome}${idadeMin?`, de ${idadeMin} anos`:""}, autorizo a realizacao do procedimento de tatuagem artistica a ser executado pelo Estudio A Casa dos Carvalho. Declaro estar ciente dos cuidados pos-tatuagem e dos riscos inerentes ao procedimento.`;
+    const descricaoValor=respDados.descricao||autoTexto;
+    html+=`<div class="question"><label>Declaracao de autorizacao</label>
+      <textarea class="q-det" id="r-descricao" rows="5"${dis}>${descricaoValor}</textarea>
+      <p style="font-size:11px;color:#555;margin-top:4px">Texto gerado automaticamente. Voce pode editar antes de assinar.</p>
     </div>`;
 
     html+=`<div class="question"><label>Foto do documento (RG ou CNH)</label>
@@ -338,7 +349,7 @@ async function gerarPdf(assinBase64, anamneseDados, responsavelDados, fotoDocUrl
     const rl=dados.doc==="menor_resp1"?"RESPONSAVEL 1":"RESPONSAVEL 2";
     ln(`DADOS DO ${rl}`,13,true);
     ln(`Nome: ${responsavelDados?.resp_nome||"—"}`);
-    ln(`CPF: ${responsavelDados?.resp_cpf||"—"}  |  Telefone: ${responsavelDados?.resp_tel||"—"}`);
+    ln(`CPF: ${responsavelDados?.resp_cpf||"—"}  |  RG: ${responsavelDados?.resp_rg||"—"}  |  Telefone: ${responsavelDados?.resp_tel||"—"}`);
     ln(`Grau de parentesco: ${responsavelDados?.resp_parentesco||"—"}`);
     if(responsavelDados?.descricao){y+=4;ln("AUTORIZACAO:",12,true);ln(responsavelDados.descricao);}
     // foto do documento
@@ -390,6 +401,7 @@ window.assinar=async function(){
     responsavelDados={
       resp_nome:document.getElementById("r-nome")?.value||"",
       resp_cpf:document.getElementById("r-cpf")?.value||"",
+      resp_rg:document.getElementById("r-rg")?.value||"",
       resp_tel:document.getElementById("r-tel")?.value||"",
       resp_parentesco:document.getElementById("r-parentesco")?.value||"",
       descricao:document.getElementById("r-descricao")?.value||"",
