@@ -148,38 +148,50 @@ function render(){
   }
 
   if(eMenorResp){
+    const bloqueadoEdicao = dados.enviado_em && (Date.now() - new Date(dados.enviado_em).getTime()) > 24 * 60 * 60 * 1000;
+    const dis = bloqueadoEdicao ? ' disabled style="opacity:.5;pointer-events:none"' : '';
+
     html+=`<h2>Dados do ${respLabel}</h2>`;
     html+=`<p style="font-size:13px;color:#888;margin-bottom:12px"><strong>Menor:</strong> ${dados.nome}</p>`;
 
+    if(bloqueadoEdicao){
+      html+=`<div class="alerta" style="border-color:rgba(231,76,60,.4);color:#e74c3c;background:rgba(231,76,60,.08)">Edicao de dados disponivel apenas nas primeiras 24h apos o envio. Para alterar alguma informacao, entre em contato com o estudio.</div>`;
+    }
+
     html+=`<div class="question"><label>Nome completo</label>
-      <input class="q-det" id="r-nome" type="text" placeholder="Nome completo do responsavel" value="${respDados.resp_nome||""}"/></div>`;
+      <input class="q-det" id="r-nome" type="text" placeholder="Nome completo do responsavel" value="${respDados.resp_nome||""}"${dis}/></div>`;
 
     html+=`<div class="question"><label>CPF</label>
-      <input class="q-det" id="r-cpf" type="text" placeholder="000.000.000-00" maxlength="14" value="${respDados.resp_cpf||""}" oninput="maskCpf(this)"/></div>`;
+      <input class="q-det" id="r-cpf" type="text" placeholder="000.000.000-00" maxlength="14" value="${respDados.resp_cpf||""}" oninput="maskCpf(this)"${dis}/></div>`;
 
     html+=`<div class="question"><label>Telefone</label>
-      <input class="q-det" id="r-tel" type="tel" placeholder="(00) 00000-0000" maxlength="15" value="${respDados.resp_tel||""}" oninput="maskTel(this)"/></div>`;
+      <input class="q-det" id="r-tel" type="tel" placeholder="(00) 00000-0000" maxlength="15" value="${respDados.resp_tel||""}" oninput="maskTel(this)"${dis}/></div>`;
 
     const pAtual=respDados.resp_parentesco||"";
+    const pOpts=PARENTESCOS.map(p=>{
+      const sel=pAtual===p?" sel":"";
+      const click=bloqueadoEdicao?"":`onclick="setParentesco('${p}',this)"`;
+      return `<div class="p-btn${sel}" ${click}>${p}</div>`;
+    }).join("");
     html+=`<div class="question"><label>Grau de parentesco</label>
-      <div class="parentesco-opts">
-        ${PARENTESCOS.map(p=>`<div class="p-btn${pAtual===p?" sel":""}" onclick="setParentesco('${p}',this)">${p}</div>`).join("")}
+      <div class="parentesco-opts" ${bloqueadoEdicao?'style="pointer-events:none;opacity:.5"':""}>
+        ${pOpts}
       </div>
       <input type="hidden" id="r-parentesco" value="${pAtual}"/>
     </div>`;
 
     html+=`<div class="question"><label>O que esta autorizando?</label>
-      <textarea class="q-det" id="r-descricao" rows="4" placeholder="Ex: Autorizo meu filho(a) ${dados.nome} a realizar tatuagem na regiao do braco direito no estudio Casa dos Carvalho Tattoo.">${respDados.descricao||""}</textarea>
+      <textarea class="q-det" id="r-descricao" rows="4" placeholder="Ex: Autorizo meu filho(a) ${dados.nome} a realizar tatuagem na regiao do braco direito no estudio Casa dos Carvalho Tattoo."${dis}>${respDados.descricao||""}</textarea>
     </div>`;
 
     html+=`<div class="question"><label>Foto do documento (RG ou CNH)</label>
       <div class="foto-preview" id="foto-preview">
         ${respDados.foto_doc?`<img src="${respDados.foto_doc}" alt="Documento"/>`:""}
       </div>
-      <label class="foto-label">
-        + Anexar foto do documento
-        <input type="file" id="foto-doc" accept="image/jpeg,image/png,image/jpg" style="display:none" onchange="previewFoto(this)"/>
-      </label>
+      ${bloqueadoEdicao
+        ? `<p style="font-size:12px;color:#555;margin-top:8px">Foto nao pode ser alterada apos 24h do envio.</p>`
+        : `<label class="foto-label">+ Anexar foto do documento<input type="file" id="foto-doc" accept="image/jpeg,image/png,image/jpg" style="display:none" onchange="previewFoto(this)"/></label>`
+      }
     </div>`;
 
     html+=`<div class="alerta">Ao assinar, confirmo que li e concordo com as informacoes acima, autorizando o procedimento no menor identificado.</div>`;
@@ -252,6 +264,28 @@ window.limpar=function(){if(!cvs)return;ctx.clearRect(0,0,cvs.width,cvs.height);
 
 async function blobParaBase64(blob){
   return new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.readAsDataURL(blob);});
+}
+
+async function urlParaBase64(url){
+  try{
+    const r=await fetch(url);
+    const bl=await r.blob();
+    return await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(bl);});
+  }catch{return null;}
+}
+
+async function uploadFotoStorage(fotoBase64, fotoTipo, clienteId, docTipo){
+  try{
+    const bytes=Uint8Array.from(atob(fotoBase64),c=>c.charCodeAt(0));
+    const fname=`doc-menor-${clienteId}-${docTipo}-${Date.now()}.jpg`;
+    const r=await fetch(`${SUPA_URL}/storage/v1/object/referencias/${fname}`,{
+      method:"POST",
+      headers:{"Authorization":`Bearer ${SUPA_KEY}`,"Content-Type":fotoTipo||"image/jpeg","x-upsert":"true"},
+      body:bytes
+    });
+    if(!r.ok)return null;
+    return `${SUPA_URL}/storage/v1/object/public/referencias/${fname}`;
+  }catch{return null;}
 }
 
 async function imagemComprimida(file, maxW=900, q=0.75){
@@ -369,22 +403,32 @@ window.assinar=async function(){
     }
   }
 
+  // Upload foto para Storage antes de gerar PDF (para foto entrar no documento)
+  let fotoUrl=null;
+  if(eMenorResp && fotoBase64){
+    btn.textContent="Enviando foto...";
+    fotoUrl=await uploadFotoStorage(fotoBase64,fotoTipo,dados.id||"x",dados.doc);
+    if(fotoUrl && responsavelDados) responsavelDados.foto_doc=fotoUrl;
+  }
+
   // Gerar PDF como base64
   btn.textContent="Gerando PDF...";
   let pdfBase64=null,pdfNome=null;
   try{
-    const pdfBlob=await gerarPdf(assinBase64,anamneseDados,responsavelDados,null);
-    const titulosNome={anamnese:"FICHA-DE-ANAMNESE",contrato:"CONTRATO-DE-EXECUCAO",menor_resp1:"AUTORIZACAO-RESPONSAVEL-1",menor_resp2:"AUTORIZACAO-RESPONSAVEL-2"};
-    pdfNome=`${titulosNome[dados.doc]||"DOCUMENTO"}-${dados.nome.replace(/ /g,"-")}-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.pdf`;
+    const pdfBlob=await gerarPdf(assinBase64,anamneseDados,responsavelDados,fotoUrl);
+    const nomeMin=(dados.nome||"menor").replace(/ /g,"-");
+    const titulosNome={anamnese:"FICHA-DE-ANAMNESE",contrato:"CONTRATO-DE-EXECUCAO",menor_resp1:`AUTORIZACAO-${nomeMin}-RESPONSAVEL-1`,menor_resp2:`AUTORIZACAO-${nomeMin}-RESPONSAVEL-2`};
+    pdfNome=`${titulosNome[dados.doc]||"DOCUMENTO"}-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.pdf`;
     pdfBase64=await blobParaBase64(pdfBlob);
   }catch(e){console.error("PDF erro:",e);}
 
   btn.textContent="Confirmando...";
   try{
+    // foto_base64 não enviada — upload já foi feito pelo browser acima; fotoUrl já está em responsavel_dados.foto_doc
     const r=await fetch("/api/lead?acao=assinar",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({token,assinatura:assinBase64,doc:dados.doc,anamnese:anamneseDados,responsavel_dados:responsavelDados,foto_base64:fotoBase64,foto_tipo:fotoTipo,pdf_base64:pdfBase64,pdf_nome:pdfNome})
+      body:JSON.stringify({token,assinatura:assinBase64,doc:dados.doc,anamnese:anamneseDados,responsavel_dados:responsavelDados,pdf_base64:pdfBase64,pdf_nome:pdfNome})
     });
     const res=await r.json();
     if(r.ok){show("success");}

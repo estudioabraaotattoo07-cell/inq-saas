@@ -7902,6 +7902,20 @@ export default function CRM() {
                   const gerarEsalvarPdf = async (docId: string) => {
                     setDocsGerandoPdf(true);
                     try {
+                      // Converte URL pública ou base64 em base64 para uso no addImage do jsPDF
+                      const normImagem = async (valor: string | undefined): Promise<string | null> => {
+                        if (!valor) return null;
+                        if (valor.startsWith("data:")) return valor;
+                        if (valor.startsWith("http")) {
+                          try {
+                            const r = await fetch(valor);
+                            const bl = await r.blob();
+                            return await new Promise<string>(res => { const fr = new FileReader(); fr.onload = () => res(fr.result as string); fr.readAsDataURL(bl); });
+                          } catch(e) { console.error("normImagem falhou:", valor, e); return null; }
+                        }
+                        return null;
+                      };
+
                       const doc = new jsPDF({ unit: "mm", format: "a4" });
                       const W = 210; let y = 20;
                       const ln = (texto: string, size=11, bold=false, cor: [number,number,number]=[30,30,30]) => {
@@ -7943,20 +7957,20 @@ export default function CRM() {
                         ln("RESPONSAVEL 1",12,true,[180,140,50]);
                         ln(`Nome: ${pai.resp_nome||"—"}  |  CPF: ${pai.resp_cpf||"—"}  |  Tel: ${pai.resp_tel||"—"}  |  Parentesco: ${pai.resp_parentesco||"—"}`);
                         if(pai.descricao){y+=2;ln("Autorizacao: "+pai.descricao);}
-                        if(pai.foto_doc){try{const r=await fetch(pai.foto_doc);const bl=await r.blob();const b64=await new Promise<string>(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result as string);fr.readAsDataURL(bl)});if(y>200){doc.addPage();y=20;}doc.addImage(b64,"JPEG",20,y,70,50);y+=54;}catch{}}
+                        if(pai.foto_doc){const b64=await normImagem(pai.foto_doc);if(b64){if(y>200){doc.addPage();y=20;}doc.addImage(b64,"JPEG",20,y,70,50);y+=54;}}
                         y+=4;
                         ln("RESPONSAVEL 2",12,true,[180,140,50]);
                         ln(`Nome: ${mae.resp_nome||"—"}  |  CPF: ${mae.resp_cpf||"—"}  |  Tel: ${mae.resp_tel||"—"}  |  Parentesco: ${mae.resp_parentesco||"—"}`);
                         if(mae.descricao){y+=2;ln("Autorizacao: "+mae.descricao);}
-                        if(mae.foto_doc){try{const r=await fetch(mae.foto_doc);const bl=await r.blob();const b64=await new Promise<string>(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result as string);fr.readAsDataURL(bl)});if(y>200){doc.addPage();y=20;}doc.addImage(b64,"JPEG",20,y,70,50);y+=54;}catch{}}
+                        if(mae.foto_doc){const b64=await normImagem(mae.foto_doc);if(b64){if(y>200){doc.addPage();y=20;}doc.addImage(b64,"JPEG",20,y,70,50);y+=54;}}
                       }
-                      // assinaturas
+                      // assinaturas — normImagem converte URL pública (assinatura remota) para base64 antes do addImage
                       const campoA = docId==="anamnese"?"anamnese_assinatura":docId==="contrato"?"contrato_assinatura":"menor_assinatura";
-                      const assinA = (sc as any)[campoA];
-                      if(assinA){y+=6;ln("Assinatura"+(docId==="menor"?" — Responsavel 1":"")+" — Lei 14.063/2020",10,false,[120,120,120]);try{doc.addImage(assinA,"PNG",20,y,60,25);y+=28;}catch{}}
+                      const assinA = await normImagem((sc as any)[campoA]);
+                      if(assinA){y+=6;ln("Assinatura"+(docId==="menor"?" — Responsavel 1":"")+" — Lei 14.063/2020",10,false,[120,120,120]);try{doc.addImage(assinA,"PNG",20,y,60,25);y+=28;}catch(e){console.error("addImage assinA:",e);}}
                       if(docId==="menor"){
-                        const assinMae = (sc as any).menor_assinatura_mae;
-                        if(assinMae){y+=4;ln("Assinatura — Responsavel 2 — Lei 14.063/2020",10,false,[120,120,120]);try{doc.addImage(assinMae,"PNG",20,y,60,25);y+=28;}catch{}}
+                        const assinMae = await normImagem((sc as any).menor_assinatura_mae);
+                        if(assinMae){y+=4;ln("Assinatura — Responsavel 2 — Lei 14.063/2020",10,false,[120,120,120]);try{doc.addImage(assinMae,"PNG",20,y,60,25);y+=28;}catch(e){console.error("addImage assinMae:",e);}}
                       }
                       // salvar no Storage
                       const pdfBlob = doc.output("blob");
@@ -8101,8 +8115,9 @@ export default function CRM() {
                     try {
                       const token = crypto.randomUUID();
                       const exp = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+                      const enviado_em = new Date().toISOString();
                       const linksAtuais: Record<string,any> = (sc as any).assinar_link || {};
-                      const novosLinks = { ...linksAtuais, [docId]: { token, exp } };
+                      const novosLinks = { ...linksAtuais, [docId]: { token, exp, enviado_em } };
                       await sb.from("clientes").update({ assinar_link: novosLinks }).eq("id", sc.id);
                       setClients(p => p.map(c => c.id !== sc.id ? c : { ...c, assinar_link: novosLinks }));
 

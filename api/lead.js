@@ -142,12 +142,17 @@ export default async function handler(req, res) {
         menor_responsavel_mae: cliente.menor_responsavel_mae || {},
         docs_status: cliente.docs_status || {},
         ja_assinado: (cliente.docs_status || {})[docTipo] === "assinado",
+        enviado_em: linkInfo?.enviado_em || null,
+        id: cliente.id,
       });
     }
 
     if (req.method === "POST") {
       const { assinatura, anamnese, responsavel_dados, foto_base64, foto_tipo, pdf_base64, pdf_nome } = req.body;
       if (!assinatura) return res.status(400).json({ error: "Assinatura obrigatoria" });
+
+      const edicaoBloqueada = linkInfo?.enviado_em &&
+        (Date.now() - new Date(linkInfo.enviado_em).getTime()) > 24 * 60 * 60 * 1000;
 
       const eMenorResp = docTipo === "menor_resp1" || docTipo === "menor_resp2";
       const campoAssin = docTipo === "anamnese" ? "anamnese_assinatura"
@@ -180,23 +185,25 @@ export default async function handler(req, res) {
         updateFields.anamnese = anamnese;
       }
 
-      // Upload foto do documento via servidor (service key)
-      let fotoUrl = null;
-      if (eMenorResp && foto_base64) {
-        try {
-          const fotoBuffer = Buffer.from(foto_base64, "base64");
-          const fotoFname = `doc-menor-${cliente.id}-${docTipo}-${Date.now()}.jpg`;
-          await sb.storage.from("referencias").upload(fotoFname, fotoBuffer, { contentType: foto_tipo || "image/jpeg", upsert: true });
-          const { data: pub } = sb.storage.from("referencias").getPublicUrl(fotoFname);
-          fotoUrl = pub.publicUrl;
-          if (responsavel_dados) responsavel_dados.foto_doc = fotoUrl;
-        } catch {}
-      }
+      // Upload foto e dados pessoais — bloqueados após 24h do envio
+      if (!edicaoBloqueada) {
+        let fotoUrl = null;
+        if (eMenorResp && foto_base64) {
+          try {
+            const fotoBuffer = Buffer.from(foto_base64, "base64");
+            const fotoFname = `doc-menor-${cliente.id}-${docTipo}-${Date.now()}.jpg`;
+            await sb.storage.from("referencias").upload(fotoFname, fotoBuffer, { contentType: foto_tipo || "image/jpeg", upsert: true });
+            const { data: pub } = sb.storage.from("referencias").getPublicUrl(fotoFname);
+            fotoUrl = pub.publicUrl;
+            if (responsavel_dados) responsavel_dados.foto_doc = fotoUrl;
+          } catch {}
+        }
 
-      if (eMenorResp && responsavel_dados && typeof responsavel_dados === "object") {
-        const campoResp = docTipo === "menor_resp1" ? "menor_responsavel" : "menor_responsavel_mae";
-        const respAtual = docTipo === "menor_resp1" ? (cliente.menor_responsavel || {}) : (cliente.menor_responsavel_mae || {});
-        updateFields[campoResp] = { ...respAtual, ...responsavel_dados };
+        if (eMenorResp && responsavel_dados && typeof responsavel_dados === "object") {
+          const campoResp = docTipo === "menor_resp1" ? "menor_responsavel" : "menor_responsavel_mae";
+          const respAtual = docTipo === "menor_resp1" ? (cliente.menor_responsavel || {}) : (cliente.menor_responsavel_mae || {});
+          updateFields[campoResp] = { ...respAtual, ...responsavel_dados };
+        }
       }
 
       // Upload PDF via servidor (service key)
