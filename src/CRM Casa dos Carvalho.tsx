@@ -7960,30 +7960,58 @@ export default function CRM() {
                          "7. DA CONCORDANCIA: Ao assinar, o cliente declara ter lido e concordado com todos os termos."
                         ].forEach(t => { y+=2; ln(t); });
                       }
+                      // Para menor: gera dois PDFs independentes (um por responsável)
                       if(docId==="menor"){
-                        const pai: Record<string,string> = (sc as any).menor_responsavel||{};
-                        const mae: Record<string,string> = (sc as any).menor_responsavel_mae||{};
-                        ln(`Menor: ${sc.nome} (${idade} anos)  |  Servico: ${pai.servico||"—"}  |  Area: ${pai.area||"—"}`);
-                        y+=4;
-                        ln("RESPONSAVEL 1",12,true,[180,140,50]);
-                        ln(`Nome: ${pai.resp_nome||"—"}  |  CPF: ${pai.resp_cpf||"—"}  |  Tel: ${pai.resp_tel||"—"}  |  Parentesco: ${pai.resp_parentesco||"—"}`);
-                        if(pai.descricao){y+=2;ln("Autorizacao: "+pai.descricao);}
-                        if(pai.foto_doc){const b64=await normImagem(pai.foto_doc);if(b64){if(y>200){doc.addPage();y=20;}doc.addImage(b64,"JPEG",20,y,70,50);y+=54;}}
-                        y+=4;
-                        ln("RESPONSAVEL 2",12,true,[180,140,50]);
-                        ln(`Nome: ${mae.resp_nome||"—"}  |  CPF: ${mae.resp_cpf||"—"}  |  Tel: ${mae.resp_tel||"—"}  |  Parentesco: ${mae.resp_parentesco||"—"}`);
-                        if(mae.descricao){y+=2;ln("Autorizacao: "+mae.descricao);}
-                        if(mae.foto_doc){const b64=await normImagem(mae.foto_doc);if(b64){if(y>200){doc.addPage();y=20;}doc.addImage(b64,"JPEG",20,y,70,50);y+=54;}}
-                      }
-                      // assinaturas — normImagem converte URL pública (assinatura remota) para base64 antes do addImage
-                      const campoA = docId==="anamnese"?"anamnese_assinatura":docId==="contrato"?"contrato_assinatura":"menor_assinatura";
+                        const nomeMin = sc.nome.replace(/ /g,"-");
+                        const data = new Date().toLocaleDateString("pt-BR").replace(/\//g,"-");
+                        const resps: Array<{label:string, dados: Record<string,string>, campoAssin: string, sufixo: string}> = [
+                          { label:"RESPONSAVEL 1", dados:(sc as any).menor_responsavel||{}, campoAssin:"menor_assinatura",     sufixo:"RESPONSAVEL-1" },
+                          { label:"RESPONSAVEL 2", dados:(sc as any).menor_responsavel_mae||{}, campoAssin:"menor_assinatura_mae", sufixo:"RESPONSAVEL-2" },
+                        ];
+                        let arquivosAtuais: any[] = (sc as any).docs_arquivos || [];
+                        let gerados = 0;
+                        for(const resp of resps){
+                          const assinVal = await normImagem((sc as any)[resp.campoAssin]);
+                          if(!assinVal){ continue; }
+                          const d2 = new jsPDF({ unit:"mm", format:"a4" });
+                          const W2=210; let y2=20;
+                          const ln2=(texto:string,size=11,bold=false,cor:[number,number,number]=[30,30,30])=>{
+                            d2.setFontSize(size);d2.setFont("helvetica",bold?"bold":"normal");d2.setTextColor(...cor);
+                            const ls=d2.splitTextToSize(texto,W2-40);
+                            ls.forEach((l:string)=>{if(y2>270){d2.addPage();y2=20;}d2.text(l,20,y2);y2+=size*0.45;});
+                            y2+=2;
+                          };
+                          ln2("AUTORIZACAO DE RESPONSAVEL LEGAL",16,true,[180,140,50]);
+                          y2+=3;
+                          ln2(`Menor: ${sc.nome} (${idade} anos)  |  Data: ${new Date().toLocaleDateString("pt-BR")}`,10,false,[100,100,100]);
+                          y2+=4;
+                          ln2(resp.label,12,true,[180,140,50]);
+                          ln2(`Nome: ${resp.dados.resp_nome||"—"}  |  CPF: ${resp.dados.resp_cpf||"—"}  |  Tel: ${resp.dados.resp_tel||"—"}  |  Parentesco: ${resp.dados.resp_parentesco||"—"}`);
+                          if(resp.dados.descricao){y2+=2;ln2("Autorizacao: "+resp.dados.descricao);}
+                          y2+=6;
+                          ln2("Assinatura — Lei 14.063/2020",10,false,[120,120,120]);
+                          try{d2.addImage(assinVal,"PNG",20,y2,60,25);y2+=28;}catch(e){console.error("addImage menor:",e);}
+                          const blob2=d2.output("blob");
+                          const pdfNome2=`AUTORIZACAO-${nomeMin}-${resp.sufixo}-${data}.pdf`;
+                          const fname2=`pdf-${sc.id}-menor-${resp.sufixo.toLowerCase()}-${Date.now()}.pdf`;
+                          await sb.storage.from("referencias").upload(fname2,blob2,{contentType:"application/pdf",upsert:true});
+                          const {data:pub2}=sb.storage.from("referencias").getPublicUrl(fname2);
+                          arquivosAtuais=[...arquivosAtuais,{nome:pdfNome2,url:pub2.publicUrl,tipo:"pdf",criado_em:new Date().toISOString()}];
+                          gerados++;
+                        }
+                        if(gerados>0){
+                          await sb.from("clientes").update({docs_arquivos:arquivosAtuais}).eq("id",sc.id);
+                          upCFicha(sc.id,"docs_arquivos",arquivosAtuais);
+                          setFichaEditada(false);
+                          alert(`${gerados} PDF(s) gerado(s) e salvo(s) em Documentos Salvos!`);
+                        } else {
+                          alert("Nenhum responsavel assinou ainda. Nao ha PDF para gerar.");
+                        }
+                      } else {
+                      // anamnese e contrato — PDF único
+                      const campoA = docId==="anamnese"?"anamnese_assinatura":"contrato_assinatura";
                       const assinA = await normImagem((sc as any)[campoA]);
-                      if(assinA){y+=6;ln("Assinatura"+(docId==="menor"?" — Responsavel 1":"")+" — Lei 14.063/2020",10,false,[120,120,120]);try{doc.addImage(assinA,"PNG",20,y,60,25);y+=28;}catch(e){console.error("addImage assinA:",e);}}
-                      if(docId==="menor"){
-                        const assinMae = await normImagem((sc as any).menor_assinatura_mae);
-                        if(assinMae){y+=4;ln("Assinatura — Responsavel 2 — Lei 14.063/2020",10,false,[120,120,120]);try{doc.addImage(assinMae,"PNG",20,y,60,25);y+=28;}catch(e){console.error("addImage assinMae:",e);}}
-                      }
-                      // salvar no Storage
+                      if(assinA){y+=6;ln("Assinatura — Lei 14.063/2020",10,false,[120,120,120]);try{doc.addImage(assinA,"PNG",20,y,60,25);y+=28;}catch(e){console.error("addImage assinA:",e);}}
                       const pdfBlob = doc.output("blob");
                       const pdfNome = `${titulos[docId]||"doc"}-${sc.nome}-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.pdf`;
                       const fname = `pdf-${sc.id}-${docId}-${Date.now()}.pdf`;
@@ -7995,6 +8023,7 @@ export default function CRM() {
                       upCFicha(sc.id, "docs_arquivos", novos);
                       setFichaEditada(false);
                       alert("PDF gerado e salvo em Documentos Salvos!");
+                      }
                     } catch(e) { alert("Erro ao gerar PDF."); }
                     setDocsGerandoPdf(false);
                   };
@@ -8130,7 +8159,7 @@ export default function CRM() {
                       const linksAtuais: Record<string,any> = (sc as any).assinar_link || {};
                       const novosLinks = { ...linksAtuais, [docId]: { token, exp, enviado_em } };
                       const { error: erroLink } = await sb.from("clientes").update({ assinar_link: novosLinks }).eq("id", sc.id);
-                      if (erroLink) { alert("ERRO ao salvar link: " + JSON.stringify(erroLink)); console.error("Erro update assinar_link:", erroLink); return; }
+                      if (erroLink) { console.error("Erro update assinar_link:", erroLink); return; }
                       setClients(p => p.map(c => c.id !== sc.id ? c : { ...c, assinar_link: novosLinks }));
 
                       const studioNomeFormatado = (studioName || "A Casa dos Carvalho").replace(/_/g, " ");
@@ -9077,27 +9106,35 @@ export default function CRM() {
                       }} />
                     </label>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {((sc as any).docs_arquivos || []).length === 0 && (
-                      <div style={{ background: "var(--dk3)", border: "1px dashed var(--br)", borderRadius: 7, padding: "16px", textAlign: "center", fontSize: 11, color: "var(--tx3)" }}>
-                        Nenhum documento salvo ainda. PDFs gerados e anexos aparecem aqui.
-                      </div>
-                    )}
-                    {((sc as any).docs_arquivos || []).map((arq: any, i: number) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 12px" }}>
-                        <span style={{ fontSize: 16 }}>{arq.tipo === "pdf" ? "📄" : "🖼"}</span>
-                        <span style={{ flex: 1, fontSize: 12, color: "var(--tx)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{arq.nome}</span>
-                        <span style={{ fontSize: 10, color: "var(--tx3)" }}>{arq.criado_em ? new Date(arq.criado_em).toLocaleDateString("pt-BR") : ""}</span>
-                        <a href={arq.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "var(--gold)", textDecoration: "none", fontWeight: 600 }}>Abrir</a>
-                        <button onClick={async () => {
-                          const novos = ((sc as any).docs_arquivos || []).filter((_: any, idx: number) => idx !== i);
-                          await sb.from("clientes").update({ docs_arquivos: novos }).eq("id", sc.id);
-                          upCFicha(sc.id, "docs_arquivos", novos);
-                          setFichaEditada(false);
-                        }} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
-                      </div>
-                    ))}
-                  </div>
+                  {((sc as any).docs_arquivos || []).length === 0 ? (
+                    <div style={{ background: "var(--dk3)", border: "1px dashed var(--br)", borderRadius: 7, padding: "16px", textAlign: "center", fontSize: 11, color: "var(--tx3)" }}>
+                      Nenhum documento salvo ainda. PDFs gerados e anexos aparecem aqui.
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+                      {((sc as any).docs_arquivos || []).map((arq: any, i: number) => (
+                        <div key={i} style={{ position: "relative", width: 90, flexShrink: 0 }}>
+                          <div onClick={() => window.open(arq.url, "_blank")} style={{ width: 90, height: 90, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", overflow: "hidden", transition: "border-color .15s" }}
+                            onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--gold)")}
+                            onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--br)")}>
+                            {arq.tipo === "imagem"
+                              ? <img src={arq.url} alt={arq.nome} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 7 }} />
+                              : <span style={{ fontSize: 32 }}>📄</span>
+                            }
+                          </div>
+                          <div style={{ fontSize: 9, color: "var(--tx3)", marginTop: 3, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }} title={arq.nome}>{arq.nome}</div>
+                          <div style={{ fontSize: 9, color: "var(--tx3)", textAlign: "center" }}>{arq.criado_em ? new Date(arq.criado_em).toLocaleDateString("pt-BR") : ""}</div>
+                          <button onClick={async e => {
+                            e.stopPropagation();
+                            const novos = ((sc as any).docs_arquivos || []).filter((_: any, idx: number) => idx !== i);
+                            await sb.from("clientes").update({ docs_arquivos: novos }).eq("id", sc.id);
+                            upCFicha(sc.id, "docs_arquivos", novos);
+                            setFichaEditada(false);
+                          }} style={{ position: "absolute", top: 3, right: 3, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", cursor: "pointer", fontSize: 10, width: 16, height: 16, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {sc.val_a > 0 && (

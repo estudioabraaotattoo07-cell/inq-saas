@@ -203,6 +203,16 @@ export default async function handler(req, res) {
           const campoResp = docTipo === "menor_resp1" ? "menor_responsavel" : "menor_responsavel_mae";
           const respAtual = docTipo === "menor_resp1" ? (cliente.menor_responsavel || {}) : (cliente.menor_responsavel_mae || {});
           updateFields[campoResp] = { ...respAtual, ...responsavel_dados };
+
+          // Adiciona foto do documento como arquivo separado em docs_arquivos
+          const fotoDocUrl = responsavel_dados.foto_doc || fotoUrl;
+          if (fotoDocUrl) {
+            const sufixo = docTipo === "menor_resp1" ? "Responsavel-1" : "Responsavel-2";
+            const dataHoje = new Date().toLocaleDateString("pt-BR").replace(/\//g, "-");
+            const nomeArq = `DOC-IDENTIDADE-${sufixo}-${cliente.nome ? cliente.nome.replace(/ /g,"-") : "menor"}-${dataHoje}.jpg`;
+            const arquivosAtuais = cliente.docs_arquivos || [];
+            updateFields.docs_arquivos = [...arquivosAtuais, { nome: nomeArq, url: fotoDocUrl, tipo: "imagem", criado_em: new Date().toISOString() }];
+          }
         }
       }
 
@@ -213,14 +223,15 @@ export default async function handler(req, res) {
           const pdfFname = `pdf-remoto-${cliente.id}-${docTipo}-${Date.now()}.pdf`;
           await sb.storage.from("referencias").upload(pdfFname, pdfBuffer, { contentType: "application/pdf", upsert: true });
           const { data: pub } = sb.storage.from("referencias").getPublicUrl(pdfFname);
-          const arquivosAtuais = cliente.docs_arquivos || [];
+          // usa updateFields.docs_arquivos se foto já foi adicionada neste request
+          const arquivosAtuais = updateFields.docs_arquivos || cliente.docs_arquivos || [];
           updateFields.docs_arquivos = [...arquivosAtuais, { nome: pdf_nome, url: pub.publicUrl, tipo: "pdf", criado_em: new Date().toISOString() }];
         } catch {}
       }
 
       const { error: erroUpdate } = await sb.from("clientes").update(updateFields).eq("id", cliente.id);
-      if (erroUpdate) { console.error("ERRO update pos-assinatura:", JSON.stringify(erroUpdate), "campos:", Object.keys(updateFields)); }
-      return res.status(200).json({ ok: true, debug_erro: erroUpdate || null });
+      if (erroUpdate) { console.error("ERRO update pos-assinatura:", JSON.stringify(erroUpdate)); }
+      return res.status(200).json({ ok: true });
     }
 
     return res.status(405).json({ error: "Method not allowed" });
