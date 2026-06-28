@@ -21,13 +21,15 @@ function diasEntre(dataISO, hoje) {
   }
 }
 
-function substituirVars(msg, cliente, studioName) {
+function substituirVars(msg, cliente, studioName, extra) {
   if (!msg) return "";
-  return msg
+  let r = msg
     .replace(/\{nome\}/gi, cliente.nome || "")
     .replace(/\[Nome\]/gi, cliente.nome || "")
     .replace(/\{estudio\}/gi, studioName || "INK SYSTEM")
     .replace(/\[ESTUDIO\]/gi, studioName || "INK SYSTEM");
+  if (extra?.link) r = r.replace(/\{link\}/gi, extra.link);
+  return r;
 }
 
 // ─── DISPARAR EMAIL via /api/resend (proxy interno) ──────────────────────────
@@ -254,7 +256,7 @@ export default async function handler(req, res) {
       try {
         const { data: cliData } = await sb
           .from("clientes")
-          .select("id, nome, email, tel, etapa, etapa_desde, sessao_concluida_em, disparos_enviados, hist, followups")
+          .select("id, nome, email, tel, etapa, etapa_desde, sessao_concluida_em, disparos_enviados, hist, followups, confirmacao_token, confirmacao_token_exp, confirmacao_evento_id, confirmacao_presenca")
           .eq("user_id", userId)
           .is("excluido_em", null);
         if (cliData) clientes = cliData;
@@ -353,6 +355,107 @@ export default async function handler(req, res) {
               totalDisparos++;
             }
           }
+        }
+
+        // ── CONFIRMAÇÃO DE PRESENÇA D-1 ─────────────────────────────────────
+        if (cliente.etapa === "sessao_agend") {
+          try {
+            // Calcular amanhã em horário de Brasília (UTC-3)
+            const hojeUtc = new Date();
+            const hojeBRT = new Date(hojeUtc.getTime() - 3 * 60 * 60 * 1000);
+            const amanhaStr = new Date(hojeBRT.getTime() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+            // Buscar evento da agenda para amanhã
+            const { data: evAmanha } = await sb
+              .from("agenda")
+              .select("id, date, hora")
+              .eq("cliente_id", cliente.id)
+              .neq("status", "concluido")
+              .eq("date", amanhaStr)
+              .limit(1)
+              .single();
+
+            if (evAmanha) {
+              const dedupKey = "__confirmacao_d1__" + evAmanha.id;
+
+              // Skip se o cron já enviou para esse evento
+              const jaEnviouCron = disparosEnviados && disparosEnviados[dedupKey];
+
+              // Skip se já existe token ativo gerado manualmente para esse evento
+              const tokenAtivoManual = cliente.confirmacao_token
+                && cliente.confirmacao_token_exp
+                && new Date(cliente.confirmacao_token_exp) > hojeUtc
+                && String(cliente.confirmacao_evento_id) === String(evAmanha.id);
+
+              if (!jaEnviouCron && !tokenAtivoManual) {
+                // Gerar token novo (crypto global disponível no Node 18+)
+                const token = crypto.randomUUID();
+                const expDate = new Date(evAmanha.date + "T23:59:00");
+                expDate.setDate(expDate.getDate() + 1);
+                const exp = expDate.toISOString();
+
+                await sb.from("clientes").update({
+                  confirmacao_token: token,
+                  confirmacao_token_exp: exp,
+                  confirmacao_evento_id: evAmanha.id,
+                  confirmacao_presenca: null,
+                }).eq("id", cliente.id);
+
+                const baseUrl = process.env.VERCEL_URL
+                  ? "https://" + process.env.VERCEL_URL
+                  : "http://localhost:3000";
+                const linkConfirmacao = baseUrl + "/confirmar.html?token=" + token;
+
+                const dataEvFormatada = new Date(evAmanha.date + "T12:00:00")
+                  .toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+                const horaEv = evAmanha.hora ? " às " + evAmanha.hora : "";
+                const msgPadrao = "Olá {nome}! Sua sessão está marcada para " + dataEvFormatada + horaEv + ". Confirme sua presença: {link}";
+
+                // Verificar se existe mensagem personalizada em fluxo_etapas do slug sessao_agend
+                const fluxoSessao = (fluxoEtapas["sessao_agend"] || []);
+                const feConfirm = fluxoSessao.find(fe => fe.dias <= 0 || fe.label?.toLowerCase().includes("confirm"));
+                const msgFinal = substituirVars(feConfirm?.mensagem || msgPadrao, cliente, studioName, { link: linkConfirmacao });
+
+                const canaisParaEnviar = feConfirm?.canal === "ambos"
+                  ? ["email", "sms"]
+                  : feConfirm?.canal
+                    ? [feConfirm.canal]
+                    : Object.entries(canaisHabilitados).filter(([, v]) => v).map(([k]) => k).filter(k => k !== "whatsapp" || canaisHabilitados.whatsapp);
+
+                let enviou = false;
+                for (const canal of canaisParaEnviar) {
+                  if (canal === "email" && cfg.resend_api_key && cliente.email) {
+                    const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" +
+                      msgFinal.replace(/\n/g, "<br>") + "</div>";
+                    const ok = await dispararEmail({
+                      apiKey: cfg.resend_api_key,
+                      from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                      nome_remetente: cfg.nome_remetente || studioName,
+                      to: cliente.email,
+                      subject: "Confirme sua presença amanhã — " + studioName,
+                      html,
+                    });
+                    if (ok) enviou = true;
+                  } else if ((canal === "sms" || canal === "whatsapp") && cfg.zenvia_api_key && cfg.zenvia_numero && cliente.tel) {
+                    const tel = (cliente.tel || "").replace(/[^0-9]/g, "");
+                    const ok = await dispararZenvia({ apiKey: cfg.zenvia_api_key, from: cfg.zenvia_numero, to: tel, text: msgFinal, canal });
+                    if (ok) enviou = true;
+                  }
+                }
+
+                if (enviou) {
+                  let disparosAtuais = {};
+                  try {
+                    const { data: cliAtual } = await sb.from("clientes").select("disparos_enviados").eq("id", cliente.id).single();
+                    disparosAtuais = cliAtual?.disparos_enviados || {};
+                  } catch {}
+                  await marcarEnviado(cliente.id, dedupKey, disparosAtuais);
+                  await registrarHistorico(userId, "Confirmação de presença D-1 enviada — " + cliente.nome);
+                  totalDisparos++;
+                }
+              }
+            }
+          } catch {}
         }
 
         // ── PRÉ-VENDA ───────────────────────────────────────────────────────
