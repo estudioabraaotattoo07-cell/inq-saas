@@ -143,8 +143,61 @@ function render(){
   }
 
   if(dados.doc==="contrato"){
-    html+=`<h2>Termos e Condicoes</h2>`;
-    TERMOS.forEach(t=>{html+=`<div class="termo">${t}</div>`;});
+    const projAtivo=(dados.projetos||[]).find(p=>p.status==="ativo")||(dados.projetos||[])[0]||{};
+    const descProjeto=projAtivo.desc||dados.servico_interesse||"a combinar";
+    const valorProjeto=projAtivo.valorTotal||dados.val_a||(dados.val_a>0?dados.val_a:null);
+    const valorFmt=valorProjeto?`R$ ${Number(valorProjeto).toLocaleString("pt-BR",{minimumFractionDigits:2})}`:"a combinar";
+    const regiao=dados.regiao||projAtivo.regiao||"a combinar";
+    const servico=dados.servico_interesse||projAtivo.servico||"Procedimento artístico";
+    const profissional=dados.artista_nome||"Profissional responsável";
+    const dataHoje=new Date().toLocaleDateString("pt-BR");
+    html+=`
+      <div class="termo" style="font-size:13px;line-height:1.9;border:none;padding:0">
+        <p style="text-align:center;font-size:15px;font-weight:700;color:#c9a84c;margin-bottom:4px">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</p>
+        <p style="text-align:center;font-size:12px;color:#888;margin-bottom:20px">Data: ${dataHoje}</p>
+
+        <p style="font-weight:700;color:#c9a84c;margin-bottom:4px">DAS PARTES</p>
+        <p><strong>Cliente (Contratante):</strong><br>
+        Nome: ${dados.nome}<br>
+        ${dados.documento?`CPF: ${dados.documento}<br>`:""}
+        ${dados.email?`E-mail: ${dados.email}<br>`:""}
+        ${dados.tel?`Telefone: ${dados.tel}`:""}
+        </p>
+        <p style="margin-top:10px"><strong>Profissional (Contratado):</strong><br>
+        ${profissional}
+        </p>
+
+        <p style="font-weight:700;color:#c9a84c;margin:16px 0 4px">DO OBJETO</p>
+        <p>Serviço contratado: <strong>${servico}</strong><br>
+        Descrição do projeto: ${descProjeto}<br>
+        Região do corpo: ${regiao}<br>
+        Valor acordado: <strong>${valorFmt}</strong></p>
+
+        <p style="font-weight:700;color:#c9a84c;margin:16px 0 4px">DAS CLÁUSULAS</p>
+        <p><strong>1. DA EXCLUSIVIDADE DO PROJETO</strong><br>
+        O projeto foi desenvolvido de forma personalizada e exclusiva para o(a) contratante. O desenho elaborado pertence ao profissional e ao estúdio, não podendo ser reproduzido sem autorização expressa.</p>
+
+        <p><strong>2. DO PAGAMENTO</strong><br>
+        O valor acordado deverá ser pago conforme combinado entre as partes. Sinais e reservas de agenda não são reembolsáveis em caso de cancelamento com menos de 48h de antecedência ou falta sem aviso prévio.</p>
+
+        <p><strong>3. DO REAGENDAMENTO</strong><br>
+        O(a) contratante poderá reagendar sem custo adicional mediante aviso com no mínimo 24 horas de antecedência. Em caso de segunda falta sem aviso, poderá ser cobrado percentual de 30% do valor do serviço.</p>
+
+        <p><strong>4. DA CICATRIZAÇÃO</strong><br>
+        O resultado final do procedimento depende dos cuidados pós-sessão realizados pelo(a) contratante. O profissional não se responsabiliza por resultados decorrentes de negligência ou condições de saúde não informadas previamente.</p>
+
+        <p><strong>5. DOS RETOQUES</strong><br>
+        Retoques gratuitos são garantidos por até 60 dias após a sessão, desde que o(a) contratante siga os cuidados indicados. Em caso de dano comprovado por negligência, o retoque poderá ser cobrado.</p>
+
+        <p><strong>6. DOS DIREITOS DE IMAGEM</strong><br>
+        O(a) contratante autoriza o uso de fotos do trabalho realizado para divulgação em portfólio e redes sociais do profissional e do estúdio, salvo manifestação contrária registrada formalmente.</p>
+
+        <p><strong>7. DA SAÚDE</strong><br>
+        O(a) contratante declara ter respondido com veracidade à ficha de anamnese, informando todas as condições de saúde relevantes, e assume responsabilidade pelas informações prestadas.</p>
+
+        <p><strong>8. DA CONCORDÂNCIA</strong><br>
+        Ao assinar este documento, o(a) contratante declara ter lido, compreendido e concordado com todos os termos acima, conferindo a este instrumento plena validade legal, nos termos da Lei nº 14.063/2020.</p>
+      </div>`;
   }
 
   if(eMenorResp){

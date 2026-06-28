@@ -114,7 +114,7 @@ export default async function handler(req, res) {
 
     const { data: clientes } = await sb
       .from("clientes")
-      .select("id, nome, email, tel, nascimento, anamnese, menor_responsavel, menor_responsavel_mae, docs_status, assinar_link, docs_arquivos")
+      .select("id, nome, email, tel, nascimento, documento, artista, projetos, val_a, pgto, regiao, servico_interesse, anamnese, menor_responsavel, menor_responsavel_mae, docs_status, assinar_link, docs_arquivos")
       .not("assinar_link", "is", null);
 
     let cliente = null;
@@ -137,6 +137,13 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true, doc: docTipo,
         nome: cliente.nome, email: cliente.email, tel: cliente.tel, nascimento: cliente.nascimento,
+        documento: cliente.documento || null,
+        projetos: cliente.projetos || [],
+        val_a: cliente.val_a || null,
+        pgto: cliente.pgto || null,
+        regiao: cliente.regiao || null,
+        servico_interesse: cliente.servico_interesse || null,
+        artista_nome: linkInfo?.artista_nome || null,
         anamnese: cliente.anamnese || {},
         menor_responsavel: cliente.menor_responsavel || {},
         menor_responsavel_mae: cliente.menor_responsavel_mae || {},

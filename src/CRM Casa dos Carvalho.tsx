@@ -8160,7 +8160,8 @@ export default function CRM() {
                       const exp = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
                       const enviado_em = new Date().toISOString();
                       const linksAtuais: Record<string,any> = (sc as any).assinar_link || {};
-                      const novosLinks = { ...linksAtuais, [docId]: { token, exp, enviado_em } };
+                      const artistaNomeLink = artists.find((a: any) => a.id === (sc as any).artista)?.nome || artists.find((a: any) => a.nome === (sc as any).artista)?.nome || (sc as any).artista || "";
+                      const novosLinks = { ...linksAtuais, [docId]: { token, exp, enviado_em, artista_nome: artistaNomeLink } };
                       const { error: erroLink } = await sb.from("clientes").update({ assinar_link: novosLinks }).eq("id", sc.id);
                       if (erroLink) { console.error("Erro update assinar_link:", erroLink); return; }
                       setClients(p => p.map(c => c.id !== sc.id ? c : { ...c, assinar_link: novosLinks }));
