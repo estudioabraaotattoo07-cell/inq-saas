@@ -6756,15 +6756,15 @@ export default function CRM() {
                   setFluxoSalvando(true);
                   try {
                     if (etapa.id && etapa.id.length > 10) {
-                      await sb.from("fluxo_etapas").update({ label: etapa.label, dias: etapa.dias, canal: etapa.canal, mensagem: etapa.mensagem, ativo: etapa.ativo, repetir: etapa.repetir, repetir_intervalo_dias: etapa.repetir_intervalo_dias }).eq("id", etapa.id);
-                      setFluxoEtapas(p => p.map((f: any) => f.id === etapa.id ? { ...f, ...etapa } : f));
+                      const { error: errUpd } = await sb.from("fluxo_etapas").update({ label: etapa.label, dias: etapa.dias, canal: etapa.canal, mensagem: etapa.mensagem, ativo: etapa.ativo, repetir: etapa.repetir, repetir_intervalo_dias: etapa.repetir_intervalo_dias }).eq("id", etapa.id);
+                      if (errUpd) { console.error("fluxo_etapas update error:", JSON.stringify(errUpd)); }
+                      else { setFluxoEtapas(p => p.map((f: any) => f.id === etapa.id ? { ...f, ...etapa } : f)); setFluxoEditandoId(null); setFluxoEditLocal(null); }
                     } else {
-                      const { data: novo } = await sb.from("fluxo_etapas").insert({ ...etapa, user_id: userId, id: undefined }).select().single();
-                      if (novo) setFluxoEtapas(p => [...p, novo]);
+                      const { data: novo, error: errIns } = await sb.from("fluxo_etapas").insert({ ...etapa, user_id: userId, id: undefined }).select().single();
+                      if (errIns) { console.error("fluxo_etapas insert error:", JSON.stringify(errIns)); }
+                      else if (novo) { setFluxoEtapas(p => [...p, novo]); setFluxoEditandoId(null); setFluxoEditLocal(null); }
                     }
-                    setFluxoEditandoId(null);
-                    setFluxoEditLocal(null);
-                  } catch {}
+                  } catch(e) { console.error("fluxo_etapas save exception:", e); }
                   setFluxoSalvando(false);
                 };
                 const excluirFluxoEtapa = async (id: string) => {
