@@ -193,7 +193,11 @@ function render(){
     const servico=respDados.servico||"tatuagem artistica";
     const area=respDados.area?` na regiao ${respDados.area}`:"";
     const profissional=respDados.artista_nome?`pelo(a) profissional ${respDados.artista_nome}`:"pelo profissional responsavel pelo procedimento";
-    const autoTexto=`Eu, ${nomeResp}, portador(a) do RG ${rgResp} e CPF ${cpfResp}, na qualidade de ${parResp} do(a) menor ${dados.nome}${nascMin?`, nascido(a) em ${nascMin}`:""}${idadeMin?` (${idadeMin} anos)`:""}, declaro para os devidos fins que autorizo expressamente a realizacao do procedimento de ${servico}${area}, a ser executado ${profissional}. Declaro estar ciente dos riscos inerentes ao procedimento, dos cuidados de cicatrizacao necessarios e que todas as informacoes prestadas neste documento sao verdadeiras. Assumo total responsabilidade pelo presente consentimento, nos termos do Estatuto da Crianca e do Adolescente (Lei n 8.069/1990).`;
+    const parseNasc=(s)=>{if(!s)return null;const p=String(s).split(/[-\/]/);if(p.length<3)return null;const[x,y,z]=p.map(Number);const d=p[0].length===4?new Date(x,y-1,z):new Date(z,y-1,x);return isNaN(d)?null:d;};
+    const dNasc=parseNasc(dados.nascimento);
+    const nascFormatado=dNasc?dNasc.toLocaleDateString("pt-BR"):"";
+    const idadeCalc=(()=>{if(!dNasc)return null;const h=new Date();let a=h.getFullYear()-dNasc.getFullYear();if(h.getMonth()<dNasc.getMonth()||(h.getMonth()===dNasc.getMonth()&&h.getDate()<dNasc.getDate()))a--;return a;})();
+    const autoTexto=`Eu, ${nomeResp}, portador(a) do RG ${rgResp} e CPF ${cpfResp}, na qualidade de ${parResp} do(a) menor ${dados.nome.trim()}${nascFormatado?`, nascido(a) em ${nascFormatado}`:""}${idadeCalc?` (${idadeCalc} anos)`:""}, declaro, para os devidos fins, que autorizo expressamente a realização do procedimento de ${servico}${area}, a ser executado ${profissional}. Declaro estar ciente dos riscos inerentes ao procedimento, dos cuidados de cicatrização necessários e que todas as informações prestadas neste documento são verdadeiras. Assumo total responsabilidade pelo presente consentimento, nos termos do Estatuto da Criança e do Adolescente (Lei nº 8.069/1990).`;
     const descricaoValor=autoTexto;
     html+=`<div class="question"><label>Declaracao de autorizacao</label>
       <textarea class="q-det" id="r-descricao" rows="5"${dis}>${descricaoValor}</textarea>
@@ -268,7 +272,11 @@ function atualizarTextoAut(){
   const servico=respRef.servico||"tatuagem artistica";
   const areaTexto=respRef.area?` na regiao ${respRef.area}`:"";
   const profissional=respRef.artista_nome?`pelo(a) profissional ${respRef.artista_nome}`:"pelo profissional responsavel pelo procedimento";
-  ta.value=`Eu, ${nome}, portador(a) do RG ${rg} e CPF ${cpf}, na qualidade de ${par} do(a) menor ${dados.nome||""}${nascMin?`, nascido(a) em ${nascMin}`:""}${idade?` (${idade} anos)`:""}, declaro para os devidos fins que autorizo expressamente a realizacao do procedimento de ${servico}${areaTexto}, a ser executado ${profissional}. Declaro estar ciente dos riscos inerentes ao procedimento, dos cuidados de cicatrizacao necessarios e que todas as informacoes prestadas neste documento sao verdadeiras. Assumo total responsabilidade pelo presente consentimento, nos termos do Estatuto da Crianca e do Adolescente (Lei n 8.069/1990).`;
+  const parseNasc2=(s)=>{if(!s)return null;const p=String(s).split(/[-\/]/);if(p.length<3)return null;const[x,y,z]=p.map(Number);const d=p[0].length===4?new Date(x,y-1,z):new Date(z,y-1,x);return isNaN(d)?null:d;};
+  const dNasc2=parseNasc2(dados.nascimento);
+  const nascFmt=dNasc2?dNasc2.toLocaleDateString("pt-BR"):"";
+  const idadeCalc2=(()=>{if(!dNasc2)return null;const h=new Date();let a=h.getFullYear()-dNasc2.getFullYear();if(h.getMonth()<dNasc2.getMonth()||(h.getMonth()===dNasc2.getMonth()&&h.getDate()<dNasc2.getDate()))a--;return a;})();
+  ta.value=`Eu, ${nome}, portador(a) do RG ${rg} e CPF ${cpf}, na qualidade de ${par} do(a) menor ${(dados.nome||"").trim()}${nascFmt?`, nascido(a) em ${nascFmt}`:""}${idadeCalc2?` (${idadeCalc2} anos)`:""}, declaro, para os devidos fins, que autorizo expressamente a realização do procedimento de ${servico}${areaTexto}, a ser executado ${profissional}. Declaro estar ciente dos riscos inerentes ao procedimento, dos cuidados de cicatrização necessários e que todas as informações prestadas neste documento são verdadeiras. Assumo total responsabilidade pelo presente consentimento, nos termos do Estatuto da Criança e do Adolescente (Lei nº 8.069/1990).`;
 }
 
 window.previewFoto=function(input){
