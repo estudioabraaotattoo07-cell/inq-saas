@@ -1,3 +1,4 @@
+// api/chat.js — Aura IA + persistência de histórico de conversa por cliente
 import { createClient } from "@supabase/supabase-js";
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
