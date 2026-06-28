@@ -8,6 +8,60 @@ const sb = createClient(
 
 const GOOGLE_REVIEW_URL = "https://g.page/r/CSIFD3cla6rxEBM/review";
 
+function paginaConfirmacao(estado, cli, evento) {
+  const nome = cli?.nome ? cli.nome.split(" ")[0] : "Olá";
+  const dataEv = evento?.date
+    ? new Date(evento.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })
+    : null;
+  const horaEv = evento?.hora || null;
+
+  const conteudo = {
+    invalido: `<div class="icon">❌</div><h1>Link inválido</h1><p class="sub">Este link de confirmação não foi encontrado.<br>Entre em contato com o estúdio.</p>`,
+    expirado: `<div class="icon">⏰</div><h1>Link expirado</h1><p class="sub">Este link já passou da data de validade.<br>Entre em contato com o estúdio.</p>`,
+    confirmado: `<div class="icon">✅</div><h1>Presença confirmada!</h1><p class="sub">Obrigado, ${nome}! Te esperamos na data combinada. 🖤</p>`,
+    precisa_remarcar: `<div class="icon">📞</div><h1>Recebemos seu aviso</h1><p class="sub">Entraremos em contato para remarcar sua sessão, ${nome}.</p>`,
+    pendente: `
+      <h1>Olá, ${nome}!</h1>
+      <p class="sub">Confirme sua presença para a sessão${dataEv ? `<br><strong>${dataEv}${horaEv ? " às " + horaEv : ""}</strong>` : ""}.</p>
+      <form method="POST">
+        <input type="hidden" name="resposta" value="confirmado">
+        <button type="submit" style="background:#27ae60;margin-bottom:12px">✅ Confirmo minha presença</button>
+      </form>
+      <form method="POST">
+        <input type="hidden" name="resposta" value="precisa_remarcar">
+        <button type="submit" style="background:#c0392b">❌ Preciso remarcar</button>
+      </form>
+    `,
+  }[estado] || "";
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Confirmação de Presença — Casa dos Carvalho</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{background:#1a1a1a;border:1px solid #333;border-radius:12px;max-width:420px;width:100%;padding:40px 32px;text-align:center}
+  .logo{font-size:12px;letter-spacing:3px;color:#d4a84b;text-transform:uppercase;margin-bottom:24px}
+  h1{font-size:20px;font-weight:normal;color:#f0ede8;line-height:1.5;margin-bottom:12px}
+  .sub{font-size:14px;color:#888;line-height:1.7;margin-bottom:24px}
+  .icon{font-size:48px;margin-bottom:16px}
+  button{width:100%;border:none;border-radius:8px;padding:14px;font-size:15px;font-weight:bold;cursor:pointer;color:#fff;font-family:Georgia,serif;margin-bottom:0}
+  .footer{font-size:11px;color:#444;margin-top:28px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Casa dos Carvalho Tattoo</div>
+  ${conteudo}
+  <div class="footer">Vitória, ES • acasadoscarvalhotattoo.com.br</div>
+</div>
+</body>
+</html>`;
+}
+
 function paginaAvaliacao(token, mensagem, mostrarFeedback) {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -243,6 +297,73 @@ export default async function handler(req, res) {
       const { error: erroUpdate } = await sb.from("clientes").update(updateFields).eq("id", cliente.id);
       if (erroUpdate) { console.error("ERRO update pos-assinatura:", JSON.stringify(erroUpdate)); }
       return res.status(200).json({ ok: true });
+    }
+
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // ── ROTA DE CONFIRMAÇÃO DE PRESENÇA (/api/lead?acao=confirmar_presenca) ──
+  if (acao === "confirmar_presenca") {
+    const cfToken = (req.query?.token || req.body?.token || "").trim();
+    const resposta = (req.body?.resposta || req.query?.resposta || "").trim();
+
+    if (!cfToken) return res.status(400).json({ error: "Token obrigatorio" });
+
+    const { data: cli, error: cliErr } = await sb
+      .from("clientes")
+      .select("id, nome, etapa, confirmacao_token, confirmacao_token_exp, confirmacao_evento_id, user_id, hist")
+      .eq("confirmacao_token", cfToken)
+      .single();
+
+    if (cliErr || !cli) return res.status(404).send(paginaConfirmacao("invalido", null, null));
+
+    if (cli.confirmacao_token_exp && new Date(cli.confirmacao_token_exp) < new Date()) {
+      return res.status(410).send(paginaConfirmacao("expirado", null, null));
+    }
+
+    if (req.method === "GET") {
+      let evento = null;
+      if (cli.confirmacao_evento_id) {
+        const { data: ev } = await sb
+          .from("agenda")
+          .select("title, date, hora, artista")
+          .eq("id", cli.confirmacao_evento_id)
+          .single();
+        evento = ev;
+      }
+      return res.status(200).send(paginaConfirmacao("pendente", cli, evento));
+    }
+
+    if (req.method === "POST") {
+      if (!["confirmado", "precisa_remarcar"].includes(resposta)) {
+        return res.status(400).json({ error: "Resposta invalida" });
+      }
+
+      const histMsg = resposta === "confirmado"
+        ? "Presença confirmada pelo cliente via link"
+        : "Cliente sinalizou que precisa remarcar via link";
+
+      const updateFields = {
+        confirmacao_presenca: resposta,
+        confirmacao_token: null,
+        confirmacao_token_exp: null,
+        hist: [...(cli.hist || []), { t: histMsg, d: new Date().toLocaleString("pt-BR") }],
+      };
+
+      if (resposta === "precisa_remarcar") {
+        updateFields.etapa = "precisa_remarcar";
+        updateFields.etapa_desde = new Date().toISOString();
+      }
+
+      await sb.from("clientes").update(updateFields).eq("id", cli.id);
+      await sb.from("historico").insert({
+        data: new Date().toLocaleDateString("pt-BR"),
+        hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        acao: histMsg + " — " + cli.nome,
+        user_id: cli.user_id,
+      });
+
+      return res.status(200).send(paginaConfirmacao(resposta, cli, null));
     }
 
     return res.status(405).json({ error: "Method not allowed" });

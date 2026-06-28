@@ -4626,6 +4626,14 @@ export default function CRM() {
                               {c.etapa === "cons_agendada" && agEvents.some(e => e.cliente_id === c.id && e.tipo?.startsWith("cons") && e.status === "concluido") && (
                                 <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(39,174,96,.15)", color: "#27AE60", border: "1px solid rgba(39,174,96,.3)" }}>✓ Consulta Realizada</span>
                               )}
+                              {c.etapa === "sessao_agend" && (() => {
+                                const cp = (c as any).confirmacao_presenca;
+                                if (cp === "confirmado") return <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(39,174,96,.15)", color: "#27AE60", border: "1px solid rgba(39,174,96,.3)" }}>✅ Confirmado</span>;
+                                if (cp === "precisa_remarcar") return <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(192,57,43,.15)", color: "#E74C3C", border: "1px solid rgba(192,57,43,.3)" }}>❌ Quer remarcar</span>;
+                                const temEvFuturo = agEvents.some(e => e.cliente_id === c.id && e.status !== "concluido" && e.date && new Date(e.date + "T23:59:00") >= new Date());
+                                if (temEvFuturo) return <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(243,156,18,.12)", color: "#F39C12", border: "1px solid rgba(243,156,18,.3)" }}>⚠ Sem confirmação</span>;
+                                return null;
+                              })()}
                             </div>
                           )}
                         </div>
@@ -9525,6 +9533,45 @@ export default function CRM() {
                           </div>
                         ))}
                         {!allOk && <div style={{ marginTop: 6, fontSize: 11, color: "var(--q2)", background: "rgba(212,130,10,.08)", borderRadius: 6, padding: "6px 10px" }}>⚠️ Faltam: {checks.filter(c => !c.ok).map(c => c.l).join(", ")}</div>}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* LINK DE CONFIRMAÇÃO DE PRESENÇA */}
+                {sc.etapa === "sessao_agend" && (() => {
+                  const cp = (sc as any).confirmacao_presenca;
+                  const evFuturo = agEvents.find(e => e.cliente_id === sc.id && e.status !== "concluido" && e.date && new Date(e.date + "T23:59:00") >= new Date());
+                  const gerarLink = async () => {
+                    const token = crypto.randomUUID();
+                    const dataBase = evFuturo?.date ? new Date(evFuturo.date + "T23:59:00") : new Date();
+                    dataBase.setDate(dataBase.getDate() + 1);
+                    const exp = dataBase.toISOString();
+                    await sb.from("clientes").update({ confirmacao_token: token, confirmacao_token_exp: exp, confirmacao_evento_id: evFuturo?.id || null, confirmacao_presenca: null }).eq("id", sc.id);
+                    upCFicha(sc.id, "confirmacao_token", token);
+                    upCFicha(sc.id, "confirmacao_token_exp", exp);
+                    upCFicha(sc.id, "confirmacao_presenca", null);
+                    const link = `${window.location.origin}/confirmar.html?token=${token}`;
+                    try { await navigator.clipboard.writeText(link); } catch {}
+                    const telCliente = ((sc as any).tel || "").replace(/\D/g, "");
+                    const telWa = telCliente.startsWith("55") ? telCliente : "55" + telCliente;
+                    const msg = `Olá! Confirme sua presença na sua sessão${evFuturo?.date ? " do dia " + new Date(evFuturo.date + "T12:00:00").toLocaleDateString("pt-BR") : ""}: ${link}`;
+                    if (telCliente.length >= 10) window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(msg)}`, "_blank");
+                    else { alert("Link copiado!\n" + link); }
+                  };
+                  return (
+                    <div>
+                      <div className="stit">🔗 Confirmação de Presença</div>
+                      <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                        {cp === "confirmado" && <div style={{ fontSize: 12, color: "#27AE60", fontWeight: 600 }}>✅ Cliente confirmou presença</div>}
+                        {cp === "precisa_remarcar" && <div style={{ fontSize: 12, color: "#E74C3C", fontWeight: 600 }}>❌ Cliente sinalizou que precisa remarcar</div>}
+                        {!cp && <div style={{ fontSize: 11, color: "var(--tx3)" }}>Nenhuma confirmação recebida ainda.</div>}
+                        <button onClick={gerarLink} style={{ fontSize: 12, background: "rgba(74,158,191,.12)", border: "1px solid rgba(74,158,191,.4)", borderRadius: 7, padding: "8px 14px", color: "#4A9EBF", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", textAlign: "left" }}>
+                          🔗 Gerar novo link de confirmação{(sc as any).tel ? " e enviar no WhatsApp" : " (copiar)"}
+                        </button>
+                        <div style={{ fontSize: 10, color: "var(--tx3)" }}>
+                          {evFuturo ? `Expira em: ${new Date(evFuturo.date + "T23:59:00").toLocaleDateString("pt-BR")} (dia seguinte ao evento)` : "Expira em 2 dias (sem evento futuro encontrado)"}
+                        </div>
                       </div>
                     </div>
                   );
