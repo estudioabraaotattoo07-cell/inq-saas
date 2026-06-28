@@ -192,7 +192,8 @@ function render(){
     const nascMin=dados.nascimento?new Date(dados.nascimento).toLocaleDateString("pt-BR"):"";
     const servico=respDados.servico||"tatuagem artistica";
     const area=respDados.area?` na regiao ${respDados.area}`:"";
-    const autoTexto=`Eu, ${nomeResp}, portador(a) do RG ${rgResp} e CPF ${cpfResp}, na qualidade de ${parResp} do(a) menor ${dados.nome}${nascMin?`, nascido(a) em ${nascMin}`:""}${idadeMin?` (${idadeMin} anos)`:""}, declaro para os devidos fins que autorizo expressamente a realizacao do procedimento de ${servico}${area}, a ser executado pelo Estudio A Casa dos Carvalho. Declaro estar ciente dos riscos inerentes ao procedimento, dos cuidados de cicatrizacao necessarios e que todas as informacoes prestadas neste documento sao verdadeiras. Assumo total responsabilidade pelo presente consentimento, nos termos do Estatuto da Crianca e do Adolescente (Lei n 8.069/1990).`;
+    const profissional=respDados.artista_nome?`pelo(a) profissional ${respDados.artista_nome}`:"pelo profissional responsavel pelo procedimento";
+    const autoTexto=`Eu, ${nomeResp}, portador(a) do RG ${rgResp} e CPF ${cpfResp}, na qualidade de ${parResp} do(a) menor ${dados.nome}${nascMin?`, nascido(a) em ${nascMin}`:""}${idadeMin?` (${idadeMin} anos)`:""}, declaro para os devidos fins que autorizo expressamente a realizacao do procedimento de ${servico}${area}, a ser executado ${profissional}. Declaro estar ciente dos riscos inerentes ao procedimento, dos cuidados de cicatrizacao necessarios e que todas as informacoes prestadas neste documento sao verdadeiras. Assumo total responsabilidade pelo presente consentimento, nos termos do Estatuto da Crianca e do Adolescente (Lei n 8.069/1990).`;
     const descricaoValor=autoTexto;
     html+=`<div class="question"><label>Declaracao de autorizacao</label>
       <textarea class="q-det" id="r-descricao" rows="5"${dis}>${descricaoValor}</textarea>
@@ -263,10 +264,11 @@ function atualizarTextoAut(){
   const par=document.getElementById("r-parentesco")?.value||"[parentesco]";
   const idade=window.idadeMin||null;
   const nascMin=dados.nascimento?new Date(dados.nascimento).toLocaleDateString("pt-BR"):"";
-  const servico=dados.menor_responsavel?.servico||dados.menor_responsavel_mae?.servico||"tatuagem artistica";
-  const area=(dados.menor_responsavel?.area||dados.menor_responsavel_mae?.area||"");
-  const areaTexto=area?` na regiao ${area}`:"";
-  ta.value=`Eu, ${nome}, portador(a) do RG ${rg} e CPF ${cpf}, na qualidade de ${par} do(a) menor ${dados.nome||""}${nascMin?`, nascido(a) em ${nascMin}`:""}${idade?` (${idade} anos)`:""}, declaro para os devidos fins que autorizo expressamente a realizacao do procedimento de ${servico}${areaTexto}, a ser executado pelo Estudio A Casa dos Carvalho. Declaro estar ciente dos riscos inerentes ao procedimento, dos cuidados de cicatrizacao necessarios e que todas as informacoes prestadas neste documento sao verdadeiras. Assumo total responsabilidade pelo presente consentimento, nos termos do Estatuto da Crianca e do Adolescente (Lei n 8.069/1990).`;
+  const respRef=dados.menor_responsavel||dados.menor_responsavel_mae||{};
+  const servico=respRef.servico||"tatuagem artistica";
+  const areaTexto=respRef.area?` na regiao ${respRef.area}`:"";
+  const profissional=respRef.artista_nome?`pelo(a) profissional ${respRef.artista_nome}`:"pelo profissional responsavel pelo procedimento";
+  ta.value=`Eu, ${nome}, portador(a) do RG ${rg} e CPF ${cpf}, na qualidade de ${par} do(a) menor ${dados.nome||""}${nascMin?`, nascido(a) em ${nascMin}`:""}${idade?` (${idade} anos)`:""}, declaro para os devidos fins que autorizo expressamente a realizacao do procedimento de ${servico}${areaTexto}, a ser executado ${profissional}. Declaro estar ciente dos riscos inerentes ao procedimento, dos cuidados de cicatrizacao necessarios e que todas as informacoes prestadas neste documento sao verdadeiras. Assumo total responsabilidade pelo presente consentimento, nos termos do Estatuto da Crianca e do Adolescente (Lei n 8.069/1990).`;
 }
 
 window.previewFoto=function(input){

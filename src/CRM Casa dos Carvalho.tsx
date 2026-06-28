@@ -8140,8 +8140,12 @@ export default function CRM() {
                       alert("Configure a Resend API Key e o Email Remetente nas Configuracoes do estudio.");
                       return;
                     }
-                    const respDadosPai: Record<string,string> = (sc as any).menor_responsavel || {};
-                    const respDadosMae: Record<string,string> = (sc as any).menor_responsavel_mae || {};
+                    const artistaNomeResolv = artists.find((a: any) => a.id === (sc as any).artista)?.nome || (sc as any).artista || "";
+                    const respDadosPai: Record<string,string> = { ...((sc as any).menor_responsavel || {}), artista_nome: artistaNomeResolv };
+                    const respDadosMae: Record<string,string> = { ...((sc as any).menor_responsavel_mae || {}), artista_nome: artistaNomeResolv };
+                    if (artistaNomeResolv) {
+                      await sb.from("clientes").update({ menor_responsavel: respDadosPai, menor_responsavel_mae: respDadosMae }).eq("id", sc.id);
+                    }
                     const emailDestino = docId === "menor_resp1" ? (respDadosPai.resp_email || sc.email)
                       : docId === "menor_resp2" ? (respDadosMae.resp_email || sc.email)
                       : sc.email;
