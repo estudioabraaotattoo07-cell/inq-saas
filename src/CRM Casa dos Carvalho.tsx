@@ -691,6 +691,53 @@ Ao responder CONFIRMO, o cliente declara estar de acordo com todos os termos aci
 INK SYSTEM`;
 }
 
+// ─── CONTRATO — fonte única de cláusulas ──────────────────────────────────────
+function montarClausulasContrato(sc: any, obsContrato?: string): string[] {
+  // Resolve serviço: "Tatuagem" → "tatuagem" | "Piercing" → "piercing" | resto → "procedimento artístico"
+  const projAtivo = (sc.projetos || []).find((p: any) => p.status !== "concluido") || (sc.projetos || [])[0];
+  const servicoRaw: string = projAtivo?.servico || sc.servico_interesse || "";
+  const termoServico = servicoRaw.toLowerCase() === "tatuagem" ? "tatuagem"
+    : servicoRaw.toLowerCase() === "piercing" ? "piercing"
+    : "procedimento artístico";
+
+  const clausulas: string[] = [
+    `1. DO PROJETO: O serviço de ${termoServico} a ser realizado foi previamente acordado entre as partes, incluindo design, tamanho, região do corpo e valor.`,
+    `2. DO PAGAMENTO: O valor total acordado deverá ser pago conforme combinado. Sinais e reservas de agenda não são reembolsáveis em caso de cancelamento com menos de 48h de antecedência ou falta sem aviso prévio.`,
+    `3. DA CICATRIZAÇÃO: O resultado final do ${termoServico} depende dos cuidados pós-sessão realizados pelo(a) cliente. O profissional não se responsabiliza por resultados decorrentes de negligência nos cuidados ou condições de saúde não informadas previamente.`,
+    `4. DOS RETOQUES: Retoques gratuitos são garantidos por até 60 dias após a sessão, desde que o(a) cliente siga os cuidados indicados. Após esse prazo ou em caso de negligência, retoques serão cobrados.`,
+    `5. DA SAÚDE: O(a) cliente declara ter respondido com veracidade à ficha de anamnese e não ter condições de saúde que contraindiquem o procedimento. Em caso de omissão, o profissional se exime de responsabilidade.`,
+    `6. DOS DIREITOS DE IMAGEM: O profissional e o estúdio podem utilizar fotos do ${termoServico} realizado para divulgação em redes sociais e portfólio, salvo manifestação contrária expressa do(a) cliente.`,
+    `7. DA CONCORDÂNCIA: Ao assinar este contrato, o(a) cliente declara ter lido, compreendido e concordado com todos os termos acima, conferindo a este instrumento plena validade legal nos termos da Lei nº 14.063/2020.`,
+  ];
+
+  // Cláusula 8 — condicional para menores
+  if (isMenor(sc.nascimento || "")) {
+    const nomeResp1: string = sc.menor_responsavel?.resp_nome || "";
+    const nomeResp2: string = sc.menor_responsavel_mae?.resp_nome || "";
+    const assinou1 = !!(sc.menor_assinatura);
+    const assinou2 = !!(sc.menor_assinatura_mae);
+    if (assinou1 && assinou2) {
+      clausulas.push(
+        `8. DA AUTORIZAÇÃO DE MENOR: O presente contrato refere-se a procedimento a ser realizado em ${sc.nome}, menor de idade, cuja autorização foi formalmente concedida pelos responsáveis legais ${nomeResp1}${nomeResp2 ? ` e ${nomeResp2}` : ""}, conforme documentos de autorização e identificação anexados à ficha do(a) cliente. O(a) cliente (menor, representado(a) por seus responsáveis) declara ainda ter respondido com veracidade à ficha de anamnese, também anexada à ficha.`
+      );
+    } else if (assinou1 || assinou2) {
+      const nomeAssinou = assinou1 ? nomeResp1 : nomeResp2;
+      clausulas.push(
+        `8. DA AUTORIZAÇÃO DE MENOR: O presente contrato refere-se a procedimento a ser realizado em ${sc.nome}, menor de idade, cuja autorização foi formalmente concedida pelo responsável legal ${nomeAssinou}, que apresentou documentação comprobatória da inexistência de impedimento legal para autorizar isoladamente, anexada à ficha do(a) cliente. O(a) cliente (menor, representado(a) por seu responsável) declara ainda ter respondido com veracidade à ficha de anamnese, também anexada à ficha.`
+      );
+    }
+  }
+
+  // Cláusula final — observações (só se houver texto)
+  const obs = (obsContrato || "").trim();
+  if (obs) {
+    const n = clausulas.length + 1;
+    clausulas.push(`${n}. OBSERVAÇÕES ADICIONAIS: ${obs}`);
+  }
+
+  return clausulas;
+}
+
 // ─── INITIAL DATA ─────────────────────────────────────────────────────────────
 const ARTISTS_INIT: any[] = [];
 
@@ -1245,6 +1292,7 @@ export default function CRM() {
   const [docsDesenhandoMae, setDocsDesenhandoMae] = useState(false);
   const [docsGerandoPdf, setDocsGerandoPdf] = useState(false);
   const [docsEnviandoLink, setDocsEnviandoLink] = useState<string|null>(null);
+  const [obsContrato, setObsContrato] = useState("");
   const [menorSalvarConfirm, setMenorSalvarConfirm] = useState(false);
   const [nascDraftForm, setNascDraftForm] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [editandoListas, setEditandoListas] = useState(false);
@@ -7950,15 +7998,8 @@ export default function CRM() {
                         if(anamnese.obs){y+=2;ln("Observacoes:",11,true);ln(anamnese.obs);}
                       }
                       if(docId==="contrato"){
-                        ln("TERMOS E CONDICOES",13,true);
-                        ["1. DO PROJETO: O projeto artistico (tatuagem) a ser realizado foi previamente acordado entre as partes, incluindo design, tamanho, local do corpo e valor.",
-                         "2. DO PAGAMENTO: O valor total acordado deve ser pago conforme combinado. Sinais e reservas de agenda nao sao reembolsaveis em caso de cancelamento com menos de 48h ou falta sem aviso.",
-                         "3. DA CICATRIZACAO: O resultado final depende dos cuidados pos-tatuagem do cliente. O estudio nao se responsabiliza por resultados decorrentes de negligencia ou condicoes de saude nao informadas.",
-                         "4. DOS RETOQUES: Retoques gratuitos em ate 60 dias, desde que o cliente siga os cuidados indicados.",
-                         "5. DA SAUDE: O cliente declara ter respondido com veracidade a ficha de anamnese.",
-                         "6. DOS DIREITOS DE IMAGEM: O estudio pode utilizar fotos do trabalho para divulgacao, salvo manifestacao contraria do cliente.",
-                         "7. DA CONCORDANCIA: Ao assinar, o cliente declara ter lido e concordado com todos os termos."
-                        ].forEach(t => { y+=2; ln(t); });
+                        ln("TERMOS E CONDIÇÕES",13,true);
+                        montarClausulasContrato(sc, (sc as any).contrato_obs || "").forEach(t => { y+=2; ln(t); });
                       }
                       // Para menor: gera dois PDFs independentes (um por responsável)
                       if(docId==="menor"){
@@ -8161,7 +8202,13 @@ export default function CRM() {
                       const enviado_em = new Date().toISOString();
                       const linksAtuais: Record<string,any> = (sc as any).assinar_link || {};
                       const artistaNomeLink = artists.find((a: any) => a.id === (sc as any).artista)?.nome || artists.find((a: any) => a.nome === (sc as any).artista)?.nome || (sc as any).artista || "";
-                      const novosLinks = { ...linksAtuais, [docId]: { token, exp, enviado_em, artista_nome: artistaNomeLink } };
+                      const obsLink = docId === "contrato" ? obsContrato.trim() : "";
+                      const novosLinks = { ...linksAtuais, [docId]: { token, exp, enviado_em, artista_nome: artistaNomeLink, obs_contrato: obsLink } };
+                      // persiste contrato_obs na ficha para uso no PDF manual
+                      if (docId === "contrato" && obsLink) {
+                        await sb.from("clientes").update({ contrato_obs: obsLink }).eq("id", sc.id);
+                        upCFicha(sc.id, "contrato_obs", obsLink);
+                      }
                       const { error: erroLink } = await sb.from("clientes").update({ assinar_link: novosLinks }).eq("id", sc.id);
                       if (erroLink) { console.error("Erro update assinar_link:", erroLink); return; }
                       setClients(p => p.map(c => c.id !== sc.id ? c : { ...c, assinar_link: novosLinks }));
@@ -8298,17 +8345,18 @@ export default function CRM() {
 
                                 {/* ── CONTRATO ── */}
                                 {doc.id === "contrato" && (
-                                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                    <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.8, background: "var(--dk3)", borderRadius: 7, padding: "12px 14px" }}>
-                                      <strong>CONTRATO DE EXECUCAO DE PROJETO ARTISTICO</strong><br/><br/>
-                                      Pelo presente instrumento, o(a) cliente <strong>{sc.nome}</strong>, declara estar ciente e de acordo com os seguintes termos:<br/><br/>
-                                      <strong>1. DO PROJETO:</strong> O projeto artistico (tatuagem) a ser realizado foi previamente acordado entre as partes, incluindo design, tamanho, local do corpo e valor.<br/><br/>
-                                      <strong>2. DO PAGAMENTO:</strong> O valor total acordado deve ser pago conforme combinado. Sinais e reservas de agenda nao sao reembolsaveis em caso de cancelamento com menos de 48h de antecedencia ou falta sem aviso.<br/><br/>
-                                      <strong>3. DA CICATRIZACAO:</strong> O cliente declara estar ciente de que o resultado final depende tambem dos cuidados pos-tatuagem seguidos por ele. O estudio nao se responsabiliza por resultados insatisfatorios decorrentes de negligencia nos cuidados ou condicoes de saude nao informadas.<br/><br/>
-                                      <strong>4. DOS RETOQUES:</strong> Retoques gratuitos estao disponiveis em ate 60 dias apos a sessao, desde que o cliente siga corretamente os cuidados indicados. Apos esse prazo ou em caso de negligencia, retoques serao cobrados.<br/><br/>
-                                      <strong>5. DA SAUDE:</strong> O cliente declara ter respondido com veracidade a ficha de anamnese e nao ter condicoes de saude que contraindiquem o procedimento. Em caso de omissao, o estudio se exime de qualquer responsabilidade.<br/><br/>
-                                      <strong>6. DOS DIREITOS DE IMAGEM:</strong> O estudio pode utilizar fotos do trabalho realizado para fins de divulgacao em redes sociais e portfolio, salvo manifestacao contraria expressa do cliente.<br/><br/>
-                                      <strong>7. DA CONCORDANCIA:</strong> Ao assinar este contrato, o cliente declara ter lido, compreendido e concordado com todos os termos acima.
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                    <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.9, background: "var(--dk3)", borderRadius: 7, padding: "12px 14px" }}>
+                                      <strong style={{ color: "var(--gold)" }}>CONTRATO DE PRESTAÇÃO DE SERVIÇOS</strong><br/><br/>
+                                      Cliente: <strong>{sc.nome}</strong>{(sc as any).documento ? ` — CPF: ${(sc as any).documento}` : ""}<br/><br/>
+                                      {montarClausulasContrato(sc, obsContrato || (sc as any).contrato_obs || "").map((c, i) => {
+                                        const idx = c.indexOf(":");
+                                        return <span key={i}><strong>{c.slice(0, idx + 1)}</strong>{c.slice(idx + 1)}<br/><br/></span>;
+                                      })}
+                                    </div>
+                                    <div>
+                                      <div className="fil" style={{ marginBottom: 4 }}>Observações para incluir no contrato <span style={{ color: "var(--tx3)", fontWeight: 400 }}>(opcional — aparece como última cláusula)</span></div>
+                                      <textarea className="ef" rows={3} placeholder="Ex: Cliente apresentou guarda exclusiva — dispensa de segundo responsável. Procedimento: arte aprovada em consulta de 20/06/2026." value={obsContrato || (sc as any).contrato_obs || ""} onChange={e => setObsContrato(e.target.value)} style={{ resize: "vertical", minHeight: 62, width: "100%" }} />
                                     </div>
                                   </div>
                                 )}
@@ -8622,12 +8670,21 @@ export default function CRM() {
                                       style={{ background: "rgba(100,149,237,.12)", border: "1px solid rgba(100,149,237,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "#6495ed", cursor: "pointer", fontWeight: 600, opacity: docsEnviandoLink === "menor_resp2" ? 0.6 : 1 }}>
                                       {docsEnviandoLink === "menor_resp2" ? "Enviando..." : "Assinar Remoto — Resp. 2"}
                                     </button>
-                                  </>) : (
-                                    <button onClick={() => enviarParaAssinar(doc.id)} disabled={docsEnviandoLink === doc.id}
-                                      style={{ background: "rgba(100,149,237,.12)", border: "1px solid rgba(100,149,237,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "#6495ed", cursor: "pointer", fontWeight: 600, opacity: docsEnviandoLink === doc.id ? 0.6 : 1 }}>
-                                      {docsEnviandoLink === doc.id ? "Enviando..." : "Enviar para Assinar (Remoto)"}
-                                    </button>
-                                  )}
+                                  </>) : (() => {
+                                    const eMenorCliente = isMenor((sc as any).nascimento || "");
+                                    const bloqueioContrato = doc.id === "contrato" && eMenorCliente && !(sc as any).menor_assinatura && !(sc as any).menor_assinatura_mae;
+                                    const tooltipBloqueio = "Assine primeiro a Autorização de Responsável antes de enviar o Contrato para um cliente menor de idade.";
+                                    return (
+                                      <span title={bloqueioContrato ? tooltipBloqueio : ""} style={{ display: "inline-block" }}>
+                                        <button
+                                          onClick={() => !bloqueioContrato && enviarParaAssinar(doc.id)}
+                                          disabled={docsEnviandoLink === doc.id || bloqueioContrato}
+                                          style={{ background: bloqueioContrato ? "var(--dk4)" : "rgba(100,149,237,.12)", border: `1px solid ${bloqueioContrato ? "var(--br)" : "rgba(100,149,237,.35)"}`, borderRadius: 6, padding: "6px 12px", fontSize: 11, color: bloqueioContrato ? "var(--tx3)" : "#6495ed", cursor: bloqueioContrato ? "not-allowed" : "pointer", fontWeight: 600, opacity: (docsEnviandoLink === doc.id || bloqueioContrato) ? 0.6 : 1 }}>
+                                          {docsEnviandoLink === doc.id ? "Enviando..." : bloqueioContrato ? "⚠ Autorização pendente" : "Enviar para Assinar (Remoto)"}
+                                        </button>
+                                      </span>
+                                    );
+                                  })()}
                                   <button disabled title="WhatsApp sera habilitado nas Configuracoes do estudio"
                                     style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "var(--tx3)", cursor: "not-allowed", opacity: 0.45 }}>
                                     Enviar WhatsApp

@@ -85,15 +85,57 @@ const PERGUNTAS = [
   {id:"cicatrizacao",label:"Tem historico de cicatrizacao lenta ou problemas de pele?"},
 ];
 
-const TERMOS = [
-  "1. DO PROJETO: O projeto artistico (tatuagem) a ser realizado foi previamente acordado entre as partes, incluindo design, tamanho, local do corpo e valor.",
-  "2. DO PAGAMENTO: O valor total acordado deve ser pago conforme combinado. Sinais e reservas de agenda nao sao reembolsaveis em caso de cancelamento com menos de 48h ou falta sem aviso.",
-  "3. DA CICATRIZACAO: O resultado final depende dos cuidados pos-tatuagem do cliente. O estudio nao se responsabiliza por resultados decorrentes de negligencia ou condicoes de saude nao informadas.",
-  "4. DOS RETOQUES: Retoques gratuitos em ate 60 dias, desde que o cliente siga os cuidados indicados.",
-  "5. DA SAUDE: O cliente declara ter respondido com veracidade a ficha de anamnese.",
-  "6. DOS DIREITOS DE IMAGEM: O estudio pode utilizar fotos do trabalho para divulgacao, salvo manifestacao contraria do cliente.",
-  "7. DA CONCORDANCIA: Ao assinar, o cliente declara ter lido e concordado com todos os termos.",
-];
+function montarClausulasContrato(d, obsContrato) {
+  const projAtivo = (d.projetos || []).find(p => p.status !== "concluido") || (d.projetos || [])[0] || {};
+  const servicoRaw = projAtivo.servico || d.servico_interesse || "";
+  const t = servicoRaw.toLowerCase() === "tatuagem" ? "tatuagem"
+    : servicoRaw.toLowerCase() === "piercing" ? "piercing"
+    : "procedimento artístico";
+
+  const cls = [
+    `1. DO PROJETO: O serviço de ${t} a ser realizado foi previamente acordado entre as partes, incluindo design, tamanho, região do corpo e valor.`,
+    `2. DO PAGAMENTO: O valor total acordado deverá ser pago conforme combinado. Sinais e reservas de agenda não são reembolsáveis em caso de cancelamento com menos de 48h de antecedência ou falta sem aviso prévio.`,
+    `3. DA CICATRIZAÇÃO: O resultado final do ${t} depende dos cuidados pós-sessão realizados pelo(a) cliente. O profissional não se responsabiliza por resultados decorrentes de negligência nos cuidados ou condições de saúde não informadas previamente.`,
+    `4. DOS RETOQUES: Retoques gratuitos são garantidos por até 60 dias após a sessão, desde que o(a) cliente siga os cuidados indicados. Após esse prazo ou em caso de negligência, retoques serão cobrados.`,
+    `5. DA SAÚDE: O(a) cliente declara ter respondido com veracidade à ficha de anamnese e não ter condições de saúde que contraindiquem o procedimento. Em caso de omissão, o profissional se exime de responsabilidade.`,
+    `6. DOS DIREITOS DE IMAGEM: O profissional e o estúdio podem utilizar fotos do ${t} realizado para divulgação em redes sociais e portfólio, salvo manifestação contrária expressa do(a) cliente.`,
+    `7. DA CONCORDÂNCIA: Ao assinar este contrato, o(a) cliente declara ter lido, compreendido e concordado com todos os termos acima, conferindo a este instrumento plena validade legal nos termos da Lei nº 14.063/2020.`,
+  ];
+
+  const isMenorFn = (nasc) => {
+    if (!nasc) return false;
+    const p = String(nasc).split(/[-\/]/);
+    if (p.length < 3) return false;
+    const [x, y, z] = p.map(Number);
+    const dt = p[0].length === 4 ? new Date(x, y - 1, z) : new Date(z, y - 1, x);
+    if (isNaN(dt)) return false;
+    const hoje = new Date();
+    let idade = hoje.getFullYear() - dt.getFullYear();
+    if (hoje.getMonth() < dt.getMonth() || (hoje.getMonth() === dt.getMonth() && hoje.getDate() < dt.getDate())) idade--;
+    return idade < 18;
+  };
+
+  if (isMenorFn(d.nascimento)) {
+    const nome1 = (d.menor_responsavel || {}).resp_nome || "";
+    const nome2 = (d.menor_responsavel_mae || {}).resp_nome || "";
+    const assinou1 = !!(d.menor_assinatura);
+    const assinou2 = !!(d.menor_assinatura_mae);
+    if (assinou1 && assinou2) {
+      cls.push(`8. DA AUTORIZAÇÃO DE MENOR: O presente contrato refere-se a procedimento a ser realizado em ${d.nome}, menor de idade, cuja autorização foi formalmente concedida pelos responsáveis legais ${nome1}${nome2 ? ` e ${nome2}` : ""}, conforme documentos de autorização e identificação anexados à ficha do(a) cliente. O(a) cliente (menor, representado(a) por seus responsáveis) declara ainda ter respondido com veracidade à ficha de anamnese, também anexada à ficha.`);
+    } else if (assinou1 || assinou2) {
+      const nomeAssinou = assinou1 ? nome1 : nome2;
+      cls.push(`8. DA AUTORIZAÇÃO DE MENOR: O presente contrato refere-se a procedimento a ser realizado em ${d.nome}, menor de idade, cuja autorização foi formalmente concedida pelo responsável legal ${nomeAssinou}, que apresentou documentação comprobatória da inexistência de impedimento legal para autorizar isoladamente, anexada à ficha do(a) cliente. O(a) cliente (menor, representado(a) por seu responsável) declara ainda ter respondido com veracidade à ficha de anamnese, também anexada à ficha.`);
+    }
+  }
+
+  const obs = (obsContrato || "").trim();
+  if (obs) {
+    const n = cls.length + 1;
+    cls.push(`${n}. OBSERVAÇÕES ADICIONAIS: ${obs}`);
+  }
+
+  return cls;
+}
 
 const PARENTESCOS = ["Pai","Mae","Responsavel Legal","Avo / Avo","Outro"];
 
@@ -143,14 +185,20 @@ function render(){
   }
 
   if(dados.doc==="contrato"){
-    const projAtivo=(dados.projetos||[]).find(p=>p.status==="ativo")||(dados.projetos||[])[0]||{};
+    const projAtivo=(dados.projetos||[]).find(p=>p.status!=="concluido")||(dados.projetos||[])[0]||{};
     const descProjeto=projAtivo.desc||dados.servico_interesse||"a combinar";
     const valorProjeto=projAtivo.valorTotal||dados.val_a||(dados.val_a>0?dados.val_a:null);
     const valorFmt=valorProjeto?`R$ ${Number(valorProjeto).toLocaleString("pt-BR",{minimumFractionDigits:2})}`:"a combinar";
     const regiao=dados.regiao||projAtivo.regiao||"a combinar";
-    const servico=dados.servico_interesse||projAtivo.servico||"Procedimento artístico";
+    const servico=projAtivo.servico||dados.servico_interesse||"Procedimento artístico";
     const profissional=dados.artista_nome||"Profissional responsável";
     const dataHoje=new Date().toLocaleDateString("pt-BR");
+    const obsContrato=dados.contrato_obs||"";
+    const clausulas=montarClausulasContrato(dados, obsContrato);
+    const clausulasHtml=clausulas.map(c=>{
+      const idx=c.indexOf(":");
+      return `<p><strong>${c.slice(0,idx+1)}</strong>${c.slice(idx+1)}</p>`;
+    }).join("");
     html+=`
       <div class="termo" style="font-size:13px;line-height:1.9;border:none;padding:0">
         <p style="text-align:center;font-size:15px;font-weight:700;color:#c9a84c;margin-bottom:4px">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</p>
@@ -174,29 +222,7 @@ function render(){
         Valor acordado: <strong>${valorFmt}</strong></p>
 
         <p style="font-weight:700;color:#c9a84c;margin:16px 0 4px">DAS CLÁUSULAS</p>
-        <p><strong>1. DA EXCLUSIVIDADE DO PROJETO</strong><br>
-        O projeto foi desenvolvido de forma personalizada e exclusiva para o(a) contratante. O desenho elaborado pertence ao profissional e ao estúdio, não podendo ser reproduzido sem autorização expressa.</p>
-
-        <p><strong>2. DO PAGAMENTO</strong><br>
-        O valor acordado deverá ser pago conforme combinado entre as partes. Sinais e reservas de agenda não são reembolsáveis em caso de cancelamento com menos de 48h de antecedência ou falta sem aviso prévio.</p>
-
-        <p><strong>3. DO REAGENDAMENTO</strong><br>
-        O(a) contratante poderá reagendar sem custo adicional mediante aviso com no mínimo 24 horas de antecedência. Em caso de segunda falta sem aviso, poderá ser cobrado percentual de 30% do valor do serviço.</p>
-
-        <p><strong>4. DA CICATRIZAÇÃO</strong><br>
-        O resultado final do procedimento depende dos cuidados pós-sessão realizados pelo(a) contratante. O profissional não se responsabiliza por resultados decorrentes de negligência ou condições de saúde não informadas previamente.</p>
-
-        <p><strong>5. DOS RETOQUES</strong><br>
-        Retoques gratuitos são garantidos por até 60 dias após a sessão, desde que o(a) contratante siga os cuidados indicados. Em caso de dano comprovado por negligência, o retoque poderá ser cobrado.</p>
-
-        <p><strong>6. DOS DIREITOS DE IMAGEM</strong><br>
-        O(a) contratante autoriza o uso de fotos do trabalho realizado para divulgação em portfólio e redes sociais do profissional e do estúdio, salvo manifestação contrária registrada formalmente.</p>
-
-        <p><strong>7. DA SAÚDE</strong><br>
-        O(a) contratante declara ter respondido com veracidade à ficha de anamnese, informando todas as condições de saúde relevantes, e assume responsabilidade pelas informações prestadas.</p>
-
-        <p><strong>8. DA CONCORDÂNCIA</strong><br>
-        Ao assinar este documento, o(a) contratante declara ter lido, compreendido e concordado com todos os termos acima, conferindo a este instrumento plena validade legal, nos termos da Lei nº 14.063/2020.</p>
+        ${clausulasHtml}
       </div>`;
   }
 
@@ -429,8 +455,8 @@ async function gerarPdf(assinBase64, anamneseDados, responsavelDados, fotoDocUrl
   }
 
   if(dados.doc==="contrato"){
-    ln("TERMOS E CONDICOES",13,true);
-    TERMOS.forEach(t=>{y+=2;ln(t);});
+    ln("TERMOS E CONDIÇÕES",13,true);
+    montarClausulasContrato(dados, dados.contrato_obs||"").forEach(t=>{y+=2;ln(t);});
   }
 
   if(dados.doc==="menor_resp1"||dados.doc==="menor_resp2"){

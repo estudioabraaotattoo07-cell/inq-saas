@@ -114,7 +114,7 @@ export default async function handler(req, res) {
 
     const { data: clientes } = await sb
       .from("clientes")
-      .select("id, nome, email, tel, nascimento, documento, artista, projetos, val_a, pgto, regiao, servico_interesse, anamnese, menor_responsavel, menor_responsavel_mae, docs_status, assinar_link, docs_arquivos")
+      .select("id, nome, email, tel, nascimento, documento, artista, projetos, val_a, pgto, regiao, servico_interesse, anamnese, menor_responsavel, menor_responsavel_mae, menor_assinatura, menor_assinatura_mae, contrato_obs, docs_status, assinar_link, docs_arquivos")
       .not("assinar_link", "is", null);
 
     let cliente = null;
@@ -147,6 +147,9 @@ export default async function handler(req, res) {
         anamnese: cliente.anamnese || {},
         menor_responsavel: cliente.menor_responsavel || {},
         menor_responsavel_mae: cliente.menor_responsavel_mae || {},
+        menor_assinatura: cliente.menor_assinatura || null,
+        menor_assinatura_mae: cliente.menor_assinatura_mae || null,
+        contrato_obs: cliente.contrato_obs || linkInfo?.obs_contrato || null,
         docs_status: cliente.docs_status || {},
         ja_assinado: (cliente.docs_status || {})[docTipo] === "assinado",
         enviado_em: linkInfo?.enviado_em || null,
