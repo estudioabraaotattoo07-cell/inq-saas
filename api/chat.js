@@ -645,6 +645,7 @@ export default async function handler(req, res) {
   let loopGuard = 0;
   let agendamentoRealizado = false;
   let agendamentoTipo = "";
+  let clienteIdCapturado = null; // captura o id do cliente identificado ou criado nesta conversa
 
   while (loopGuard < 5) {
     loopGuard++;
@@ -683,6 +684,8 @@ export default async function handler(req, res) {
       for (const block of toolUseBlocks) {
         const resultado = await executarFerramenta(block.name, block.input);
         if (resultado && resultado.agendamento) { agendamentoRealizado = true; agendamentoTipo = resultado.tipo || ""; }
+        if (resultado && resultado.clienteId) clienteIdCapturado = resultado.clienteId;
+        if (resultado && resultado.encontrado && resultado.id) clienteIdCapturado = resultado.id;
         toolResults.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(resultado) });
       }
       workingMessages.push({ role: "user", content: toolResults });
@@ -739,6 +742,57 @@ export default async function handler(req, res) {
       .select("studio_tel").eq("user_id", STUDIO_USER_ID).limit(1).single();
     studioTelResp = (cfgTel?.studio_tel || "").replace(/[^0-9]/g, "");
   } catch (e) {}
+
+  // ── PERSISTIR HISTÓRICO DE CONVERSA COM A AURA ──────────────────────────
+  // Tentar resolver cliente_id se ainda não foi capturado via tool (ex: só tag [LEAD:] sem agendamento)
+  let finalClienteIdParaLog = clienteIdCapturado;
+  if (!finalClienteIdParaLog && leadData?.tel) {
+    try {
+      const telDigits = (leadData.tel || "").replace(/[^0-9]/g, "").slice(-11);
+      if (telDigits) {
+        const { data: found } = await supabase
+          .from("clientes")
+          .select("id")
+          .eq("user_id", STUDIO_USER_ID)
+          .filter("tel", "ilike", "%" + telDigits.slice(-8))
+          .limit(1)
+          .single();
+        if (found) finalClienteIdParaLog = found.id;
+      }
+    } catch {}
+  }
+
+  if (finalClienteIdParaLog && workingMessages.length > 0) {
+    try {
+      const { data: cliAtual } = await supabase
+        .from("clientes")
+        .select("aura_chat_log")
+        .eq("id", finalClienteIdParaLog)
+        .single();
+
+      const logAnterior = Array.isArray(cliAtual?.aura_chat_log) ? cliAtual.aura_chat_log : [];
+
+      // Cada sessão é identificada pela data de início (primeira msg do array recebido)
+      const sessaoData = new Date().toISOString();
+      // Verificar se já existe uma sessão aberta hoje (mesmo cliente, mesmo dia)
+      const hoje = sessaoData.split("T")[0];
+      const idxHoje = logAnterior.findIndex(s => (s.data || "").startsWith(hoje));
+
+      let novoLog;
+      if (idxHoje >= 0) {
+        // Atualiza a sessão de hoje com as mensagens mais recentes (substitui — workingMessages já contém tudo)
+        novoLog = logAnterior.map((s, i) => i === idxHoje ? { ...s, mensagens: workingMessages, atualizado_em: sessaoData } : s);
+      } else {
+        // Nova sessão — sem limite de histórico (JSONB suporta, histórico tem valor de longo prazo)
+        novoLog = [...logAnterior, { data: sessaoData, mensagens: workingMessages }];
+      }
+
+      await supabase
+        .from("clientes")
+        .update({ aura_chat_log: novoLog })
+        .eq("id", finalClienteIdParaLog);
+    } catch {}
+  }
 
   return res.status(200).json({ text: cleanText, lead: leadData, campanha: campanhaData, agendamento: agendamentoRealizado, agendamento_tipo: agendamentoTipo, studio_tel: studioTelResp });
 }

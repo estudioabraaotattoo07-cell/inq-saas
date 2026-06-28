@@ -9577,6 +9577,56 @@ export default function CRM() {
                   );
                 })()}
 
+                {/* HISTÓRICO DE CONVERSA COM A AURA */}
+                {(() => {
+                  const chatLog: any[] = (sc as any).aura_chat_log || [];
+                  if (chatLog.length === 0) return null;
+                  const AuraChatLog = () => {
+                    const [sessaoAberta, setSessaoAberta] = useState<number | null>(chatLog.length - 1);
+                    return (
+                      <div>
+                        <div className="stit">✦ Conversa com a Aura</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {chatLog.map((sessao: any, si: number) => {
+                            const dataLabel = sessao.data ? new Date(sessao.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Sessão " + (si + 1);
+                            const aberta = sessaoAberta === si;
+                            const msgs: any[] = (sessao.mensagens || []).filter((m: any) => m.role === "user" || m.role === "assistant");
+                            return (
+                              <div key={si} style={{ border: "1px solid var(--br)", borderRadius: 8, overflow: "hidden" }}>
+                                <div onClick={() => setSessaoAberta(aberta ? null : si)}
+                                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", cursor: "pointer", background: aberta ? "var(--dk3)" : "transparent", userSelect: "none" }}>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)" }}>{dataLabel}</span>
+                                  <span style={{ fontSize: 10, color: "var(--tx3)" }}>{msgs.length} msgs {aberta ? "▲" : "▼"}</span>
+                                </div>
+                                {aberta && (
+                                  <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8, maxHeight: 400, overflowY: "auto" }}>
+                                    {msgs.map((m: any, mi: number) => {
+                                      const isUser = m.role === "user";
+                                      const texto = Array.isArray(m.content)
+                                        ? m.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join(" ")
+                                        : (typeof m.content === "string" ? m.content : "");
+                                      if (!texto.trim()) return null;
+                                      return (
+                                        <div key={mi} style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start" }}>
+                                          <div style={{ maxWidth: "82%", background: isUser ? "rgba(201,168,76,.15)" : "var(--dk3)", border: "1px solid " + (isUser ? "rgba(201,168,76,.3)" : "var(--br)"), borderRadius: isUser ? "12px 12px 2px 12px" : "12px 12px 12px 2px", padding: "7px 11px", fontSize: 12, color: "var(--tx)", lineHeight: 1.5 }}>
+                                            {!isUser && <div style={{ fontSize: 10, color: "var(--gold)", fontWeight: 700, marginBottom: 3 }}>✦ Aura</div>}
+                                            {texto}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  };
+                  return <AuraChatLog />;
+                })()}
+
                 {/* AGENDAMENTOS DO CLIENTE */}
                 {(() => {
                   const evsCli = agEvents.filter(e => e.cliente_id === sc.id);
