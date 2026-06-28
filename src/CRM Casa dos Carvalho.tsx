@@ -1278,18 +1278,11 @@ export default function CRM() {
   const [presencaMotivo, setPresencaMotivo] = useState("");
   const [confirmTrocarProfissional, setConfirmTrocarProfissional] = useState<{clienteId: any; novoArtista: string; antigoArtista: string} | null>(null);
   const [nascDraft, setNascDraft] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
-  const [fichaTab, setFichaTab] = useState<"dados"|"jornada"|"docs"|"historico">("dados");
+  const [fichaTab, setFichaTab] = useState<"dados"|"docs"|"historico">("dados");
   const [fichaEditada, setFichaEditada] = useState(false);
   const [fichaSaveStep, setFichaSaveStep] = useState(0);
   const [fichaTabPendente, setFichaTabPendente] = useState<string|null>(null);
   const [fichaWarnSair, setFichaWarnSair] = useState(false);
-  const [jornadaEtapas, setJornadaEtapas] = useState<{id:number;nome:string;ordem:number;tipo:string}[]>([]);
-  const [jornadaDragIdx, setJornadaDragIdx] = useState<number|null>(null);
-  const [jornadaEditandoId, setJornadaEditandoId] = useState<number|null>(null);
-  const [jornadaEditNome, setJornadaEditNome] = useState("");
-  const [jornadaNovaEtapa, setJornadaNovaEtapa] = useState(false);
-  const [jornadaNovoNome, setJornadaNovoNome] = useState("");
-  const [jornadaUndoDelete, setJornadaUndoDelete] = useState<{etapa: any; timer: any}|null>(null);
   const [docsAberto, setDocsAberto] = useState<string|null>(null);
   const [docsAssinando, setDocsAssinando] = useState<string|null>(null);
   const [docsCanvasRef, setDocsCanvasRef] = useState<HTMLCanvasElement|null>(null);
@@ -1501,9 +1494,6 @@ export default function CRM() {
         if (camps && camps.length > 0) setCampanhas(camps);
         if (evts && evts.length >= 0) setEventosTrafego(evts || []);
         if (eqs && eqs.length > 0) setEquipamentos(eqs);
-        // Carregar etapas da jornada do cliente
-        const { data: jornadaDB } = await sb.from("jornada_etapas").select("*").order("ordem", { ascending: true });
-        if (jornadaDB) setJornadaEtapas(jornadaDB);
         // Carregar etapas do pipeline
         const { data: etapasDB } = await sb.from("pipeline_etapas").select("*").eq("user_id", uid).order("ordem", { ascending: true });
         if (etapasDB && etapasDB.length > 0) {
@@ -4523,7 +4513,7 @@ export default function CRM() {
               }, 600);
             }
           }}>
-            {stages.map(stage => {
+            {stages.filter(s => s.id !== "tatuado").map(stage => {
               const sc2 = getSC(stage.id);
               const stageDesc = STAGE_INFO[stage.id] || "Etapa personalizada. Defina o critério e arraste os clientes conforme o seu fluxo de atendimento.";
               const infoAberto = stageInfoOpen === stage.id;
@@ -7808,8 +7798,8 @@ export default function CRM() {
               </div>
               {/* ── TABS DA FICHA ── */}
               <div style={{ display: "flex", borderBottom: "1px solid var(--br)", background: "var(--dk2)", overflowX: "auto", flexShrink: 0, WebkitOverflowScrolling: "touch" as any }}>
-                {(["dados","jornada","docs","historico"] as const).map(tab => {
-                  const labels: Record<string,string> = { dados: "Dados", jornada: "Jornada", docs: "Documentos", historico: "Histórico" };
+                {(["dados","docs","historico"] as const).map(tab => {
+                  const labels: Record<string,string> = { dados: "Dados", docs: "Documentos", historico: "Histórico" };
                   return (
                     <button key={tab} onClick={() => {
                       if (tab === fichaTab) return;
@@ -7934,161 +7924,6 @@ export default function CRM() {
                     </div>
                   </div>
                 </div>}
-
-                {fichaTab === "jornada" && (() => {
-                  const jStatus: Record<number,string> = (sc as any).jornada_status || {};
-                  const salvarStatus = async (etapaId: number, status: string) => {
-                    const novoStatus = { ...jStatus, [etapaId]: status };
-                    upCFicha(sc.id, "jornada_status", novoStatus);
-                    await sb.from("clientes").update({ jornada_status: novoStatus }).eq("id", sc.id);
-                    setFichaEditada(false);
-                  };
-                  const salvarOrdemEtapas = async (lista: typeof jornadaEtapas) => {
-                    for (const e of lista) {
-                      await sb.from("jornada_etapas").update({ ordem: e.ordem }).eq("id", e.id);
-                    }
-                  };
-                  const statusCor: Record<string,string> = { concluido: "#27ae60", ativo: "var(--gold)", pendente: "var(--tx3)", pulado: "var(--q1)" };
-                  const statusLabel: Record<string,string> = { concluido: "Concluido", ativo: "Ativo", pendente: "Pendente", pulado: "Pulado" };
-                  const proximoStatus = (s: string) => ({ pendente: "ativo", ativo: "concluido", concluido: "pulado", pulado: "pendente" })[s] || "pendente";
-                  return (
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                        <div className="stit" style={{ marginBottom: 0 }}>Jornada do Cliente</div>
-                        <button onClick={() => { setJornadaNovaEtapa(true); setJornadaNovoNome(""); }}
-                          style={{ fontSize: 11, fontWeight: 600, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 10px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                          + Etapa
-                        </button>
-                      </div>
-
-                      {/* nova etapa inline */}
-                      {jornadaNovaEtapa && (
-                        <div style={{ display: "flex", gap: 6, marginBottom: 10, alignItems: "center" }}>
-                          <input autoFocus className="ef" placeholder="Nome da etapa..." value={jornadaNovoNome}
-                            onChange={e => setJornadaNovoNome(e.target.value)}
-                            onKeyDown={async e => {
-                              if (e.key === "Enter" && jornadaNovoNome.trim()) {
-                                const maxOrdem = jornadaEtapas.length > 0 ? Math.max(...jornadaEtapas.map(x => x.ordem)) + 1 : 1;
-                                const { data: nova } = await sb.from("jornada_etapas").insert({ nome: jornadaNovoNome.trim(), ordem: maxOrdem, tipo: "manual" }).select().single();
-                                if (nova) setJornadaEtapas(p => [...p, nova]);
-                                setJornadaNovaEtapa(false); setJornadaNovoNome("");
-                              } else if (e.key === "Escape") { setJornadaNovaEtapa(false); }
-                            }}
-                            style={{ flex: 1 }} />
-                          <button onClick={async () => {
-                            if (!jornadaNovoNome.trim()) return;
-                            const maxOrdem = jornadaEtapas.length > 0 ? Math.max(...jornadaEtapas.map(x => x.ordem)) + 1 : 1;
-                            const { data: nova } = await sb.from("jornada_etapas").insert({ nome: jornadaNovoNome.trim(), ordem: maxOrdem, tipo: "manual" }).select().single();
-                            if (nova) setJornadaEtapas(p => [...p, nova]);
-                            setJornadaNovaEtapa(false); setJornadaNovoNome("");
-                          }} style={{ background: "var(--gold)", border: "none", borderRadius: 5, padding: "5px 12px", fontSize: 11, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>OK</button>
-                          <button onClick={() => setJornadaNovaEtapa(false)} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "5px 10px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>✕</button>
-                        </div>
-                      )}
-
-                      {/* lista de etapas */}
-                      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                        {jornadaEtapas.map((etapa, idx) => {
-                          const st = jStatus[etapa.id] || "pendente";
-                          const cor = statusCor[st];
-                          const isEditando = jornadaEditandoId === etapa.id;
-                          const isUndo = jornadaUndoDelete?.etapa?.id === etapa.id;
-                          if (isUndo) return null;
-                          const moverEtapa = async (de: number, para: number) => {
-                            if (para < 0 || para >= jornadaEtapas.length) return;
-                            const nova = [...jornadaEtapas];
-                            const [mov] = nova.splice(de, 1);
-                            nova.splice(para, 0, mov);
-                            const reordenada = nova.map((e, i) => ({ ...e, ordem: i + 1 }));
-                            setJornadaEtapas(reordenada);
-                            await salvarOrdemEtapas(reordenada);
-                          };
-                          return (
-                            <div key={etapa.id}
-                              draggable
-                              onDragStart={() => setJornadaDragIdx(idx)}
-                              onDragOver={e => e.preventDefault()}
-                              onDrop={async () => {
-                                if (jornadaDragIdx === null || jornadaDragIdx === idx) return;
-                                await moverEtapa(jornadaDragIdx, idx);
-                                setJornadaDragIdx(null);
-                              }}
-                              onDragEnd={() => setJornadaDragIdx(null)}
-                              style={{ display: "flex", alignItems: "center", gap: 8, background: jornadaDragIdx === idx ? "var(--dk4)" : "var(--dk3)", border: `1px solid ${jornadaDragIdx === idx ? "var(--gold)" : "var(--br)"}`, borderRadius: 8, padding: "9px 10px", cursor: "default", opacity: jornadaDragIdx === idx ? 0.5 : 1 }}>
-                              {/* status dot */}
-                              <button title={`Status: ${statusLabel[st]} — clique para alternar`}
-                                onClick={() => salvarStatus(etapa.id, proximoStatus(st))}
-                                style={{ width: 12, height: 12, borderRadius: "50%", background: cor, border: "none", cursor: "pointer", flexShrink: 0, padding: 0 }} />
-                              {/* nome editável */}
-                              {isEditando ? (
-                                <input autoFocus className="ef" value={jornadaEditNome}
-                                  onChange={e => setJornadaEditNome(e.target.value)}
-                                  onKeyDown={async e => {
-                                    if (e.key === "Enter") {
-                                      await sb.from("jornada_etapas").update({ nome: jornadaEditNome }).eq("id", etapa.id);
-                                      setJornadaEtapas(p => p.map(x => x.id === etapa.id ? { ...x, nome: jornadaEditNome } : x));
-                                      setJornadaEditandoId(null);
-                                    } else if (e.key === "Escape") { setJornadaEditandoId(null); }
-                                  }}
-                                  onBlur={async () => {
-                                    await sb.from("jornada_etapas").update({ nome: jornadaEditNome }).eq("id", etapa.id);
-                                    setJornadaEtapas(p => p.map(x => x.id === etapa.id ? { ...x, nome: jornadaEditNome } : x));
-                                    setJornadaEditandoId(null);
-                                  }}
-                                  style={{ flex: 1, fontSize: 12 }} />
-                              ) : (
-                                <span onDoubleClick={() => { setJornadaEditandoId(etapa.id); setJornadaEditNome(etapa.nome); }}
-                                  style={{ flex: 1, fontSize: 12, color: "var(--tx)", cursor: "text", userSelect: "none" }} title="Duplo clique para editar">
-                                  {etapa.nome}
-                                </span>
-                              )}
-                              {/* status label */}
-                              <span style={{ fontSize: 10, color: cor, fontWeight: 600, whiteSpace: "nowrap" }}>{statusLabel[st]}</span>
-                              {/* setas reordenar */}
-                              <button onClick={() => moverEtapa(idx, idx - 1)} disabled={idx === 0}
-                                style={{ background: "none", border: "none", color: idx === 0 ? "var(--dk4)" : "var(--tx3)", cursor: idx === 0 ? "default" : "pointer", fontSize: 13, padding: "0 1px", lineHeight: 1 }} title="Mover para cima">&#8593;</button>
-                              <button onClick={() => moverEtapa(idx, idx + 1)} disabled={idx === jornadaEtapas.length - 1}
-                                style={{ background: "none", border: "none", color: idx === jornadaEtapas.length - 1 ? "var(--dk4)" : "var(--tx3)", cursor: idx === jornadaEtapas.length - 1 ? "default" : "pointer", fontSize: 13, padding: "0 1px", lineHeight: 1 }} title="Mover para baixo">&#8595;</button>
-                              {/* toggle auto/manual */}
-                              <button title={etapa.tipo === "auto" ? "Automatico — clique para manual" : "Manual — clique para automatico"}
-                                onClick={async () => {
-                                  const novoTipo = etapa.tipo === "auto" ? "manual" : "auto";
-                                  await sb.from("jornada_etapas").update({ tipo: novoTipo }).eq("id", etapa.id);
-                                  setJornadaEtapas(p => p.map(x => x.id === etapa.id ? { ...x, tipo: novoTipo } : x));
-                                }}
-                                style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--br)", background: etapa.tipo === "auto" ? "rgba(201,168,76,.15)" : "var(--dk4)", color: etapa.tipo === "auto" ? "var(--gold)" : "var(--tx3)", cursor: "pointer", whiteSpace: "nowrap" }}>
-                                {etapa.tipo === "auto" ? "AUTO" : "MANUAL"}
-                              </button>
-                              {/* excluir */}
-                              <button onClick={() => {
-                                if (jornadaUndoDelete?.timer) clearTimeout(jornadaUndoDelete.timer);
-                                const timer = setTimeout(async () => {
-                                  await sb.from("jornada_etapas").delete().eq("id", etapa.id);
-                                  setJornadaEtapas(p => p.filter(x => x.id !== etapa.id));
-                                  setJornadaUndoDelete(null);
-                                }, 8000);
-                                setJornadaUndoDelete({ etapa, timer });
-                              }} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 13, padding: "0 2px" }} title="Excluir etapa">&#10005;</button>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* undo delete */}
-                      {jornadaUndoDelete && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 7, padding: "8px 12px" }}>
-                          <span style={{ fontSize: 12, color: "var(--tx2)", flex: 1 }}>Etapa "{jornadaUndoDelete.etapa.nome}" sera excluida em 8s...</span>
-                          <button onClick={() => { clearTimeout(jornadaUndoDelete.timer); setJornadaUndoDelete(null); }}
-                            style={{ background: "var(--gold)", border: "none", borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>Desfazer</button>
-                        </div>
-                      )}
-
-                      <div style={{ marginTop: 14, fontSize: 10, color: "var(--tx3)", lineHeight: 1.6 }}>
-                        Clique no ponto colorido para alternar o status. Duplo clique no nome para editar. Arraste para reordenar. Alteracoes de ordem e status sao salvas imediatamente.
-                      </div>
-                    </div>
-                  );
-                })()}
 
                 {fichaTab === "docs" && (() => {
                   const docsStatus: Record<string,string> = (sc as any).docs_status || {};
