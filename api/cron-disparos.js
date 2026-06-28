@@ -222,33 +222,6 @@ export default async function handler(req, res) {
         }
       } catch {}
 
-      // Parse pv_regua (pós-venda)
-      let pvRegua = [];
-      try {
-        const raw = cfg.pv_regua;
-        if (raw) {
-          const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-          if (Array.isArray(parsed)) pvRegua = parsed;
-        }
-      } catch {}
-
-      // Parse pre_venda_regua
-      let preVendaRegua = { lead: [], qualificacao: [], hibernacao: [], aguard_agend: [] };
-      try {
-        const raw = cfg.pre_venda_regua;
-        if (raw) {
-          const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-          if (parsed && typeof parsed === "object") {
-            preVendaRegua = {
-              lead: Array.isArray(parsed.lead) ? parsed.lead : [],
-              qualificacao: Array.isArray(parsed.qualificacao) ? parsed.qualificacao : [],
-              hibernacao: Array.isArray(parsed.hibernacao) ? parsed.hibernacao : [],
-              aguard_agend: Array.isArray(parsed.aguard_agend) ? parsed.aguard_agend : []
-            };
-          }
-        }
-      } catch {}
-
       const studioName = cfg.studio_name || "INK SYSTEM";
 
       // 2. Buscar clientes deste user_id
@@ -286,34 +259,6 @@ export default async function handler(req, res) {
         try {
           disparosEnviados = cliente.disparos_enviados || {};
         } catch {}
-
-        // ── PÓS-VENDA ──────────────────────────────────────────────────────
-        // Verificar se régua pós-venda está ativa
-        const pvReguaObj = cfg.pv_regua_config || null;
-        let pvReguaAtiva = true;
-        try {
-          if (pvReguaObj) {
-            const parsed = typeof pvReguaObj === "string" ? JSON.parse(pvReguaObj) : pvReguaObj;
-            pvReguaAtiva = parsed.ativa !== false;
-          }
-        } catch {}
-
-        if (pvReguaAtiva && pvRegua.length > 0 && cliente.sessao_concluida_em && cliente.etapa !== "aguard_agend") {
-          const diasPv = diasEntre(cliente.sessao_concluida_em, hoje);
-          if (diasPv >= 0) {
-            for (const etapa of pvRegua) {
-              try {
-                await processarEtapa({
-                  etapa, diasDecorridos: diasPv, cliente, cfg, userId, studioName,
-                  disparosEnviados, canaisHabilitados, tipoRegua: "pós-venda", revalidarEtapa: false
-                });
-                totalDisparos++;
-              } catch {
-                totalErros++;
-              }
-            }
-          }
-        }
 
         // ── AVALIAÇÃO GOOGLE (sistema fixo — D+1 após sessão concluída) ────
         if (cliente.sessao_concluida_em && cfg.resend_api_key && cliente.email) {
@@ -456,41 +401,6 @@ export default async function handler(req, res) {
               }
             }
           } catch {}
-        }
-
-        // ── PRÉ-VENDA ───────────────────────────────────────────────────────
-        const etapaCliente = cliente.etapa || "";
-        const etapaMapeadas = { lead: "lead", qualificacao: "qualificacao", hibernacao: "hibernacao", aguard_agend: "aguard_agend" };
-        const campoPre = etapaMapeadas[etapaCliente] || null;
-
-        if (campoPre && preVendaRegua[campoPre] && preVendaRegua[campoPre].length > 0) {
-          // Verificar se a régua pré-venda do campo está ativa
-          let preReguaAtiva = true;
-          try {
-            const rawPreConfig = cfg["pre_venda_regua_config_" + campoPre];
-            if (rawPreConfig) {
-              const parsed = typeof rawPreConfig === "string" ? JSON.parse(rawPreConfig) : rawPreConfig;
-              preReguaAtiva = parsed.ativa !== false;
-            }
-          } catch {}
-
-          if (preReguaAtiva && cliente.etapa_desde) {
-            const diasPre = diasEntre(cliente.etapa_desde, hoje);
-            if (diasPre >= 0) {
-              for (const etapa of preVendaRegua[campoPre]) {
-                try {
-                  await processarEtapa({
-                    etapa, diasDecorridos: diasPre, cliente, cfg, userId, studioName,
-                    disparosEnviados, canaisHabilitados,
-                    tipoRegua: "pré-venda/" + campoPre, revalidarEtapa: true
-                  });
-                  totalDisparos++;
-                } catch {
-                  totalErros++;
-                }
-              }
-            }
-          }
         }
 
         // ── FLUXO_ETAPAS (régua unificada por slug de etapa) ────────────────
