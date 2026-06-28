@@ -704,7 +704,7 @@ function montarClausulasContrato(sc: any, obsContrato?: string): string[] {
     `1. DO PROJETO: O serviço de ${termoServico} a ser realizado foi previamente acordado entre as partes, incluindo design, tamanho, região do corpo e valor.`,
     `2. DO PAGAMENTO: O valor total acordado deverá ser pago conforme combinado. Sinais e reservas de agenda não são reembolsáveis em caso de cancelamento com menos de 48h de antecedência ou falta sem aviso prévio.`,
     `3. DA CICATRIZAÇÃO: O resultado final do ${termoServico} depende dos cuidados pós-sessão realizados pelo(a) cliente. O profissional não se responsabiliza por resultados decorrentes de negligência nos cuidados ou condições de saúde não informadas previamente.`,
-    `4. DOS RETOQUES: Retoques gratuitos são garantidos por até 60 dias após a sessão, desde que o(a) cliente siga os cuidados indicados. Após esse prazo ou em caso de negligência, retoques serão cobrados.`,
+    `4. DOS RETOQUES: Retoques gratuitos são garantidos por até 37 dias após a sessão, desde que o(a) cliente siga os cuidados indicados. Após esse prazo ou em caso de negligência, retoques serão cobrados.`,
     `5. DA SAÚDE: O(a) cliente declara ter respondido com veracidade à ficha de anamnese e não ter condições de saúde que contraindiquem o procedimento. Em caso de omissão, o profissional se exime de responsabilidade.`,
     `6. DOS DIREITOS DE IMAGEM: O profissional e o estúdio podem utilizar fotos do ${termoServico} realizado para divulgação em redes sociais e portfólio, salvo manifestação contrária expressa do(a) cliente.`,
     `7. DA CONCORDÂNCIA: Ao assinar este contrato, o(a) cliente declara ter lido, compreendido e concordado com todos os termos acima, conferindo a este instrumento plena validade legal nos termos da Lei nº 14.063/2020.`,
@@ -1896,7 +1896,8 @@ export default function CRM() {
         .replace(/\{hora\}/gi, horaFmt)
         .replace(/\{artista\}/gi, artistaNome)
         .replace(/\{servico\}/gi, servicoNome)
-        .replace(/\{estudio\}/gi, studioName || "INK SYSTEM");
+        .replace(/\{estudio\}/gi, studioName || "INK SYSTEM")
+        .replace(/\[LINK_GOOGLE\]/gi, googleLink || "[link Google não configurado]");
       try {
         if (canal === "email" && resendApiKey && cliente.email) {
           const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
@@ -1944,7 +1945,8 @@ export default function CRM() {
         .replace(/\{nome\}/gi, cliente.nome || "")
         .replace(/\[Nome\]/gi, cliente.nome || "")
         .replace(/\{estudio\}/gi, studioName || "INK SYSTEM")
-        .replace(/\[ESTUDIO\]/gi, studioName || "INK SYSTEM");
+        .replace(/\[ESTUDIO\]/gi, studioName || "INK SYSTEM")
+        .replace(/\[LINK_GOOGLE\]/gi, googleLink || "[link Google não configurado]");
       try {
         if (canal === "email" && resendApiKey && cliente.email) {
           const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
@@ -2108,7 +2110,15 @@ export default function CRM() {
       (c.insta || "").toLowerCase().includes(q) ||
       (c.orig || "").toLowerCase().includes(q) ||
       (c.desc || "").toLowerCase().includes(q) ||
-      (c.etapa || "").toLowerCase().includes(q);
+      (c.etapa || "").toLowerCase().includes(q) ||
+      (c.obs || "").toLowerCase().includes(q) ||
+      (c.servico_interesse || "").toLowerCase().includes(q) ||
+      ((c as any).projetos || []).some((p: any) =>
+        (p.desc || "").toLowerCase().includes(q) ||
+        (p.servico || "").toLowerCase().includes(q) ||
+        (p.estilo || "").toLowerCase().includes(q)
+      ) ||
+      ((c as any).hist || []).some((h: any) => (h.t || "").toLowerCase().includes(q));
     const mE = !filtroExtra
       ? true
       : filtroExtra.tipo === "campanha"
@@ -8052,7 +8062,17 @@ export default function CRM() {
                       // anamnese e contrato — PDF único
                       const campoA = docId==="anamnese"?"anamnese_assinatura":"contrato_assinatura";
                       const assinA = await normImagem((sc as any)[campoA]);
-                      if(assinA){y+=6;ln("Assinatura — Lei 14.063/2020",10,false,[120,120,120]);try{doc.addImage(assinA,"PNG",20,y,60,25);y+=28;}catch(e){console.error("addImage assinA:",e);}}
+                      if(assinA){
+                        y+=6;
+                        if(docId==="contrato"){
+                          const cidadeContrato = (sc as any).cidade || "Belo Horizonte";
+                          const dataContrato = new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
+                          ln(`${cidadeContrato}, ${dataContrato}`,10,false,[120,120,120]);
+                          y+=2;
+                        }
+                        ln("Assinatura — Lei 14.063/2020",10,false,[120,120,120]);
+                        try{doc.addImage(assinA,"PNG",20,y,60,25);y+=28;}catch(e){console.error("addImage assinA:",e);}
+                      }
                       const pdfBlob = doc.output("blob");
                       const pdfNome = `${titulos[docId]||"doc"}-${sc.nome}-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.pdf`;
                       const fname = `pdf-${sc.id}-${docId}-${Date.now()}.pdf`;
@@ -8685,10 +8705,29 @@ export default function CRM() {
                                       </span>
                                     );
                                   })()}
-                                  <button disabled title="WhatsApp sera habilitado nas Configuracoes do estudio"
-                                    style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "var(--tx3)", cursor: "not-allowed", opacity: 0.45 }}>
-                                    Enviar WhatsApp
-                                  </button>
+                                  {(() => {
+                                    const telCliente = ((sc as any).tel || "").replace(/\D/g, "");
+                                    const telWa = telCliente.startsWith("55") ? telCliente : "55" + telCliente;
+                                    const linkDoc = (sc as any).assinar_link?.[doc.id]?.token
+                                      ? `${window.location.origin}/assinar.html?token=${(sc as any).assinar_link[doc.id].token}`
+                                      : "";
+                                    const msgWa = linkDoc
+                                      ? `Olá! Segue o link para assinatura do seu documento (${doc.titulo}): ${linkDoc}`
+                                      : `Olá! Entre em contato com o estúdio para mais informações.`;
+                                    const waUrl = `https://wa.me/${telWa}?text=${encodeURIComponent(msgWa)}`;
+                                    const temTel = telCliente.length >= 10;
+                                    const temLink = !!linkDoc;
+                                    return (
+                                      <span title={!temTel ? "Telefone do cliente não cadastrado" : !temLink ? "Envie o link primeiro para depois encaminhar pelo WhatsApp" : ""} style={{ display: "inline-block" }}>
+                                        <button
+                                          onClick={() => temTel && temLink && window.open(waUrl, "_blank")}
+                                          disabled={!temTel || !temLink}
+                                          style={{ background: (!temTel || !temLink) ? "var(--dk4)" : "rgba(37,211,102,.12)", border: `1px solid ${(!temTel || !temLink) ? "var(--br)" : "rgba(37,211,102,.35)"}`, borderRadius: 6, padding: "6px 12px", fontSize: 11, color: (!temTel || !temLink) ? "var(--tx3)" : "#25d366", cursor: (!temTel || !temLink) ? "not-allowed" : "pointer", fontWeight: 600, opacity: (!temTel || !temLink) ? 0.5 : 1 }}>
+                                          Enviar WhatsApp
+                                        </button>
+                                      </span>
+                                    );
+                                  })()}
                                   {st !== "assinado" && (
                                     <button onClick={() => salvarDocsStatus(doc.id, "assinado")}
                                       style={{ background: "rgba(39,174,96,.12)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 6, padding: "6px 12px", fontSize: 11, color: "#27ae60", cursor: "pointer" }}>
@@ -12585,10 +12624,16 @@ export default function CRM() {
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>Baixe os dados do sistema em CSV para backup ou análise externa.</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <button onClick={() => {
-                        const rows = [["Nome","Telefone","Email","Profissional","Etapa","Origem","Data"].join(","),
-                          ...clients.map(c => [c.nome, c.tel, c.email, c.artista, c.etapa, c.orig, c.data].map(v => `"${v||""}"`).join(","))];
-                        const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
-                        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "clientes.csv"; a.click();
+                        const headers = ["Nome","Telefone","Email","Nascimento","CPF","Instagram","Profissional","Etapa","Origem","Servico","Valor","Forma Pgto","Data Cadastro","Obs"];
+                        const rows = [headers.join(","),
+                          ...clients.map(c => {
+                            const projAtivo = ((c as any).projetos || []).find((p: any) => p.status !== "concluido") || ((c as any).projetos || [])[0];
+                            const arNome = artists.find((a: any) => a.id === c.artista)?.nome || c.artista || "";
+                            return [c.nome, c.tel, c.email, (c as any).nascimento || "", (c as any).documento || "", c.insta || "", arNome, c.etapa, c.orig, projAtivo?.servico || (c as any).servico_interesse || "", (c as any).val_a || "", (c as any).pgto || "", c.data, c.obs || ""].map(v => `"${(v||"").toString().replace(/"/g,'""')}"`).join(",");
+                          })];
+                        const bom = "﻿";
+                        const blob = new Blob([bom + rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+                        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `clientes-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.csv`; a.click();
                       }} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                         📥 Exportar Clientes
                       </button>

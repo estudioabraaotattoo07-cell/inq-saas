@@ -96,7 +96,7 @@ function montarClausulasContrato(d, obsContrato) {
     `1. DO PROJETO: O serviço de ${t} a ser realizado foi previamente acordado entre as partes, incluindo design, tamanho, região do corpo e valor.`,
     `2. DO PAGAMENTO: O valor total acordado deverá ser pago conforme combinado. Sinais e reservas de agenda não são reembolsáveis em caso de cancelamento com menos de 48h de antecedência ou falta sem aviso prévio.`,
     `3. DA CICATRIZAÇÃO: O resultado final do ${t} depende dos cuidados pós-sessão realizados pelo(a) cliente. O profissional não se responsabiliza por resultados decorrentes de negligência nos cuidados ou condições de saúde não informadas previamente.`,
-    `4. DOS RETOQUES: Retoques gratuitos são garantidos por até 60 dias após a sessão, desde que o(a) cliente siga os cuidados indicados. Após esse prazo ou em caso de negligência, retoques serão cobrados.`,
+    `4. DOS RETOQUES: Retoques gratuitos são garantidos por até 37 dias após a sessão, desde que o(a) cliente siga os cuidados indicados. Após esse prazo ou em caso de negligência, retoques serão cobrados.`,
     `5. DA SAÚDE: O(a) cliente declara ter respondido com veracidade à ficha de anamnese e não ter condições de saúde que contraindiquem o procedimento. Em caso de omissão, o profissional se exime de responsabilidade.`,
     `6. DOS DIREITOS DE IMAGEM: O profissional e o estúdio podem utilizar fotos do ${t} realizado para divulgação em redes sociais e portfólio, salvo manifestação contrária expressa do(a) cliente.`,
     `7. DA CONCORDÂNCIA: Ao assinar este contrato, o(a) cliente declara ter lido, compreendido e concordado com todos os termos acima, conferindo a este instrumento plena validade legal nos termos da Lei nº 14.063/2020.`,
@@ -480,6 +480,11 @@ async function gerarPdf(assinBase64, anamneseDados, responsavelDados, fotoDocUrl
   }
 
   y+=6;
+  if(dados.doc==="contrato"){
+    const dataAssin=new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
+    ln(`Belo Horizonte, ${dataAssin}`,10,false,[120,120,120]);
+    y+=2;
+  }
   ln("Assinatura — Lei 14.063/2020",10,false,[120,120,120]);
   try{doc.addImage(assinBase64,"PNG",20,y,60,25);y+=28;}catch{}
 
