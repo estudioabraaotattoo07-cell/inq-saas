@@ -229,7 +229,7 @@ export default async function handler(req, res) {
       try {
         const { data: cliData } = await sb
           .from("clientes")
-          .select("id, nome, email, tel, etapa, etapa_desde, sessao_concluida_em, disparos_enviados, hist, followups, confirmacao_token, confirmacao_token_exp, confirmacao_evento_id, confirmacao_presenca")
+          .select("id, nome, email, tel, etapa, etapa_desde, sessao_concluida_em, disparos_enviados, hist, followups, confirmacao_token, confirmacao_token_exp, confirmacao_evento_id, confirmacao_presenca, artista, avaliacao_fluxo_status, avaliacao_token, avaliacao_token_exp, google_convite_em")
           .eq("user_id", userId)
           .is("excluido_em", null);
         if (cliData) clientes = cliData;
@@ -297,6 +297,75 @@ export default async function handler(req, res) {
               } catch {}
               await marcarEnviado(cliente.id, "__avaliacao_google__", disparosAtuais);
               await registrarHistorico(userId, "Avaliação Google enviada — " + cliente.nome);
+              totalDisparos++;
+            }
+          }
+        }
+
+        // ── AVALIAÇÃO NPS + CONVITE GOOGLE (fluxo pós-sessão encadeado) ────────
+        if (cliente.etapa === "pos_venda" && cfg.resend_api_key && cliente.email) {
+          const status = cliente.avaliacao_fluxo_status;
+          const fn = (cliente.nome || "").trim().split(" ")[0];
+
+          // Buscar nome do artista para remetente personalizado
+          let nomeArtista = studioName;
+          if (cliente.artista) {
+            try {
+              const { data: artData } = await sb.from("configuracoes")
+                .select("artistas").eq("user_id", userId).single();
+              const artistas = typeof artData?.artistas === "string" ? JSON.parse(artData.artistas) : (artData?.artistas || []);
+              const art = artistas.find(a => a.id === cliente.artista);
+              if (art?.nome) nomeArtista = art.nome.split(" ")[0] + " — " + studioName;
+            } catch {}
+          }
+
+          // E-mail 1: disparar se status é null e diasEtapa >= 1
+          if (!status && cliente.etapa_desde) {
+            const diasPv = diasEntre(cliente.etapa_desde, hoje);
+            if (diasPv >= 1) {
+              const token = crypto.randomUUID();
+              const exp = new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+              const linkAv = "https://inq-saas.vercel.app/avaliar.html?token=" + token;
+              const botoesNota = [0,1,2,3,4,5,6,7,8,9,10].map(n =>
+                `<a href="https://inq-saas.vercel.app/api/lead?acao=avaliar_nps&token=${token}&nota=${n}" style="display:inline-block;margin:3px;width:42px;height:42px;line-height:42px;text-align:center;background:${n>=7?"#d4a84b":"#2a2a2a"};color:${n>=7?"#111":"#aaa"};text-decoration:none;border-radius:7px;font-weight:bold;font-size:14px;border:1px solid ${n>=7?"#d4a84b":"#333"}">${n}</a>`
+              ).join("");
+              const html = `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px"><p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">Casa dos Carvalho Tattoo</p><hr style="border:none;border-top:1px solid #d4a84b;margin-bottom:24px"><p style="font-size:16px">Olá, <strong>${fn}</strong>!</p><p style="line-height:1.8;color:#444;margin:16px 0">Foi uma alegria ter você aqui no estúdio. Sua opinião é muito importante para nós — ela nos ajuda a continuar evoluindo e a receber cada cliente com ainda mais cuidado.</p><p style="font-size:15px;color:#222;font-weight:bold;margin-bottom:16px">Como você avalia sua experiência conosco?</p><div style="text-align:center;margin-bottom:8px">${botoesNota}</div><p style="font-size:11px;color:#aaa;text-align:center;margin-bottom:28px">0 = extremamente insatisfeito · 10 = extremamente satisfeito</p><p style="font-size:12px;color:#bbb;margin-top:24px">Com carinho, ${nomeArtista}</p></div>`;
+              const ok = await dispararEmail({
+                apiKey: cfg.resend_api_key,
+                from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                nome_remetente: nomeArtista,
+                to: cliente.email,
+                subject: "Como foi sua sessão, " + fn + "?",
+                html,
+              });
+              if (ok) {
+                await sb.from("clientes").update({
+                  avaliacao_token: token,
+                  avaliacao_token_exp: exp,
+                  avaliacao_fluxo_status: "aguardando",
+                }).eq("id", cliente.id);
+                await registrarHistorico(userId, "Avaliação NPS (E-mail 1) enviada — " + cliente.nome);
+                totalDisparos++;
+              }
+            }
+          }
+
+          // E-mail 2: disparar convite Google se status é "positiva" e google_convite_em <= agora
+          if (status === "positiva" && cliente.google_convite_em && new Date(cliente.google_convite_em) <= hoje) {
+            const linkSim = "https://inq-saas.vercel.app/api/lead?acao=google_sim&token=" + cliente.id;
+            const linkNao = "https://inq-saas.vercel.app/api/lead?acao=google_nao&token=" + cliente.id;
+            const html = `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px"><p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">Casa dos Carvalho Tattoo</p><hr style="border:none;border-top:1px solid #d4a84b;margin-bottom:24px"><p style="font-size:16px">Olá, <strong>${fn}</strong>!</p><p style="line-height:1.8;color:#444;margin:16px 0">Muito obrigado pela sua avaliação — fico feliz que sua experiência no estúdio tenha sido boa.</p><p style="line-height:1.8;color:#444;margin-bottom:24px">Se você topar, sua opinião no Google faz uma diferença enorme para nós. Quando as pessoas pesquisam um estúdio, são as avaliações reais de clientes como você que ajudam a decidir.</p><div style="text-align:center;margin-bottom:24px"><a href="${linkSim}" style="display:inline-block;background:#d4a84b;color:#111;text-decoration:none;border-radius:8px;padding:13px 28px;font-size:14px;font-weight:bold;margin:6px">Sim, quero avaliar no Google</a><br><a href="${linkNao}" style="display:inline-block;background:#f5f5f5;color:#555;text-decoration:none;border-radius:8px;padding:13px 28px;font-size:14px;margin:6px">Não, obrigado</a></div><p style="font-size:12px;color:#bbb;text-align:center">Sem pressão — qualquer resposta é válida para nós.</p><p style="font-size:12px;color:#bbb;margin-top:24px">Com carinho, ${nomeArtista}</p></div>`;
+            const ok = await dispararEmail({
+              apiKey: cfg.resend_api_key,
+              from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+              nome_remetente: nomeArtista,
+              to: cliente.email,
+              subject: "Uma última coisa, " + fn + " — leva 1 minuto",
+              html,
+            });
+            if (ok) {
+              await sb.from("clientes").update({ google_convite_em: null }).eq("id", cliente.id);
+              await registrarHistorico(userId, "Convite Google (E-mail 2) enviado — " + cliente.nome);
               totalDisparos++;
             }
           }

@@ -1887,6 +1887,10 @@ export default function CRM() {
       faltas: c.faltas || 0, indicacoes: c.indicacoes || 0,
       credito: c.credito || 0, cri: c.cri || "",
       google_review: c.googleReview || false,
+      avaliacao_fluxo_status: (c as any).avaliacao_fluxo_status ?? null,
+      avaliacao_token: (c as any).avaliacao_token ?? null,
+      avaliacao_token_exp: (c as any).avaliacao_token_exp ?? null,
+      google_convite_em: (c as any).google_convite_em ?? null,
       hist: c.hist || [], followups: c.pv || [], dias: c.dias || 0,
       nascimento: c.nascimento || "",
       documento: (c as any).documento || "",
@@ -2148,10 +2152,16 @@ export default function CRM() {
     const lbl = stages.find(s => s.id === ns)?.label || ns;
     const orq = ns === "sessao_agend";
     const tatuado = ns === "tatuado";
+    const posVenda = ns === "pos_venda";
     setClients(p => {
       const updated = p.map(c => c.id !== cid ? c : {
         ...c, etapa: ns, orcamento: orq,
         pv: tatuado ? [] : c.pv,
+        // Reset de avaliação se entrar em pos_venda com ciclo incompleto (aguardando = nunca respondeu)
+        avaliacao_fluxo_status: posVenda && (c as any).avaliacao_fluxo_status === "aguardando" ? null : (c as any).avaliacao_fluxo_status,
+        avaliacao_token: posVenda && (c as any).avaliacao_fluxo_status === "aguardando" ? null : (c as any).avaliacao_token,
+        avaliacao_token_exp: posVenda && (c as any).avaliacao_fluxo_status === "aguardando" ? null : (c as any).avaliacao_token_exp,
+        google_convite_em: posVenda && (c as any).avaliacao_fluxo_status === "aguardando" ? null : (c as any).google_convite_em,
         hist: [
           ...c.hist,
           { t: "Movido para: " + lbl, d: new Date().toLocaleDateString("pt-BR") },
@@ -9151,6 +9161,22 @@ export default function CRM() {
                       {sc.consent === null && <span style={{ fontSize: 11, color: "var(--tx3)", alignSelf: "center" }}>Nao informado</span>}
                     </div>
                   </div>
+                  {(() => {
+                    const st = (sc as any).avaliacao_fluxo_status;
+                    const stLabel: Record<string, string> = { aguardando: "⏳ Aguardando resposta", negativa: "🔴 Avaliação negativa (ciclo encerrado)", positiva: "🟡 Avaliação positiva — aguardando E-mail 2", google_sim: "✅ Aceitou avaliar no Google", google_nao: "⬜ Recusou avaliação no Google" };
+                    const stColor: Record<string, string> = { aguardando: "var(--q2)", negativa: "var(--q1)", positiva: "var(--gold)", google_sim: "var(--q3)", google_nao: "var(--tx3)" };
+                    return st ? (
+                      <div className="fi2" style={{ marginTop: 7 }}>
+                        <div className="fil">Fluxo de Avaliação</div>
+                        <div style={{ marginTop: 4, fontSize: 12, fontWeight: 600, color: stColor[st] || "var(--tx2)" }}>{stLabel[st] || st}</div>
+                        {(sc as any).avaliacao_comentario && (
+                          <div style={{ marginTop: 6, fontSize: 11, color: "var(--tx2)", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "7px 10px", lineHeight: 1.6, fontStyle: "italic" }}>
+                            "{(sc as any).avaliacao_comentario}"
+                          </div>
+                        )}
+                      </div>
+                    ) : null;
+                  })()}
                   <div className="fi2" style={{ marginTop: 7 }}>
                     <div className="fil">Observações Internas</div>
                     <textarea value={sc.obs} onChange={e => upCLocal(sc.id, "obs", e.target.value)}

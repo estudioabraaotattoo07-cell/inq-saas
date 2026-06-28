@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Avaliação — Casa dos Carvalho</title>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token");
+  if (token) {
+    window.location.replace("/api/lead?acao=avaliar_nps&token=" + encodeURIComponent(token));
+  } else {
+    document.addEventListener("DOMContentLoaded", function() {
+      document.body.innerHTML = "<p style='font-family:Georgia,serif;padding:40px;color:#666;text-align:center'>Link inválido. Entre em contato com o estúdio.</p>";
+    });
+  }
+</script>
+</head>
+<body></body>
+</html>

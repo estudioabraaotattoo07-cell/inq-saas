@@ -97,12 +97,136 @@ function paginaAvaliacao(token, mensagem, mostrarFeedback) {
 </html>`;
 }
 
+function paginaAvaliacaoNps(estado, cli, nota) {
+  const nome = cli?.nome ? cli.nome.split(" ")[0] : "Olá";
+  const estiloBase = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.card{background:#1a1a1a;border:1px solid #333;border-radius:12px;max-width:480px;width:100%;padding:40px 32px;text-align:center}.logo{font-size:12px;letter-spacing:3px;color:#d4a84b;text-transform:uppercase;margin-bottom:24px}h1{font-size:20px;font-weight:normal;color:#f0ede8;line-height:1.5;margin-bottom:12px}.sub{font-size:14px;color:#888;line-height:1.7;margin-bottom:24px}.icon{font-size:48px;margin-bottom:16px}.nota-btn{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:bold;margin:4px}.baixa{background:#2a2a2a;color:#aaa;border:1px solid #333}.alta{background:#d4a84b;color:#111;border:1px solid #d4a84b}textarea{width:100%;background:#111;border:1px solid #444;border-radius:8px;color:#f0ede8;font-family:Georgia,serif;font-size:14px;padding:12px;resize:vertical;min-height:100px;margin-bottom:16px}button[type=submit]{background:#d4a84b;color:#111;border:none;border-radius:8px;padding:13px 28px;font-size:14px;font-weight:bold;cursor:pointer;width:100%}.footer{font-size:11px;color:#444;margin-top:28px}`;
+
+  const conteudos = {
+    invalido: `<div class="icon">❌</div><h1>Link inválido</h1><p class="sub">Este link não foi encontrado. Entre em contato com o estúdio.</p>`,
+    expirado: `<div class="icon">⏰</div><h1>Link expirado</h1><p class="sub">Este link passou da data de validade. Entre em contato com o estúdio.</p>`,
+    escala: `<h1>Olá, ${nome}!</h1><p class="sub">Foi uma alegria ter você aqui. Sua opinião nos ajuda a continuar evoluindo e a receber cada cliente com ainda mais cuidado.</p><p style="font-size:15px;color:#f0ede8;margin-bottom:20px"><strong>Como você avalia sua experiência conosco?</strong></p><div style="display:flex;flex-wrap:wrap;justify-content:center;margin-bottom:20px">${[0,1,2,3,4,5,6,7,8,9,10].map(n=>`<a href="?nota=${n}" class="nota-btn ${n>=7?"alta":"baixa"}">${n}</a>`).join("")}</div><p style="font-size:11px;color:#555">0 = extremamente insatisfeito · 10 = extremamente satisfeito</p>`,
+    comentario_positivo: `<div class="icon">🙏</div><h1>Que alegria, ${nome}!</h1><p class="sub">Conta pra gente com suas próprias palavras o que foi mais especial — pode ser a tatuagem, o atendimento, a atmosfera do estúdio, qualquer coisa que tenha marcado você.</p><form method="POST"><input type="hidden" name="nota" value="${nota}"><textarea name="comentario" placeholder="Escreva aqui..." required></textarea><button type="submit">Enviar avaliação</button></form>`,
+    comentario_negativo: `<div class="icon">💬</div><h1>Obrigado pela honestidade</h1><p class="sub">Queremos entender o que aconteceu para melhorar. Pode nos contar com calma o que não foi como você esperava?</p><form method="POST"><input type="hidden" name="nota" value="${nota}"><textarea name="comentario" placeholder="Conte o que aconteceu..." required></textarea><button type="submit">Enviar</button></form>`,
+    obrigado_positivo: `<div class="icon">🖤</div><h1>Obrigado, ${nome}!</h1><p class="sub">Sua avaliação foi registrada. Em breve você receberá mais um recadinho nosso.</p>`,
+    obrigado_negativo: `<div class="icon">🙏</div><h1>Obrigado pela honestidade, ${nome}</h1><p class="sub">Cada retorno nos ajuda a melhorar. Vamos levar sua experiência muito a sério.</p>`,
+  };
+
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avaliação — Casa dos Carvalho</title><style>${estiloBase}</style></head><body><div class="card"><div class="logo">Casa dos Carvalho Tattoo</div>${conteudos[estado] || ""}<div class="footer">Vitória, ES · acasadoscarvalhotattoo.com.br</div></div></body></html>`;
+}
+
+function paginaGoogleResposta(estado, cli, googleLink) {
+  const nome = cli?.nome ? cli.nome.split(" ")[0] : "Olá";
+  const comentario = cli?.avaliacao_comentario || "";
+  const estiloBase = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.card{background:#1a1a1a;border:1px solid #333;border-radius:12px;max-width:480px;width:100%;padding:40px 32px;text-align:center}.logo{font-size:12px;letter-spacing:3px;color:#d4a84b;text-transform:uppercase;margin-bottom:24px}h1{font-size:20px;font-weight:normal;color:#f0ede8;line-height:1.5;margin-bottom:12px}.sub{font-size:14px;color:#888;line-height:1.7;margin-bottom:20px}.icon{font-size:48px;margin-bottom:16px}.caixa{background:#111;border:1px solid #444;border-radius:8px;padding:14px;font-size:13px;color:#ccc;text-align:left;line-height:1.7;margin-bottom:12px;white-space:pre-wrap}.btn-g{display:block;background:#d4a84b;color:#111;border:none;border-radius:8px;padding:13px 28px;font-size:14px;font-weight:bold;cursor:pointer;width:100%;text-decoration:none;margin-bottom:8px}.btn-copy{background:#2a2a2a;color:#d4a84b;border:1px solid #d4a84b;border-radius:8px;padding:10px 20px;font-size:13px;cursor:pointer;width:100%;font-family:Georgia,serif}.footer{font-size:11px;color:#444;margin-top:28px}`;
+
+  const conteudos = {
+    invalido: `<div class="icon">❌</div><h1>Link inválido</h1><p class="sub">Entre em contato com o estúdio.</p>`,
+    sim: `<div class="icon">🙏</div><h1>Que generoso da sua parte, ${nome}!</h1><p class="sub">Para facilitar, aqui está o que você já escreveu sobre sua experiência. Copie e cole direto no Google:</p><div class="caixa" id="txt">${comentario.replace(/</g,"&lt;")}</div><button class="btn-copy" onclick="navigator.clipboard.writeText(document.getElementById('txt').innerText).then(()=>{this.textContent='✓ Copiado!'})">Copiar texto</button><br><br><a class="btn-g" href="${googleLink || "https://g.page/r/"}" target="_blank">Abrir avaliação no Google →</a>`,
+    nao: `<div class="icon">🖤</div><h1>Tudo bem, ${nome}!</h1><p class="sub">Obrigado por ter avaliado sua experiência conosco — isso já nos ajuda muito. Até a próxima sessão!</p>`,
+  };
+
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avaliação Google — Casa dos Carvalho</title><style>${estiloBase}</style></head><body><div class="card"><div class="logo">Casa dos Carvalho Tattoo</div>${conteudos[estado] || ""}<div class="footer">Vitória, ES · acasadoscarvalhotattoo.com.br</div></div></body></html>`;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
+
+  // ── AVALIAÇÃO NPS + CONVITE GOOGLE (novo fluxo pós-sessão) ──────────────────
+
+  if (acao === "avaliar_nps") {
+    const avToken = (req.query?.token || "").trim();
+    if (!avToken) return res.status(400).send(paginaAvaliacaoNps("invalido", null, null));
+
+    const { data: cli } = await sb.from("clientes")
+      .select("id, nome, email, artista, nps, avaliacao_fluxo_status, avaliacao_token, avaliacao_token_exp, avaliacao_comentario, hist, user_id")
+      .eq("avaliacao_token", avToken).single();
+
+    if (!cli) return res.status(404).send(paginaAvaliacaoNps("invalido", null, null));
+    if (cli.avaliacao_token_exp && new Date(cli.avaliacao_token_exp) < new Date())
+      return res.status(410).send(paginaAvaliacaoNps("expirado", cli, null));
+
+    const notaParam = req.query?.nota != null ? parseInt(req.query.nota, 10) : null;
+
+    // GET sem nota → mostrar escala
+    if (req.method === "GET" && notaParam === null) {
+      return res.status(200).send(paginaAvaliacaoNps("escala", cli, null));
+    }
+
+    // GET com nota → mostrar campo de comentário
+    if (req.method === "GET" && notaParam !== null && !isNaN(notaParam)) {
+      const positiva = notaParam >= 7;
+      return res.status(200).send(paginaAvaliacaoNps(positiva ? "comentario_positivo" : "comentario_negativo", cli, notaParam));
+    }
+
+    // POST → salvar nota + comentário
+    if (req.method === "POST") {
+      const notaPost = parseInt(req.body?.nota ?? req.query?.nota ?? "0", 10);
+      const comentario = (req.body?.comentario || "").trim();
+      const positiva = notaPost >= 7;
+      const conviteEm = positiva ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null;
+      await sb.from("clientes").update({
+        nps: notaPost,
+        avaliacao_comentario: comentario,
+        avaliacao_fluxo_status: positiva ? "positiva" : "negativa",
+        avaliacao_token: null,
+        avaliacao_token_exp: null,
+        google_convite_em: conviteEm,
+        hist: [...(cli.hist || []), { t: "Avaliação NPS recebida: " + notaPost + "/10", d: new Date().toLocaleString("pt-BR") }],
+      }).eq("id", cli.id);
+      await sb.from("historico").insert({
+        data: new Date().toLocaleDateString("pt-BR"),
+        hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        acao: "Avaliação NPS: " + notaPost + "/10 — " + cli.nome + (comentario ? " (com comentário)" : ""),
+        user_id: cli.user_id,
+      });
+      return res.status(200).send(paginaAvaliacaoNps(positiva ? "obrigado_positivo" : "obrigado_negativo", cli, notaPost));
+    }
+  }
+
+  if (acao === "google_sim") {
+    const avToken = (req.query?.token || "").trim();
+    if (!avToken) return res.status(400).send(paginaGoogleResposta("invalido", null));
+    const { data: cli } = await sb.from("clientes")
+      .select("id, nome, avaliacao_comentario, avaliacao_fluxo_status, hist, user_id")
+      .eq("id", avToken).single();
+    if (!cli) return res.status(404).send(paginaGoogleResposta("invalido", null));
+    await sb.from("clientes").update({
+      avaliacao_fluxo_status: "google_sim",
+      hist: [...(cli.hist || []), { t: "Aceitou avaliar no Google", d: new Date().toLocaleString("pt-BR") }],
+    }).eq("id", cli.id);
+    await sb.from("historico").insert({
+      data: new Date().toLocaleDateString("pt-BR"),
+      hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      acao: "Aceitou convite de avaliação Google — " + cli.nome,
+      user_id: cli.user_id,
+    });
+    const { data: cfg } = await sb.from("configuracoes").select("google_link").eq("user_id", cli.user_id).single();
+    return res.status(200).send(paginaGoogleResposta("sim", cli, cfg?.google_link));
+  }
+
+  if (acao === "google_nao") {
+    const avToken = (req.query?.token || "").trim();
+    if (!avToken) return res.status(400).send(paginaGoogleResposta("invalido", null));
+    const { data: cli } = await sb.from("clientes")
+      .select("id, nome, hist, user_id")
+      .eq("id", avToken).single();
+    if (!cli) return res.status(404).send(paginaGoogleResposta("invalido", null));
+    await sb.from("clientes").update({
+      avaliacao_fluxo_status: "google_nao",
+      hist: [...(cli.hist || []), { t: "Recusou avaliar no Google", d: new Date().toLocaleString("pt-BR") }],
+    }).eq("id", cli.id);
+    await sb.from("historico").insert({
+      data: new Date().toLocaleDateString("pt-BR"),
+      hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      acao: "Recusou convite de avaliação Google — " + cli.nome,
+      user_id: cli.user_id,
+    });
+    return res.status(200).send(paginaGoogleResposta("nao", cli));
+  }
 
   // ── ROTA DE AVALIAÇÃO (/api/lead?acao=avaliar ou ?acao=feedback) ──
   const acao = req.query && req.query.acao;
