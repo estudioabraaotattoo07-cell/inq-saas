@@ -6755,7 +6755,7 @@ export default function CRM() {
                 const salvarFluxoEtapa = async (etapa: any) => {
                   setFluxoSalvando(true);
                   try {
-                    if (etapa.id && etapa.id.length > 10) {
+                    if (etapa.id && !etapa.id.startsWith("new_")) {
                       const { error: errUpd } = await sb.from("fluxo_etapas").update({ label: etapa.label, dias: etapa.dias, canal: etapa.canal, mensagem: etapa.mensagem, ativo: etapa.ativo, repetir: etapa.repetir, repetir_intervalo_dias: etapa.repetir_intervalo_dias }).eq("id", etapa.id);
                       if (errUpd) { console.error("fluxo_etapas update error:", JSON.stringify(errUpd)); }
                       else { setFluxoEtapas(p => p.map((f: any) => f.id === etapa.id ? { ...f, ...etapa } : f)); setFluxoEditandoId(null); setFluxoEditLocal(null); }
