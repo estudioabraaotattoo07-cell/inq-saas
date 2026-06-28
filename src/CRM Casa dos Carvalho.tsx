@@ -3555,14 +3555,36 @@ export default function CRM() {
   };
   const pvC = clients.filter(c => c.etapa === "tatuado" || c.etapa === "pos_venda");
   const totalFat = fin.reduce((s, f) => s + f.val_a, 0);
+
+  // ── Dashboard: filtro de período ──
+  const parseDataBR = (s: string): Date | null => {
+    if (!s) return null;
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) { const [y, m, d] = s.slice(0, 10).split("-").map(Number); return new Date(y, m - 1, d); }
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) { const [d, m, y] = s.slice(0, 10).split("/").map(Number); return new Date(y, m - 1, d); }
+    return null;
+  };
+  const dataEstaNoPeriodo = (dataStr: string, inicio: string, fim: string): boolean => {
+    const d = parseDataBR(dataStr); const i = parseDataBR(inicio); const f = parseDataBR(fim);
+    if (!d || !i || !f) return false;
+    return d >= i && d <= f;
+  };
+  const _hj = new Date(); const _hjStr = _hj.toISOString().slice(0, 10);
+  const _inicioMes = _hjStr.slice(0, 7) + "-01";
+  const [dashPeriodo, setDashPeriodo] = useState<{ atalho: "hoje" | "7dias" | "mes" | "custom"; inicio: string; fim: string }>(
+    { atalho: "mes", inicio: _inicioMes, fim: _hjStr }
+  );
+  const dashLabel = dashPeriodo.atalho === "hoje" ? "Hoje" : dashPeriodo.atalho === "7dias" ? "Últimos 7 dias" : dashPeriodo.atalho === "mes" ? "Este mês" : (() => { const f = (s: string) => s.split("-").reverse().join("/"); return f(dashPeriodo.inicio) + " a " + f(dashPeriodo.fim); })();
+  const clientesFiltrados = useMemo(() => clients.filter(c => dataEstaNoPeriodo(c.data, dashPeriodo.inicio, dashPeriodo.fim)), [clients, dashPeriodo]);
+  const finFiltrados = useMemo(() => fin.filter(f => dataEstaNoPeriodo(f.data, dashPeriodo.inicio, dashPeriodo.fim)), [fin, dashPeriodo]);
+
   const origC = useMemo(() => {
     const m: Record<string, number> = {};
-    clients.forEach(c => { const k = c.orig || "Não informado"; m[k] = (m[k] || 0) + 1; });
+    clientesFiltrados.forEach(c => { const k = c.orig || "Não informado"; m[k] = (m[k] || 0) + 1; });
     return Object.entries(m).sort((a, b) => b[1] - a[1]);
-  }, [clients]);
+  }, [clientesFiltrados]);
   const estilos = useMemo(() => {
     const m: Record<string, number> = {};
-    clients.forEach(c => {
+    clientesFiltrados.forEach(c => {
       const projs = (c.projetos || []).filter((p: any) => p && p.status !== "cancelado" && p.estilo);
       if (projs.length > 0) {
         projs.forEach((p: any) => { m[p.estilo] = (m[p.estilo] || 0) + 1; });
@@ -3571,7 +3593,7 @@ export default function CRM() {
       }
     });
     return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  }, [clients]);
+  }, [clientesFiltrados]);
   const maxO = origC[0]?.[1] || 1;
   const maxE = estilos[0]?.[1] || 1;
   const wDates = useMemo(() => getWeekDates(agDate), [agDate]);
@@ -6083,43 +6105,73 @@ export default function CRM() {
         {/* ── DASHBOARD ── */}
         {tab === "dashboard" && (
           <div className="dw">
+            {/* ── Seletor de período ── */}
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 16, padding: "10px 14px", background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10 }}>
+              <span style={{ fontSize: 11, color: "var(--tx3)", marginRight: 4 }}>Período:</span>
+              {(["hoje", "7dias", "mes", "custom"] as const).map(a => {
+                const lbl = a === "hoje" ? "Hoje" : a === "7dias" ? "7 dias" : a === "mes" ? "Este mês" : "Personalizado";
+                const ativo = dashPeriodo.atalho === a;
+                return (
+                  <button key={a} onClick={() => {
+                    const hj = new Date(); const hjS = hj.toISOString().slice(0, 10);
+                    if (a === "hoje") setDashPeriodo({ atalho: "hoje", inicio: hjS, fim: hjS });
+                    else if (a === "7dias") { const d7 = new Date(hj); d7.setDate(d7.getDate() - 6); setDashPeriodo({ atalho: "7dias", inicio: d7.toISOString().slice(0, 10), fim: hjS }); }
+                    else if (a === "mes") setDashPeriodo({ atalho: "mes", inicio: hjS.slice(0, 7) + "-01", fim: hjS });
+                    else setDashPeriodo(p => ({ ...p, atalho: "custom" }));
+                  }} style={{ padding: "5px 12px", borderRadius: 20, fontSize: 11, fontWeight: ativo ? 700 : 400, cursor: "pointer", border: ativo ? "1px solid var(--gold)" : "1px solid var(--br)", background: ativo ? "rgba(201,168,76,.15)" : "var(--dk3)", color: ativo ? "var(--gold)" : "var(--tx2)", transition: "all .15s" }}>{lbl}</button>
+                );
+              })}
+              {dashPeriodo.atalho === "custom" && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 4 }}>
+                  <DateScroller label="Início" value={dashPeriodo.inicio} onChange={v => setDashPeriodo(p => ({ ...p, inicio: v }))} />
+                  <span style={{ fontSize: 11, color: "var(--tx3)" }}>a</span>
+                  <DateScroller label="Fim" value={dashPeriodo.fim} onChange={v => setDashPeriodo(p => ({ ...p, fim: v }))} />
+                </div>
+              )}
+            </div>
+
             <div className="dgrid">
               <div className="dcard">
                 <div className="dch">📍 Origem dos Leads</div>
                 <div className="dcb">
-                  {origC.map(([o, c]) => {
-                    const total = clients.filter(x => (x.orig || x.origem) === o).length;
-                    const convertidos = clients.filter(x => (x.orig || x.origem) === o && ["tatuado","pos_venda"].includes(x.etapa)).length;
-                    const taxa = total > 0 ? Math.round(convertidos / total * 100) : 0;
-                    return (
-                      <div className="br-row" key={o} style={{ flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-                          <div className="br-lbl">{o}</div>
-                          <div style={{ display: "flex", gap: 10, fontSize: 10 }}>
-                            <span style={{ color: "var(--tx3)" }}>{c} leads</span>
-                            <span style={{ color: taxa >= 30 ? "#27AE60" : taxa >= 10 ? "var(--gold)" : "var(--tx3)", fontWeight: 600 }}>{taxa}% conv.</span>
+                  {origC.length === 0
+                    ? <div style={{ color: "var(--tx3)", fontSize: 12 }}>Nenhum lead no período.</div>
+                    : origC.map(([o, c]) => {
+                      const total = clientesFiltrados.filter(x => (x.orig || x.origem) === o).length;
+                      const convertidos = clientesFiltrados.filter(x => (x.orig || x.origem) === o && ["tatuado","pos_venda"].includes(x.etapa)).length;
+                      const taxa = total > 0 ? Math.round(convertidos / total * 100) : 0;
+                      return (
+                        <div className="br-row" key={o} style={{ flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+                            <div className="br-lbl">{o}</div>
+                            <div style={{ display: "flex", gap: 10, fontSize: 10 }}>
+                              <span style={{ color: "var(--tx3)" }}>{c} leads</span>
+                              <span style={{ color: taxa >= 30 ? "#27AE60" : taxa >= 10 ? "var(--gold)" : "var(--tx3)", fontWeight: 600 }}>{taxa}% conv.</span>
+                            </div>
                           </div>
+                          <div className="br-trk" style={{ width: "100%" }}><div className="br-fil" style={{ width: (c / maxO * 100) + "%", background: "var(--gold)" }} /></div>
                         </div>
-                        <div className="br-trk" style={{ width: "100%" }}><div className="br-fil" style={{ width: (c / maxO * 100) + "%", background: "var(--gold)" }} /></div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               </div>
               <div className="dcard">
                 <div className="dch">🎨 Estilos Demandados</div>
                 <div className="dcb">
-                  {estilos.map(([e, c]) => (
-                    <div className="br-row" key={e}>
-                      <div className="br-lbl">{e}</div>
-                      <div className="br-trk"><div className="br-fil" style={{ width: (c / maxE * 100) + "%", background: "var(--ab)" }} /></div>
-                      <div className="br-val">{c}</div>
-                    </div>
-                  ))}
+                  {estilos.length === 0
+                    ? <div style={{ color: "var(--tx3)", fontSize: 12 }}>Nenhum projeto no período.</div>
+                    : estilos.map(([e, c]) => (
+                      <div className="br-row" key={e}>
+                        <div className="br-lbl">{e}</div>
+                        <div className="br-trk"><div className="br-fil" style={{ width: (c / maxE * 100) + "%", background: "var(--ab)" }} /></div>
+                        <div className="br-val">{c}</div>
+                      </div>
+                    ))}
                 </div>
               </div>
               <div className="dcard">
                 <div className="dch">📊 Pipeline</div>
+                <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 8, paddingLeft: 2 }}>Estado atual de todos os clientes ativos</div>
                 <div className="dcb">
                   {stages.map(s => {
                     const c = clients.filter(x => x.etapa === s.id).length;
@@ -6159,8 +6211,8 @@ export default function CRM() {
                 <div className="dch">👥 Desempenho por Profissional</div>
                 <div className="dcb">
                   {artists.filter(a => a.ativo).map(a => {
-                    const clts = clients.filter(c => c.artista === a.id);
-                    const fat = fin.filter(f => f.artista === a.id).reduce((s, f) => s + f.val_a, 0);
+                    const clts = clientesFiltrados.filter(c => c.artista === a.id);
+                    const fat = finFiltrados.filter(f => f.artista === a.id).reduce((s, f) => s + f.val_a, 0);
                     const npsA = clts.filter(c => c.nps).length
                       ? Math.round(clts.filter(c => c.nps).reduce((s, c) => s + (c.nps || 0), 0) / clts.filter(c => c.nps).length * 10) / 10
                       : " - ";
@@ -6168,7 +6220,7 @@ export default function CRM() {
                       <div key={a.id} style={{ marginBottom: 14 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
                           <span className={("at " + aClass(a.id)) || ""} style={aStyle(a.id)}>{a.nome.split(" ")[0]}</span>
-                          <span style={{ fontSize: 11, color: "var(--tx2)" }}>{clts.length} clientes R$ {fat.toLocaleString("pt-BR")}</span>
+                          <span style={{ fontSize: 11, color: "var(--tx2)" }}>{clts.length} clientes · R$ {fat.toLocaleString("pt-BR")}</span>
                         </div>
                         <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 4 }}>
                           NPS Medio: <strong style={{ color: "var(--gold)" }}>{npsA}</strong>
@@ -6189,13 +6241,18 @@ export default function CRM() {
                 </div>
               </div>
               <div className="dcard">
-                <div className="dch">🎯 Metas - Junho 2026</div>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div className="dch" style={{ marginBottom: 0 }}>🎯 Metas — {dashLabel}</div>
+                  {dashPeriodo.atalho !== "mes" && (
+                    <span style={{ fontSize: 10, color: "var(--tx3)", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 10, padding: "2px 8px", whiteSpace: "nowrap" }}>Comparando com a meta do mês completo</span>
+                  )}
+                </div>
                 <div className="dcb">
                   {[
-                    { l: "Sessões", v: fin.filter(f => f.val_a > 0).length, m: metaSessoes },
-                    { l: "Fat. R$k", v: Math.round(totalFat / 1000), m: Math.round(metaMensal / 1000) },
-                    { l: "Leads", v: clients.length, m: metaLeads },
-                    { l: "NPS 9+", v: clients.filter(c => (c.nps || 0) >= 9).length, m: metaNPS },
+                    { l: "Sessões", v: finFiltrados.filter(f => f.val_a > 0).length, m: metaSessoes },
+                    { l: "Fat. R$k", v: Math.round(finFiltrados.reduce((s, f) => s + f.val_a, 0) / 1000), m: Math.round(metaMensal / 1000) },
+                    { l: "Leads", v: clientesFiltrados.length, m: metaLeads },
+                    { l: "NPS 9+", v: clientesFiltrados.filter(c => (c.nps || 0) >= 9).length, m: metaNPS },
                   ].map((mt, i) => (
                     <div key={i} style={{ marginBottom: 11 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
@@ -6203,7 +6260,7 @@ export default function CRM() {
                         <span style={{ fontSize: 11, color: "var(--tx2)" }}>{mt.v}/{mt.m}</span>
                       </div>
                       <div className="mt-trk">
-                        <div className="mt-fil" style={{ width: Math.min(mt.v / mt.m * 100, 100) + "%" }} />
+                        <div className="mt-fil" style={{ width: Math.min(mt.m > 0 ? mt.v / mt.m * 100 : 0, 100) + "%" }} />
                       </div>
                     </div>
                   ))}
