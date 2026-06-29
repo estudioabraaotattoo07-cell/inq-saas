@@ -620,7 +620,7 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { messages, campanhas } = req.body;
+  const { messages, campanhas, contexto } = req.body;
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: "messages array required" });
   }
@@ -636,6 +636,15 @@ export default async function handler(req, res) {
   const hojeISO = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }))
     .toISOString().split("T")[0];
   let systemPrompt = BASE_PROMPT + "\n\n## DATA ATUAL\nHoje é " + hojeStr + " (" + hojeISO + "). Use esta data como referência ao interpretar pedidos de agendamento como \"amanhã\", \"semana que vem\", etc.";
+  if (contexto === "abraao") {
+    // ── COLE AQUI O TEXTO FINAL DE PERSONALIDADE/CONTEXTO DO ABRAÃO ──
+    // Este bloco é injetado apenas nas conversas vindas da página /abraao.
+    // Exemplo do que pode vir aqui:
+    // "Nesta conversa, você está atendendo alguém que acessou a página pessoal
+    //  do Abraão de Carvalho. O cliente já demonstrou interesse no trabalho do Abraão
+    //  especificamente. Mencione o nome dele naturalmente e foque em realismo em pontilhismo."
+    systemPrompt += "\n\n## CONTEXTO DESTA CONVERSA\nEsta conversa está acontecendo na página pessoal do Abraão de Carvalho. O visitante chegou diretamente pelo link do Abraão — provavelmente via Instagram ou indicação. Ele quer tatuar com o Abraão especificamente. Mencione o nome do Abraão naturalmente. Foque no estilo dele: realismo em pontilhismo — uma técnica única que ele desenvolveu com identidade própria. Quando pertinente, reforce: cada ponto é uma decisão de artista. O artista padrão desta conversa é Abraão — não ofereça Camilla a menos que o cliente peça especificamente.";
+  }
   if (campanhas && Array.isArray(campanhas) && campanhas.length > 0) {
     const lista = campanhas.map(c => "- palavra_chave: \"" + c.palavra_chave + "\" | id: \"" + c.id + "\" | nome: \"" + c.nome + "\" | validade: até " + c.data_fim).join("\n");
     systemPrompt += "\n\n## CAMPANHAS ATIVAS\nSe o lead mencionar que tem uma palavra secreta, código de promoção ou algo similar, pergunte qual é a palavra. Compare com esta lista (ignore maiúsculas, acentos e espaços extras ao comparar a palavra_chave):\n" + lista + "\n\nSe a palavra bater com uma campanha: confirme com entusiasmo discreto. Garanta que nome, WhatsApp e e-mail estejam coletados antes de confirmar. Após confirmação com dados completos, inclua EXATAMENTE no final da sua resposta (invisível ao usuário): [CAMPANHA:{\"id\":\"VALOR_DO_ID\",\"nome\":\"VALOR_DO_NOME\"}] — substituindo VALOR_DO_ID e VALOR_DO_NOME pelos valores EXATOS desta lista acima.\nSe a palavra não corresponder a nenhuma campanha ou a campanha estiver encerrada: informe de forma gentil e acolhedora, sem ser ríspida.";
