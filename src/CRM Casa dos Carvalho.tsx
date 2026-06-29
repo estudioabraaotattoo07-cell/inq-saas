@@ -9327,9 +9327,11 @@ export default function CRM() {
                     </div>
                   ) : (
                   <>
-                  <div className="fg2">
+                  {/* Sua avaliação sobre o cliente */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>Sua avaliação sobre o cliente</div>
                     <div className="fi2">
-                      <div className="fil">Avaliação do Cliente pelo Profissional</div>
+                      <div className="fil">Nota do profissional (1 a 5 estrelas)</div>
                       <div className="stars" style={{ marginTop: 4 }}>
                         {[1, 2, 3, 4, 5].map(n => (
                           <span key={n} className="star" style={{ opacity: n <= (sc.stars || 0) ? 1 : .25 }} onClick={() => setStars(sc.id, n)}>⭐</span>
@@ -9337,15 +9339,30 @@ export default function CRM() {
                       </div>
                       {sc.starReason && <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 3, fontStyle: "italic" }}>{sc.starReason}</div>}
                     </div>
+                  </div>
+                  {/* Avaliação do cliente sobre o estúdio */}
+                  <div style={{ borderTop: "1px solid var(--br)", paddingTop: 10, marginBottom: 7 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>Avaliação do cliente sobre nós</div>
                     <div className="fi2">
-                      <div className="fil">NPS do Cliente (0 - 10)</div>
+                      <div className="fil">Nota (0 a 10) — preenchida pelo próprio cliente via e-mail</div>
                       {sc.nps != null
-                        ? <div style={{ fontSize: 20, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif", marginTop: 3 }}>{sc.nps}/10</div>
-                        : <div className="nps-bar">
-                          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                            <button key={n} className={"nps-btn" + (sc.nps === n ? " sel" : "")} onClick={() => upC(sc.id, "nps", n)}>{n}</button>
-                          ))}
-                        </div>
+                        ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                            <div style={{ fontSize: 22, fontWeight: 700, color: sc.nps >= 7 ? "var(--q3)" : sc.nps >= 5 ? "var(--gold)" : "var(--q1)", fontFamily: "'Cormorant Garamond',serif" }}>
+                              {sc.nps}<span style={{ fontSize: 13, color: "var(--tx3)", fontWeight: 400 }}>/10</span>
+                            </div>
+                            <div style={{ display: "flex", gap: 3 }}>
+                              {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
+                                <div key={n} style={{ width: 18, height: 18, borderRadius: 3, fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
+                                  background: n === sc.nps ? (sc.nps >= 7 ? "rgba(39,174,96,.3)" : sc.nps >= 5 ? "rgba(201,168,76,.3)" : "rgba(192,57,43,.3)") : "var(--dk4)",
+                                  color: n === sc.nps ? (sc.nps >= 7 ? "var(--q3)" : sc.nps >= 5 ? "var(--gold)" : "var(--q1)") : "var(--tx3)",
+                                  border: n === sc.nps ? "1px solid currentColor" : "1px solid var(--br)"
+                                }}>{n}</div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                        : <div style={{ marginTop: 5, fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>Aguardando resposta do cliente via e-mail</div>
                       }
                     </div>
                   </div>
