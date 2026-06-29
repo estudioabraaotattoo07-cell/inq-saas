@@ -1262,6 +1262,7 @@ export default function CRM() {
   const [undoSessaoTimer, setUndoSessaoTimer] = useState<any>(null);
   const [confirmAgForm, setConfirmAgForm] = useState(false);
   const [confirmPresenca, setConfirmPresenca] = useState<{event: any} | null>(null);
+  const [consultaCumpridaExpanded, setConsultaCumpridaExpanded] = useState(false);
   const [presencaMotivo, setPresencaMotivo] = useState("");
   const [confirmTrocarProfissional, setConfirmTrocarProfissional] = useState<{clienteId: any; novoArtista: string; antigoArtista: string} | null>(null);
   const [nascDraft, setNascDraft] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
@@ -10053,6 +10054,58 @@ export default function CRM() {
                         </button>
                       ) : null;
                     })()}
+                    {editingEvent.tipo?.startsWith("cons_") && editingEvent.status !== "concluido" && (() => {
+                      const dataEv = editingEvent.date ? new Date(editingEvent.date + "T12:00:00") : null;
+                      const hoje0 = new Date(); hoje0.setHours(23,59,59,0);
+                      if (dataEv && dataEv > hoje0) return null;
+                      if (!consultaCumpridaExpanded) return (
+                        <button className="btn-c" style={{ color: "#27AE60", borderColor: "rgba(39,174,96,.3)" }}
+                          onClick={() => setConsultaCumpridaExpanded(true)}>
+                          ✅ Cumpriu a Consulta
+                        </button>
+                      );
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, background: "var(--dk3)", border: "1px solid rgba(39,174,96,.25)", borderRadius: 8, padding: "10px 12px" }}>
+                          <div style={{ fontSize: 11, color: "var(--tx3)", fontWeight: 600, marginBottom: 2 }}>O que acontece agora?</div>
+                          {[
+                            { destino: "aguard_1a_sessao", label: "🖊️ Aguardando 1ª Sessão", cor: "#F39C12", borda: "rgba(243,156,18,.35)", sessao: false },
+                            { destino: "hibernacao",       label: "💤 Hibernação",            cor: "#888",    borda: "rgba(102,102,102,.35)", sessao: false },
+                            { destino: "aguard_1a_sessao", label: "📅 Agendar Sessão Agora", cor: "#27AE60", borda: "rgba(39,174,96,.35)",   sessao: true  },
+                          ].map(op => (
+                            <button key={op.label} onClick={async () => {
+                              const ev = editingEvent;
+                              await sb.from("agenda").update({ status: "concluido" }).eq("id", ev.id);
+                              setAgEvents(p => p.map(x => x.id === ev.id ? { ...x, status: "concluido" } : x));
+                              const arNome = artists.find(a => ev.tipo?.includes(a.id))?.nome || "";
+                              const histMsg = "✓ Consulta realizada em " + (ev.date||"").split("-").reverse().join("/") + (arNome ? " com " + arNome : "");
+                              const cliAtual = clients.find(c => c.id === ev.cliente_id);
+                              if (cliAtual) {
+                                const novoHist = [...(cliAtual.hist||[]), { t: histMsg, d: new Date().toLocaleString("pt-BR") }];
+                                setClients(p => p.map(c => c.id !== ev.cliente_id ? c : { ...c, hist: novoHist }));
+                                await sb.from("clientes").update({ hist: novoHist }).eq("id", ev.cliente_id);
+                              }
+                              addLog("✅ Consulta cumprida: " + ev.title + (ev.date ? " em " + ev.date.split("-").reverse().join("/") : "") + (arNome ? " — " + arNome : ""));
+                              executarMove(ev.cliente_id, op.destino);
+                              setConsultaCumpridaExpanded(false);
+                              setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null);
+                              if (op.sessao) {
+                                const cli = clients.find(c => c.id === ev.cliente_id);
+                                setAgClientVinc(cli || null);
+                                setAgClientSearch(cli?.nome || "");
+                                setAgForm({ title: cli?.nome || "", desc: "", tipo: "sess_" + (ev.tipo?.replace("cons_","") || artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11, sinal: "", sinalPago: false } as any);
+                                setShowAgForm(true);
+                              }
+                            }} style={{ width: "100%", background: "var(--dk4)", border: "1px solid " + op.borda, borderRadius: 7, padding: "9px 14px", fontSize: 12, fontWeight: 700, color: op.cor, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", textAlign: "left" }}>
+                              {op.label}
+                            </button>
+                          ))}
+                          <button onClick={() => setConsultaCumpridaExpanded(false)}
+                            style={{ background: "none", border: "none", fontSize: 11, color: "var(--tx3)", cursor: "pointer", alignSelf: "flex-start", padding: 0, fontFamily: "'DM Sans',sans-serif" }}>
+                            ← voltar
+                          </button>
+                        </div>
+                      );
+                    })()}
                     <button className="btn-c" style={{ color: "#E67E22", borderColor: "rgba(230,126,34,.3)" }}
                       onClick={() => setConfirmCancelarEvento({ event: editingEvent, motivo: "" })}>
                       ⊘ Cliente Desmarcou
@@ -10342,27 +10395,40 @@ export default function CRM() {
                 return (
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {isConsulta && evStatus !== "concluido" && isHojeOuPassado ? (
-                      <button onClick={async () => {
-                        const ev = confirmPresenca.event;
-                        await sb.from("agenda").update({ status: "concluido" }).eq("id", ev.id);
-                        setAgEvents(p => p.map(x => x.id === ev.id ? { ...x, status: "concluido" } : x));
-                        const arNomeC = artists.find(a => ev.tipo?.includes(a.id))?.nome || "";
-        const histMsg = "✓ Consulta realizada em " + (ev.date||"").split("-").reverse().join("/") + (arNomeC ? " com " + arNomeC : "");
-                        setClients(p => p.map(c => c.id !== ev.cliente_id ? c : {
-                          ...c, hist: [...(c.hist||[]), { t: histMsg, d: new Date().toLocaleString("pt-BR") }]
-                        }));
-                        const cliAtual = clients.find(c => c.id === ev.cliente_id);
-                        if (cliAtual) {
-                          await sb.from("clientes").update({ hist: [...(cliAtual.hist||[]), { t: histMsg, d: new Date().toLocaleString("pt-BR") }] }).eq("id", ev.cliente_id);
-                        }
-                        const arNome = artists.find(a => ev.tipo?.includes(a.id))?.nome || "";
-        addLog("✅ Consulta cumprida: " + ev.title + (ev.date ? " em " + ev.date.split("-").reverse().join("/") : "") + (arNome ? " — " + arNome : ""));
-                        // Move pipeline para aguardando 1ª sessão
-                        executarMove(ev.cliente_id, "aguard_1a_sessao");
-                        setConfirmPresenca(null);
-                      }} style={{ flex: 1, background: "rgba(201,168,76,.15)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 7, padding: "10px", fontSize: 13, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                        ✓ Cumpriu Consulta
-                      </button>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
+                        <div style={{ fontSize: 11, color: "var(--tx3)", fontWeight: 600 }}>Consulta realizada — o que acontece agora?</div>
+                        {[
+                          { destino: "aguard_1a_sessao", label: "🖊️ Aguardando 1ª Sessão", cor: "#F39C12", borda: "rgba(243,156,18,.35)", sessao: false },
+                          { destino: "hibernacao",       label: "💤 Hibernação",            cor: "#888",    borda: "rgba(102,102,102,.35)", sessao: false },
+                          { destino: "aguard_1a_sessao", label: "📅 Agendar Sessão Agora", cor: "#27AE60", borda: "rgba(39,174,96,.35)",   sessao: true  },
+                        ].map(op => (
+                          <button key={op.label} onClick={async () => {
+                            const ev = confirmPresenca.event;
+                            await sb.from("agenda").update({ status: "concluido" }).eq("id", ev.id);
+                            setAgEvents(p => p.map(x => x.id === ev.id ? { ...x, status: "concluido" } : x));
+                            const arNome = artists.find(a => ev.tipo?.includes(a.id))?.nome || "";
+                            const histMsg = "✓ Consulta realizada em " + (ev.date||"").split("-").reverse().join("/") + (arNome ? " com " + arNome : "");
+                            const cliAtual = clients.find(c => c.id === ev.cliente_id);
+                            if (cliAtual) {
+                              const novoHist = [...(cliAtual.hist||[]), { t: histMsg, d: new Date().toLocaleString("pt-BR") }];
+                              setClients(p => p.map(c => c.id !== ev.cliente_id ? c : { ...c, hist: novoHist }));
+                              await sb.from("clientes").update({ hist: novoHist }).eq("id", ev.cliente_id);
+                            }
+                            addLog("✅ Consulta cumprida: " + ev.title + (ev.date ? " em " + ev.date.split("-").reverse().join("/") : "") + (arNome ? " — " + arNome : ""));
+                            executarMove(ev.cliente_id, op.destino);
+                            setConfirmPresenca(null); setPresencaMotivo("");
+                            if (op.sessao) {
+                              const cli = clients.find(c => c.id === ev.cliente_id);
+                              setAgClientVinc(cli || null);
+                              setAgClientSearch(cli?.nome || "");
+                              setAgForm({ title: cli?.nome || "", desc: "", tipo: "sess_" + (ev.tipo?.replace("cons_","") || artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11, sinal: "", sinalPago: false } as any);
+                              setShowAgForm(true);
+                            }
+                          }} style={{ width: "100%", background: "var(--dk3)", border: "1px solid " + op.borda, borderRadius: 7, padding: "10px 14px", fontSize: 13, fontWeight: 700, color: op.cor, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", textAlign: "left" }}>
+                            {op.label}
+                          </button>
+                        ))}
+                      </div>
                     ) : isSessao && evStatus !== "concluido" ? (
                       <button onClick={() => {
                         const ev = confirmPresenca.event;
