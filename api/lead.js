@@ -495,7 +495,7 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra } = req.body;
+  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log } = req.body;
   if (!nome && !tel && !email) return res.status(400).json({ error: "pelo menos um dado obrigatorio" });
 
   const ideaFinal = idea || ideia || "";
@@ -591,6 +591,21 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: error.message });
     }
     clienteId = inserted?.id || null;
+  }
+
+  // Salvar histórico de conversa da Aura (enviado pelo widget via chat_log)
+  if (chat_log && Array.isArray(chat_log) && chat_log.length > 0 && clienteId) {
+    try {
+      const sessaoData = new Date().toISOString();
+      const hoje = sessaoData.split("T")[0];
+      const { data: cliLog } = await sb.from("clientes").select("aura_chat_log").eq("id", clienteId).single();
+      const logAnterior = Array.isArray(cliLog?.aura_chat_log) ? cliLog.aura_chat_log : [];
+      const idxHoje = logAnterior.findIndex(s => (s.data || "").startsWith(hoje));
+      const novoLog = idxHoje >= 0
+        ? logAnterior.map((s, i) => i === idxHoje ? { ...s, mensagens: chat_log, atualizado_em: sessaoData } : s)
+        : [...logAnterior, { data: sessaoData, mensagens: chat_log }];
+      await sb.from("clientes").update({ aura_chat_log: novoLog }).eq("id", clienteId);
+    } catch (e) { console.warn("chat_log save error:", e); }
   }
 
   // Dispara SMS e e-mail apenas no primeiro cadastro (não em updates progressivos)
