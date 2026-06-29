@@ -1238,7 +1238,6 @@ export default function CRM() {
   const [cancelMotivos, setCancelMotivos] = useState<string[]>(["Cliente desistiu", "Questão financeira", "Mudança de projeto", "Sem resposta do cliente", "Outro"]);
   const [enviandoRelatorio, setEnviandoRelatorio] = useState(false);
   const [novoProjetoAberto, setNovoProjetoAberto] = useState<any>(null);
-  const [showStats, setShowStats] = useState(false);
   const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "" });
   const [showRecorrenteModal, setShowRecorrenteModal] = useState<{cid: any} | null>(null);
   const [recorrenteForm, setRecorrenteForm] = useState({ dataInicio: new Date().toISOString().split("T")[0], intervalo: 7, total: 4, hora: 9, duracao: 2, artista: "" });
@@ -3570,12 +3569,6 @@ export default function CRM() {
   }, [segSel, dateSel, clients, segsAll]);
 
   const sc = sel ? clients.find((c: any) => c.id === sel.id) : null;
-  const stats = {
-    total: clients.length,
-    ativos: clients.filter(c => !["hibernacao", "blacklist"].includes(c.etapa)).length,
-    tatuados: clients.filter(c => c.etapa === "tatuado" || c.etapa === "pos_venda").length,
-    hoje: clients.filter(c => c.data === new Date().toLocaleDateString("pt-BR")).length
-  };
   const pvC = clients.filter(c => c.etapa === "tatuado" || c.etapa === "pos_venda");
   const totalFat = fin.reduce((s, f) => s + f.val_a, 0);
 
@@ -4262,28 +4255,6 @@ export default function CRM() {
           ))}
         </div>
 
-        {/* STATS */}
-        <div className="stats" style={{ position: "relative" }}>
-          {[
-            { i: "👥", v: stats.total, l: "Total", bg: "rgba(201,168,76,.1)" },
-            { i: "✅", v: stats.ativos, l: "Ativos", bg: "rgba(91,141,239,.1)" },
-            { i: "🖤", v: stats.tatuados, l: "Tatuados", bg: "rgba(39,174,96,.1)" },
-            { i: "📅", v: stats.hoje, l: "Hoje", bg: "rgba(155,107,181,.1)" },
-          ].map((s, i) => (
-            <div className="si" key={i}>
-              <div className="sico" style={{ background: s.bg }}>{s.i}</div>
-              <div>
-                <div className="sv">{showStats ? s.v : "••"}</div>
-                <div className="sl">{s.l}</div>
-              </div>
-            </div>
-          ))}
-          <button onClick={() => setShowStats(p => !p)}
-            style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: showStats ? "var(--gold)" : "var(--tx3)", padding: "4px 6px" }}
-            title={showStats ? "Ocultar dados" : "Ver dados"}>
-            {showStats ? "👁" : "👁"}
-          </button>
-        </div>
 
         {/* FILTER BAR */}
         {(tab === "kanban" || tab === "clientes") && (
