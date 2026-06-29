@@ -2055,7 +2055,8 @@ export default function CRM() {
       }
       const garantia = c.etapa === "tatuado" && c.dias >= 30 && c.dias <= 37;
       const inativo = !["blacklist","tatuado","aguard_agend","pos_venda","hibernacao"].includes(c.etapa) && c.dias >= 40;
-      return miss(c).length > 0 || churn(c) || projSemValor || aniversario || garantia || inativo;
+      const avaliacaoNegativa = (c as any).avaliacao_fluxo_status === "negativa";
+      return miss(c).length > 0 || churn(c) || projSemValor || aniversario || garantia || inativo || avaliacaoNegativa;
     });
   }, [clients]);
   const reativacao = useMemo(() =>
@@ -4174,6 +4175,29 @@ export default function CRM() {
                       <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags"><span className="atag" style={{ color: "#888" }}>Inativo há {c.dias}d</span></div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+              {/* 🔴 Avaliações Negativas */}
+              {(() => {
+                const negativas = alertas.filter(c => (c as any).avaliacao_fluxo_status === "negativa");
+                if (negativas.length === 0) return null;
+                return (
+                  <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, color: "var(--q1)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>🔴 Avaliações negativas — requer contato</div>
+                    {negativas.map(c => (
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>
+                        <div className="ad-name">{c.nome}</div>
+                        <div className="ad-tags">
+                          <span className="atag" style={{ color: "var(--q1)" }}>Avaliação negativa</span>
+                          {(c as any).avaliacao_comentario && (
+                            <span className="atag" style={{ color: "var(--tx3)", fontStyle: "italic", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
+                              "{(c as any).avaliacao_comentario}"
+                            </span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -9326,19 +9350,53 @@ export default function CRM() {
                   </div>
                   {(() => {
                     const st = (sc as any).avaliacao_fluxo_status;
-                    const stLabel: Record<string, string> = { aguardando: "⏳ Aguardando resposta", negativa: "🔴 Avaliação negativa (ciclo encerrado)", positiva: "🟡 Avaliação positiva — aguardando E-mail 2", google_sim: "✅ Aceitou avaliar no Google", google_nao: "⬜ Recusou avaliação no Google" };
-                    const stColor: Record<string, string> = { aguardando: "var(--q2)", negativa: "var(--q1)", positiva: "var(--gold)", google_sim: "var(--q3)", google_nao: "var(--tx3)" };
-                    return st ? (
+                    const comentario = (sc as any).avaliacao_comentario;
+                    const negativa = st === "negativa";
+                    const stLabel: Record<string, string> = {
+                      aguardando: "Aguardando resposta do cliente",
+                      negativa:   "Avaliação negativa — requer contato",
+                      positiva:   "Avaliação positiva — aguardando convite Google",
+                      google_sim: "Convidado para Google — respondeu Sim",
+                      google_nao: "Convidado para Google — respondeu Não",
+                    };
+                    const stColor: Record<string, string> = {
+                      aguardando: "var(--q2)",
+                      negativa:   "var(--q1)",
+                      positiva:   "var(--q3)",
+                      google_sim: "var(--q3)",
+                      google_nao: "var(--tx3)",
+                    };
+                    return (
                       <div className="fi2" style={{ marginTop: 7 }}>
-                        <div className="fil">Fluxo de Avaliação</div>
-                        <div style={{ marginTop: 4, fontSize: 12, fontWeight: 600, color: stColor[st] || "var(--tx2)" }}>{stLabel[st] || st}</div>
-                        {(sc as any).avaliacao_comentario && (
-                          <div style={{ marginTop: 6, fontSize: 11, color: "var(--tx2)", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "7px 10px", lineHeight: 1.6, fontStyle: "italic" }}>
-                            "{(sc as any).avaliacao_comentario}"
+                        <div className="fil">Fluxo de Avaliação NPS</div>
+                        {st ? (
+                          <div style={{ marginTop: 4, fontSize: 12, fontWeight: 600, color: stColor[st] || "var(--tx2)" }}>
+                            {stLabel[st] || st}
+                          </div>
+                        ) : (
+                          <div style={{ marginTop: 4, fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>
+                            Fluxo ainda não iniciado — será disparado D+1 após entrada em Pós-venda
                           </div>
                         )}
+                        {comentario && (
+                          <>
+                            {negativa && (
+                              <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.4)", borderRadius: 6, fontSize: 11, color: "var(--q1)", fontWeight: 600 }}>
+                                Avaliação negativa — considere ligar para entender o que aconteceu
+                              </div>
+                            )}
+                            <div style={{
+                              marginTop: 6, fontSize: 11, color: "var(--tx2)",
+                              background: negativa ? "rgba(192,57,43,.07)" : "var(--dk4)",
+                              border: "1px solid " + (negativa ? "rgba(192,57,43,.3)" : "var(--br)"),
+                              borderRadius: 5, padding: "7px 10px", lineHeight: 1.6, fontStyle: "italic"
+                            }}>
+                              "{comentario}"
+                            </div>
+                          </>
+                        )}
                       </div>
-                    ) : null;
+                    );
                   })()}
                   <div className="fi2" style={{ marginTop: 7 }}>
                     <div className="fil">Observações Internas</div>
