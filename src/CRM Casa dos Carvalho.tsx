@@ -6902,7 +6902,7 @@ export default function CRM() {
                                 <span style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif" }}>Avaliação NPS pós-sessão</span>
                                 <span style={{ fontSize: 10, background: "rgba(201,168,76,.12)", color: "var(--gold)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 10, padding: "1px 7px" }}>2 e-mails</span>
                               </div>
-                              <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.5 }}>E-mail enviado D+1 após entrada no Pós-venda com escala 0–10. Nota e comentário salvos na ficha. Gatilho: etapa = pos_venda, 1 dia após.</div>
+                              <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.5 }}>{"E-mail enviado D+1 após entrada no Pós-venda com escala 0–10. Nota e comentário salvos na ficha. Gatilho: etapa = pos_venda, 1 dia após."}</div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                               <span style={{ fontSize: 10, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
@@ -6924,7 +6924,7 @@ export default function CRM() {
                           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif", marginBottom: 2 }}>Convite ao Google</div>
-                              <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.5 }}>Enviado 24h após avaliação positiva (nota >= 7). Exibe o comentário original para copiar e colar no Google. Gatilho: avaliacao_fluxo_status = positiva.</div>
+                              <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.5 }}>{"Enviado 24h após avaliação positiva (nota >= 7). Exibe o comentário original para copiar e colar no Google. Gatilho: avaliacao_fluxo_status = positiva."}</div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                               <span style={{ fontSize: 10, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
