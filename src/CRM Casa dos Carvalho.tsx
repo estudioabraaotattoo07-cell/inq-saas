@@ -1289,6 +1289,7 @@ export default function CRM() {
   const [canaisHabilitados, setCanaisHabilitados] = useState<{email: boolean; whatsapp: boolean; sms: boolean}>({ email: true, whatsapp: false, sms: false });
   const [fluxoToggles, setFluxoToggles] = useState({ boas_vindas_email: true, boas_vindas_sms: true, nps: true, google_convite: true, confirmacao_presenca: true, notificacao_artista: true });
   const [toggleConfirm, setToggleConfirm] = useState<{campo: string; novoValor: boolean; label: string} | null>(null);
+  const [fluxoPreviewAberto, setFluxoPreviewAberto] = useState<Record<string, boolean>>({});
   // ── ACORDEÃO DAS RÉGUAS ──
   const [pvAccordion, setPvAccordion] = useState<{preVenda: boolean; preSessao: boolean; posVenda: boolean; fluxo: boolean}>({ preVenda: false, preSessao: false, posVenda: false, fluxo: true });
   // ── FLUXO_ETAPAS (régua unificada) ──
@@ -6822,117 +6823,123 @@ export default function CRM() {
 
               {/* ── AUTOMAÇÕES DO ECOSSISTEMA ── */}
               {(() => {
-                const Toggle = ({ ativo, onToggle }: { ativo: boolean; onToggle: () => void }) => (
-                  <div onClick={onToggle} style={{ width: 36, height: 20, borderRadius: 10, background: ativo ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", flexShrink: 0, cursor: "pointer" }}>
-                    <div style={{ width: 14, height: 14, background: "#fff", borderRadius: "50%", position: "absolute", top: 3, left: ativo ? 19 : 3, transition: "left .2s" }} />
-                  </div>
-                );
-                const FluxoCard = ({ titulo, descricao, campo, label, preview, badge }: { titulo: string; descricao: string; campo: string; label: string; preview: string; badge?: string }) => {
-                  const [aberto, setAberto] = React.useState(false);
-                  const ativo = fluxoToggles[campo as keyof typeof fluxoToggles];
+                const togglePrev = (k: string) => setFluxoPreviewAberto(p => ({ ...p, [k]: !p[k] }));
+                const SwitchBtn = ({ campo, label }: { campo: keyof typeof fluxoToggles; label: string }) => {
+                  const ativo = fluxoToggles[campo];
                   return (
-                    <div style={{ border: "1px solid " + (ativo ? "rgba(201,168,76,.25)" : "var(--br)"), borderRadius: 9, background: ativo ? "var(--dk2)" : "var(--dk3)", overflow: "hidden", transition: "all .2s" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif" }}>{titulo}</span>
-                            {badge && <span style={{ fontSize: 10, background: "rgba(201,168,76,.12)", color: "var(--gold)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 10, padding: "1px 7px" }}>{badge}</span>}
-                          </div>
-                          <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.5 }}>{descricao}</div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--dk3)", borderRadius: 7, padding: "8px 12px" }}>
+                      <div style={{ fontSize: 12, color: "var(--tx2)" }}>{label}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                        <span style={{ fontSize: 10, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
+                        <div onClick={() => setToggleConfirm({ campo, novoValor: !ativo, label })} style={{ width: 36, height: 20, borderRadius: 10, background: ativo ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", cursor: "pointer" }}>
+                          <div style={{ width: 14, height: 14, background: "#fff", borderRadius: "50%", position: "absolute", top: 3, left: ativo ? 19 : 3, transition: "left .2s" }} />
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                          <span style={{ fontSize: 10, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
-                          <Toggle ativo={ativo} onToggle={() => setToggleConfirm({ campo, novoValor: !ativo, label })} />
-                        </div>
-                      </div>
-                      <div style={{ borderTop: "1px solid var(--br)", padding: "0 14px" }}>
-                        <button onClick={() => setAberto(p => !p)} style={{ background: "none", border: "none", color: "var(--tx3)", fontSize: 11, cursor: "pointer", padding: "8px 0", width: "100%", textAlign: "left", fontFamily: "'DM Sans',sans-serif" }}>
-                          {aberto ? "▲ Ocultar pré-visualização do e-mail" : "▼ Ver pré-visualização do e-mail"}
-                        </button>
-                        {aberto && (
-                          <div style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px", fontSize: 11, color: "var(--tx2)", lineHeight: 1.8, marginBottom: 12, whiteSpace: "pre-wrap", fontStyle: "italic" }}>
-                            {preview}
-                          </div>
-                        )}
                       </div>
                     </div>
                   );
                 };
+                const PreviewBlock = ({ id, texto }: { id: string; texto: string }) => (
+                  <div style={{ borderTop: "1px solid var(--br)", padding: "0 14px" }}>
+                    <button onClick={() => togglePrev(id)} style={{ background: "none", border: "none", color: "var(--tx3)", fontSize: 11, cursor: "pointer", padding: "8px 0", width: "100%", textAlign: "left", fontFamily: "'DM Sans',sans-serif" }}>
+                      {fluxoPreviewAberto[id] ? "▲ Ocultar pré-visualização" : "▼ Ver pré-visualização do e-mail"}
+                    </button>
+                    {fluxoPreviewAberto[id] && (
+                      <div style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px", fontSize: 11, color: "var(--tx2)", lineHeight: 1.8, marginBottom: 12, whiteSpace: "pre-wrap", fontStyle: "italic" }}>
+                        {texto}
+                      </div>
+                    )}
+                  </div>
+                );
                 return (
                   <div style={{ marginBottom: 20 }}>
                     <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, fontWeight: 700, color: "var(--tx)", marginBottom: 4 }}>Automações do Ecossistema</div>
                     <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 12 }}>Fluxos automáticos que rodam em segundo plano. Ligue ou pause cada um sem perder as configurações.</div>
 
-                    {/* Card: Boas-vindas (2 toggles) */}
+                    {/* Card: Boas-vindas (3 sub-toggles) */}
                     <div style={{ border: "1px solid rgba(201,168,76,.2)", borderRadius: 9, background: "var(--dk2)", marginBottom: 8, overflow: "hidden" }}>
                       <div style={{ padding: "12px 14px 8px" }}>
                         <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, fontWeight: 700, color: "var(--tx)", marginBottom: 4 }}>Boas-vindas ao Ecossistema</div>
                         <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 10 }}>Disparado automaticamente quando um lead entra pelo site via Aura Chat (primeiro cadastro).</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                          {([
-                            { campo: "boas_vindas_email", label: "E-mail de boas-vindas ao cliente" },
-                            { campo: "boas_vindas_sms", label: "SMS de boas-vindas ao cliente" },
-                            { campo: "notificacao_artista", label: "SMS/E-mail de alerta interno ao artista" },
-                          ] as const).map(({ campo, label }) => {
-                            const ativo = fluxoToggles[campo];
-                            return (
-                              <div key={campo} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--dk3)", borderRadius: 7, padding: "8px 12px" }}>
-                                <div style={{ fontSize: 12, color: "var(--tx2)" }}>{label}</div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                                  <span style={{ fontSize: 10, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
-                                  <div onClick={() => setToggleConfirm({ campo, novoValor: !ativo, label })} style={{ width: 36, height: 20, borderRadius: 10, background: ativo ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", cursor: "pointer" }}>
-                                    <div style={{ width: 14, height: 14, background: "#fff", borderRadius: "50%", position: "absolute", top: 3, left: ativo ? 19 : 3, transition: "left .2s" }} />
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                          <SwitchBtn campo="boas_vindas_email" label="E-mail de boas-vindas ao cliente" />
+                          <SwitchBtn campo="boas_vindas_sms" label="SMS de boas-vindas ao cliente" />
+                          <SwitchBtn campo="notificacao_artista" label="SMS/E-mail de alerta interno ao artista" />
                         </div>
                       </div>
-                      {(() => {
-                        const [aberto, setAberto] = React.useState(false);
-                        return (
-                          <div style={{ borderTop: "1px solid var(--br)", padding: "0 14px" }}>
-                            <button onClick={() => setAberto(p => !p)} style={{ background: "none", border: "none", color: "var(--tx3)", fontSize: 11, cursor: "pointer", padding: "8px 0", width: "100%", textAlign: "left", fontFamily: "'DM Sans',sans-serif" }}>
-                              {aberto ? "▲ Ocultar pré-visualização" : "▼ Ver pré-visualização do e-mail de boas-vindas"}
-                            </button>
-                            {aberto && (
-                              <div style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px", fontSize: 11, color: "var(--tx2)", lineHeight: 1.8, marginBottom: 12, whiteSpace: "pre-wrap", fontStyle: "italic" }}>
-                                {"Assunto: Recebemos sua mensagem, {nome}! 🖤\n\nOlá, {nome}!\n\nQue alegria receber sua ideia aqui na Casa dos Carvalho. Já registramos tudo com cuidado — e vimos que você tem interesse em tatuar com o {artista}!\n\nEm até 24h, alguém da nossa equipe vai te ligar pessoalmente para conversar sobre os detalhes do seu projeto. Sem formulário, sem robô — conversa de gente pra gente.\n\n[botão: Chamar no WhatsApp]\n\n+ Resumo dos dados registrados (nome, telefone, ideia, região, artista...)\n\nCom carinho, Casa dos Carvalho Tattoo — Vitória, ES"}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
+                      <PreviewBlock id="boas_vindas" texto={"Assunto: Recebemos sua mensagem, {nome}!\n\nOlá, {nome}!\n\nQue alegria receber sua ideia aqui na Casa dos Carvalho. Já registramos tudo com cuidado — e vimos que você tem interesse em tatuar com o {artista}!\n\nEm até 24h, alguém da nossa equipe vai te ligar pessoalmente para conversar sobre os detalhes do seu projeto. Sem formulário, sem robô — conversa de gente pra gente.\n\n[botão: Chamar no WhatsApp]\n\n+ Resumo dos dados registrados (nome, telefone, ideia, região, artista...)\n\nCom carinho, Casa dos Carvalho Tattoo — Vitória, ES"} />
                     </div>
 
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
-                      <FluxoCard
-                        titulo="Confirmação de Presença D-1"
-                        descricao="E-mail ou SMS enviado um dia antes da sessão agendada, com link de confirmação. Gatilho: etapa Sessão Marcada com evento na agenda amanhã."
-                        campo="confirmacao_presenca"
-                        label="Confirmação de Presença D-1"
-                        preview={"Assunto: Confirme sua presença amanhã — {estudio}\n\nOlá, {nome}! Sua sessão está marcada para amanhã.\n\n[botão: ✅ Confirmo minha presença]\n[botão: ❌ Preciso remarcar]\n\nToken válido por 48h. Resposta registrada automaticamente na ficha do cliente."}
-                      />
-                      <FluxoCard
-                        titulo="Avaliação NPS pós-sessão"
-                        descricao="E-mail enviado D+1 após entrada na etapa Pós-venda com escala de 0 a 10. Nota e comentário são salvos na ficha do cliente. Gatilho: etapa = pos_venda, 1 dia após."
-                        campo="nps"
-                        label="Avaliação NPS pós-sessão"
-                        preview={"Assunto: Como foi sua sessão, {nome}?\n\nOlá, {nome}!\n\nFoi uma alegria ter você aqui no estúdio. Sua opinião é muito importante para nós.\n\nComo você avalia sua experiência conosco?\n\n[0][1][2][3][4][5][6]  [7][8][9][10]\n(0 = extremamente insatisfeito · 10 = extremamente satisfeito)\n\nSe nota ≥ 7: campo de texto caloroso — \"o que foi mais especial?\"\nSe nota ≤ 6: campo de texto cuidadoso — \"o que não foi como esperava?\"\n\nNota e comentário salvos automaticamente na ficha.\nToken expira em 7 dias."}
-                        badge="2 e-mails encadeados"
-                      />
-                      <FluxoCard
-                        titulo="Convite ao Google"
-                        descricao="Enviado 24h após avaliação positiva (nota ≥ 7). Exibe o comentário original para o cliente copiar e colar no Google. Gatilho: avaliacao_fluxo_status = positiva."
-                        campo="google_convite"
-                        label="Convite ao Google"
-                        preview={"Assunto: Uma última coisa, {nome} — leva 1 minuto\n\nOlá, {nome}!\n\nMuito obrigado pela sua avaliação — fico feliz que sua experiência no estúdio tenha sido boa.\n\nSe você topar, sua opinião no Google faz uma diferença enorme para nós.\n\n[botão: Sim, quero avaliar no Google]\n[botão: Não, obrigado]\n\nSe SIM → página mostra o comentário original + botão Copiar + link Google\nSe NÃO → agradecimento simples, fluxo encerrado\n\nResposta registrada na ficha: google_sim ou google_nao"}
-                      />
-                    </div>
+                    {/* Card: Confirmação D-1 */}
+                    {(() => {
+                      const ativo = fluxoToggles.confirmacao_presenca;
+                      return (
+                        <div style={{ border: "1px solid " + (ativo ? "rgba(201,168,76,.25)" : "var(--br)"), borderRadius: 9, background: ativo ? "var(--dk2)" : "var(--dk3)", overflow: "hidden", marginBottom: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif", marginBottom: 2 }}>Confirmação de Presença D-1</div>
+                              <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.5 }}>E-mail enviado um dia antes da sessão com link de confirmação. Gatilho: etapa Sessão Marcada com evento na agenda amanhã.</div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                              <span style={{ fontSize: 10, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
+                              <div onClick={() => setToggleConfirm({ campo: "confirmacao_presenca", novoValor: !ativo, label: "Confirmação de Presença D-1" })} style={{ width: 36, height: 20, borderRadius: 10, background: ativo ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", cursor: "pointer" }}>
+                                <div style={{ width: 14, height: 14, background: "#fff", borderRadius: "50%", position: "absolute", top: 3, left: ativo ? 19 : 3, transition: "left .2s" }} />
+                              </div>
+                            </div>
+                          </div>
+                          <PreviewBlock id="confirmacao" texto={"Assunto: Confirme sua presença amanhã — {estudio}\n\nOlá, {nome}! Sua sessão está marcada para amanhã.\n\n[botão: Confirmo minha presença]\n[botão: Preciso remarcar]\n\nToken válido por 48h. Resposta registrada automaticamente na ficha do cliente."} />
+                        </div>
+                      );
+                    })()}
+
+                    {/* Card: NPS */}
+                    {(() => {
+                      const ativo = fluxoToggles.nps;
+                      return (
+                        <div style={{ border: "1px solid " + (ativo ? "rgba(201,168,76,.25)" : "var(--br)"), borderRadius: 9, background: ativo ? "var(--dk2)" : "var(--dk3)", overflow: "hidden", marginBottom: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif" }}>Avaliação NPS pós-sessão</span>
+                                <span style={{ fontSize: 10, background: "rgba(201,168,76,.12)", color: "var(--gold)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 10, padding: "1px 7px" }}>2 e-mails</span>
+                              </div>
+                              <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.5 }}>E-mail enviado D+1 após entrada no Pós-venda com escala 0–10. Nota e comentário salvos na ficha. Gatilho: etapa = pos_venda, 1 dia após.</div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                              <span style={{ fontSize: 10, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
+                              <div onClick={() => setToggleConfirm({ campo: "nps", novoValor: !ativo, label: "Avaliação NPS pós-sessão" })} style={{ width: 36, height: 20, borderRadius: 10, background: ativo ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", cursor: "pointer" }}>
+                                <div style={{ width: 14, height: 14, background: "#fff", borderRadius: "50%", position: "absolute", top: 3, left: ativo ? 19 : 3, transition: "left .2s" }} />
+                              </div>
+                            </div>
+                          </div>
+                          <PreviewBlock id="nps" texto={"Assunto: Como foi sua sessão, {nome}?\n\nOlá, {nome}!\n\nFoi uma alegria ter você aqui no estúdio. Sua opinião é muito importante para nós.\n\nComo você avalia sua experiência conosco?\n\n[0][1][2][3][4][5][6]  [7][8][9][10]\n(0 = extremamente insatisfeito · 10 = extremamente satisfeito)\n\nSe nota >= 7: campo de texto — \"o que foi mais especial?\"\nSe nota <= 6: campo de texto — \"o que não foi como esperava?\"\n\nNota e comentário salvos automaticamente na ficha.\nToken expira em 7 dias."} />
+                        </div>
+                      );
+                    })()}
+
+                    {/* Card: Google */}
+                    {(() => {
+                      const ativo = fluxoToggles.google_convite;
+                      return (
+                        <div style={{ border: "1px solid " + (ativo ? "rgba(201,168,76,.25)" : "var(--br)"), borderRadius: 9, background: ativo ? "var(--dk2)" : "var(--dk3)", overflow: "hidden", marginBottom: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif", marginBottom: 2 }}>Convite ao Google</div>
+                              <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.5 }}>Enviado 24h após avaliação positiva (nota >= 7). Exibe o comentário original para copiar e colar no Google. Gatilho: avaliacao_fluxo_status = positiva.</div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                              <span style={{ fontSize: 10, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
+                              <div onClick={() => setToggleConfirm({ campo: "google_convite", novoValor: !ativo, label: "Convite ao Google" })} style={{ width: 36, height: 20, borderRadius: 10, background: ativo ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", cursor: "pointer" }}>
+                                <div style={{ width: 14, height: 14, background: "#fff", borderRadius: "50%", position: "absolute", top: 3, left: ativo ? 19 : 3, transition: "left .2s" }} />
+                              </div>
+                            </div>
+                          </div>
+                          <PreviewBlock id="google" texto={"Assunto: Uma última coisa, {nome} — leva 1 minuto\n\nOlá, {nome}!\n\nMuito obrigado pela sua avaliação. Se você topar, sua opinião no Google faz uma diferença enorme para nós.\n\n[botão: Sim, quero avaliar no Google]\n[botão: Não, obrigado]\n\nSe SIM: página mostra o comentário original + botão Copiar + link Google\nSe NAO: agradecimento simples, fluxo encerrado\n\nResposta registrada na ficha: google_sim ou google_nao"} />
+                        </div>
+                      );
+                    })()}
 
                     <div style={{ fontSize: 10, color: "var(--tx3)", padding: "8px 12px", background: "var(--dk3)", borderRadius: 7, lineHeight: 1.6 }}>
-                      ℹ️ Pausar um fluxo não afeta clientes que já estão no meio do ciclo. O sistema só para de iniciar novos disparos para novos clientes a partir do momento em que é pausado.
+                      Pausar um fluxo não afeta clientes que já estão no meio do ciclo. O sistema só para de iniciar novos disparos para novos clientes a partir do momento em que é pausado.
                     </div>
                   </div>
                 );
