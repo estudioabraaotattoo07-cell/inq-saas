@@ -4497,12 +4497,21 @@ export default function CRM() {
                             <span className="cd">{c.data}</span>
                           </div>
                           <div className="cor">📍 {c.orig}</div>
-                          {(m.length > 0 || ch || c.orcamento || c.etapa === "blacklist" || c.etapa === "lista_espera" || anivMes) && (
+                          {(m.length > 0 || ch || c.orcamento || c.etapa === "blacklist" || c.etapa === "lista_espera" || anivMes
+                            || (c as any).avaliacao_fluxo_status === "negativa"
+                            || ["positiva","google_sim","google_nao"].includes((c as any).avaliacao_fluxo_status)
+                          ) && (
                             <div className="ar">
                               {anivMes && <span className="atag" style={{ background: "rgba(201,168,76,.2)", color: "var(--gold)", border: "1px solid rgba(201,168,76,.4)" }}>🎂 Aniversário</span>}
                               {m.map(x => <span key={x} className="atag">⚠ {x}</span>)}
                               {ch === "orange" && <span className="co co-o">🟠</span>}
                               {ch === "red" && <span className="co co-r">🔴</span>}
+                              {(c as any).avaliacao_fluxo_status === "negativa" && (
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(192,57,43,.15)", color: "#E74C3C", border: "1px solid rgba(192,57,43,.3)" }}>🔴 Av. negativa</span>
+                              )}
+                              {["positiva","google_sim","google_nao"].includes((c as any).avaliacao_fluxo_status) && (
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(39,174,96,.15)", color: "#27AE60", border: "1px solid rgba(39,174,96,.3)" }}>💚 Av. positiva</span>
+                              )}
                               {c.orcamento && <span className="atag">💰</span>}
                               {c.etapa === "blacklist" && <span className="tag-bl">🚫</span>}
                               {c.etapa === "lista_espera" && <span className="tag-wl">⏳</span>}
@@ -9354,9 +9363,9 @@ export default function CRM() {
                     const negativa = st === "negativa";
                     const stLabel: Record<string, string> = {
                       aguardando: "Aguardando resposta do cliente",
-                      negativa:   "Avaliação negativa — requer contato",
-                      positiva:   "Avaliação positiva — aguardando convite Google",
-                      google_sim: "Convidado para Google — respondeu Sim",
+                      negativa:   "🔴 Avaliação negativa — requer contato",
+                      positiva:   "💚 Avaliação positiva — aguardando convite Google",
+                      google_sim: "💚 Convidado para Google — respondeu Sim",
                       google_nao: "Convidado para Google — respondeu Não",
                     };
                     const stColor: Record<string, string> = {
