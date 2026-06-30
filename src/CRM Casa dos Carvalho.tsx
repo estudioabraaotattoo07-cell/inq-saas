@@ -7614,8 +7614,8 @@ export default function CRM() {
                     ].map((fd, i) => (
                       <div className="fi2" key={i}>
                         <div className="fil">{fd.l}{(fd as any).w ? " ⚠" : ""}</div>
-                        <input className="ef" value={(sc as any)[fd.f] || ""} placeholder={(fd as any).w ? "Clique para adicionar" : ""}
-                          onChange={e => upCFicha(sc.id, fd.f, e.target.value)}
+                        <input className="ef" value={fd.f === "tel" ? maskTel((sc as any)[fd.f] || "") : (sc as any)[fd.f] || ""} placeholder={(fd as any).w ? "Clique para adicionar" : fd.f === "tel" ? "(99) 99999-9999" : ""}
+                          onChange={e => upCFicha(sc.id, fd.f, fd.f === "tel" ? e.target.value.replace(/\D/g, "") : e.target.value)}
                           style={{ borderColor: fd.f === "email" && (sc as any).email && !validarEmail((sc as any).email) ? "var(--q1)" : (fd as any).w && !(sc as any)[fd.f] ? "var(--q2)" : "var(--br)" }} />
                         {fd.f === "email" && (sc as any).email && !validarEmail((sc as any).email) && (
                           <span style={{ fontSize: 10, color: "var(--q1)", marginTop: 3, display: "block" }}>Email inválido</span>
