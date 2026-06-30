@@ -9921,7 +9921,7 @@ export default function CRM() {
                 {/* 6b. SINAL — oculto para bloqueio */}
                 {!(agForm.tipo || "").startsWith("bloq") && <div className="fr" style={{ gap: 10 }}>
                   <div className="ff" style={{ flex: 1 }}>
-                    <label className="fl">Sinal (R$)</label>
+                    <label className="fl">Entrada (R$)</label>
                     <input className="fi" type="text" placeholder="0,00"
                       value={(agForm as any).sinal || ""}
                       onChange={e => {
@@ -9931,7 +9931,7 @@ export default function CRM() {
                       }} />
                   </div>
                   <div className="ff" style={{ flex: 1, justifyContent: "flex-end" }}>
-                    <label className="fl">Sinal pago?</label>
+                    <label className="fl">Entrada paga?</label>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
                       <input type="checkbox" id="sinalPago" checked={!!(agForm as any).sinalPago}
                         onChange={e => setAgForm({ ...agForm, sinalPago: e.target.checked } as any)}
@@ -10261,7 +10261,7 @@ export default function CRM() {
                 </div>
                 {(agForm as any).sinal && parseFloat(String((agForm as any).sinal).replace(/\./g,"").replace(",",".")) > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "var(--tx3)" }}>Sinal</span>
+                    <span style={{ color: "var(--tx3)" }}>Entrada</span>
                     <span style={{ color: "#27AE60", fontWeight: 600 }}>R$ {(agForm as any).sinal} {(agForm as any).sinalPago ? "✅ Recebido" : "⏳ Pendente"}</span>
                   </div>
                 )}
