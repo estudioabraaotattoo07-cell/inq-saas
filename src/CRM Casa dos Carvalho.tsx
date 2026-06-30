@@ -152,6 +152,11 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .ag-nav{justify-content:center!important;}
   .ag-title{min-width:auto!important;font-size:15px!important;}
   .ag-vg{margin-left:0!important;justify-content:center!important;}
+  .ag-week{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;}
+  .wg{min-width:620px!important;grid-template-columns:40px repeat(7,1fr)!important;}
+  .wt{font-size:9px!important;padding:2px 3px!important;}
+  .dg{max-width:100%!important;}
+  .dtime{width:42px!important;padding:7px 4px!important;font-size:9px!important;}
   /* Disparos */
   .disw{flex-direction:column!important;}
   .disr{width:100%!important;}
@@ -580,7 +585,7 @@ const MSGS: Record<string, string> = {
 
 // ─── POS-VENDA FLOW ───────────────────────────────────────────────────────────
 
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 8);
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
 const MONTHS = [
   "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho",
