@@ -7664,7 +7664,7 @@ export default function CRM() {
                           const m = campo === "mes" ? valor : mesV;
                           const a = campo === "ano" ? valor : anoV;
                           if (d && m && a) {
-                            upC(sc.id, "nascimento", d.padStart(2,"0") + "/" + m.padStart(2,"0") + "/" + a);
+                            upCFicha(sc.id, "nascimento", d.padStart(2,"0") + "/" + m.padStart(2,"0") + "/" + a);
                             setNascDraft({ dia: "", mes: "", ano: "" });
                           }
                         };
