@@ -1104,7 +1104,7 @@ export default function CRM() {
   const [metaSessoes, setMetaSessoes] = useState(0);
   const [metaLeads, setMetaLeads] = useState(0);
   const [metaNPS, setMetaNPS] = useState(0);
-  const [settingsTab, setSettingsTab] = useState<"estudio"|"profissionais"|"metas"|"ia"|"sistema">("estudio");
+  const [settingsTab, setSettingsTab] = useState<"estudio"|"profissionais"|"ia"|"sistema">("estudio");
   const [googleLink, setGoogleLink] = useState("");
   const [studioSite, setStudioSite] = useState("");
   // ── ORIGENS ──
@@ -1141,7 +1141,7 @@ export default function CRM() {
   const [finFiltroMes, setFinFiltroMes] = useState(new Date().toISOString().slice(0,7));
   const [finFiltroArtista, setFinFiltroArtista] = useState("todos");
   const [finFiltroTipo, setFinFiltroTipo] = useState("todos");
-  const [finAbaAtiva, setFinAbaAtiva] = useState<"livrocaixa"|"dre"|"equipamentos">("livrocaixa");
+  const [finAbaAtiva, setFinAbaAtiva] = useState<"livrocaixa"|"dre"|"equipamentos"|"metas">("livrocaixa");
   const [clients, setClients] = useState<any[]>([]);
   const [artists, setArtists] = useState<any[]>([]);
   const [newLeadsBadge, setNewLeadsBadge] = useState(0);
@@ -5112,7 +5112,7 @@ export default function CRM() {
 
             {/* ── SUB-ABAS ── */}
             <div style={{ display: "flex", gap: 3, padding: "0 0 2px", borderBottom: "1px solid var(--br)", marginBottom: 4 }}>
-              {([["livrocaixa","📒 Livro-Caixa"],["dre","📊 DRE"],["equipamentos","🔧 Equipamentos"]] as [any,string][]).map(([id, lbl]) => (
+              {([["livrocaixa","📒 Livro-Caixa"],["dre","📊 DRE"],["equipamentos","🔧 Equipamentos"],["metas","🎯 Metas"]] as [any,string][]).map(([id, lbl]) => (
                 <button key={id} onClick={() => setFinAbaAtiva(id)}
                   style={{ padding: "7px 16px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", borderRadius: "6px 6px 0 0", fontFamily: "'DM Sans',sans-serif",
                     background: finAbaAtiva === id ? "var(--gold-d)" : "var(--dk3)",
@@ -5124,7 +5124,7 @@ export default function CRM() {
             </div>
 
             {/* ── FILTROS ── */}
-            {finAbaAtiva !== "equipamentos" && (
+            {finAbaAtiva !== "equipamentos" && finAbaAtiva !== "metas" && (
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "10px 0" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ fontSize: 11, color: "var(--tx3)" }}>Mês</span>
@@ -5213,7 +5213,7 @@ export default function CRM() {
                 <div className="fth">Meta Mensal</div>
                 <div style={{ padding: "13px 15px" }}>
                   {metaMensal === 0 ? (
-                    <div style={{ fontSize: 12, color: "var(--tx3)", fontStyle: "italic", padding: "8px 0" }}>Meta não definida — configure em Configurações →</div>
+                    <div style={{ fontSize: 12, color: "var(--tx3)", fontStyle: "italic", padding: "8px 0" }}>Meta não definida — <button onClick={() => setFinAbaAtiva("metas")} style={{ background: "none", border: "none", color: "var(--gold)", cursor: "pointer", fontSize: 12, padding: 0, textDecoration: "underline" }}>definir na aba Metas</button></div>
                   ) : (<>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ fontSize: 12, color: "var(--tx2)" }}>{fmtR(totalEntradas)} de {fmtR(metaMensal)}</span>
@@ -5728,6 +5728,51 @@ export default function CRM() {
             </>)}
 
             {/* ════ EQUIPAMENTOS ════ */}
+            {finAbaAtiva === "metas" && (<>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4 }}>
+                <div style={{ background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.15)", borderRadius: 8, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 12, color: "var(--tx2)", lineHeight: 1.7 }}>
+                    Metas não são cobranças — são <strong style={{ color: "var(--gold)" }}>bússolas</strong>. Elas te dizem se o estúdio está no caminho certo antes que o problema apareça na conta bancária.
+                  </div>
+                </div>
+                <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "14px", border: "1px solid var(--br)" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)", marginBottom: 4 }}>💰 Faturamento Mensal</div>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>Quanto o estúdio precisa faturar para ser sustentável e crescer</div>
+                  <input className="ef" type="text" placeholder="R$ 0,00" value={metaMensal ? "R$ " + Number(metaMensal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""} onChange={e => { const raw = e.target.value.replace(/[^0-9]/g, ""); setMetaMensal(raw ? Number(raw) / 100 : 0); }} style={{ fontSize: 16, fontWeight: 700, color: "var(--gold)" }} />
+                </div>
+                <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "14px", border: "1px solid var(--br)" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)", marginBottom: 4 }}>🖤 Sessões por Mês</div>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>Quantas tatuagens precisam ser feitas por mês. Se o faturamento está baixo, você descobre se é preço ou volume.</div>
+                  <input className="ef" type="number" min={0} value={metaSessoes} onChange={e => setMetaSessoes(Number(e.target.value))} style={{ fontSize: 16, fontWeight: 700, color: "var(--gold)", width: 100 }} />
+                </div>
+                <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "14px", border: "1px solid var(--br)" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)", marginBottom: 4 }}>📥 Novos Leads por Mês</div>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>Quantos contatos novos precisam entrar no pipeline para alimentar as sessões do mês seguinte.</div>
+                  <input className="ef" type="number" min={0} value={metaLeads} onChange={e => setMetaLeads(Number(e.target.value))} style={{ fontSize: 16, fontWeight: 700, color: "var(--gold)", width: 100 }} />
+                </div>
+                <div style={{ background: "var(--dk3)", borderRadius: 8, padding: "14px", border: "1px solid var(--br)", opacity: 0.7 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", marginBottom: 8 }}>Calculado automaticamente</div>
+                  {[
+                    { label: "Ticket Médio", desc: "Valor médio por sessão — calculado pelo financeiro" },
+                    { label: "Taxa de Conversão", desc: "% de leads que viram sessão — calculado pelo pipeline" },
+                    { label: "Receita por Profissional", desc: "Faturamento individual — calculado pelos profissionais" },
+                  ].map(item => (
+                    <div key={item.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--br)" }}>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>{item.label}</div>
+                        <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 1 }}>{item.desc}</div>
+                      </div>
+                      <span style={{ fontSize: 10, color: "var(--q3)", fontWeight: 700, background: "rgba(39,174,96,.1)", border: "1px solid rgba(39,174,96,.2)", borderRadius: 4, padding: "2px 7px" }}>AUTO</span>
+                    </div>
+                  ))}
+                </div>
+                <button className="btn-s" style={{ alignSelf: "flex-end" }} onClick={async () => {
+                  const { error } = await sb.from("configuracoes").upsert({ user_id: userId, meta_mensal: metaMensal, meta_sessoes: metaSessoes, meta_leads: metaLeads }, { onConflict: "user_id" });
+                  if (!error) setShowAviso("Metas salvas!");
+                }}>Salvar Metas</button>
+              </div>
+            </>)}
+
             {finAbaAtiva === "equipamentos" && (<>
               <div className="ftable">
                 <div className="fth" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -12202,7 +12247,7 @@ export default function CRM() {
               </div>
               {/* ABAS */}
               <div className="settings-tabs-bar" style={{ display: "flex", borderBottom: "1px solid var(--br)" }}>
-                {([["estudio","🏠 Estúdio"],["profissionais","💼 Profissionais"],["metas","🎯 Metas"],["ia","🤖 IA"],["sistema","⚙️ Sistema"]] as const).map(([id, label]) => (
+                {([["estudio","🏠 Estúdio"],["profissionais","💼 Profissionais"],["ia","🤖 IA"],["sistema","⚙️ Sistema"]] as const).map(([id, label]) => (
                   <div key={id} onClick={() => setSettingsTab(id)}
                     style={{ flex: 1, padding: "10px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, cursor: "pointer", letterSpacing: ".04em",
                       color: settingsTab === id ? "var(--gold)" : "var(--tx3)",
@@ -12650,8 +12695,8 @@ export default function CRM() {
                   </div>
                 </>}
 
-                {/* ── ABA METAS ── */}
-                {settingsTab === "metas" && <>
+                {/* ── ABA METAS (movida para Financeiro → aba Metas) ── */}
+                {false && <>
                   <div>
                     <div className="stit">Por que ter metas?</div>
                     <div style={{ background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.15)", borderRadius: 8, padding: "12px 14px", marginBottom: 4 }}>
@@ -12925,7 +12970,7 @@ export default function CRM() {
                   {settingsTab !== "sistema" && (
                     <button style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
                       onClick={() => {
-                        const order = ["estudio","profissionais","metas","ia","sistema"];
+                        const order = ["estudio","profissionais","ia","sistema"];
                         const idx = order.indexOf(settingsTab);
                         if (idx < order.length - 1) setSettingsTab(order[idx + 1] as any);
                       }}>
