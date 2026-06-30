@@ -371,8 +371,9 @@ export default async function handler(req, res) {
           }
         }
 
-        // ── CONFIRMAÇÃO DE PRESENÇA D-1 ─────────────────────────────────────
-        if (cfg.fluxo_confirmacao_presenca_ativa !== false && cliente.etapa === "sessao_agend") {
+        // ── LEMBRETE D-1 (sessão ou consulta) ───────────────────────────────
+        if (cfg.fluxo_confirmacao_presenca_ativa !== false && (cliente.etapa === "sessao_agend" || cliente.etapa === "cons_agendada")) {
+          const ehConsulta = cliente.etapa === "cons_agendada";
           try {
             // Calcular amanhã em horário de Brasília (UTC-3)
             const hojeUtc = new Date();
@@ -423,11 +424,15 @@ export default async function handler(req, res) {
                 const dataEvFormatada = new Date(evAmanha.date + "T12:00:00")
                   .toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
                 const horaEv = evAmanha.hora ? " às " + evAmanha.hora : "";
-                const msgPadrao = "Olá {nome}! Sua sessão está marcada para " + dataEvFormatada + horaEv + ". Confirme sua presença: {link}";
+                const tipoAppt = ehConsulta ? "consulta" : "sessão";
+                const msgPadrao = ehConsulta
+                  ? `Olá {nome}! Sua consulta está marcada para amanhã, ${dataEvFormatada}${horaEv}.\n\nEstamos ansiosos para conhecer a sua ideia e dar vida ao seu projeto — mal podemos esperar!\n\nPor favor, confirme sua presença para garantirmos tudo preparado para você:\n{link}\n\nLembrete carinhoso: faltas sem aviso prévio podem resultar em restrições futuras de agendamento. Sua pontualidade é muito importante para nós.\n\nAté amanhã! ✦\n{estudio}`
+                  : `Olá {nome}! Sua sessão está marcada para amanhã, ${dataEvFormatada}${horaEv}.\n\nA arte está pronta, o artista está animado — mal podemos esperar para tatuar você!\n\nConfirme sua presença aqui:\n{link}\n\nLembrete carinhoso: faltas sem aviso prévio são registradas no sistema e podem resultar em restrições futuras. Pontualidade e respeito fazem parte do nosso ritual.\n\nNos vemos amanhã! ✦\n{estudio}`;
 
-                // Verificar se existe mensagem personalizada em fluxo_etapas do slug sessao_agend
-                const fluxoSessao = (fluxoEtapas["sessao_agend"] || []);
-                const feConfirm = fluxoSessao.find(fe => fe.dias <= 0 || fe.label?.toLowerCase().includes("confirm"));
+                // Verificar se existe mensagem personalizada em fluxo_etapas do slug da etapa
+                const slugEtapaD1 = ehConsulta ? "cons_agendada" : "sessao_agend";
+                const fluxoSessao = (fluxoEtapas[slugEtapaD1] || []);
+                const feConfirm = fluxoSessao.find(fe => fe.dias <= 0 || fe.label?.toLowerCase().includes("confirm") || fe.label?.toLowerCase().includes("d-1") || fe.label?.toLowerCase().includes("lembrete"));
                 const msgFinal = substituirVars(feConfirm?.mensagem || msgPadrao, cliente, studioName, { link: linkConfirmacao });
 
                 const canaisParaEnviar = feConfirm?.canal === "ambos"
@@ -446,7 +451,7 @@ export default async function handler(req, res) {
                       from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
                       nome_remetente: cfg.nome_remetente || studioName,
                       to: cliente.email,
-                      subject: "Confirme sua presença amanhã — " + studioName,
+                      subject: (ehConsulta ? "Sua consulta é amanhã" : "Sua sessão é amanhã") + " — " + studioName,
                       html,
                     });
                     if (ok) enviou = true;
@@ -464,7 +469,7 @@ export default async function handler(req, res) {
                     disparosAtuais = cliAtual?.disparos_enviados || {};
                   } catch {}
                   await marcarEnviado(cliente.id, dedupKey, disparosAtuais);
-                  await registrarHistorico(userId, "Confirmação de presença D-1 enviada — " + cliente.nome);
+                  await registrarHistorico(userId, (ehConsulta ? "Lembrete D-1 de consulta enviado" : "Confirmação de presença D-1 enviada") + " — " + cliente.nome);
                   totalDisparos++;
                 }
               }

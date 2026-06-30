@@ -6992,8 +6992,8 @@ export default function CRM() {
                         <div style={{ border: "1px solid " + (ativo ? "rgba(201,168,76,.25)" : "var(--br)"), borderRadius: 9, background: ativo ? "var(--dk2)" : "var(--dk3)", overflow: "hidden", marginBottom: 8 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif", marginBottom: 2 }}>Confirmação de Presença D-1</div>
-                              <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.5 }}>E-mail enviado um dia antes da sessão com link de confirmação. Gatilho: etapa Sessão Marcada com evento na agenda amanhã.</div>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif", marginBottom: 2 }}>Lembrete D-1 (Sessão e Consulta)</div>
+                              <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.5 }}>E-mail enviado um dia antes da sessão ou consulta com link de confirmação de presença. Gatilho: etapa Sessão Marcada ou Consulta Marcada com evento na agenda amanhã.</div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                               <span style={{ fontSize: 10, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
@@ -7147,6 +7147,42 @@ export default function CRM() {
                           </div>
                           {aberto && (
                             <div style={{ padding: "10px 14px 14px", borderTop: "1px solid var(--br)", display: "flex", flexDirection: "column", gap: 8 }}>
+                              {/* ── Cards de automações do sistema por etapa ── */}
+                              {(() => {
+                                const CardSistema = ({ label, gatilho, preview, ativo = true }: { label: string; gatilho: string; preview: string; ativo?: boolean }) => (
+                                  <div style={{ background: "rgba(201,168,76,.05)", border: "1px solid rgba(201,168,76,.2)", borderRadius: 7, padding: "10px 12px", opacity: ativo ? 1 : 0.5 }}>
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--tx)" }}>{label}</span>
+                                        <span style={{ fontSize: 9, background: "rgba(201,168,76,.15)", color: "var(--gold)", border: "1px solid rgba(201,168,76,.25)", borderRadius: 8, padding: "1px 6px", fontWeight: 700 }}>SISTEMA</span>
+                                      </div>
+                                      <span style={{ fontSize: 9, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
+                                    </div>
+                                    <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 4 }}>{gatilho}</div>
+                                    <div style={{ fontSize: 10, color: "var(--tx3)", fontStyle: "italic", background: "var(--dk4)", borderRadius: 4, padding: "6px 8px", lineHeight: 1.6 }}>{preview}</div>
+                                  </div>
+                                );
+                                const sid = stage.id;
+                                if (sid === "lead") return (
+                                  <CardSistema ativo={fluxoToggles.boas_vindas_email} label="E-mail de boas-vindas" gatilho="Imediato — ao cadastrar via Aura Chat" preview={"Assunto: Recebemos sua mensagem, {nome}!\n\nOlá, {nome}! Que alegria receber sua ideia aqui na Casa dos Carvalho. Já registramos tudo com cuidado — em até 24h, alguém da nossa equipe vai te ligar pessoalmente. Sem formulário, sem robô — conversa de gente pra gente."} />
+                                );
+                                if (sid === "cons_agendada") return (<>
+                                  <CardSistema label="E-mail de confirmação de consulta" gatilho="Imediato — ao agendar a consulta" preview={"Assunto: Sua consulta está agendada, {nome} ✦\n\nOlá, {nome}! Que bom ter você aqui. Sua consulta na Casa dos Carvalho foi agendada com sucesso — esse é o primeiro passo do seu projeto de tatuagem.\n\n📅 Data · 🕐 Horário · ✦ Profissional · 📍 Local\n\nNa consulta vamos: entender sua ideia, definir estilo/tamanho/posicionamento, tirar dúvidas e apresentar orçamento personalizado."} />
+                                  <CardSistema ativo={fluxoToggles.confirmacao_presenca} label="Lembrete D-1 de consulta" gatilho="Um dia antes — evento na agenda amanhã" preview={"Assunto: Sua consulta é amanhã — {estudio}\n\nOlá, {nome}! Sua consulta está marcada para amanhã.\n\nEstamos ansiosos para conhecer a sua ideia — mal podemos esperar!\n\nConfirme sua presença aqui: [link]\n\nLembrete carinhoso: faltas sem aviso podem resultar em restrições futuras de agendamento."} />
+                                </>);
+                                if (sid === "sessao_agend") return (<>
+                                  <CardSistema label="E-mail de confirmação de sessão" gatilho="Imediato — ao agendar a sessão" preview={"Assunto: Sua sessão está confirmada, {nome} ✦\n\nOlá, {nome}! Sua sessão na Casa dos Carvalho está marcada e a gente já está animado com o que vem por aí.\n\n📅 Data · 🕐 Horário · ✦ Profissional · 📍 Local\n\nAntes da sua sessão: alimente-se bem, evite álcool 24h antes, durma bem, hidrate a pele da região."} />
+                                  <CardSistema ativo={fluxoToggles.confirmacao_presenca} label="Lembrete D-1 de sessão" gatilho="Um dia antes — evento na agenda amanhã" preview={"Assunto: Sua sessão é amanhã — {estudio}\n\nOlá, {nome}! A arte está pronta, o artista está animado — mal podemos esperar para tatuar você!\n\nConfirme sua presença: [link]\n\nLembrete carinhoso: faltas sem aviso são registradas e podem resultar em restrições futuras."} />
+                                </>);
+                                if (sid === "pos_venda" || sid === "tatuado") return (<>
+                                  <CardSistema ativo={fluxoToggles.nps} label="Avaliação NPS pós-sessão" gatilho="D+1 — após entrada no Pós-venda" preview={"Assunto: Como foi sua sessão, {nome}?\n\nFoi uma alegria ter você no estúdio. Como você avalia sua experiência? [escala 0–10]\n\nNota e comentário salvos na ficha automaticamente."} />
+                                  <CardSistema ativo={fluxoToggles.google_convite} label="Convite ao Google" gatilho="D+2 — após avaliação positiva (nota ≥ 7)" preview={"Assunto: Uma última coisa, {nome} — leva 1 minuto\n\nSua opinião no Google faz uma diferença enorme para nós. Clique para avaliar — o seu comentário já aparece pré-preenchido."} />
+                                </>);
+                                if (sid === "reengajamento") return (
+                                  <CardSistema label="Reativação de clientes" gatilho="A cada 180 dias — cliente em Reengajamento" preview={"Olá, {nome}! Espero que sua arte esteja linda e bem cuidada. Se a próxima ideia já está nascendo, você sabe onde nos encontrar."} />
+                                );
+                                return null;
+                              })()}
                               {etapasDesteSlug.map((fe: any) => (
                                 fluxoEditandoId === fe.id ? (
                                   <div key={fe.id} style={{ background: "var(--dk3)", borderRadius: 7, padding: "12px", display: "flex", flexDirection: "column", gap: 8 }}>
