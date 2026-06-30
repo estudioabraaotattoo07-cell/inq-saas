@@ -6182,70 +6182,71 @@ export default function CRM() {
               </div>
             ))}
 
-            {/* Modal editar artista */}
-            {editingArtist && (
-              <div className="fov" onClick={e => { if (e.target === e.currentTarget) setEditingArtist(null); }}>
-                <div className="fmod" style={{ maxWidth: 460 }}>
-                  <div className="fmh">
-                    <div className="fmt">Editar Profissional</div>
-                    <button className="mc" onClick={() => setEditingArtist(null)}>✕</button>
+          </div>
+        )}
+
+        {/* Modal editar artista — global, usado pelo settings Profissionais */}
+        {editingArtist && (
+          <div className="fov" onClick={e => { if (e.target === e.currentTarget) setEditingArtist(null); }}>
+            <div className="fmod" style={{ maxWidth: 460 }}>
+              <div className="fmh">
+                <div className="fmt">Editar Profissional</div>
+                <button className="mc" onClick={() => setEditingArtist(null)}>✕</button>
+              </div>
+              <div className="fmb">
+                <div className="ff"><label className="fl">Nome Completo</label><input className="fi" value={editingArtist.nome} onChange={e => setEditingArtist({ ...editingArtist, nome: e.target.value.replace(/(^|\s)(\S)/g, (_: string, sp: string, c: string) => sp + c.toUpperCase()) })} /></div>
+                <div className="fr">
+                  <div className="ff">
+                    <label className="fl">Tipo</label>
+                    <select className="fs" value={editingArtist.role} onChange={e => setEditingArtist({ ...editingArtist, role: e.target.value })}>
+                      <option value="residente">Residente</option>
+                      <option value="guest">Temporário</option>
+                    </select>
                   </div>
-                  <div className="fmb">
-                    <div className="ff"><label className="fl">Nome Completo</label><input className="fi" value={editingArtist.nome} onChange={e => setEditingArtist({ ...editingArtist, nome: e.target.value.replace(/(^|\s)(\S)/g, (_: string, sp: string, c: string) => sp + c.toUpperCase()) })} /></div>
-                    <div className="fr">
-                      <div className="ff">
-                        <label className="fl">Tipo</label>
-                        <select className="fs" value={editingArtist.role} onChange={e => setEditingArtist({ ...editingArtist, role: e.target.value })}>
-                          <option value="residente">Residente</option>
-                          <option value="guest">Temporário</option>
-                        </select>
-                      </div>
-                      <div className="ff">
-                  <label className="fl">Comissão (%)</label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input className="fi" type="number" min={0} max={100} value={editingArtist.com} onChange={e => setEditingArtist({ ...editingArtist, com: Number(e.target.value) })} style={{ width: 80 }} />
-                    <span style={{ fontSize: 11, color: "var(--tx3)", display: "flex", gap: 10 }}>
+                  <div className="ff">
+                    <label className="fl">Comissão (%)</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input className="fi" type="number" min={0} max={100} value={editingArtist.com} onChange={e => setEditingArtist({ ...editingArtist, com: Number(e.target.value) })} style={{ width: 80 }} />
+                      <span style={{ fontSize: 11, color: "var(--tx3)", display: "flex", gap: 10 }}>
                         <span>Profissional: <strong style={{ color: "var(--gold)" }}>{editingArtist.com}%</strong></span>
                         <span style={{ color: "var(--br)" }}>|</span>
                         <span>Estúdio: <strong style={{ color: "#27AE60" }}>{100 - editingArtist.com}%</strong></span>
-                    </span>
+                      </span>
+                    </div>
                   </div>
                 </div>
-                    </div>
-                    <div className="fr">
-                      <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={editingArtist.insta || ""} onChange={e => { const v = e.target.value; setEditingArtist({ ...editingArtist, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
-                      <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email" value={editingArtist.email || ""} onChange={e => setEditingArtist({ ...editingArtist, email: e.target.value.toLowerCase() })} /></div>
-                    </div>
-                    <div className="ff">
-                      <label className="fl">Telefone (visivel apenas para o dono)</label>
-                      <input className="fi" placeholder="(99) 99999-9999" value={editingArtist.tel || ""} onChange={e => setEditingArtist({ ...editingArtist, tel: e.target.value })} />
-                    </div>
-                    <div className="ff">
-                      <label className="fl">Cor</label>
-                      <ColorPicker value={editingArtist.cor} onChange={cor => setEditingArtist({ ...editingArtist, cor })} />
-                    </div>
-                  </div>
-                  <div className="fmf">
-                    <button className="btn-c" onClick={() => setEditingArtist(null)}>Cancelar</button>
-                    <button className="btn-s" onClick={async () => {
-                      setArtists(p => p.map(x => x.id === editingArtist.id ? { ...editingArtist } : x));
-                      const { error } = await sb.from("artistas").update({
-                        nome: editingArtist.nome,
-                        role: editingArtist.role,
-                        com: editingArtist.com,
-                        cor: editingArtist.cor,
-                        insta: editingArtist.insta,
-                        email: editingArtist.email,
-                        tel: editingArtist.tel,
-                        ativo: editingArtist.ativo
-                      }).eq("id", editingArtist.id);
-                      if (error) { console.error("Erro ao salvar artista:", error); alert("Erro ao salvar artista."); return; }
-                      setEditingArtist(null);
-                    }}>Salvar</button>
-                  </div>
+                <div className="fr">
+                  <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={editingArtist.insta || ""} onChange={e => { const v = e.target.value; setEditingArtist({ ...editingArtist, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
+                  <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email" value={editingArtist.email || ""} onChange={e => setEditingArtist({ ...editingArtist, email: e.target.value.toLowerCase() })} /></div>
+                </div>
+                <div className="ff">
+                  <label className="fl">Telefone (visivel apenas para o dono)</label>
+                  <input className="fi" placeholder="(99) 99999-9999" value={editingArtist.tel || ""} onChange={e => setEditingArtist({ ...editingArtist, tel: e.target.value })} />
+                </div>
+                <div className="ff">
+                  <label className="fl">Cor</label>
+                  <ColorPicker value={editingArtist.cor} onChange={cor => setEditingArtist({ ...editingArtist, cor })} />
                 </div>
               </div>
-            )}
+              <div className="fmf">
+                <button className="btn-c" onClick={() => setEditingArtist(null)}>Cancelar</button>
+                <button className="btn-s" onClick={async () => {
+                  setArtists(p => p.map(x => x.id === editingArtist.id ? { ...editingArtist } : x));
+                  const { error } = await sb.from("artistas").update({
+                    nome: editingArtist.nome,
+                    role: editingArtist.role,
+                    com: editingArtist.com,
+                    cor: editingArtist.cor,
+                    insta: editingArtist.insta,
+                    email: editingArtist.email,
+                    tel: editingArtist.tel,
+                    ativo: editingArtist.ativo
+                  }).eq("id", editingArtist.id);
+                  if (error) { console.error("Erro ao salvar artista:", error); alert("Erro ao salvar artista."); return; }
+                  setEditingArtist(null);
+                }}>Salvar</button>
+              </div>
+            </div>
           </div>
         )}
 
