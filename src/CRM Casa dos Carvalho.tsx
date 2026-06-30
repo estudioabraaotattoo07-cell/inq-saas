@@ -2541,6 +2541,70 @@ export default function CRM() {
     return "Algo deu errado. Tente novamente.";
   };
 
+  const enviarEmailAgendamento = async (tipo: "cons" | "sess", cliente: any, data: string, horaInicio: number, artistaNome: string) => {
+    if (!resendApiKey || !emailRemetente || !cliente?.email) return;
+    const studioNomeF = (studioName || "A Casa dos Carvalho").replace(/_/g, " ");
+    const dataFmt = data ? data.split("-").reverse().join("/") : "—";
+    const horaFmt = String(horaInicio).padStart(2,"0") + ":00";
+    const enderecoFmt = [studioRua, studioNumero, studioBairro, studioCity].filter(Boolean).join(", ") || "nosso estúdio";
+    const whatsappFmt = studioTel ? maskTel(studioTel) : "nosso WhatsApp";
+    const ehConsulta = tipo === "cons";
+    const assunto = ehConsulta
+      ? `Sua consulta está agendada, ${cliente.nome} ✦`
+      : `Sua sessão está confirmada, ${cliente.nome} ✦`;
+    const corpoEspecifico = ehConsulta ? `
+      <p style="margin:0 0 8px;">Na consulta vamos:</p>
+      <ul style="margin:0 0 16px;padding-left:20px;color:#444;font-size:13px;line-height:2;">
+        <li>Entender a sua ideia e o que você quer transmitir</li>
+        <li>Definir estilo, tamanho e posicionamento</li>
+        <li>Tirar todas as suas dúvidas antes de qualquer sessão</li>
+        <li>Apresentar um orçamento personalizado para o seu projeto</li>
+      </ul>
+      <p style="font-size:13px;color:#555;">Não precisa trazer nada — só venha com suas referências (podem ser no celular) e com a ideia na cabeça, mesmo que ainda esteja vaga.</p>
+    ` : `
+      <p style="margin:0 0 8px;">Antes da sua sessão, lembre-se:</p>
+      <ul style="margin:0 0 16px;padding-left:20px;color:#444;font-size:13px;line-height:2;">
+        <li>Alimente-se bem no dia — uma boa refeição faz toda a diferença</li>
+        <li>Evite bebida alcoólica nas 24h anteriores</li>
+        <li>Durma bem na noite anterior</li>
+        <li>Hidrate a pele da região que será tatuada nos dias que antecedem</li>
+      </ul>
+    `;
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;">
+        <div style="background:#1a1a1a;padding:24px 32px;text-align:center;">
+          <span style="color:#c9a84c;font-size:22px;font-weight:700;letter-spacing:.05em;">${studioNomeF}</span>
+        </div>
+        <div style="padding:32px;">
+          <p style="font-size:15px;">Olá, <strong>${cliente.nome}</strong>!</p>
+          <p style="font-size:14px;color:#333;">${ehConsulta
+            ? "Que bom ter você aqui. Sua <strong>consulta</strong> na Casa dos Carvalho foi agendada com sucesso — esse é o primeiro passo do seu projeto de tatuagem."
+            : "Sua sessão na <strong>Casa dos Carvalho</strong> está marcada e a gente já está animado com o que vem por aí."
+          }</p>
+          <div style="background:#f9f6f0;border-left:3px solid #c9a84c;border-radius:4px;padding:16px 20px;margin:20px 0;font-size:13px;line-height:2.2;">
+            <div><strong>📅 Data:</strong> ${dataFmt}</div>
+            <div><strong>🕐 Horário:</strong> ${horaFmt}</div>
+            ${artistaNome ? `<div><strong>✦ Profissional:</strong> ${artistaNome}</div>` : ""}
+            <div><strong>📍 Local:</strong> ${enderecoFmt}</div>
+          </div>
+          <hr style="border:none;border-top:1px solid #eee;margin:20px 0;"/>
+          ${corpoEspecifico}
+          <p style="font-size:13px;color:#555;">Faltando <strong>1 dia</strong> para o seu ${ehConsulta ? "consulta" : "sessão"}, enviaremos um lembrete de confirmação de presença.</p>
+          <p style="font-size:13px;color:#555;">Qualquer dúvida, estamos no WhatsApp: <strong>${whatsappFmt}</strong></p>
+        </div>
+        <div style="background:#f7f7f7;padding:12px 32px;font-size:11px;color:#aaa;text-align:center;">
+          Com carinho, ${studioNomeF}
+        </div>
+      </div>`;
+    try {
+      await fetch("/api/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: resendApiKey, from: `${nomeRemetente || studioNomeF} <${emailRemetente}>`, to: cliente.email, subject: assunto, html }),
+      });
+    } catch { /* silencioso — agendamento já foi salvo */ }
+  };
+
   const saveAgEvent = async (forceRetroativo = false) => {
     if (!agForm.date && !(agForm.tipo || "").startsWith("bloq")) {
       setShowAviso("Informe a data do agendamento antes de salvar.");
@@ -2698,6 +2762,7 @@ export default function CRM() {
         if (cli && ["lead"].includes(cli.etapa)) {
           executarMove(agClientVinc.id, "cons_agendada");
         }
+        enviarEmailAgendamento("cons", agClientVinc, agForm.date, agForm.start, artistaNome);
       } else if (tipoKey === "sess" || tipoKey === "piercing") {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
         if (cli && ["lead", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"].includes(cli.etapa)) {
@@ -2706,6 +2771,7 @@ export default function CRM() {
           }
           executarMove(agClientVinc.id, "sessao_agend");
         }
+        enviarEmailAgendamento("sess", agClientVinc, agForm.date, agForm.start, artistaNome);
       }
       // Lançar sinal no financeiro se já pago
       if (sinalVal > 0 && sinalPago) {
