@@ -1104,7 +1104,7 @@ export default function CRM() {
   const [metaSessoes, setMetaSessoes] = useState(0);
   const [metaLeads, setMetaLeads] = useState(0);
   const [metaNPS, setMetaNPS] = useState(0);
-  const [settingsTab, setSettingsTab] = useState<"estudio"|"dono"|"metas"|"ia"|"sistema">("estudio");
+  const [settingsTab, setSettingsTab] = useState<"estudio"|"profissionais"|"metas"|"ia"|"sistema">("estudio");
   const [googleLink, setGoogleLink] = useState("");
   const [studioSite, setStudioSite] = useState("");
   // ── ORIGENS ──
@@ -4365,7 +4365,6 @@ export default function CRM() {
             { id: "clientes", l: "Clientes", i: "👥", roles: ["admin","profissional"] },
             { id: "agenda", l: "Agenda", i: "📅", roles: ["admin","profissional"] },
             { id: "financeiro", l: "Financeiro", i: "💰", roles: ["admin"] },
-            { id: "artistas", l: "Profissionais", i: "💼", roles: ["admin"] },
             { id: "dashboard", l: "Visão Geral", i: "📊", roles: ["admin","profissional"] },
             { id: "posvenda", l: "Relacionamento", i: "💬", roles: ["admin","profissional"] },
             { id: "disparos", l: "Disparos", i: "📣", roles: ["admin"] },
@@ -6036,8 +6035,8 @@ export default function CRM() {
           );
         })()}
 
-        {/* ── ARTISTAS ── */}
-        {tab === "artistas" && (
+        {/* ── ARTISTAS (movido para Configurações > Profissionais) ── */}
+        {false && (
           <div className="aw">
             <div className="aabar">
               <button className="btn-aa" onClick={() => setShowArtForm(true)}>💼 Adicionar Profissional</button>
@@ -12203,7 +12202,7 @@ export default function CRM() {
               </div>
               {/* ABAS */}
               <div className="settings-tabs-bar" style={{ display: "flex", borderBottom: "1px solid var(--br)" }}>
-                {([["estudio","🏠 Estúdio"],["dono","👤 Dono"],["metas","🎯 Metas"],["ia","🤖 IA"],["sistema","⚙️ Sistema"]] as const).map(([id, label]) => (
+                {([["estudio","🏠 Estúdio"],["profissionais","💼 Profissionais"],["metas","🎯 Metas"],["ia","🤖 IA"],["sistema","⚙️ Sistema"]] as const).map(([id, label]) => (
                   <div key={id} onClick={() => setSettingsTab(id)}
                     style={{ flex: 1, padding: "10px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, cursor: "pointer", letterSpacing: ".04em",
                       color: settingsTab === id ? "var(--gold)" : "var(--tx3)",
@@ -12474,19 +12473,76 @@ export default function CRM() {
                   </div>
                 </>}
 
-                {/* ── ABA DONO ── */}
-                {settingsTab === "dono" && <>
+                {/* ── ABA PROFISSIONAIS ── */}
+                {settingsTab === "profissionais" && <>
                   <div>
-                    <div className="stit">Dados do Responsável</div>
-                    <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 12, lineHeight: 1.6 }}>
-                      {"Estas informações são usadas pela " + (auraName || "IA") + " para alertas diretos e comunicação interna."}
+                    <div className="stit">Profissionais do Estúdio</div>
+                    <div style={{ marginBottom: 12 }}>
+                      <button className="btn-s" onClick={() => setShowArtForm(true)}>+ Adicionar Profissional</button>
                     </div>
-                    <div className="fg2">
-                      <div className="fi2"><div className="fil">Nome Completo</div><input className="ef" value={donoNome || studioOwner} placeholder="Seu nome completo" onChange={e => setDonoNome(e.target.value)} /></div>
-                      <div className="fi2"><div className="fil">WhatsApp Pessoal{!donoWhats && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={donoWhats} placeholder="(99) 99999-9999" onChange={e => setDonoWhats(maskTel(e.target.value))} style={{ borderColor: !donoWhats ? "rgba(212,130,10,.4)" : undefined }} /></div>
-                      <div className="fi2"><div className="fil">Email Pessoal{!donoEmail && <span style={{ color: "var(--q2)", marginLeft: 4 }}>⚠</span>}</div><input className="ef" value={donoEmail} placeholder="seu@email.com" onChange={e => setDonoEmail(e.target.value)} style={{ borderColor: !donoEmail ? "rgba(212,130,10,.4)" : undefined }} /></div>
-                    </div>
+                    {artists.map(a => (
+                      <div className="acard" key={a.id} style={{ opacity: a.ativo ? 1 : .55, marginBottom: 10 }}>
+                        <div className="acardh">
+                          <div>
+                            <div className="aname" style={{ color: a.cor }}>{a.nome}</div>
+                            <div className="arole">
+                              <span style={{ background: a.role === "residente" ? "rgba(39,174,96,.15)" : "rgba(201,168,76,.15)", color: a.role === "residente" ? "var(--q3)" : "var(--gold)", border: "1px solid " + (a.role === "residente" ? "rgba(39,174,96,.3)" : "rgba(201,168,76,.3)"), borderRadius: 3, padding: "2px 6px", fontSize: 10, fontWeight: 700, marginRight: 7, textTransform: "uppercase" as const }}>
+                                {a.role === "residente" ? "RESIDENTE" : "GUEST"}
+                              </span>
+                              {a.ativo ? "Ativo" : "Inativo"} {a.insta || "Sem Instagram"}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+                            <button className="btn-sm gold" onClick={() => setEditingArtist({ ...a })}>✏️ Editar</button>
+                            <button className="btn-sm gold" onClick={() => setShowCtr({ type: "artist", a })}>📄 Contrato</button>
+                            <button className="btn-sm" onClick={() => setArtists(p => p.map(x => x.id === a.id ? { ...x, ativo: !x.ativo } : x))}>{a.ativo ? "Desativar" : "Reativar"}</button>
+                            <button className="btn-sm red" onClick={() => setConfirmRemoverArtista(a)}>Remover</button>
+                          </div>
+                        </div>
+                        <div className="abody">
+                          {[
+                            { l: "Clientes", v: clients.filter(c => c.artista === a.id).length },
+                            { l: "Tatuados", v: clients.filter(c => c.artista === a.id && (c.etapa === "tatuado" || c.etapa === "pos_venda")).length },
+                            { l: "Conversao", v: Math.round(clients.filter(c => c.artista === a.id && (c.etapa === "tatuado" || c.etapa === "pos_venda")).length / Math.max(clients.filter(c => c.artista === a.id).length, 1) * 100) + "%" },
+                          ].map((f, i) => (
+                            <div className="af" key={i}><div className="afl">{f.l}</div><div className="afv">{f.v}</div></div>
+                          ))}
+                          <div className="af">
+                            <div className="afl">Comissão Base (%)</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4 }}>
+                              <input className="ci" type="number" min={0} max={100} value={a.com} onChange={e => setArtists(p => p.map(x => x.id === a.id ? { ...x, com: Number(e.target.value) } : x))} />
+                              <span style={{ fontSize: 11, color: "var(--tx2)" }}>%</span>
+                              <span style={{ fontSize: 10, color: "var(--tx3)" }}>· Est: <strong style={{ color: "var(--gold)" }}>{100 - (a.com || 0)}%</strong></span>
+                            </div>
+                          </div>
+                          <div className="af" style={{ flexDirection: "column", gap: 6 }}>
+                            <div className="afl">Metas do Mês</div>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                <span style={{ fontSize: 10, color: "var(--tx3)" }}>Sessões</span>
+                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  <input className="ci" type="number" min={0} value={a.meta_sessoes || 0} onChange={e => { const updated = { ...a, meta_sessoes: Number(e.target.value) }; setArtists(p => p.map(x => x.id === a.id ? updated : x)); setTimeout(() => dbUpsert("artistas", { id: a.id, meta_sessoes: Number(e.target.value) }), 500); }} style={{ width: 56 }} />
+                                  {(() => { const sessoesMes = fin.filter((f: any) => f.artista === a.id && f.competencia === new Date().toISOString().slice(0,7)).length; const meta = a.meta_sessoes || 0; const pct = meta > 0 ? Math.min(Math.round(sessoesMes / meta * 100), 100) : 0; return <span style={{ fontSize: 10, color: pct >= 100 ? "#27AE60" : "var(--tx3)" }}>{sessoesMes}/{meta} ({pct}%)</span>; })()}
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                <span style={{ fontSize: 10, color: "var(--tx3)" }}>Faturamento (R$)</span>
+                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  <input className="ci" type="text" value={a.meta_faturamento ? Number(a.meta_faturamento).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : ""} placeholder="0" onChange={e => { const raw = e.target.value.replace(/\D/g, ""); const num = raw ? Number(raw) : 0; const updated = { ...a, meta_faturamento: num }; setArtists(p => p.map(x => x.id === a.id ? updated : x)); setTimeout(() => dbUpsert("artistas", { id: a.id, meta_faturamento: num }), 500); }} style={{ width: 90 }} />
+                                  {(() => { const fatMes = fin.filter((f: any) => f.artista === a.id && f.competencia === new Date().toISOString().slice(0,7)).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0); const meta = a.meta_faturamento || 0; const pct = meta > 0 ? Math.min(Math.round(fatMes / meta * 100), 100) : 0; return <span style={{ fontSize: 10, color: pct >= 100 ? "#27AE60" : "var(--tx3)" }}>R${fatMes.toLocaleString("pt-BR",{minimumFractionDigits:0})} ({pct}%)</span>; })()}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {artists.length === 0 && <div style={{ fontSize: 12, color: "var(--tx3)", textAlign: "center", padding: "24px 0" }}>Nenhum profissional cadastrado.</div>}
                   </div>
+                </>}
+
+                {/* ── ABA METAS PLACEHOLDER (alertas migrados para Sistema) ── */}
+                {false && <>
                   <div>
                     <div className="stit">Alertas Diretos</div>
                     <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 12, lineHeight: 1.6 }}>
@@ -12723,6 +12779,46 @@ export default function CRM() {
                 {/* ── ABA SISTEMA ── */}
                 {settingsTab === "sistema" && <>
                   <div>
+                    <div className="stit">Alertas Diretos</div>
+                    <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 12, lineHeight: 1.6 }}>
+                      {"A " + (auraName || "IA") + " pode enviar notificações diretamente para você via WhatsApp pessoal."}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div><div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>{"Nova mensagem recebida via " + (auraName || "IA")}</div><div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Quando um cliente enviar mensagem fora do horário comercial</div></div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_nova_mensagem: !p.alerta_nova_mensagem }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_nova_mensagem ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}><div style={{ position: "absolute", left: alertaConfig.alerta_nova_mensagem ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} /></div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div><div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", display: "flex", alignItems: "center", gap: 6 }}>Sessão em{" "}<select value={alertaConfig.alerta_sessao_antecedencia} onChange={e => setAlertaConfig(p => ({ ...p, alerta_sessao_antecedencia: e.target.value }))} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--gold)", fontSize: 11, fontWeight: 700, padding: "1px 4px", cursor: "pointer" }}><option value="2h">2h</option><option value="4h">4h</option><option value="24h">24h</option></select></div><div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Lembrete antes de cada sessão agendada</div></div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_sessao_proxima: !p.alerta_sessao_proxima }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_sessao_proxima ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}><div style={{ position: "absolute", left: alertaConfig.alerta_sessao_proxima ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} /></div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div><div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>Falta registrada</div><div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Quando um cliente não comparecer</div></div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_falta: !p.alerta_falta }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_falta ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}><div style={{ position: "absolute", left: alertaConfig.alerta_falta ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} /></div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div><div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>Aniversário de cliente hoje</div><div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Disparo automático no dia do aniversário</div></div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_aniversario: !p.alerta_aniversario }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_aniversario ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}><div style={{ position: "absolute", left: alertaConfig.alerta_aniversario ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} /></div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div><div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", display: "flex", alignItems: "center", gap: 6 }}>Cliente sem retorno há{" "}<select value={alertaConfig.alerta_sem_retorno_dias} onChange={e => setAlertaConfig(p => ({ ...p, alerta_sem_retorno_dias: e.target.value }))} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--gold)", fontSize: 11, fontWeight: 700, padding: "1px 4px", cursor: "pointer" }}><option value="30">30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option></select></div><div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Clientes inativos que precisam de recontato</div></div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_sem_retorno: !p.alerta_sem_retorno }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_sem_retorno ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}><div style={{ position: "absolute", left: alertaConfig.alerta_sem_retorno ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} /></div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div><div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>Sinal pendente confirmado</div><div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Quando o sinal de uma sessão ainda não foi recebido</div></div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_sinal_pendente: !p.alerta_sinal_pendente }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_sinal_pendente ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}><div style={{ position: "absolute", left: alertaConfig.alerta_sinal_pendente ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} /></div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div><div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>Projeto sem valor definido</div><div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Sessão agendada sem orçamento registrado</div></div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_projeto_sem_valor: !p.alerta_projeto_sem_valor }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_projeto_sem_valor ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}><div style={{ position: "absolute", left: alertaConfig.alerta_projeto_sem_valor ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} /></div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "var(--dk3)", borderRadius: 8, border: "1px solid var(--br)" }}>
+                        <div><div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>{"Cliente novo cadastrado pela " + (auraName || "IA")}</div><div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>{"Quando um lead entrar pelo WhatsApp via " + (auraName || "IA")}</div></div>
+                        <div onClick={() => setAlertaConfig(p => ({ ...p, alerta_novo_cliente_aura: !p.alerta_novo_cliente_aura }))} style={{ width: 36, height: 20, borderRadius: 10, background: alertaConfig.alerta_novo_cliente_aura ? "var(--q3)" : "var(--dk5)", flexShrink: 0, position: "relative", cursor: "pointer", transition: "background .2s" }}><div style={{ position: "absolute", left: alertaConfig.alerta_novo_cliente_aura ? "calc(100% - 18px)" : 2, top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .2s" }} /></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
                     <div className="stit">Aparência</div>
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 12 }}>Escolha o tema visual e o modo de exibição do sistema.</div>
                     {/* Modo claro/escuro */}
@@ -12829,7 +12925,7 @@ export default function CRM() {
                   {settingsTab !== "sistema" && (
                     <button style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
                       onClick={() => {
-                        const order = ["estudio","dono","metas","ia","sistema"];
+                        const order = ["estudio","profissionais","metas","ia","sistema"];
                         const idx = order.indexOf(settingsTab);
                         if (idx < order.length - 1) setSettingsTab(order[idx + 1] as any);
                       }}>
