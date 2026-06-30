@@ -9276,8 +9276,8 @@ export default function CRM() {
                 <div>
                   <div className="stit">Mover no Pipeline</div>
                   <div className="pm">
-                    {stages.map(s => {
-                      const critica = ["cons_agendada","sessao_agend","tatuado"].includes(s.id);
+                    {stages.filter(s => s.id !== "tatuado").map(s => {
+                      const critica = ["cons_agendada","sessao_agend"].includes(s.id);
                       return (
                         <button key={s.id} className={"sb" + (sc.etapa === s.id ? " cur" : "")}
                           style={sc.etapa === s.id ? { borderColor: s.color, color: s.color, background: s.color + "18" } : {}}
