@@ -285,6 +285,29 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── ROTA DE REAGENDAMENTO AGUARD_1A_SESSAO (/api/lead?acao=adiar_sessao) ──
+  if (acao === "adiar_sessao") {
+    const cliId = (req.query?.token || "").trim();
+    if (!cliId) return res.status(400).send("<p style='font-family:Georgia,serif;padding:40px;text-align:center;color:#888'>Link inválido.</p>");
+    try {
+      const { data: cli } = await sb.from("clientes").select("id, nome, disparos_enviados, user_id").eq("id", cliId).single();
+      if (!cli) return res.status(404).send("<p style='font-family:Georgia,serif;padding:40px;text-align:center;color:#888'>Cliente não encontrado.</p>");
+      // Remove a chave de dedup do e-mail D+30 para o cron reenviar em mais 30 dias
+      const disparosAtuais = cli.disparos_enviados || {};
+      delete disparosAtuais["__aguard_1a_sessao_d30__"];
+      await sb.from("clientes").update({ disparos_enviados: disparosAtuais, etapa_desde: new Date().toISOString() }).eq("id", cli.id);
+      await sb.from("historico").insert({
+        data: new Date().toLocaleDateString("pt-BR"),
+        hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        acao: "Ainda não — recontato em 30 dias agendado — " + cli.nome,
+        user_id: cli.user_id,
+      });
+      return res.status(200).send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Casa dos Carvalho</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.card{background:#1a1a1a;border:1px solid #333;border-radius:12px;max-width:420px;width:100%;padding:40px 32px;text-align:center}.logo{font-size:12px;letter-spacing:3px;color:#d4a84b;text-transform:uppercase;margin-bottom:24px}h1{font-size:20px;font-weight:normal;color:#f0ede8;line-height:1.5;margin-bottom:12px}.sub{font-size:14px;color:#888;line-height:1.7}</style></head><body><div class="card"><div class="logo">Casa dos Carvalho Tattoo</div><div style="font-size:40px;margin-bottom:16px">🖤</div><h1>Tudo bem, ${(cli.nome || "").split(" ")[0]}!</h1><p class="sub">Seu projeto continua guardado com carinho. Entraremos em contato novamente em 30 dias.</p></div></body></html>`);
+    } catch (e) {
+      return res.status(500).send("<p style='font-family:Georgia,serif;padding:40px;text-align:center;color:#888'>Erro interno.</p>");
+    }
+  }
+
   // ── ROTA DE ASSINATURA REMOTA (/api/lead?acao=assinar) ──
   if (acao === "assinar") {
     const token = req.query?.token || req.body?.token;

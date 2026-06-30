@@ -7123,6 +7123,7 @@ export default function CRM() {
                       const sistemaCounts: Record<string, number> = {
                         lead: 2, lead_morno: 2, aura_agend: 2,
                         cons_agendada: 3, sessao_agend: 3,
+                        aguard_1a_sessao: 2,
                         pos_venda: 2, tatuado: 2,
                         reengajamento: 1,
                       };
@@ -7184,6 +7185,10 @@ export default function CRM() {
                                 if (sid === "pos_venda" || sid === "tatuado") return (<>
                                   <CardSistema ativo={fluxoToggles.nps} label="Avaliação NPS pós-sessão" gatilho="D+1 — após entrada no Pós-venda" preview={"Assunto: Como foi sua sessão, {nome}?\n\nFoi uma alegria ter você no estúdio. Como você avalia sua experiência? [escala 0–10]\n\nNota e comentário salvos na ficha automaticamente."} />
                                   <CardSistema ativo={fluxoToggles.google_convite} label="Convite ao Google" gatilho="D+2 — após avaliação positiva (nota ≥ 7)" preview={"Assunto: Uma última coisa, {nome} — leva 1 minuto\n\nSua opinião no Google faz uma diferença enorme para nós. Clique para avaliar — o seu comentário já aparece pré-preenchido."} />
+                                </>);
+                                if (sid === "aguard_1a_sessao") return (<>
+                                  <CardSistema label="E-mail de agradecimento pela consulta" gatilho="Imediato — ao entrar em Aguardando 1ª Sessão" preview={"Assunto: Obrigado pela sua visita, {nome}\n\nOlá, {nome}! Queremos te agradecer por ter vindo até a gente. Sua pontualidade e compromisso dizem muito sobre quem você é.\n\nSeu projeto está registrado com carinho. Daqui a 30 dias vamos entrar em contato para saber se já chegou a sua hora!\n\nRespeitoso abraço, {estudio}"} />
+                                  <CardSistema label="E-mail de recontato D+30 — Sim / Não" gatilho="30 dias após entrar na etapa — repete a cada 30 dias enquanto clicar Não" preview={"Assunto: Já chegou a sua hora, {nome}?\n\nFaz 30 dias desde a sua consulta. Seu projeto continua guardado com o mesmo cuidado de sempre.\n\n{artista} criou algo pensado exclusivamente para você.\n\n[ Sim, quero agendar! ] → abre WhatsApp\n[ Ainda não ] → recontato em mais 30 dias"} />
                                 </>);
                                 if (sid === "reengajamento") return (
                                   <CardSistema label="Reativação de clientes" gatilho="A cada 180 dias — cliente em Reengajamento" preview={"Olá, {nome}! Espero que sua arte esteja linda e bem cuidada. Se a próxima ideia já está nascendo, você sabe onde nos encontrar."} />

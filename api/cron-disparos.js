@@ -371,6 +371,95 @@ export default async function handler(req, res) {
           }
         }
 
+        // ── AGUARDANDO 1ª SESSÃO — E-mail imediato (D+0) + recontato D+30 ──────
+        if (cliente.etapa === "aguard_1a_sessao" && cfg.resend_api_key && cliente.email) {
+          const fn = (cliente.nome || "").trim().split(" ")[0];
+
+          // Buscar nome do artista
+          let nomeArtista = "";
+          if (cliente.artista) {
+            try {
+              const { data: artData } = await sb.from("configuracoes").select("artistas").eq("user_id", userId).single();
+              const artistas = typeof artData?.artistas === "string" ? JSON.parse(artData.artistas) : (artData?.artistas || []);
+              const art = artistas.find(a => a.id === cliente.artista);
+              if (art?.nome) nomeArtista = art.nome;
+            } catch {}
+          }
+
+          const jaEnviouBV = disparosEnviados && disparosEnviados["__aguard_1a_sessao_bv__"];
+          if (!jaEnviouBV && cliente.etapa_desde) {
+            const diasEtapa = diasEntre(cliente.etapa_desde, hoje);
+            if (diasEtapa >= 0) {
+              const htmlBV = `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px">
+<p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">Casa dos Carvalho Tattoo</p>
+<hr style="border:none;border-top:1px solid #d4a84b;margin-bottom:24px">
+<p style="font-size:16px">Olá, <strong>${fn}</strong>!</p>
+<p style="line-height:1.8;color:#444;margin:16px 0">Queremos te agradecer por ter vindo até a gente. Sua pontualidade e compromisso dizem muito sobre quem você é — e é exatamente o tipo de cliente que a gente adora receber.</p>
+<p style="line-height:1.8;color:#444;margin-bottom:16px">Seu projeto está registrado com carinho aqui no sistema. Quando quiser dar o próximo passo e agendar sua sessão, é só falar — estaremos prontos para você.</p>
+<p style="line-height:1.8;color:#444;margin-bottom:24px">Daqui a 30 dias vamos entrar em contato novamente para saber se já chegou a sua hora!</p>
+<p style="font-size:12px;color:#bbb;margin-top:24px">Respeitoso abraço, ${studioName}</p>
+</div>`;
+              const ok = await dispararEmail({
+                apiKey: cfg.resend_api_key,
+                from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                nome_remetente: studioName,
+                to: cliente.email,
+                subject: "Obrigado pela sua visita, " + fn,
+                html: htmlBV,
+              });
+              if (ok) {
+                let disparosAtuais = {};
+                try { const { data: cliAtual } = await sb.from("clientes").select("disparos_enviados").eq("id", cliente.id).single(); disparosAtuais = cliAtual?.disparos_enviados || {}; } catch {}
+                await marcarEnviado(cliente.id, "__aguard_1a_sessao_bv__", disparosAtuais);
+                await registrarHistorico(userId, "E-mail boas-vindas Aguardando 1ª Sessão enviado — " + cliente.nome);
+                totalDisparos++;
+              }
+            }
+          }
+
+          // E-mail D+30 de recontato com botões Sim/Não
+          const jaEnviouD30 = disparosEnviados && disparosEnviados["__aguard_1a_sessao_d30__"];
+          if (!jaEnviouD30 && cliente.etapa_desde) {
+            const diasEtapa = diasEntre(cliente.etapa_desde, hoje);
+            if (diasEtapa >= 30) {
+              const baseUrl = process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "http://localhost:3000";
+              const linkSim = "https://wa.me/5527999598230?text=" + encodeURIComponent("Olá! Sou " + cliente.nome + " e gostaria de solicitar o agendamento para a execução do meu projeto" + (nomeArtista ? " criado pelo(a) " + nomeArtista : "") + " na Casa dos Carvalho. Estou pronto(a) para dar o próximo passo!");
+              const linkNao = baseUrl + "/api/lead?acao=adiar_sessao&token=" + cliente.id;
+              const artistaTexto = nomeArtista ? `pelo(a) <strong>${nomeArtista}</strong>` : "pelo nosso artista";
+              const htmlD30 = `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px">
+<p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">Casa dos Carvalho Tattoo</p>
+<hr style="border:none;border-top:1px solid #d4a84b;margin-bottom:24px">
+<p style="font-size:16px">Olá, <strong>${fn}</strong>!</p>
+<p style="line-height:1.8;color:#444;margin:16px 0">Faz 30 dias desde a sua consulta aqui na Casa dos Carvalho — e o seu projeto continua guardado com o mesmo cuidado de sempre.</p>
+<p style="line-height:1.8;color:#444;margin-bottom:24px">${artistaTexto} criou algo pensado exclusivamente para você, nos mínimos detalhes, para ser eternizado na sua pele. Estamos prontos quando você estiver.</p>
+<p style="font-size:15px;color:#222;font-weight:bold;text-align:center;margin-bottom:20px">Já chegou a sua hora de eternizarmos esse projeto?</p>
+<div style="text-align:center;margin-bottom:28px">
+  <a href="${linkSim}" style="display:inline-block;background:#d4a84b;color:#111;text-decoration:none;border-radius:8px;padding:14px 28px;font-size:14px;font-weight:bold;margin:6px">Sim, quero agendar!</a>
+  <br>
+  <a href="${linkNao}" style="display:inline-block;background:#f5f5f5;color:#555;text-decoration:none;border-radius:8px;padding:14px 28px;font-size:14px;margin:6px">Ainda não</a>
+</div>
+<p style="font-size:11px;color:#bbb;text-align:center">Ao clicar em "Ainda não", te avisamos novamente em 30 dias.</p>
+<p style="font-size:12px;color:#bbb;margin-top:24px">Respeitoso abraço, ${studioName}</p>
+</div>`;
+              const ok = await dispararEmail({
+                apiKey: cfg.resend_api_key,
+                from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                nome_remetente: studioName,
+                to: cliente.email,
+                subject: "Já chegou a sua hora, " + fn + "?",
+                html: htmlD30,
+              });
+              if (ok) {
+                let disparosAtuais = {};
+                try { const { data: cliAtual } = await sb.from("clientes").select("disparos_enviados").eq("id", cliente.id).single(); disparosAtuais = cliAtual?.disparos_enviados || {}; } catch {}
+                await marcarEnviado(cliente.id, "__aguard_1a_sessao_d30__", disparosAtuais);
+                await registrarHistorico(userId, "E-mail recontato D+30 Aguardando 1ª Sessão enviado — " + cliente.nome);
+                totalDisparos++;
+              }
+            }
+          }
+        }
+
         // ── SMS D-0 (dia da sessão ou consulta — cliente + artista) ────────────
         if (cfg.zenvia_api_key && cfg.zenvia_numero && (cliente.etapa === "sessao_agend" || cliente.etapa === "cons_agendada")) {
           const ehConsulta = cliente.etapa === "cons_agendada";
