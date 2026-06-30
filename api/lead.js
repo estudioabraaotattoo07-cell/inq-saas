@@ -619,45 +619,35 @@ export default async function handler(req, res) {
   const zenviaKey = process.env.ZENVIA_API_KEY;
   const fn = nome.trim().split(" ")[0];
 
-  if (zenviaKey && tel && tel.replace(/\D/g, "").length >= 10) {
-    const telLimpo = "55" + tel.replace(/\D/g, "").replace(/^55/, "");
-    const smsFns = [];
-
-    // SMS para o cliente (controlado por fluxo_boas_vindas_sms_ativa)
-    if (cfgDisparos?.fluxo_boas_vindas_sms_ativa !== false) {
-      smsFns.push(
-        fetch("https://api.zenvia.com/v2/channels/sms/messages", {
-          method: "POST",
-          headers: { "X-API-TOKEN": zenviaKey, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            from: "estudio.abraao.tattoo",
-            to: telLimpo,
-            contents: [{ type: "text", text: `Oi ${fn}! 🖤 Sou a Aura da Casa dos Carvalho. Recebemos sua ideia de tatuagem e em breve nossa equipe entra em contato. Fique de olho no seu e-mail!` }]
-          })
-        }).catch(e => console.warn("SMS cliente error:", e))
-      );
-    }
-
-    // SMS para o profissional responsável (controlado por fluxo_notificacao_artista_ativa)
-    if (cfgDisparos?.fluxo_notificacao_artista_ativa !== false) {
-      smsFns.push(
-        fetch("https://api.zenvia.com/v2/channels/sms/messages", {
-          method: "POST",
-          headers: { "X-API-TOKEN": zenviaKey, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            from: "estudio.abraao.tattoo",
-            to: artista && artista.toLowerCase().includes("camilla") ? "5527996941787" : "5527996929665",
-            contents: [{ type: "text", text: `✦ Novo lead: ${nome} | ${tel} | ${email || "—"} | Artista: ${artista || "A definir"}` }]
-          })
-        }).catch(e => console.warn("SMS estudio error:", e))
-      );
-    }
-
-    if (smsFns.length > 0) await Promise.all(smsFns);
-  }
-
   // E-mail de boas-vindas ao cliente (controlado por fluxo_boas_vindas_email_ativa)
   const resendKey = process.env.RESEND_API_KEY;
+
+  // E-mail de alerta interno ao profissional responsável
+  if (cfgDisparos?.fluxo_notificacao_artista_ativa !== false && resendKey) {
+    const emailArtista = artista && artista.toLowerCase().includes("camilla")
+      ? "camilla-acampos@hotmail.com"
+      : "estudioabraaotattoo07@gmail.com";
+    const emailFrom2 = process.env.EMAIL_REMETENTE || "contato@acasadoscarvalhotattoo.com.br";
+    const htmlAlerta =
+      "<div style='font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#222;padding:28px'>" +
+      "<p style='font-size:18px;font-weight:700;color:#c9a84c;margin-bottom:4px'>✦ Novo lead — " + nome + "</p>" +
+      "<hr style='border:none;border-top:1px solid #c9a84c33;margin-bottom:18px'>" +
+      "<table style='width:100%;border-collapse:collapse;font-size:13px'>" +
+      "<tr><td style='padding:7px 0;color:#888;width:130px'>Nome</td><td style='color:#222'>" + nome + "</td></tr>" +
+      "<tr><td style='padding:7px 0;color:#888'>Telefone</td><td style='color:#222'>" + (tel || "—") + "</td></tr>" +
+      "<tr><td style='padding:7px 0;color:#888'>E-mail</td><td style='color:#222'>" + (email || "—") + "</td></tr>" +
+      "<tr><td style='padding:7px 0;color:#888'>Ideia / projeto</td><td style='color:#222'>" + (ideaFinal || "—") + "</td></tr>" +
+      "<tr><td style='padding:7px 0;color:#888'>Região</td><td style='color:#222'>" + (regiao || "—") + "</td></tr>" +
+      "<tr><td style='padding:7px 0;color:#888'>Instagram</td><td style='color:#222'>" + (insta || "—") + "</td></tr>" +
+      "<tr><td style='padding:7px 0;color:#888'>Artista</td><td style='color:#222'>" + (artista || "A definir") + "</td></tr>" +
+      "</table>" +
+      "<p style='margin-top:20px;font-size:12px;color:#aaa'>Entre no INK SYSTEM para dar andamento.</p></div>";
+    fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + resendKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: emailFrom2, to: [emailArtista], subject: "✦ Novo lead — " + nome, html: htmlAlerta })
+    }).catch(e => console.warn("Email artista error:", e));
+  }
   if (cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {
     const emailFrom = process.env.EMAIL_REMETENTE || "contato@acasadoscarvalhotattoo.com.br";
     const artistaNome = artista && artista.toLowerCase().includes("camilla") ? "a Camilla" : artista ? "o Abraão" : null;

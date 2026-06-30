@@ -6972,19 +6972,6 @@ export default function CRM() {
                     <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, fontWeight: 700, color: "var(--tx)", marginBottom: 4 }}>Automações do Ecossistema</div>
                     <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 12 }}>Fluxos automáticos que rodam em segundo plano. Ligue ou pause cada um sem perder as configurações.</div>
 
-                    {/* Card: Boas-vindas (3 sub-toggles) */}
-                    <div style={{ border: "1px solid rgba(201,168,76,.2)", borderRadius: 9, background: "var(--dk2)", marginBottom: 8, overflow: "hidden" }}>
-                      <div style={{ padding: "12px 14px 8px" }}>
-                        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, fontWeight: 700, color: "var(--tx)", marginBottom: 4 }}>Boas-vindas ao Ecossistema</div>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 10 }}>Disparado automaticamente quando um lead entra pelo site via Aura Chat (primeiro cadastro).</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                          <SwitchBtn campo="boas_vindas_email" label="E-mail de boas-vindas ao cliente" />
-                          <SwitchBtn campo="notificacao_artista" label="SMS/E-mail de alerta interno ao artista" />
-                        </div>
-                      </div>
-                      <PreviewBlock id="boas_vindas" texto={"Assunto: Recebemos sua mensagem, {nome}!\n\nOlá, {nome}!\n\nQue alegria receber sua ideia aqui na Casa dos Carvalho. Já registramos tudo com cuidado — e vimos que você tem interesse em tatuar com o {artista}!\n\nEm até 24h, alguém da nossa equipe vai te ligar pessoalmente para conversar sobre os detalhes do seu projeto. Sem formulário, sem robô — conversa de gente pra gente.\n\n[botão: Chamar no WhatsApp]\n\n+ Resumo dos dados registrados (nome, telefone, ideia, região, artista...)\n\nCom carinho, Casa dos Carvalho Tattoo — Vitória, ES"} />
-                    </div>
-
                     {/* Card: Confirmação D-1 */}
                     {(() => {
                       const ativo = fluxoToggles.confirmacao_presenca;
@@ -7163,9 +7150,13 @@ export default function CRM() {
                                   </div>
                                 );
                                 const sid = stage.id;
-                                if (sid === "lead") return (
-                                  <CardSistema ativo={fluxoToggles.boas_vindas_email} label="E-mail de boas-vindas" gatilho="Imediato — ao cadastrar via Aura Chat" preview={"Assunto: Recebemos sua mensagem, {nome}!\n\nOlá, {nome}! Que alegria receber sua ideia aqui na Casa dos Carvalho. Já registramos tudo com cuidado — em até 24h, alguém da nossa equipe vai te ligar pessoalmente. Sem formulário, sem robô — conversa de gente pra gente."} />
-                                );
+                                const boasVindasCards = (<>
+                                  <CardSistema ativo={fluxoToggles.boas_vindas_email} label="E-mail de boas-vindas ao cliente" gatilho="Imediato — ao entrar no sistema (Aura Chat ou cadastro manual)" preview={"Assunto: Recebemos sua mensagem, {nome}!\n\nOlá, {nome}! Que alegria receber sua ideia aqui na Casa dos Carvalho. Já registramos tudo com cuidado — em até 24h, alguém da nossa equipe vai te ligar pessoalmente. Sem formulário, sem robô — conversa de gente pra gente.\n\n+ Resumo dos dados registrados (nome, telefone, ideia, região, artista...)"} />
+                                  <CardSistema ativo={fluxoToggles.notificacao_artista} label="E-mail de alerta interno ao artista" gatilho="Imediato — notifica o profissional responsável" preview={"Assunto: Novo lead — {nome}\n\nUm novo cliente entrou em contato solicitando atendimento com você.\n\nNome: {nome} · Tel: {tel} · Ideia: {estilo} · Região: {regiao}\n\nAcesse o sistema para dar andamento."} />
+                                </>);
+                                if (sid === "lead") return boasVindasCards;
+                                if (sid === "lead_morno") return boasVindasCards;
+                                if (sid === "aura_agend") return boasVindasCards;
                                 if (sid === "cons_agendada") return (<>
                                   <CardSistema label="E-mail de confirmação de consulta" gatilho="Imediato — ao agendar a consulta" preview={"Assunto: Sua consulta está agendada, {nome} ✦\n\nOlá, {nome}! Que bom ter você aqui. Sua consulta na Casa dos Carvalho foi agendada com sucesso — esse é o primeiro passo do seu projeto de tatuagem.\n\n📅 Data · 🕐 Horário · ✦ Profissional · 📍 Local\n\nNa consulta vamos: entender sua ideia, definir estilo/tamanho/posicionamento, tirar dúvidas e apresentar orçamento personalizado."} />
                                   <CardSistema ativo={fluxoToggles.confirmacao_presenca} label="Lembrete D-1 de consulta" gatilho="Um dia antes — evento na agenda amanhã" preview={"Assunto: Sua consulta é amanhã — {estudio}\n\nOlá, {nome}! Sua consulta está marcada para amanhã.\n\nEstamos ansiosos para conhecer a sua ideia — mal podemos esperar!\n\nConfirme sua presença aqui: [link]\n\nLembrete carinhoso: faltas sem aviso podem resultar em restrições futuras de agendamento."} />
