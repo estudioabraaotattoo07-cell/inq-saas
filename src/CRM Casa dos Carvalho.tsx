@@ -1290,7 +1290,7 @@ export default function CRM() {
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
   const [pvEditando, setPvEditando] = useState<number | null>(null);
   const [canaisHabilitados, setCanaisHabilitados] = useState<{email: boolean; whatsapp: boolean; sms: boolean}>({ email: true, whatsapp: false, sms: false });
-  const [fluxoToggles, setFluxoToggles] = useState({ boas_vindas_email: true, boas_vindas_sms: true, nps: true, google_convite: true, confirmacao_presenca: true, notificacao_artista: true });
+  const [fluxoToggles, setFluxoToggles] = useState({ boas_vindas_email: true, nps: true, google_convite: true, confirmacao_presenca: true, notificacao_artista: true });
   const [toggleConfirm, setToggleConfirm] = useState<{campo: string; novoValor: boolean; label: string} | null>(null);
   const [fluxoPreviewAberto, setFluxoPreviewAberto] = useState<Record<string, boolean>>({});
   // ── ACORDEÃO DAS RÉGUAS ──
@@ -1607,7 +1607,6 @@ export default function CRM() {
           // ── TOGGLES DE AUTOMAÇÃO ──
           setFluxoToggles({
             boas_vindas_email: cfg.fluxo_boas_vindas_email_ativa !== false,
-            boas_vindas_sms: cfg.fluxo_boas_vindas_sms_ativa !== false,
             nps: cfg.fluxo_nps_ativa !== false,
             google_convite: cfg.fluxo_google_convite_ativa !== false,
             confirmacao_presenca: cfg.fluxo_confirmacao_presenca_ativa !== false,
@@ -6863,7 +6862,8 @@ export default function CRM() {
                       <button className="btn-s" onClick={async () => {
                         const campo = "fluxo_" + toggleConfirm.campo + "_ativa";
                         const novoValor = toggleConfirm.novoValor;
-                        await sb.from("configuracoes").upsert({ user_id: userId, [campo]: novoValor }, { onConflict: "user_id" });
+                        const { error } = await sb.from("configuracoes").upsert({ user_id: userId, [campo]: novoValor }, { onConflict: "user_id" });
+                        if (error) { setShowAviso("Erro ao salvar configuração. Verifique as colunas da tabela configuracoes."); setToggleConfirm(null); return; }
                         setFluxoToggles(p => ({ ...p, [toggleConfirm.campo]: novoValor }));
                         setToggleConfirm(null);
                       }}>Confirmar</button>
@@ -6913,7 +6913,6 @@ export default function CRM() {
                         <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 10 }}>Disparado automaticamente quando um lead entra pelo site via Aura Chat (primeiro cadastro).</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                           <SwitchBtn campo="boas_vindas_email" label="E-mail de boas-vindas ao cliente" />
-                          <SwitchBtn campo="boas_vindas_sms" label="SMS de boas-vindas ao cliente" />
                           <SwitchBtn campo="notificacao_artista" label="SMS/E-mail de alerta interno ao artista" />
                         </div>
                       </div>
