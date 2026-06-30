@@ -7833,16 +7833,46 @@ export default function CRM() {
                             ls.forEach((l:string)=>{if(y2>270){d2.addPage();y2=20;}d2.text(l,20,y2);y2+=size*0.45;});
                             y2+=2;
                           };
-                          ln2("AUTORIZACAO DE RESPONSAVEL LEGAL",16,true,[180,140,50]);
-                          y2+=3;
-                          ln2(`Menor: ${sc.nome} (${idade} anos)  |  Data: ${new Date().toLocaleDateString("pt-BR")}`,10,false,[100,100,100]);
+                          // Cabeçalho
+                          ln2((studioName||"A Casa dos Carvalho").replace(/_/g," "),13,true,[180,140,50]);
+                          ln2(studioCity ? studioCity + (studioRua ? " — " + studioRua + (studioNumero ? ", " + studioNumero : "") : "") : "",9,false,[120,120,120]);
                           y2+=4;
+                          d2.setDrawColor(180,140,50); d2.setLineWidth(0.4); d2.line(20,y2,W2-20,y2); y2+=5;
+                          ln2("AUTORIZACAO DE RESPONSAVEL LEGAL",16,true,[180,140,50]);
+                          y2+=2;
+                          ln2(`Menor: ${sc.nome} (${idade} anos)  |  Data: ${new Date().toLocaleDateString("pt-BR")}`,10,false,[100,100,100]);
+                          y2+=5;
+                          // Serviço autorizado
+                          const srvAut = resp.dados.servico||pai.servico||"—";
+                          const areaAut = resp.dados.area||pai.area||"—";
+                          ln2(`Servico autorizado: ${srvAut}  |  Area de aplicacao: ${areaAut}`,10,false,[60,60,60]);
+                          y2+=5;
+                          // Declaração completa
+                          ln2("DECLARACAO",11,true,[50,50,50]);
+                          y2+=1;
+                          ln2(`Eu, abaixo identificado(a), na qualidade de responsavel legal pelo(a) menor ${sc.nome}, portador(a) de ${idade} anos de idade, AUTORIZO expressamente a realizacao do procedimento de ${srvAut} na regiao ${areaAut}, a ser executado pelo(a) profissional ${artists.find(a=>a.id===sc.artista)?.nome||"—"}, no estabelecimento ${(studioName||"A Casa dos Carvalho").replace(/_/g," ")}.`,10,false,[60,60,60]);
+                          y2+=3;
+                          ln2("Declaro ainda que:",10,false,[60,60,60]);
+                          ln2("— Li e estou ciente de todos os termos do contrato de execucao de projeto artistico;",10,false,[60,60,60]);
+                          ln2("— Fui orientado(a) sobre os cuidados pos-procedimento e riscos envolvidos;",10,false,[60,60,60]);
+                          ln2("— As informacoes prestadas na ficha de anamnese sao verdadeiras;",10,false,[60,60,60]);
+                          ln2("— Assumo responsabilidade pelos cuidados indicados apos o procedimento.",10,false,[60,60,60]);
+                          y2+=5;
+                          // Dados do responsável
+                          d2.setDrawColor(200,200,200); d2.line(20,y2,W2-20,y2); y2+=5;
                           ln2(resp.label,12,true,[180,140,50]);
-                          ln2(`Nome: ${resp.dados.resp_nome||"—"}  |  CPF: ${resp.dados.resp_cpf||"—"}  |  RG: ${resp.dados.resp_rg||"—"}  |  Tel: ${resp.dados.resp_tel||"—"}  |  Parentesco: ${resp.dados.resp_parentesco||"—"}`);
-                          if(resp.dados.descricao){y2+=2;ln2("Autorizacao: "+resp.dados.descricao);}
-                          y2+=6;
-                          ln2("Assinatura — Lei 14.063/2020",10,false,[120,120,120]);
-                          try{d2.addImage(assinVal,"PNG",20,y2,60,25);y2+=28;}catch(e){console.error("addImage menor:",e);}
+                          ln2(`Nome completo: ${resp.dados.resp_nome||"—"}`,10);
+                          ln2(`CPF: ${resp.dados.resp_cpf||"—"}  |  RG: ${resp.dados.resp_rg||"—"}`,10);
+                          ln2(`Telefone: ${resp.dados.resp_tel||"—"}  |  Parentesco: ${resp.dados.resp_parentesco||"—"}`,10);
+                          if(resp.dados.resp_email){ln2(`E-mail: ${resp.dados.resp_email}`,10);}
+                          if(resp.dados.descricao){y2+=2;ln2("Observacao: "+resp.dados.descricao,10,false,[100,100,100]);}
+                          y2+=8;
+                          ln2("Assinatura eletronica — Lei 14.063/2020",10,false,[120,120,120]);
+                          try{d2.addImage(assinVal,"PNG",20,y2,60,25);y2+=30;}catch(e){console.error("addImage menor:",e);}
+                          y2+=4;
+                          d2.setDrawColor(200,200,200); d2.line(20,y2,80,y2); y2+=4;
+                          ln2(resp.dados.resp_nome||"Responsavel",9,false,[120,120,120]);
+                          ln2(new Date().toLocaleDateString("pt-BR"),9,false,[160,160,160]);
                           const blob2=d2.output("blob");
                           const pdfNome2=`AUTORIZACAO-${nomeMin}-${resp.sufixo}-${data}.pdf`;
                           const fname2=`pdf-${sc.id}-menor-${resp.sufixo.toLowerCase()}-${Date.now()}.pdf`;
@@ -7986,11 +8016,12 @@ export default function CRM() {
                           html: htmlEmail,
                         }),
                       });
+                      const rData = await r.json().catch(() => ({}));
                       if (r.ok) {
                         await salvarDocsStatus(docId, "enviado");
                         alert(`Email enviado para ${sc.email}`);
                       } else {
-                        alert("Erro ao enviar email. Verifique as configuracoes do Resend.");
+                        alert(`Erro ao enviar email: ${rData?.message || rData?.error || r.status}`);
                       }
                     } catch {
                       alert("Erro de conexao ao enviar email.");
