@@ -371,6 +371,45 @@ export default async function handler(req, res) {
           }
         }
 
+        // ── PRECISA REMARCAR — E-mail imediato com link WhatsApp ────────────────
+        if (cliente.etapa === "precisa_remarcar" && cfg.resend_api_key && cliente.email) {
+          const fn = (cliente.nome || "").trim().split(" ")[0];
+          const jaEnviouRemarcar = disparosEnviados && disparosEnviados["__precisa_remarcar_email__"];
+          if (!jaEnviouRemarcar && cliente.etapa_desde) {
+            const diasEtapa = diasEntre(cliente.etapa_desde, hoje);
+            if (diasEtapa >= 0) {
+              const linkWpp = "https://wa.me/5527999598230?text=" + encodeURIComponent("Olá! Sou " + cliente.nome + " e preciso remarcar minha sessão/consulta na Casa dos Carvalho. Podemos verificar uma nova data?");
+              const htmlRemarcar = `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px">
+<p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">Casa dos Carvalho Tattoo</p>
+<hr style="border:none;border-top:1px solid #d4a84b;margin-bottom:24px">
+<p style="font-size:16px">Olá, <strong>${fn}</strong>.</p>
+<p style="line-height:1.8;color:#444;margin:16px 0">Sua sessão foi desmarcada e o horário já foi disponibilizado para outros clientes.</p>
+<p style="line-height:1.8;color:#444;margin-bottom:16px">Trabalhamos com agenda limitada por uma razão: cada projeto merece atenção total. Quando um horário é agendado, a nossa atenção é plena para você — não terá a surpresa de ter o seu artista dividindo atenção com outros clientes.</p>
+<p style="line-height:1.8;color:#444;margin-bottom:28px">Assim que estiver pronto(a) para retomar, guardamos seu projeto com cuidado. Ele é seu.</p>
+<div style="text-align:center;margin-bottom:28px">
+  <a href="${linkWpp}" style="display:inline-block;background:#d4a84b;color:#111;text-decoration:none;border-radius:8px;padding:14px 32px;font-size:14px;font-weight:bold">Remarcar pelo WhatsApp</a>
+</div>
+<p style="font-size:12px;color:#bbb;margin-top:24px">Casa dos Carvalho Tattoo</p>
+</div>`;
+              const ok = await dispararEmail({
+                apiKey: cfg.resend_api_key,
+                from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                nome_remetente: studioName,
+                to: cliente.email,
+                subject: "Sua vaga foi liberada, " + fn,
+                html: htmlRemarcar,
+              });
+              if (ok) {
+                let disparosAtuais = {};
+                try { const { data: cliAtual } = await sb.from("clientes").select("disparos_enviados").eq("id", cliente.id).single(); disparosAtuais = cliAtual?.disparos_enviados || {}; } catch {}
+                await marcarEnviado(cliente.id, "__precisa_remarcar_email__", disparosAtuais);
+                await registrarHistorico(userId, "E-mail Precisa Remarcar enviado — " + cliente.nome);
+                totalDisparos++;
+              }
+            }
+          }
+        }
+
         // ── AGUARDANDO 1ª SESSÃO — E-mail imediato (D+0) + recontato D+30 ──────
         if (cliente.etapa === "aguard_1a_sessao" && cfg.resend_api_key && cliente.email) {
           const fn = (cliente.nome || "").trim().split(" ")[0];
