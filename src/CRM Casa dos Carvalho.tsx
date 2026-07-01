@@ -2702,7 +2702,7 @@ export default function CRM() {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
         if (tipoKey === "cons" && cli && ["lead"].includes(cli.etapa)) {
           executarMove(agClientVinc.id, "cons_agendada");
-        } else if ((tipoKey === "sess" || tipoKey === "piercing") && cli && ["lead", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"].includes(cli.etapa)) {
+        } else if ((tipoKey === "sess" || tipoKey === "piercing") && cli && ["lead", "lead_morno", "aura_agend", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"].includes(cli.etapa)) {
           executarMove(agClientVinc.id, "sessao_agend");
         }
       }
@@ -2793,7 +2793,7 @@ export default function CRM() {
         enviarEmailAgendamento("cons", agClientVinc, agForm.date, agForm.start, artistaNome);
       } else if (tipoKey === "sess" || tipoKey === "piercing") {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
-        if (cli && ["lead", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"].includes(cli.etapa)) {
+        if (cli && ["lead", "lead_morno", "aura_agend", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"].includes(cli.etapa)) {
           if (cli.etapa === "hibernacao" && (cli.faltas || 0) > 0) {
             setTimeout(() => setShowAviso(`⚠️ ${cli.nome} estava em hibernação por desmarcação. Lembre de cobrar R$100,00 de taxa — conforme política do estúdio.`), 500);
           }
