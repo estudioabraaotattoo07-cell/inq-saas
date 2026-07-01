@@ -4537,7 +4537,7 @@ export default function CRM() {
                     setDragOverStage(null);
                     if (draggingClientId !== null) {
                       const cli = clients.find(c => c.id === draggingClientId);
-                      if (cli && cli.etapa !== stage.id) handleMove(draggingClientId, stage.id);
+                      if (cli && cli.etapa !== stage.id) move(draggingClientId, stage.id);
                       setDraggingClientId(null);
                     }
                   }}
