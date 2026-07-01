@@ -2710,10 +2710,14 @@ export default function CRM() {
       const sinalValEdit = parseFloat(String((agForm as any).sinal || "0").replace(/\./g, "").replace(",", ".")) || 0;
       const sinalPagoEdit = !!(agForm as any).sinalPago;
       const sinalJaLancado = !!(editingEvent as any).sinal_pago;
-      if (sinalValEdit > 0 && sinalPagoEdit && !sinalJaLancado && agClientVinc) {
+      if (sinalValEdit > 0 && sinalPagoEdit && !sinalJaLancado) {
+        if (!agClientVinc) {
+          setShowAviso("Vincule um cliente ao evento para registrar o sinal no financeiro.");
+          return;
+        }
         const artistaSinalEdit = (agForm.tipo || "").replace("cons_","").replace("sess_","").replace("bloq_","") || artists[0]?.id || "";
-        const artistaObjEdit = artists.find(a => a.id === artistaSinalEdit);
-        const comSinalEdit = artistaObjEdit?.com || 0;
+        const formaEditRaw = (agForm as any).sinalFormaEdit || "Pix";
+        const pgtoEdit = formaEditRaw === "Crédito" ? "Cartão " + ((agForm as any).sinalParcelasEdit || "1") + "x" : formaEditRaw;
         const { data: fdSinalEdit, error: errSinalEdit } = await sb.from("financeiro").insert({
           cliente_id: agClientVinc.id,
           cliente_nome: agClientVinc.nome,
@@ -2721,13 +2725,14 @@ export default function CRM() {
           data: new Date().toISOString().split("T")[0],
           val_a: sinalValEdit,
           val_c: sinalValEdit,
-          pgto: "Sinal",
+          pgto: pgtoEdit,
           com_base: 0,
           com_sess: 0,
           categoria: "sinal",
+          tipo: "entrada",
           user_id: userId,
         }).select().single();
-        if (errSinalEdit) console.error("financeiro insert (sinal edição):", errSinalEdit);
+        if (errSinalEdit) { setShowAviso("Erro ao registrar sinal no financeiro. Tente novamente."); console.error("financeiro insert (sinal edição):", errSinalEdit); return; }
         if (fdSinalEdit) setFin(p => [...p, { ...fdSinalEdit, cliente: agClientVinc.nome }]);
       }
       return;
@@ -10066,6 +10071,21 @@ export default function CRM() {
                         style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--gold)" }} />
                       <label htmlFor="sinalPago" style={{ fontSize: 12, color: "var(--tx2)", cursor: "pointer" }}>Já recebido</label>
                     </div>
+                    {editingEvent && !!(agForm as any).sinalPago && !(editingEvent as any).sinal_pago && (
+                      <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" as const }}>
+                        {["Pix","Dinheiro","Débito","Crédito"].map(f => (
+                          <button key={f} type="button" onClick={() => setAgForm({ ...agForm, sinalFormaEdit: f } as any)}
+                            style={{ padding: "3px 9px", fontSize: 11, borderRadius: 5, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600, background: ((agForm as any).sinalFormaEdit || "Pix") === f ? "var(--gold)" : "var(--dk4)", border: "1px solid " + (((agForm as any).sinalFormaEdit || "Pix") === f ? "var(--gold)" : "var(--br)"), color: ((agForm as any).sinalFormaEdit || "Pix") === f ? "#000" : "var(--tx2)" }}>
+                            {f}
+                          </button>
+                        ))}
+                        {(agForm as any).sinalFormaEdit === "Crédito" && (
+                          <select className="fs" style={{ fontSize: 11, padding: "2px 6px" }} value={(agForm as any).sinalParcelasEdit || "1"} onChange={e => setAgForm({ ...agForm, sinalParcelasEdit: e.target.value } as any)}>
+                            {["1","2","3","4","5","6","7","8","9","10","11","12"].map(p => <option key={p} value={p}>{p}x</option>)}
+                          </select>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>}
 
