@@ -11653,25 +11653,6 @@ export default function CRM() {
                       if (c) setTimeout(() => saveClientDb(c), 100);
                       return updated;
                     });
-                    // Lança no financeiro como orçamento registrado
-                    const finRow = {
-                      cliente_id: orcamentoModal.cid,
-                      cliente_nome: cliente?.nome || "",
-                      artista_id: artista,
-                      artista: artista,
-                      tipo: "entrada",
-                      categoria: "sessao",
-                      val_a: v,
-                      val_c: v,
-                      pgto: "A definir",
-                      com_base: comPct,
-                      com_sess: comPct,
-                      data: new Date().toLocaleDateString("pt-BR"),
-                      status: "pendente",
-                      user_id: userId
-                    };
-                    const { data: fd } = await sb.from("financeiro").insert(finRow).select().single();
-                    if (fd) setFin(p => [...p, { ...finRow, id: fd.id, cliente: cliente?.nome }]);
                     setOrcamentoModal(null);
                   }
                 }}>Confirmar</button>
