@@ -190,6 +190,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
+
   const hoje = new Date();
   let totalDisparos = 0;
   let totalErros = 0;
