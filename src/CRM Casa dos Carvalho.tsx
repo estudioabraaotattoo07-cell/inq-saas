@@ -1506,7 +1506,7 @@ export default function CRM() {
           const clientesParaMigrar = cls.filter((c: any) => c.etapa === "qualificacao");
           if (clientesParaMigrar.length > 0) {
             clientesParaMigrar.forEach((c: any) => {
-              sb.from("clientes").update({ etapa: "lead" }).eq("id", c.id).then(() => {});
+              sb.from("clientes").update({ etapa: "lead", etapa_desde: new Date().toISOString() }).eq("id", c.id).then(() => {});
             });
           }
           // Sincronização: cliente com evento de agenda válido não pode ficar em "lead"
@@ -1525,12 +1525,13 @@ export default function CRM() {
             });
             if (clientesParaSincronizar.length > 0) {
               clientesParaSincronizar.forEach(({ id, novaEtapa }) => {
-                sb.from("clientes").update({ etapa: novaEtapa }).eq("id", id).then(() => {});
+                sb.from("clientes").update({ etapa: novaEtapa, etapa_desde: new Date().toISOString() }).eq("id", id).then(() => {});
               });
               const idsSync = clientesParaSincronizar.map(x => x.id);
               const etapaMap: Record<string, string> = {};
               clientesParaSincronizar.forEach(x => { etapaMap[x.id] = x.novaEtapa; });
-              setClients(prev => prev.map((c: any) => idsSync.includes(c.id) ? { ...c, etapa: etapaMap[c.id] } : c));
+              const agoraSync = new Date().toISOString();
+              setClients(prev => prev.map((c: any) => idsSync.includes(c.id) ? { ...c, etapa: etapaMap[c.id], etapa_desde: agoraSync } : c));
             }
           }
         }
@@ -1908,7 +1909,7 @@ export default function CRM() {
     await dbUpsert("clientes", {
       id: typeof c.id === "number" ? undefined : c.id,
       nome: c.nome, insta: c.insta || "", tel: c.tel || "",
-      qual: c.qual, artista: c.artista, etapa: c.etapa,
+      qual: c.qual, artista: c.artista, etapa: c.etapa, etapa_desde: (c as any).etapa_desde ?? null,
       orig: c.orig || "", email: c.email || "",
       tam: c.tam || "Medio", intencao: c.intencao || "", primeira: c.primeira || false,
       cob: c.cob || false, descricao: c.desc || "",
@@ -2189,7 +2190,7 @@ export default function CRM() {
     const posVenda = ns === "pos_venda";
     setClients(p => {
       const updated = p.map(c => c.id !== cid ? c : {
-        ...c, etapa: ns, orcamento: orq,
+        ...c, etapa: ns, etapa_desde: new Date().toISOString(), orcamento: orq,
         pv: tatuado ? [] : c.pv,
         // Reset de avaliação se entrar em pos_venda com ciclo incompleto (aguardando = nunca respondeu)
         avaliacao_fluxo_status: posVenda && (c as any).avaliacao_fluxo_status === "aguardando" ? null : (c as any).avaliacao_fluxo_status,
@@ -2359,8 +2360,9 @@ export default function CRM() {
       ];
       const novoHist = [...(cliAtual?.hist || []), ...histExtra];
       if (cliAtual) {
-        setClients(p => p.map(c => c.id !== ev.cliente_id ? c : { ...c, faltas: novasFaltas, etapa: novoEtapa, hist: novoHist }));
-        await sb.from("clientes").update({ faltas: novasFaltas, etapa: novoEtapa, hist: novoHist }).eq("id", ev.cliente_id);
+        const faltaMudouEtapa = novoEtapa !== cliAtual?.etapa;
+        setClients(p => p.map(c => c.id !== ev.cliente_id ? c : { ...c, faltas: novasFaltas, etapa: novoEtapa, ...(faltaMudouEtapa ? { etapa_desde: new Date().toISOString() } : {}), hist: novoHist }));
+        await sb.from("clientes").update({ faltas: novasFaltas, etapa: novoEtapa, ...(faltaMudouEtapa ? { etapa_desde: new Date().toISOString() } : {}), hist: novoHist }).eq("id", ev.cliente_id);
         setTimeout(() => setShowAviso(msg), 300);
       }
       addLog(`Agenda: falta registrada — "${ev.title}"` + (motivo ? ` — ${motivo}` : ""));
@@ -3119,9 +3121,9 @@ export default function CRM() {
       if (tool === "mover_pipeline") {
         const clienteAtualizado = clients.find(c => String(c.id) === String(params.cliente_id));
         if (clienteAtualizado) {
-          const updated = { ...clienteAtualizado, etapa: params.nova_etapa };
+          const updated = { ...clienteAtualizado, etapa: params.nova_etapa, etapa_desde: new Date().toISOString() };
           setClients(p => p.map(c => String(c.id) === String(params.cliente_id) ? updated : c));
-          await dbUpsert("clientes", { id: params.cliente_id, etapa: params.nova_etapa, user_id: userId });
+          await dbUpsert("clientes", { id: params.cliente_id, etapa: params.nova_etapa, etapa_desde: new Date().toISOString(), user_id: userId });
           try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: (auraName || "IA") + " moveu " + params.cliente_nome + " para " + params.nova_etapa, user_id: userId }); } catch {}
           return "✅ " + params.cliente_nome + " movido para **" + params.nova_etapa + "** com sucesso.";
         }
