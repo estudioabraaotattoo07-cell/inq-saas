@@ -557,10 +557,10 @@ export default async function handler(req, res) {
 
             const { data: evHoje } = await sb
               .from("agenda")
-              .select("id, date, hora")
+              .select("id, data, hora")
               .eq("cliente_id", cliente.id)
               .neq("status", "concluido")
-              .eq("date", hojeStr)
+              .eq("data", hojeStr)
               .limit(1)
               .single();
 
@@ -627,10 +627,10 @@ export default async function handler(req, res) {
             // Buscar evento da agenda para amanhã
             const { data: evAmanha } = await sb
               .from("agenda")
-              .select("id, date, hora")
+              .select("id, data, hora")
               .eq("cliente_id", cliente.id)
               .neq("status", "concluido")
-              .eq("date", amanhaStr)
+              .eq("data", amanhaStr)
               .limit(1)
               .single();
 
@@ -649,7 +649,7 @@ export default async function handler(req, res) {
               if (!jaEnviouCron && !tokenAtivoManual) {
                 // Gerar token novo (crypto global disponível no Node 18+)
                 const token = crypto.randomUUID();
-                const expDate = new Date(evAmanha.date + "T23:59:00");
+                const expDate = new Date(evAmanha.data + "T23:59:00");
                 expDate.setDate(expDate.getDate() + 1);
                 const exp = expDate.toISOString();
 
@@ -665,7 +665,7 @@ export default async function handler(req, res) {
                   : "http://localhost:3000";
                 const linkConfirmacao = baseUrl + "/confirmar.html?token=" + token;
 
-                const dataEvFormatada = new Date(evAmanha.date + "T12:00:00")
+                const dataEvFormatada = new Date(evAmanha.data + "T12:00:00")
                   .toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
                 const horaEv = evAmanha.hora ? " às " + evAmanha.hora : "";
                 const tipoAppt = ehConsulta ? "consulta" : "sessão";

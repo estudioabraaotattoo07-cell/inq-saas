@@ -10,8 +10,8 @@ const GOOGLE_REVIEW_URL = "https://g.page/r/CSIFD3cla6rxEBM/review";
 
 function paginaConfirmacao(estado, cli, evento) {
   const nome = cli?.nome ? cli.nome.split(" ")[0] : "Olá";
-  const dataEv = evento?.date
-    ? new Date(evento.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })
+  const dataEv = evento?.data
+    ? new Date(evento.data + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })
     : null;
   const horaEv = evento?.hora || null;
 
@@ -474,7 +474,7 @@ export default async function handler(req, res) {
       if (cli.confirmacao_evento_id) {
         const { data: ev } = await sb
           .from("agenda")
-          .select("title, date, hora, artista")
+          .select("titulo, data, hora, artista")
           .eq("id", cli.confirmacao_evento_id)
           .single();
         evento = ev;
