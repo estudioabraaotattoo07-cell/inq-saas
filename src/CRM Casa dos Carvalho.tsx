@@ -4581,7 +4581,9 @@ export default function CRM() {
                         ? agEvents.find(e => e.cliente_id === c.id && e.status !== "concluido" && e.date && new Date(e.date + "T23:59:00") >= new Date())
                         : null;
                       const disparosC = (c as any).disparos_enviados || {};
-                      const temFluxoBadge = !!evAtualBadge && (!!disparosC["__confirmacao_d1__" + evAtualBadge.id] || !!disparosC["__sms_d0__" + evAtualBadge.id]);
+                      const qtdDisparosC = Object.keys(disparosC).length;
+                      const temFluxoEventoBadge = !!evAtualBadge && (!!disparosC["__confirmacao_d1__" + evAtualBadge.id] || !!disparosC["__sms_d0__" + evAtualBadge.id]);
+                      const temFluxoBadge = temFluxoEventoBadge || qtdDisparosC > 0;
                       const anivHoje = isAniversHoje((c as any).nascimento || "");
                       const eMenorCard = isMenor((c as any).nascimento || "");
                       return (
@@ -4667,12 +4669,15 @@ export default function CRM() {
                                 return null;
                               })()}
                               {temFluxoBadge && (() => {
-                                const d1Enviado = !!disparosC["__confirmacao_d1__" + evAtualBadge.id];
-                                const d0Enviado = !!disparosC["__sms_d0__" + evAtualBadge.id];
-                                const partes = [];
-                                if (d1Enviado) partes.push("Lembrete D-1");
-                                if (d0Enviado) partes.push("SMS do dia");
-                                return <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(74,158,191,.15)", color: "var(--ab)", border: "1px solid rgba(74,158,191,.3)" }}>📨 {partes.join(" + ")} enviado{partes.length > 1 ? "s" : ""}</span>;
+                                if (temFluxoEventoBadge) {
+                                  const d1Enviado = !!disparosC["__confirmacao_d1__" + evAtualBadge.id];
+                                  const d0Enviado = !!disparosC["__sms_d0__" + evAtualBadge.id];
+                                  const partes = [];
+                                  if (d1Enviado) partes.push("Lembrete D-1");
+                                  if (d0Enviado) partes.push("SMS do dia");
+                                  return <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(74,158,191,.15)", color: "var(--ab)", border: "1px solid rgba(74,158,191,.3)" }}>📨 {partes.join(" + ")} enviado{partes.length > 1 ? "s" : ""}</span>;
+                                }
+                                return <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(74,158,191,.15)", color: "var(--ab)", border: "1px solid rgba(74,158,191,.3)" }}>📨 {qtdDisparosC} {qtdDisparosC === 1 ? "envio" : "envios"}</span>;
                               })()}
                             </div>
                           )}
@@ -4849,7 +4854,8 @@ export default function CRM() {
                         ? agEvents.find(e => e.cliente_id === c.id && e.status !== "concluido" && e.date && new Date(e.date + "T23:59:00") >= new Date())
                         : null;
                       const disparosRow = (c as any).disparos_enviados || {};
-                      const temFluxoRow = !!evAtualRow && (!!disparosRow["__confirmacao_d1__" + evAtualRow.id] || !!disparosRow["__sms_d0__" + evAtualRow.id]);
+                      const qtdDisparosRow = Object.keys(disparosRow).length;
+                      const temFluxoRow = (!!evAtualRow && (!!disparosRow["__confirmacao_d1__" + evAtualRow.id] || !!disparosRow["__sms_d0__" + evAtualRow.id])) || qtdDisparosRow > 0;
                       const selecionado = selIds.has(c.id);
                       return (
                         <tr key={c.id} data-letter={c.nome[0]?.toUpperCase()}
@@ -4895,7 +4901,7 @@ export default function CRM() {
                                 {ch === "orange" && <span className="co co-o">🟠</span>}
                                 {ch === "red" && <span className="co co-r">🔴</span>}
                                 {c.orcamento && <span className="atag">💰</span>}
-                                {temFluxoRow && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(74,158,191,.15)", color: "var(--ab)", border: "1px solid rgba(74,158,191,.3)" }}>📨</span>}
+                                {temFluxoRow && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(74,158,191,.15)", color: "var(--ab)", border: "1px solid rgba(74,158,191,.3)" }}>📨{qtdDisparosRow > 0 ? " " + qtdDisparosRow : ""}</span>}
                               </div>
                             }
                           </td>
