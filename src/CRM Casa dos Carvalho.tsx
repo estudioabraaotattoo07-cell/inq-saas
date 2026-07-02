@@ -9130,7 +9130,7 @@ export default function CRM() {
                             reader.readAsDataURL(f);
                           });
                           const { base64 } = await compress(file, 800, 0.75);
-                          const resp = await fetch("https://inq-ink-system.vercel.app/api/upload", {
+                          const resp = await fetch("https://inq-saas.vercel.app/api/upload", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ base64, mimeType: "image/jpeg", clienteId: sc.id })
