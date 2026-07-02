@@ -4577,6 +4577,11 @@ export default function CRM() {
                     {sc2.map(c => {
                       const m = miss(c); const ch = churn(c);
                       const anivMes = isAniversMes((c as any).nascimento || "");
+                      const evAtualBadge = (c.etapa === "sessao_agend" || c.etapa === "cons_agendada")
+                        ? agEvents.find(e => e.cliente_id === c.id && e.status !== "concluido" && e.date && new Date(e.date + "T23:59:00") >= new Date())
+                        : null;
+                      const disparosC = (c as any).disparos_enviados || {};
+                      const temFluxoBadge = !!evAtualBadge && (!!disparosC["__confirmacao_d1__" + evAtualBadge.id] || !!disparosC["__sms_d0__" + evAtualBadge.id]);
                       const anivHoje = isAniversHoje((c as any).nascimento || "");
                       const eMenorCard = isMenor((c as any).nascimento || "");
                       return (
@@ -4634,6 +4639,7 @@ export default function CRM() {
                           {(m.length > 0 || ch || c.orcamento || c.etapa === "blacklist" || c.etapa === "lista_espera" || anivMes
                             || (c as any).avaliacao_fluxo_status === "negativa"
                             || ["positiva","google_sim","google_nao"].includes((c as any).avaliacao_fluxo_status)
+                            || temFluxoBadge
                           ) && (
                             <div className="ar">
                               {anivMes && <span className="atag" style={{ background: "rgba(201,168,76,.2)", color: "var(--gold)", border: "1px solid rgba(201,168,76,.4)" }}>🎂 Aniversário</span>}
@@ -4659,6 +4665,14 @@ export default function CRM() {
                                 const temEvFuturo = agEvents.some(e => e.cliente_id === c.id && e.status !== "concluido" && e.date && new Date(e.date + "T23:59:00") >= new Date());
                                 if (temEvFuturo) return <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(243,156,18,.12)", color: "#F39C12", border: "1px solid rgba(243,156,18,.3)" }}>⚠ Sem confirmação</span>;
                                 return null;
+                              })()}
+                              {temFluxoBadge && (() => {
+                                const d1Enviado = !!disparosC["__confirmacao_d1__" + evAtualBadge.id];
+                                const d0Enviado = !!disparosC["__sms_d0__" + evAtualBadge.id];
+                                const partes = [];
+                                if (d1Enviado) partes.push("Lembrete D-1");
+                                if (d0Enviado) partes.push("SMS do dia");
+                                return <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(74,158,191,.15)", color: "var(--ab)", border: "1px solid rgba(74,158,191,.3)" }}>📨 {partes.join(" + ")} enviado{partes.length > 1 ? "s" : ""}</span>;
                               })()}
                             </div>
                           )}
@@ -4831,6 +4845,11 @@ export default function CRM() {
                     {sorted.map(c => {
                       const es = EBS[c.etapa] || EBS.lead;
                       const m = miss(c); const ch = churn(c);
+                      const evAtualRow = (c.etapa === "sessao_agend" || c.etapa === "cons_agendada")
+                        ? agEvents.find(e => e.cliente_id === c.id && e.status !== "concluido" && e.date && new Date(e.date + "T23:59:00") >= new Date())
+                        : null;
+                      const disparosRow = (c as any).disparos_enviados || {};
+                      const temFluxoRow = !!evAtualRow && (!!disparosRow["__confirmacao_d1__" + evAtualRow.id] || !!disparosRow["__sms_d0__" + evAtualRow.id]);
                       const selecionado = selIds.has(c.id);
                       return (
                         <tr key={c.id} data-letter={c.nome[0]?.toUpperCase()}
@@ -4869,13 +4888,14 @@ export default function CRM() {
                             </span>
                           </td>
                           <td>
-                            {m.length === 0 && !ch && !c.orcamento
+                            {m.length === 0 && !ch && !c.orcamento && !temFluxoRow
                               ? <span style={{ color: "var(--q3)", fontSize: 11 }}>OK</span>
-                              : <div style={{ display: "flex", gap: 3 }}>
+                              : <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                                 {m.map(x => <span key={x} className="atag">⚠</span>)}
                                 {ch === "orange" && <span className="co co-o">🟠</span>}
                                 {ch === "red" && <span className="co co-r">🔴</span>}
                                 {c.orcamento && <span className="atag">💰</span>}
+                                {temFluxoRow && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(74,158,191,.15)", color: "var(--ab)", border: "1px solid rgba(74,158,191,.3)" }}>📨</span>}
                               </div>
                             }
                           </td>
@@ -9357,6 +9377,42 @@ export default function CRM() {
                   );
                 })()}
 
+                {/* MENSAGENS AUTOMÁTICAS ENVIADAS */}
+                {(() => {
+                  const disparos = (sc as any).disparos_enviados || {};
+                  const LABELS: [string, string][] = [
+                    ["__confirmacao_d1__", "Lembrete D-1 de sessão/consulta"],
+                    ["__sms_d0__", "SMS do dia da sessão/consulta"],
+                    ["__avaliacao_google__", "Avaliação Google"],
+                    ["__aguard_prox_sessao_d60__", "Recontato D+60 (aguardando próxima sessão)"],
+                    ["__precisa_remarcar_email__", "E-mail — Precisa Remarcar"],
+                    ["__aguard_1a_sessao_bv__", "Boas-vindas — Aguardando 1ª Sessão"],
+                    ["__aguard_1a_sessao_d30__", "Recontato D+30 (aguardando 1ª sessão)"],
+                  ];
+                  const itens = Object.entries(disparos)
+                    .map(([chave, ts]) => {
+                      const encontrado = LABELS.find(([prefixo]) => chave.startsWith(prefixo));
+                      const label = encontrado ? encontrado[1] : (chave.startsWith("fluxo__") ? "Fluxo personalizado" : chave);
+                      return { chave, label, ts: ts as string };
+                    })
+                    .sort((a, b) => (a.ts > b.ts ? -1 : 1));
+                  return (
+                    <div>
+                      <div className="stit">📨 Mensagens Automáticas</div>
+                      <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                        {itens.length === 0 && <div style={{ fontSize: 11, color: "var(--tx3)" }}>Nenhuma mensagem automática enviada ainda.</div>}
+                        {itens.map(item => (
+                          <div key={item.chave} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 11 }}>
+                            <span style={{ color: "var(--tx)" }}>✓ {item.label}</span>
+                            <span style={{ color: "var(--tx3)", fontSize: 10, whiteSpace: "nowrap" }}>
+                              {new Date(item.ts).toLocaleDateString("pt-BR")} {new Date(item.ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* AGENDAMENTOS DO CLIENTE */}
                 {(() => {
