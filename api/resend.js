@@ -1,5 +1,5 @@
 const ALLOWED_ORIGINS = [
-  "https://inq-ink-system.vercel.app",
+  "https://inq-saas.vercel.app",
   "https://acasadoscarvalhotattoo.com.br",
   "https://www.acasadoscarvalhotattoo.com.br",
 ];

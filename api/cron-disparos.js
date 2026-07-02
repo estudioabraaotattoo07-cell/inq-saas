@@ -21,6 +21,16 @@ function diasEntre(dataISO, hoje) {
   }
 }
 
+function formatarTelBR(tel) {
+  const digitos = (tel || "").replace(/[^0-9]/g, "");
+  if (!digitos) return "";
+  // Já tem DDI 55 (13 digitos: 55 + DDD + 9 digitos, ou 12 sem o 9)
+  if (digitos.startsWith("55") && (digitos.length === 12 || digitos.length === 13)) return digitos;
+  // Numero nacional (10 ou 11 digitos: DDD + numero) — adiciona DDI 55
+  if (digitos.length === 10 || digitos.length === 11) return "55" + digitos;
+  return digitos;
+}
+
 function substituirVars(msg, cliente, studioName, extra) {
   if (!msg) return "";
   let r = msg
@@ -141,7 +151,7 @@ async function processarEtapa({
     });
   } else if (canal === "whatsapp" || canal === "sms") {
     if (!cfg.zenvia_api_key || !cfg.zenvia_numero || !cliente.tel) return;
-    const tel = (cliente.tel || "").replace(/[^0-9]/g, "");
+    const tel = formatarTelBR(cliente.tel);
     ok = await dispararZenvia({
       apiKey: cfg.zenvia_api_key,
       from: cfg.zenvia_numero,
@@ -576,7 +586,7 @@ export default async function handler(req, res) {
 
                 // SMS para o cliente
                 if (cliente.tel) {
-                  const telCliente = (cliente.tel || "").replace(/[^0-9]/g, "");
+                  const telCliente = formatarTelBR(cliente.tel);
                   const msgCliente = ehConsulta
                     ? `Ola, ${cliente.nome}! Hoje e o dia da sua consulta na Casa dos Carvalho. Estamos ansiosos para ouvir a sua ideia e apresentar o projeto da sua nova arte que sera eternizada na sua pele. Te esperamos as ${horaEv} em: ${enderecoStudio}. Ate logo! - ${studioName}`
                     : `Ola, ${cliente.nome}! Hoje e o dia da sua sessao de tatuagem na Casa dos Carvalho. A arte esta pronta e o artista esta animado para tatuar voce! Te esperamos as ${horaEv} em: ${enderecoStudio}. Pontualidade e muito importante para nos. Ate logo! - ${studioName}`;
@@ -591,7 +601,7 @@ export default async function handler(req, res) {
                     const artistas = typeof artData?.artistas === "string" ? JSON.parse(artData.artistas) : (artData?.artistas || []);
                     const art = artistas.find(a => a.id === cliente.artista);
                     if (art?.tel) {
-                      const telArtista = (art.tel || "").replace(/[^0-9]/g, "");
+                      const telArtista = formatarTelBR(art.tel);
                       const msgArtista = ehConsulta
                         ? `INK SYSTEM: Voce tem uma consulta hoje com ${cliente.nome} as ${horaEv}.${solicitacao ? " Projeto solicitado: " + solicitacao + "." : ""} Confira sua agenda e prepare-se.`
                         : `INK SYSTEM: Voce tem uma sessao de tatuagem hoje com ${cliente.nome} as ${horaEv}.${solicitacao ? " Projeto solicitado: " + solicitacao + "." : ""} Prepare tudo para a arte de hoje.`;
@@ -700,7 +710,7 @@ export default async function handler(req, res) {
                     });
                     if (ok) enviou = true;
                   } else if ((canal === "sms" || canal === "whatsapp") && cfg.zenvia_api_key && cfg.zenvia_numero && cliente.tel) {
-                    const tel = (cliente.tel || "").replace(/[^0-9]/g, "");
+                    const tel = formatarTelBR(cliente.tel);
                     const ok = await dispararZenvia({ apiKey: cfg.zenvia_api_key, from: cfg.zenvia_numero, to: tel, text: msgFinal, canal });
                     if (ok) enviou = true;
                   }
@@ -766,7 +776,7 @@ export default async function handler(req, res) {
                     });
                   } else if (canalAtual === "sms" || canalAtual === "whatsapp") {
                     if (!cfg.zenvia_api_key || !cfg.zenvia_numero || !cliente.tel) continue;
-                    const tel = (cliente.tel || "").replace(/[^0-9]/g, "");
+                    const tel = formatarTelBR(cliente.tel);
                     ok = await dispararZenvia({
                       apiKey: cfg.zenvia_api_key,
                       from: cfg.zenvia_numero,
