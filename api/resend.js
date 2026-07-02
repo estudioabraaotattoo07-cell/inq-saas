@@ -22,18 +22,29 @@ export default async function handler(req, res) {
 
   const { apiKey, from, to, subject, html } = req.body;
 
-  if (!apiKey) {
-    return res.status(400).json({ error: "apiKey obrigatório" });
+  // Resiliência: se o cliente não enviar chave/remetente válidos (ex: sessão
+  // com config incompleta), usa as credenciais do servidor. A chave real do
+  // estúdio fica em variável de ambiente e nunca é exposta ao navegador.
+  const finalKey = apiKey || process.env.RESEND_API_KEY;
+  const envRemetente = process.env.EMAIL_REMETENTE || "contato@acasadoscarvalhotattoo.com.br";
+  const fromValido = from && from.includes("@") && !from.includes("<>");
+  const finalFrom = fromValido ? from : ("A Casa dos Carvalho <" + envRemetente + ">");
+
+  if (!finalKey) {
+    return res.status(400).json({ error: "Nenhuma chave Resend disponível (nem no cliente nem no servidor)" });
+  }
+  if (!to) {
+    return res.status(400).json({ error: "Destinatário obrigatório" });
   }
 
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer " + apiKey,
+        "Authorization": "Bearer " + finalKey,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ from, to, subject, html })
+      body: JSON.stringify({ from: finalFrom, to, subject, html })
     });
 
     const data = await response.json();
