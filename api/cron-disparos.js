@@ -186,6 +186,10 @@ export default async function handler(req, res) {
   // Vercel Cron envia GET com header authorization
   const auth = req.headers.authorization || "";
   const cronSecret = process.env.CRON_SECRET || "";
+  if (cronSecret && auth !== "Bearer " + cronSecret) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
   const hoje = new Date();
   let totalDisparos = 0;
   let totalErros = 0;
