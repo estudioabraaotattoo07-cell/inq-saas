@@ -1776,12 +1776,12 @@ export default function CRM() {
       if (!studioTel) { setShowAviso("Preencha o WhatsApp do Estúdio em Configurações → Estúdio para receber o teste."); return; }
       setTestandoCanal(canal);
       try {
-        const tel = (studioTel || "").replace(/[^0-9]/g, "");
-        const endpoint = canal === "sms" ? "/api/zenvia-sms" : "/api/zenvia";
-        await fetch(endpoint, {
+        const telRaw = (studioTel || "").replace(/[^0-9]/g, "");
+        const tel = telRaw.startsWith("55") ? telRaw : "55" + telRaw;
+        await fetch("/api/zenvia", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey: zenviaApiKey, from: zenviaNumero, to: tel, text: "Mensagem de teste do INK SYSTEM. Se você recebeu isso, o canal está funcionando!" })
+          body: JSON.stringify({ apiKey: zenviaApiKey, from: zenviaNumero, to: tel, text: "Mensagem de teste do INK SYSTEM. Se você recebeu isso, o canal está funcionando!", canal })
         });
         setTesteCanalEnviado({ canal, destino: studioTel });
       } catch { setShowAviso("Erro ao enviar o teste. Revise a Zenvia API Key."); }
@@ -1827,12 +1827,10 @@ export default function CRM() {
           });
           enviados++;
         } else if ((canal === "whatsapp" || canal === "sms") && zenviaApiKey && zenviaNumero && cliente.tel) {
-          const tel = (cliente.tel || "").replace(/[^0-9]/g, "");
-          const endpoint = canal === "sms" ? "/api/zenvia-sms" : "/api/zenvia";
-          await fetch(endpoint, {
+          await fetch("/api/zenvia", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ apiKey: zenviaApiKey, from: zenviaNumero, to: tel, text: msg })
+            body: JSON.stringify({ from: zenviaNumero, to: cliente.tel, text: msg, canal })
           });
           enviados++;
         }
@@ -2889,14 +2887,12 @@ export default function CRM() {
       if (cliente.tel && zenviaApiKey && zenviaNumero) {
         try {
           const smsBody = mensagem.slice(0, 160);
-          const telLimpo = cliente.tel.replace(/[^0-9]/g, "");
           await fetch("/api/zenvia", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              apiKey: zenviaApiKey,
               from: zenviaNumero,
-              to: "+55" + telLimpo,
+              to: cliente.tel,
               text: smsBody
             })
           });
@@ -3326,15 +3322,12 @@ export default function CRM() {
           if (!zenviaApiKey) {
             return "❌ Credenciais Zenvia não configuradas. Acesse **Configurações → IA → SMS** para configurar.";
           }
-          const telFormatado = params.cliente_tel.replace(/\D/g, "").replace(/^0/, "");
-          const telZenvia = telFormatado.startsWith("55") ? telFormatado : "55" + telFormatado;
           const smsResp = await fetch("/api/zenvia", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              apiKey: zenviaApiKey,
               from: zenviaNumero,
-              to: telZenvia,
+              to: params.cliente_tel,
               text: params.mensagem
             })
           });
@@ -4719,8 +4712,7 @@ export default function CRM() {
                   const r = await fetch("/api/resend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: resendApiKey, from: (nomeRemetente || studioName || "INK SYSTEM") + " <" + emailRemetente + ">", to: c.email, subject: "Mensagem de " + (studioName || "INK SYSTEM"), html }) });
                   if (r.ok) ok++;
                 } else if (disparoMassa!.canal === "sms" && c.tel && zenviaApiKey && zenviaNumero) {
-                  const tel = "55" + c.tel.replace(/[^0-9]/g, "").replace(/^55/, "");
-                  const r = await fetch("/api/zenvia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: zenviaApiKey, from: zenviaNumero, to: tel, text: msg }) });
+                  const r = await fetch("/api/zenvia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: zenviaNumero, to: c.tel, text: msg, canal: "sms" }) });
                   if (r.ok) ok++;
                 }
               } catch {}
