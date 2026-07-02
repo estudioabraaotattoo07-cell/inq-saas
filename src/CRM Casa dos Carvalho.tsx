@@ -2272,26 +2272,32 @@ export default function CRM() {
       return updated;
     });
     // Marcar evento como concluído na agenda
-    if (confirmPagamento.agEvent?.id) {
-      await sb.from("agenda").update({ status: "concluido" }).eq("id", confirmPagamento.agEvent.id);
-      setAgEvents(p => p.map(e => e.id === confirmPagamento.agEvent.id ? { ...e, status: "concluido" } : e));
+    try {
+      if (confirmPagamento.agEvent?.id) {
+        const { error: errAgenda } = await sb.from("agenda").update({ status: "concluido" }).eq("id", confirmPagamento.agEvent.id);
+        if (errAgenda) console.error("Erro ao marcar evento como concluído:", errAgenda);
+        setAgEvents(p => p.map(e => e.id === confirmPagamento.agEvent.id ? { ...e, status: "concluido" } : e));
+      }
+      // Se veio de "Solicitação Concluída" na ficha, marca o projeto e move pipeline
+      if (projParaConcluir && projParaConcluir.clienteId === cid) {
+        setClients(p => p.map(c => {
+          if (c.id !== cid) return c;
+          const projs = (c.projetos || []).map((p: any) =>
+            p.id === projParaConcluir.projetoId
+              ? { ...p, status: "concluido", concluidoEm: new Date().toLocaleDateString("pt-BR") }
+              : p
+          );
+          setTimeout(() => saveClientDb({ ...c, projetos: projs }), 100);
+          return { ...c, projetos: projs, hist: [...(c.hist||[]), { t: `Projeto concluído`, d: new Date().toLocaleString("pt-BR") }] };
+        }));
+        setProjParaConcluir(null);
+      }
+    } catch (err) {
+      console.error("Erro ao finalizar etapas pós-pagamento:", err);
+    } finally {
+      setConfirmPagamento(null);
+      setAgendarProximaModal({ cid });
     }
-    // Se veio de "Solicitação Concluída" na ficha, marca o projeto e move pipeline
-    if (projParaConcluir && projParaConcluir.clienteId === cid) {
-      setClients(p => p.map(c => {
-        if (c.id !== cid) return c;
-        const projs = (c.projetos || []).map((p: any) =>
-          p.id === projParaConcluir.projetoId
-            ? { ...p, status: "concluido", concluidoEm: new Date().toLocaleDateString("pt-BR") }
-            : p
-        );
-        setTimeout(() => saveClientDb({ ...c, projetos: projs }), 100);
-        return { ...c, projetos: projs, hist: [...(c.hist||[]), { t: `Projeto concluído`, d: new Date().toLocaleString("pt-BR") }] };
-      }));
-      setProjParaConcluir(null);
-    }
-    setConfirmPagamento(null);
-    setAgendarProximaModal({ cid });
   };
 
   const upC = (cid: number, f: string, v: any) => {
