@@ -10102,7 +10102,7 @@ export default function CRM() {
                     {artists.filter(a => a.ativo).map(a => {
                       const chipActive = agForm.tipo?.includes(a.id) || ((agForm as any).artista_exec === a.id);
                       return (
-                        <div key={a.id} onMouseDown={() => {
+                        <div key={a.id} onClick={() => {
                           if (agForm.tipo === "piercing" || agForm.tipo?.startsWith("bloq")) {
                             setAgForm({ ...agForm, artista_exec: a.id } as any);
                           } else {
@@ -10191,7 +10191,7 @@ export default function CRM() {
                     {servicoOpts.map(svc => {
                       const active = (agForm as any).servico === svc.nome;
                       return (
-                        <div key={svc.id} onMouseDown={() => {
+                        <div key={svc.id} onClick={() => {
                           const artist = artists.find(a => (agForm.tipo || "").includes(a.id))?.id || (artists[0]?.id || "");
                           const nomeLower = svc.nome.toLowerCase();
                           const novoTipo = nomeLower.includes("piercing") ? "piercing" : nomeLower.includes("consulta") ? "cons_" + artist : (nomeLower.includes("sess") ? "sess_" + artist : "sess_" + artist);
@@ -10210,12 +10210,12 @@ export default function CRM() {
                       );
                     })}
                     {/* Bloqueio */}
-                    <div onMouseDown={() => {
+                    <div onClick={() => {
                       const isBloq = (agForm.tipo || "").startsWith("bloq");
                       if (!isBloq) setAgForm({ ...agForm, tipo: "bloq_geral" });
                     }} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
                       background: (agForm.tipo || "").startsWith("bloq") ? "rgba(192,57,43,.15)" : "var(--dk3)",
-                      border: "1px solid " + (agForm.tipo || "").startsWith("bloq") ? "var(--q1)" : "var(--br)",
+                      border: "1px solid " + ((agForm.tipo || "").startsWith("bloq") ? "var(--q1)" : "var(--br)"),
                       color: (agForm.tipo || "").startsWith("bloq") ? "var(--q1)" : "var(--tx2)" }}>
                       🔒 Bloqueio
                     </div>
@@ -10224,7 +10224,7 @@ export default function CRM() {
                   {(agForm.tipo || "").startsWith("bloq") && (
                     <>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                        <div onMouseDown={() => setAgForm({ ...agForm, tipo: "bloq_geral" })}
+                        <div onClick={() => setAgForm({ ...agForm, tipo: "bloq_geral" })}
                           style={{ padding: "4px 12px", borderRadius: 20, cursor: "pointer", fontSize: 11, fontWeight: 700,
                             background: agForm.tipo === "bloq_geral" ? "rgba(192,57,43,.2)" : "var(--dk3)",
                             border: `1px solid ${agForm.tipo === "bloq_geral" ? "var(--q1)" : "var(--br)"}`,
@@ -10232,7 +10232,7 @@ export default function CRM() {
                           TODOS
                         </div>
                         {artists.filter(a => a.ativo).map(a => (
-                          <div key={a.id} onMouseDown={() => setAgForm({ ...agForm, tipo: "bloq_" + a.id })}
+                          <div key={a.id} onClick={() => setAgForm({ ...agForm, tipo: "bloq_" + a.id })}
                             style={{ padding: "4px 12px", borderRadius: 20, cursor: "pointer", fontSize: 11, fontWeight: 600,
                               background: agForm.tipo === "bloq_" + a.id ? a.cor + "22" : "var(--dk3)",
                               border: `1px solid ${agForm.tipo === "bloq_" + a.id ? a.cor : "var(--br)"}`,
@@ -10272,7 +10272,7 @@ export default function CRM() {
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                           {stages.filter(s => !["blacklist"].includes(s.id)).map(s => (
                             <div key={s.id}
-                              onMouseDown={() => {
+                              onClick={() => {
                                 if (s.id !== cli.etapa) {
                                   const tipoFiltro = s.id === "cons_agendada" ? "cons" : s.id === "sessao_agend" ? "sess" : null;
                                   const evs = agEvents.filter(e => e.cliente_id === cli.id && e.status !== "concluido" && e.status !== "cancelado" && (tipoFiltro ? e.tipo?.startsWith(tipoFiltro) : true));
