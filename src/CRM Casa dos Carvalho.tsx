@@ -183,6 +183,11 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .wh{font-size:9px!important;padding:4px 1px!important;}
   .we{font-size:8px!important;padding:2px 3px!important;}
   .dtime{width:34px!important;font-size:8px!important;padding:6px 2px!important;}
+  .ag-month{padding:5px!important;overflow-x:hidden!important;}
+  .mg{gap:1px!important;}
+  .mday{min-height:50px!important;padding:2px 3px!important;font-size:9px!important;}
+  .mdh{padding:3px 1px!important;font-size:8px!important;}
+  .ag-day-head{font-size:12px!important;padding:7px 10px!important;}
 }
 .topbar{background:var(--dk2);border-bottom:1px solid var(--br);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
 .bmark{width:30px;height:30px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:700;color:#000;}
@@ -325,6 +330,7 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 .mdn{font-size:12px;font-weight:600;color:var(--tx);margin-bottom:3px;}
 .mday.today .mdn{color:var(--gold);}
 .mev{font-size:10px;font-weight:600;padding:2px 4px;border-radius:2px;margin-bottom:2px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ag-day-head{position:sticky;top:0;z-index:6;background:var(--dk3);border-bottom:1px solid var(--br);padding:9px 14px;font-size:14px;font-weight:600;color:var(--tx);text-transform:capitalize;}
 .ag-week{flex:1;overflow:auto;padding:12px;}
 .wg{display:grid;grid-template-columns:48px repeat(7,1fr);border:1px solid var(--br);border-radius:7px;overflow:hidden;}
 .wh{background:var(--dk3);padding:7px 5px;text-align:center;font-size:11px;font-weight:600;color:var(--tx2);border-bottom:1px solid var(--br);border-right:1px solid var(--br);position:sticky;top:0;z-index:5;}
@@ -1173,6 +1179,7 @@ export default function CRM() {
   const [msgEdit, setMsgEdit] = useState("");
   const [agView, setAgView] = useState("week");
   const [agDate, setAgDate] = useState(new Date());
+  const agTouchStart = useRef<{ x: number; y: number } | null>(null);
   const [horarios, setHorarios] = useState([
     { dia: "Segunda", aberto: true, ini: "09:00", fim: "19:00", almoco: false, almoco_ini: "12:00", almoco_fim: "13:00" },
     { dia: "Terca", aberto: true, ini: "09:00", fim: "19:00", almoco: false, almoco_ini: "12:00", almoco_fim: "13:00" },
@@ -3769,6 +3776,15 @@ export default function CRM() {
     else d.setMonth(d.getMonth() + dir);
     setAgDate(d);
   };
+  const onAgTouchStart = (e: React.TouchEvent) => { const t = e.touches[0]; agTouchStart.current = { x: t.clientX, y: t.clientY }; };
+  const onAgTouchEnd = (e: React.TouchEvent) => {
+    const s = agTouchStart.current; agTouchStart.current = null;
+    if (!s) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s.x, dy = t.clientY - s.y;
+    // só navega em swipe horizontal claro (evita conflito com rolagem vertical)
+    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.6) agNav(dx < 0 ? 1 : -1);
+  };
   const agTitle = () => {
     if (agView === "day") return agDate.getDate() + " de " + MONTHS[agDate.getMonth()] + " " + agDate.getFullYear();
     if (agView === "week") {
@@ -4933,7 +4949,7 @@ export default function CRM() {
 
         {/* ── AGENDA ── */}
         {tab === "agenda" && (
-          <div className="agw" style={{ animation: "fadeIn .15s ease" }}>
+          <div className="agw" style={{ animation: "fadeIn .15s ease" }} onTouchStart={onAgTouchStart} onTouchEnd={onAgTouchEnd}>
             <div className="ag-ctrl">
               <div className="ag-nav">
                 <button className="ag-nb" onClick={() => agNav(-1)}>&lt;</button>
@@ -5063,6 +5079,9 @@ export default function CRM() {
 
             {agView === "day" && (
               <div className="ag-day">
+                <div className="ag-day-head">
+                  {["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"][agDate.getDay()]}, {agDate.getDate()} de {MONTHS[agDate.getMonth()]} de {agDate.getFullYear()}
+                </div>
                 <div className="dg">
                   {HOURS.map(h => {
                     const ds = fmtDate(agDate);
