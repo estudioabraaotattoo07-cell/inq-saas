@@ -321,10 +321,7 @@ export default async function handler(req, res) {
           let nomeArtista = studioName;
           if (cliente.artista) {
             try {
-              const { data: artData } = await sb.from("configuracoes")
-                .select("artistas").eq("user_id", userId).single();
-              const artistas = typeof artData?.artistas === "string" ? JSON.parse(artData.artistas) : (artData?.artistas || []);
-              const art = artistas.find(a => a.id === cliente.artista);
+              const { data: art } = await sb.from("artistas").select("nome, tel").eq("id", cliente.artista).single();
               if (art?.nome) nomeArtista = art.nome.split(" ")[0] + " — " + studioName;
             } catch {}
           }
@@ -474,9 +471,7 @@ export default async function handler(req, res) {
           let nomeArtista = "";
           if (cliente.artista) {
             try {
-              const { data: artData } = await sb.from("configuracoes").select("artistas").eq("user_id", userId).single();
-              const artistas = typeof artData?.artistas === "string" ? JSON.parse(artData.artistas) : (artData?.artistas || []);
-              const art = artistas.find(a => a.id === cliente.artista);
+              const { data: art } = await sb.from("artistas").select("nome, tel").eq("id", cliente.artista).single();
               if (art?.nome) nomeArtista = art.nome;
             } catch {}
           }
@@ -594,12 +589,10 @@ export default async function handler(req, res) {
                   if (okCliente) enviouD0 = true;
                 }
 
-                // SMS para o artista (busca tel na lista de artistas do studio)
+                // SMS para o artista (busca tel na tabela de artistas do studio)
                 if (cliente.artista) {
                   try {
-                    const { data: artData } = await sb.from("configuracoes").select("artistas").eq("user_id", userId).single();
-                    const artistas = typeof artData?.artistas === "string" ? JSON.parse(artData.artistas) : (artData?.artistas || []);
-                    const art = artistas.find(a => a.id === cliente.artista);
+                    const { data: art } = await sb.from("artistas").select("nome, tel").eq("id", cliente.artista).single();
                     if (art?.tel) {
                       const telArtista = formatarTelBR(art.tel);
                       const msgArtista = ehConsulta

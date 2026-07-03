@@ -2544,6 +2544,7 @@ export default function CRM() {
       cor: artForm.cor,
       insta: artForm.insta || "",
       email: artForm.email || "",
+      tel: artForm.tel || "",
       user_id: userId
     };
     const { data: artData, error: artError } = await sb.from("artistas").insert(row).select().single();
@@ -4183,6 +4184,7 @@ export default function CRM() {
                   </div>
                 </div>
                 <div className="ff"><label className="fl">E-mail de acesso ao sistema</label><input className="fi" type="email" placeholder="email@exemplo.com" value={artForm.email} onChange={e => setArtForm({ ...artForm, email: e.target.value.toLowerCase() })} /></div>
+                <div className="ff"><label className="fl">Telefone / WhatsApp (recebe SMS de lembrete de sessão)</label><input className="fi" placeholder="(99) 99999-9999" value={artForm.tel} onChange={e => setArtForm({ ...artForm, tel: e.target.value })} /></div>
                 <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => { const v = e.target.value; setArtForm({ ...artForm, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                 <div className="ff"><label className="fl">Cor</label><ColorPicker value={artForm.cor} onChange={cor => setArtForm({ ...artForm, cor })} /></div>
               </div>
