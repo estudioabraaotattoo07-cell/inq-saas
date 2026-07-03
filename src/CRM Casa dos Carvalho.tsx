@@ -5326,11 +5326,11 @@ export default function CRM() {
                             <span style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em" }}>Meta mensal</span>
                             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                               <span style={{ fontSize: 10, color: "var(--tx3)" }}>R$</span>
-                              <input type="number" value={a.meta || 0}
+                              <input type="number" value={a.meta_faturamento || 0}
                                 onChange={async e => {
                                   const v = Number(e.target.value);
-                                  setArtists(p => p.map(x => x.id === a.id ? { ...x, meta: v } : x));
-                                  await sb.from("artistas").update({ meta: v }).eq("id", a.id);
+                                  setArtists(p => p.map(x => x.id === a.id ? { ...x, meta_faturamento: v } : x));
+                                  await sb.from("artistas").update({ meta_faturamento: v }).eq("id", a.id);
                                 }}
                                 style={{ width: 70, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 4, padding: "2px 6px", fontSize: 11, color: "var(--tx)", outline: "none" }} />
                             </div>
