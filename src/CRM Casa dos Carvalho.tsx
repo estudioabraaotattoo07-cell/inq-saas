@@ -6248,7 +6248,7 @@ export default function CRM() {
 
         {/* Modal editar artista — global, usado pelo settings Profissionais */}
         {editingArtist && (
-          <div className="fov" onClick={e => { if (e.target === e.currentTarget) setEditingArtist(null); }}>
+          <div className="fov" style={{ zIndex: 300 }} onClick={e => { if (e.target === e.currentTarget) setEditingArtist(null); }}>
             <div className="fmod" style={{ maxWidth: 460 }}>
               <div className="fmh">
                 <div className="fmt">Editar Profissional</div>
@@ -9736,7 +9736,7 @@ export default function CRM() {
 
         {/* ── MODAL CONTRATO ── */}
         {showCtr && (
-          <div className="ov" onClick={e => { if (e.target === e.currentTarget) setShowCtr(null); }}>
+          <div className="ov" style={{ zIndex: 300 }} onClick={e => { if (e.target === e.currentTarget) setShowCtr(null); }}>
             <div className="modal" style={{ maxWidth: 640 }}>
               <div className="mh">
                 <div>
@@ -11808,7 +11808,7 @@ export default function CRM() {
 
         {/* ── CONFIRMAÇÃO REMOVER ARTISTA ── */}
         {confirmRemoverArtista && (
-          <div className="ov" onClick={() => setConfirmRemoverArtista(null)}>
+          <div className="ov" style={{ zIndex: 300 }} onClick={() => setConfirmRemoverArtista(null)}>
             <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid rgba(192,57,43,.4)", borderRadius: 12, width: "min(440px, 92vw)", padding: "28px 28px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(192,57,43,.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🎨</div>
@@ -12645,39 +12645,38 @@ export default function CRM() {
                             <button className="btn-sm red" onClick={() => setConfirmRemoverArtista(a)}>Remover</button>
                           </div>
                         </div>
-                        <div className="abody">
-                          {[
-                            { l: "Clientes", v: clients.filter(c => c.artista === a.id).length },
-                            { l: "Tatuados", v: clients.filter(c => c.artista === a.id && (c.etapa === "tatuado" || c.etapa === "pos_venda")).length },
-                            { l: "Conversao", v: Math.round(clients.filter(c => c.artista === a.id && (c.etapa === "tatuado" || c.etapa === "pos_venda")).length / Math.max(clients.filter(c => c.artista === a.id).length, 1) * 100) + "%" },
-                          ].map((f, i) => (
-                            <div className="af" key={i}><div className="afl">{f.l}</div><div className="afv">{f.v}</div></div>
-                          ))}
-                          <div className="af">
-                            <div className="afl">Comissão Base (%)</div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4 }}>
-                              <input className="ci" type="number" min={0} max={100} value={a.com} onChange={e => setArtists(p => p.map(x => x.id === a.id ? { ...x, com: Number(e.target.value) } : x))} />
+                        <div style={{ padding: "10px 15px 13px" }}>
+                          {/* Stats rápidos — linha compacta */}
+                          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" as const, alignItems: "center", paddingBottom: 10, marginBottom: 10, borderBottom: "1px solid var(--br)" }}>
+                            {[
+                              { l: "Clientes", v: clients.filter(c => c.artista === a.id).length },
+                              { l: "Tatuados", v: clients.filter(c => c.artista === a.id && (c.etapa === "tatuado" || c.etapa === "pos_venda")).length },
+                              { l: "Conversão", v: Math.round(clients.filter(c => c.artista === a.id && (c.etapa === "tatuado" || c.etapa === "pos_venda")).length / Math.max(clients.filter(c => c.artista === a.id).length, 1) * 100) + "%" },
+                            ].map((f, i) => (
+                              <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                                <span style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: ".05em", color: "var(--tx3)" }}>{f.l}</span>
+                                <span style={{ fontSize: 15, fontWeight: 700, color: "var(--tx)" }}>{f.v}</span>
+                              </div>
+                            ))}
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto" }}>
+                              <span style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: ".05em", color: "var(--tx3)" }}>Comissão</span>
+                              <input className="ci" type="number" min={0} max={100} value={a.com} onChange={e => setArtists(p => p.map(x => x.id === a.id ? { ...x, com: Number(e.target.value) } : x))} style={{ width: 54 }} />
                               <span style={{ fontSize: 11, color: "var(--tx2)" }}>%</span>
                               <span style={{ fontSize: 10, color: "var(--tx3)" }}>· Est: <strong style={{ color: "var(--gold)" }}>{100 - (a.com || 0)}%</strong></span>
                             </div>
                           </div>
-                          <div className="af" style={{ flexDirection: "column", gap: 6 }}>
-                            <div className="afl">Metas do Mês</div>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                <span style={{ fontSize: 10, color: "var(--tx3)" }}>Sessões</span>
-                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                  <input className="ci" type="number" min={0} value={a.meta_sessoes || 0} onChange={e => { const updated = { ...a, meta_sessoes: Number(e.target.value) }; setArtists(p => p.map(x => x.id === a.id ? updated : x)); setTimeout(() => dbUpsert("artistas", { id: a.id, meta_sessoes: Number(e.target.value) }), 500); }} style={{ width: 56 }} />
-                                  {(() => { const sessoesMes = fin.filter((f: any) => f.artista === a.id && f.competencia === new Date().toISOString().slice(0,7)).length; const meta = a.meta_sessoes || 0; const pct = meta > 0 ? Math.min(Math.round(sessoesMes / meta * 100), 100) : 0; return <span style={{ fontSize: 10, color: pct >= 100 ? "#27AE60" : "var(--tx3)" }}>{sessoesMes}/{meta} ({pct}%)</span>; })()}
-                                </div>
-                              </div>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                <span style={{ fontSize: 10, color: "var(--tx3)" }}>Faturamento (R$)</span>
-                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                  <input className="ci" type="text" value={a.meta_faturamento ? Number(a.meta_faturamento).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : ""} placeholder="0" onChange={e => { const raw = e.target.value.replace(/\D/g, ""); const num = raw ? Number(raw) : 0; const updated = { ...a, meta_faturamento: num }; setArtists(p => p.map(x => x.id === a.id ? updated : x)); setTimeout(() => dbUpsert("artistas", { id: a.id, meta_faturamento: num }), 500); }} style={{ width: 90 }} />
-                                  {(() => { const fatMes = fin.filter((f: any) => f.artista === a.id && f.competencia === new Date().toISOString().slice(0,7)).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0); const meta = a.meta_faturamento || 0; const pct = meta > 0 ? Math.min(Math.round(fatMes / meta * 100), 100) : 0; return <span style={{ fontSize: 10, color: pct >= 100 ? "#27AE60" : "var(--tx3)" }}>R${fatMes.toLocaleString("pt-BR",{minimumFractionDigits:0})} ({pct}%)</span>; })()}
-                                </div>
-                              </div>
+                          {/* Metas do mês — inline */}
+                          <div style={{ display: "flex", gap: 24, flexWrap: "wrap" as const, alignItems: "center" }}>
+                            <span style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: ".05em", color: "var(--tx3)" }}>Metas do mês</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 11, color: "var(--tx2)" }}>Sessões</span>
+                              <input className="ci" type="number" min={0} value={a.meta_sessoes || 0} onChange={e => { const updated = { ...a, meta_sessoes: Number(e.target.value) }; setArtists(p => p.map(x => x.id === a.id ? updated : x)); setTimeout(() => dbUpsert("artistas", { id: a.id, meta_sessoes: Number(e.target.value) }), 500); }} style={{ width: 56 }} />
+                              {(() => { const sessoesMes = fin.filter((f: any) => f.artista === a.id && f.competencia === new Date().toISOString().slice(0,7)).length; const meta = a.meta_sessoes || 0; const pct = meta > 0 ? Math.min(Math.round(sessoesMes / meta * 100), 100) : 0; return <span style={{ fontSize: 10, color: pct >= 100 ? "#27AE60" : "var(--tx3)" }}>{sessoesMes}/{meta} ({pct}%)</span>; })()}
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 11, color: "var(--tx2)" }}>Faturamento R$</span>
+                              <input className="ci" type="text" value={a.meta_faturamento ? Number(a.meta_faturamento).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : ""} placeholder="0" onChange={e => { const raw = e.target.value.replace(/\D/g, ""); const num = raw ? Number(raw) : 0; const updated = { ...a, meta_faturamento: num }; setArtists(p => p.map(x => x.id === a.id ? updated : x)); setTimeout(() => dbUpsert("artistas", { id: a.id, meta_faturamento: num }), 500); }} style={{ width: 90 }} />
+                              {(() => { const fatMes = fin.filter((f: any) => f.artista === a.id && f.competencia === new Date().toISOString().slice(0,7)).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0); const meta = a.meta_faturamento || 0; const pct = meta > 0 ? Math.min(Math.round(fatMes / meta * 100), 100) : 0; return <span style={{ fontSize: 10, color: pct >= 100 ? "#27AE60" : "var(--tx3)" }}>R${fatMes.toLocaleString("pt-BR",{minimumFractionDigits:0})} ({pct}%)</span>; })()}
                             </div>
                           </div>
                         </div>
