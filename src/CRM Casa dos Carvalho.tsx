@@ -310,6 +310,8 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 .mt-trk{width:100%;background:var(--dk4);border-radius:4px;height:8px;margin-top:4px;overflow:hidden;}
 .mt-fil{height:100%;border-radius:4px;background:var(--gold);}
 .agw{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.ag-rail{display:flex;flex:1;min-height:0;width:300%;touch-action:pan-y;will-change:transform;}
+.ag-panel{flex:0 0 33.3333%;width:33.3333%;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
 .ag-ctrl{padding:11px 16px;background:var(--dk2);border-bottom:1px solid var(--br);display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
 .ag-nav{display:flex;align-items:center;gap:7px;}
 .ag-nb{background:var(--dk3);border:1px solid var(--br);border-radius:5px;color:var(--tx);padding:5px 11px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;}
@@ -1179,7 +1181,8 @@ export default function CRM() {
   const [msgEdit, setMsgEdit] = useState("");
   const [agView, setAgView] = useState("week");
   const [agDate, setAgDate] = useState(new Date());
-  const agTouchStart = useRef<{ x: number; y: number } | null>(null);
+  const agRailRef = useRef<HTMLDivElement>(null);
+  const agTouchNav = useRef<{ x: number; y: number; engaged: boolean; dx: number } | null>(null);
   const [horarios, setHorarios] = useState([
     { dia: "Segunda", aberto: true, ini: "09:00", fim: "19:00", almoco: false, almoco_ini: "12:00", almoco_fim: "13:00" },
     { dia: "Terca", aberto: true, ini: "09:00", fim: "19:00", almoco: false, almoco_ini: "12:00", almoco_fim: "13:00" },
@@ -3770,20 +3773,58 @@ export default function CRM() {
   const todayStr = fmtDate(new Date());
   const evOn = (d: string) => agEvents.filter(e => e.date === d);
   const agNav = (dir: number) => {
-    const d = new Date(agDate);
+    setAgDate(prev => {
+      const d = new Date(prev);
+      if (agView === "day") d.setDate(d.getDate() + dir);
+      else if (agView === "week") d.setDate(d.getDate() + dir * 7);
+      else d.setMonth(d.getMonth() + dir);
+      return d;
+    });
+  };
+  const agShift = (base: Date, dir: number) => {
+    const d = new Date(base);
     if (agView === "day") d.setDate(d.getDate() + dir);
     else if (agView === "week") d.setDate(d.getDate() + dir * 7);
     else d.setMonth(d.getMonth() + dir);
-    setAgDate(d);
+    return d;
   };
-  const onAgTouchStart = (e: React.TouchEvent) => { const t = e.touches[0]; agTouchStart.current = { x: t.clientX, y: t.clientY }; };
-  const onAgTouchEnd = (e: React.TouchEvent) => {
-    const s = agTouchStart.current; agTouchStart.current = null;
-    if (!s) return;
-    const t = e.changedTouches[0];
+  // ── Carrossel: arraste que segue o dedo + slide animado nos botões ──
+  const AG_MID = 33.3333; // posição de repouso do trilho (painel do meio)
+  const agSetRail = (offsetPx: number, animate: boolean) => {
+    const el = agRailRef.current; if (!el) return;
+    el.style.transition = animate ? "transform .28s ease" : "none";
+    el.style.transform = `translateX(calc(-${AG_MID}% + ${offsetPx}px))`;
+  };
+  const agSlide = (dir: number) => {
+    const el = agRailRef.current;
+    if (el) {
+      el.style.transition = "transform .28s ease";
+      el.style.transform = dir === 1 ? `translateX(-${AG_MID * 2}%)` : "translateX(0%)";
+    }
+    window.setTimeout(() => { agNav(dir); }, 285);
+  };
+  const onAgTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    agTouchNav.current = { x: t.clientX, y: t.clientY, engaged: false, dx: 0 };
+  };
+  const onAgTouchMove = (e: React.TouchEvent) => {
+    const s = agTouchNav.current; if (!s) return;
+    const t = e.touches[0];
     const dx = t.clientX - s.x, dy = t.clientY - s.y;
-    // só navega em swipe horizontal claro (evita conflito com rolagem vertical)
-    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.6) agNav(dx < 0 ? 1 : -1);
+    if (!s.engaged) {
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.3) s.engaged = true;
+      else if (Math.abs(dy) > 10) { agTouchNav.current = null; return; }
+      else return;
+    }
+    s.dx = dx;
+    agSetRail(dx, false);
+  };
+  const onAgTouchEnd = () => {
+    const s = agTouchNav.current; agTouchNav.current = null;
+    if (!s || !s.engaged) return;
+    const panelW = agRailRef.current ? agRailRef.current.offsetWidth / 3 : 320;
+    if (Math.abs(s.dx) > Math.min(75, panelW * 0.28)) agSlide(s.dx < 0 ? 1 : -1);
+    else agSetRail(0, true);
   };
   const agTitle = () => {
     if (agView === "day") return agDate.getDate() + " de " + MONTHS[agDate.getMonth()] + " " + agDate.getFullYear();
@@ -4949,12 +4990,12 @@ export default function CRM() {
 
         {/* ── AGENDA ── */}
         {tab === "agenda" && (
-          <div className="agw" style={{ animation: "fadeIn .15s ease" }} onTouchStart={onAgTouchStart} onTouchEnd={onAgTouchEnd}>
+          <div className="agw" style={{ animation: "fadeIn .15s ease" }} onTouchStart={onAgTouchStart} onTouchMove={onAgTouchMove} onTouchEnd={onAgTouchEnd}>
             <div className="ag-ctrl">
               <div className="ag-nav">
-                <button className="ag-nb" onClick={() => agNav(-1)}>&lt;</button>
+                <button className="ag-nb" onClick={() => agSlide(-1)}>&lt;</button>
                 <div className="ag-title">{agTitle()}</div>
-                <button className="ag-nb" onClick={() => agNav(1)}>&gt;</button>
+                <button className="ag-nb" onClick={() => agSlide(1)}>&gt;</button>
                 <button className="ag-nb" style={{ fontSize: 11 }} onClick={() => setAgDate(new Date())}>Hoje</button>
               </div>
               <div className="ag-vg">
@@ -4983,6 +5024,12 @@ export default function CRM() {
               </div>
             </div>
 
+            {(() => {
+              const renderAgView = (viewDate: Date) => {
+                const wDates = getWeekDates(viewDate);
+                const mDates = getMonthDates(viewDate);
+                const agDate = viewDate;
+                return (<>
             {agView === "month" && (
               <div className="ag-month">
                 <div className="mg">
@@ -5140,6 +5187,16 @@ export default function CRM() {
                 </div>
               </div>
             )}
+                </>);
+              };
+              return (
+                <div className="ag-rail" ref={agRailRef} style={{ transform: `translateX(-${AG_MID}%)`, transition: "none" }}>
+                  <div className="ag-panel">{renderAgView(agShift(agDate, -1))}</div>
+                  <div className="ag-panel">{renderAgView(agDate)}</div>
+                  <div className="ag-panel">{renderAgView(agShift(agDate, 1))}</div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
