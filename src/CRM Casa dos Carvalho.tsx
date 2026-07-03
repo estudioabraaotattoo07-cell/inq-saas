@@ -10101,6 +10101,16 @@ export default function CRM() {
               </div>
               <div className="fmb">
 
+                {/* 0. TÍTULO DO BLOQUEIO — primeiro campo quando é bloqueio */}
+                {(agForm.tipo || "").startsWith("bloq") && (
+                  <div className="ff">
+                    <label className="fl">Título do Bloqueio *</label>
+                    <input className="fi" autoFocus placeholder="Ex: Viagem, Manutenção, Compromisso pessoal..."
+                      value={(agForm as any).bloqTitulo || ""}
+                      onChange={e => setAgForm({ ...agForm, bloqTitulo: e.target.value } as any)} />
+                  </div>
+                )}
+
                 {/* 1. CLIENTE — oculto para bloqueio */}
                 {!(agForm.tipo || "").startsWith("bloq") && (
                 <div className="ff" style={{ position: "relative" }}>
@@ -10316,12 +10326,6 @@ export default function CRM() {
                             {a.nome.split(" ")[0]}
                           </div>
                         ))}
-                      </div>
-                      <div className="ff" style={{ marginTop: 8 }}>
-                        <label className="fl">Título do Bloqueio *</label>
-                        <input className="fi" placeholder="Ex: Viagem, Manutenção, Compromisso pessoal..."
-                          value={(agForm as any).bloqTitulo || ""}
-                          onChange={e => setAgForm({ ...agForm, bloqTitulo: e.target.value } as any)} />
                       </div>
                     </>
                   )}
