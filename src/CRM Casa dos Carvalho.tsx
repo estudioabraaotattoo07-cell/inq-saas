@@ -312,6 +312,7 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 .agw{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 .ag-rail{display:flex;flex:1;min-height:0;width:300%;touch-action:pan-y;will-change:transform;}
 .ag-panel{flex:0 0 33.3333%;width:33.3333%;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+.drop-hint{outline:2px dashed var(--gold)!important;outline-offset:-2px;background:rgba(201,168,76,.14)!important;box-shadow:inset 0 0 0 100vmax rgba(201,168,76,.06);}
 .ag-ctrl{padding:11px 16px;background:var(--dk2);border-bottom:1px solid var(--br);display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
 .ag-nav{display:flex;align-items:center;gap:7px;}
 .ag-nb{background:var(--dk3);border:1px solid var(--br);border-radius:5px;color:var(--tx);padding:5px 11px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;}
@@ -1183,6 +1184,13 @@ export default function CRM() {
   const [agDate, setAgDate] = useState(new Date());
   const agRailRef = useRef<HTMLDivElement>(null);
   const agTouchNav = useRef<{ x: number; y: number; engaged: boolean; dx: number } | null>(null);
+  // Fase 2 — arrastar agendamento (long-press)
+  const dragRef2 = useRef<any>(null);
+  const dragGhostRef = useRef<HTMLDivElement | null>(null);
+  const dropCellRef = useRef<HTMLElement | null>(null);
+  const [draggingEv, setDraggingEv] = useState<any>(null);
+  const [undoReag, setUndoReag] = useState<any>(null);
+  const undoReagTimer = useRef<any>(null);
   const [horarios, setHorarios] = useState([
     { dia: "Segunda", aberto: true, ini: "09:00", fim: "19:00", almoco: false, almoco_ini: "12:00", almoco_fim: "13:00" },
     { dia: "Terca", aberto: true, ini: "09:00", fim: "19:00", almoco: false, almoco_ini: "12:00", almoco_fim: "13:00" },
@@ -3804,6 +3812,7 @@ export default function CRM() {
     window.setTimeout(() => { agNav(dir); }, 285);
   };
   const onAgTouchStart = (e: React.TouchEvent) => {
+    if (dragRef2.current) return; // dedo começou sobre um evento → não navega (deixa o arraste agir)
     const t = e.touches[0];
     agTouchNav.current = { x: t.clientX, y: t.clientY, engaged: false, dx: 0 };
   };
@@ -3826,6 +3835,125 @@ export default function CRM() {
     if (Math.abs(s.dx) > Math.min(75, panelW * 0.28)) agSlide(s.dx < 0 ? 1 : -1);
     else agSetRail(0, true);
   };
+
+  // ───── Fase 2: arrastar agendamento (segurar ~0,6s e arrastar) ─────
+  const agMoveGhost = (x: number, y: number) => {
+    const g = dragGhostRef.current; if (!g) return;
+    g.style.left = x + "px"; g.style.top = y + "px";
+  };
+  const agSetDropHint = (cell: HTMLElement | null) => {
+    if (dropCellRef.current && dropCellRef.current !== cell) dropCellRef.current.classList.remove("drop-hint");
+    if (cell) cell.classList.add("drop-hint");
+    dropCellRef.current = cell;
+  };
+  const agEdge = (dir: number) => {
+    const d = dragRef2.current; if (!d) return;
+    if (dir === 0) { if (d.edgeTimer) { clearInterval(d.edgeTimer); d.edgeTimer = null; d.edgeDir = 0; } return; }
+    if (d.edgeDir === dir) return;
+    if (d.edgeTimer) clearInterval(d.edgeTimer);
+    d.edgeDir = dir;
+    d.edgeTimer = setInterval(() => agNav(dir), 750);
+  };
+  const finalizarReagendamento = async (ev: any, newDate: string, newHour: number) => {
+    if (!newDate) return;
+    const duration = Math.max((Number(ev.end) || Number(ev.start) + 2) - Number(ev.start), 1);
+    const finalHour = (newHour !== undefined && newHour !== null && !isNaN(newHour)) ? newHour : ev.start;
+    const finalEnd = finalHour + duration;
+    if (newDate === ev.date && finalHour === ev.start) return;
+    const oldSnap = { id: ev.id, date: ev.date, start: ev.start, end: ev.end, cliente_id: ev.cliente_id };
+    setAgEvents(p => p.map(x => x.id === ev.id ? { ...x, date: newDate, start: finalHour, end: finalEnd } : x));
+    await sb.from("agenda").update({ data: newDate, hora: String(finalHour).padStart(2, "0") + ":00", hora_fim: String(finalEnd).padStart(2, "0") + ":00" }).eq("id", ev.id);
+    let oldDisparos: any = null;
+    if (ev.cliente_id) {
+      try {
+        const { data: cli } = await sb.from("clientes").select("disparos_enviados").eq("id", ev.cliente_id).single();
+        oldDisparos = cli?.disparos_enviados || {};
+        const novo: any = { ...oldDisparos };
+        delete novo["__sms_d0__" + ev.id];
+        delete novo["__confirmacao_d1__" + ev.id];
+        Object.keys(novo).forEach(k => { if (k.startsWith("fluxo__")) delete novo[k]; });
+        await sb.from("clientes").update({ disparos_enviados: novo }).eq("id", ev.cliente_id);
+        setClients(p => p.map(c => c.id === ev.cliente_id ? { ...c, disparos_enviados: novo } : c));
+      } catch {}
+    }
+    addLog(`Agenda: "${ev.title || "evento"}" reagendado para ${newDate.split("-").reverse().join("/")} às ${finalHour}h — fluxo de aviso reiniciado`);
+    if (undoReagTimer.current) clearTimeout(undoReagTimer.current);
+    setUndoReag({ ...oldSnap, oldDisparos, novoTexto: `${newDate.split("-").reverse().join("/")} às ${finalHour}h` });
+    undoReagTimer.current = setTimeout(() => setUndoReag(null), 8000);
+  };
+  const desfazerReag = async () => {
+    const u = undoReag; if (!u) return;
+    setUndoReag(null);
+    if (undoReagTimer.current) clearTimeout(undoReagTimer.current);
+    setAgEvents(p => p.map(x => x.id === u.id ? { ...x, date: u.date, start: u.start, end: u.end } : x));
+    await sb.from("agenda").update({ data: u.date, hora: String(u.start).padStart(2, "0") + ":00", hora_fim: String(u.end).padStart(2, "0") + ":00" }).eq("id", u.id);
+    if (u.cliente_id && u.oldDisparos !== null && u.oldDisparos !== undefined) {
+      await sb.from("clientes").update({ disparos_enviados: u.oldDisparos }).eq("id", u.cliente_id);
+      setClients(p => p.map(c => c.id === u.cliente_id ? { ...c, disparos_enviados: u.oldDisparos } : c));
+    }
+  };
+  const dragDocMove = (ev: TouchEvent) => {
+    const d = dragRef2.current; if (!d || !d.active) return;
+    ev.preventDefault();
+    const t = ev.touches[0]; if (!t) return;
+    agMoveGhost(t.clientX, t.clientY);
+    const W = window.innerWidth;
+    if (t.clientX > W - 42) agEdge(1);
+    else if (t.clientX < 42) agEdge(-1);
+    else agEdge(0);
+    const el = document.elementFromPoint(t.clientX, t.clientY) as HTMLElement | null;
+    const cell = el ? (el.closest("[data-drop-date]") as HTMLElement | null) : null;
+    if (cell) {
+      d.dropDate = cell.dataset.dropDate;
+      const dh = cell.dataset.dropHour;
+      d.dropHour = (dh !== undefined && dh !== "") ? parseInt(dh) : d.event.start;
+      agSetDropHint(cell);
+    }
+  };
+  const dragDocEnd = (ev?: TouchEvent) => {
+    const d = dragRef2.current;
+    if (d && d.active && ev && ev.cancelable) ev.preventDefault(); // suprime o clique após arrastar
+    if (d) {
+      document.removeEventListener("touchmove", d.docMove);
+      document.removeEventListener("touchend", d.docEnd);
+      document.removeEventListener("touchcancel", d.docEnd);
+      if (d.edgeTimer) clearInterval(d.edgeTimer);
+    }
+    agSetDropHint(null);
+    dragRef2.current = null;
+    setDraggingEv(null);
+    if (d && d.active) finalizarReagendamento(d.event, d.dropDate, d.dropHour);
+  };
+  const onEvTouchStart = (e: React.TouchEvent, ev: any) => {
+    if (e.touches.length > 1) return;
+    const t = e.touches[0];
+    const move = (mev: TouchEvent) => dragDocMove(mev);
+    const end = (eev?: TouchEvent) => dragDocEnd(eev);
+    dragRef2.current = { event: ev, active: false, startX: t.clientX, startY: t.clientY, dropDate: ev.date, dropHour: ev.start, timer: null, edgeTimer: null, edgeDir: 0, docMove: move, docEnd: end };
+    dragRef2.current.timer = setTimeout(() => {
+      const d = dragRef2.current; if (!d) return;
+      d.active = true;
+      if ((navigator as any).vibrate) { try { (navigator as any).vibrate(25); } catch {} }
+      setDraggingEv(ev);
+      requestAnimationFrame(() => agMoveGhost(d.startX, d.startY));
+      document.addEventListener("touchmove", d.docMove, { passive: false });
+      document.addEventListener("touchend", d.docEnd, { passive: false });
+      document.addEventListener("touchcancel", d.docEnd);
+    }, 550);
+  };
+  const onEvTouchMove = (e: React.TouchEvent) => {
+    const d = dragRef2.current; if (!d || d.active) return;
+    const t = e.touches[0];
+    if (Math.abs(t.clientX - d.startX) > 12 || Math.abs(t.clientY - d.startY) > 12) {
+      if (d.timer) clearTimeout(d.timer);
+      dragRef2.current = null;
+    }
+  };
+  const onEvTouchEnd = () => {
+    const d = dragRef2.current;
+    if (d && !d.active) { if (d.timer) clearTimeout(d.timer); dragRef2.current = null; }
+  };
+
   const agTitle = () => {
     if (agView === "day") return agDate.getDate() + " de " + MONTHS[agDate.getMonth()] + " " + agDate.getFullYear();
     if (agView === "week") {
@@ -5038,13 +5166,15 @@ export default function CRM() {
                     const ds = fmtDate(item.date); const evs = evOn(ds);
                     return (
                       <div key={i} className={"mday" + (item.cur ? "" : " om") + (ds === todayStr ? " today" : "")}
+                        data-drop-date={ds}
                         onClick={() => { setAgDate(item.date); setAgView("day"); }}>
                         <div className="mdn">{item.date.getDate()}</div>
                         {evs.slice(0, 3).map(e => {
                           const cliEv = e.cliente_id ? clients.find((c:any) => c.id === e.cliente_id) : null;
                           const anivHoje = cliEv ? isAniversHoje((cliEv as any).nascimento || "") : false;
                           return (
-                            <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista), cursor: "pointer", opacity: e.status === "concluido" ? 0.45 : 1 }}
+                            <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista), cursor: "pointer", opacity: e.status === "concluido" ? 0.45 : 1, touchAction: e.tipo?.startsWith("bloq") ? undefined : "pan-y" }}
+                              onTouchStart={te => onEvTouchStart(te, e)} onTouchMove={onEvTouchMove} onTouchEnd={onEvTouchEnd}
                               onClick={ev => { ev.stopPropagation(); const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
                               {e.status === "concluido" && "✅ "}{anivHoje && "🎂 "}{e.start}h {buildEventTitle(e, agEvents)}
                             </div>
@@ -5075,6 +5205,7 @@ export default function CRM() {
                       const occupied = agEvents.some(e => e.date === ds && e.start < h && e.end > h);
                       return (
                         <div key={h + "-" + di} className="wc" style={{ position: "relative", overflow: "visible" }}
+                          data-drop-date={ds} data-drop-hour={h}
                           onClick={() => { setAgDate(d); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); setAgForm({ title: "", desc: "", tipo: "cons_" + (artists[0]?.id || ""), date: ds, start: h, end: h + 2, sinal: "", sinalPago: false } as any); setShowAgForm(true); }}>
                           {evs.map((e, ei) => {
                             const eStart = isNaN(e.start) || e.start == null ? 9 : Number(e.start);
@@ -5094,8 +5225,10 @@ export default function CRM() {
                                 cursor: "pointer", display: "flex", alignItems: "flex-start", justifyContent: "space-between",
                                 opacity: e.status === "concluido" ? 0.45 : e.status === "cancelado" ? 0.55 : 1,
                                 filter: e.status === "concluido" ? "saturate(0.4)" : "none",
-                                textDecoration: e.status === "cancelado" ? "line-through" : "none"
+                                textDecoration: e.status === "cancelado" ? "line-through" : "none",
+                                touchAction: "pan-y"
                               }}
+                              onTouchStart={te => onEvTouchStart(te, e)} onTouchMove={onEvTouchMove} onTouchEnd={onEvTouchEnd}
                               onClick={ev => { ev.stopPropagation(); const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
                                 <span style={{overflow:"hidden",flex:1,minWidth:0}}>
                                   {e.status === "concluido" && <span style={{ fontSize: 10, marginRight: 3 }}>✅</span>}
@@ -5138,6 +5271,7 @@ export default function CRM() {
                       <div key={h} className="dr" data-hora={h}>
                         <div className="dtime">{h}:00</div>
                         <div className="dslot" style={{ position: "relative", minHeight: 46 }}
+                          data-drop-date={ds} data-drop-hour={h}
                           onClick={() => { if (!evs.length && !occupied) { setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); setAgForm({ title: "", desc: "", tipo: "cons_" + (artists[0]?.id || ""), date: ds, start: h, end: h + 2, sinal: "", sinalPago: false } as any); setShowAgForm(true); } }}>
                           {evs.map(e => {
                             const eStart = isNaN(e.start) || e.start == null ? 9 : Number(e.start);
@@ -5154,8 +5288,10 @@ export default function CRM() {
                                   cursor: "pointer", color: "#fff",
                                   textShadow: e.status === "cancelado" ? "none" : "0 1px 2px rgba(0,0,0,.8), 0 0 4px rgba(0,0,0,.6)",
                                   opacity: e.status === "concluido" ? 0.45 : e.status === "cancelado" ? 0.55 : 1,
-                                  filter: e.status === "concluido" ? "saturate(0.4)" : "none"
+                                  filter: e.status === "concluido" ? "saturate(0.4)" : "none",
+                                  touchAction: "pan-y"
                                 }}
+                                onTouchStart={te => onEvTouchStart(te, e)} onTouchMove={onEvTouchMove} onTouchEnd={onEvTouchEnd}
                                 onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
                                 <span style={{ fontWeight: 600 }}>
                                   {e.status === "concluido" && "✅ "}
@@ -11469,6 +11605,23 @@ export default function CRM() {
               Desfazer
             </button>
             <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, borderRadius: "0 0 10px 10px", background: "var(--gold)", animation: "resetBar 8s linear forwards" }} />
+          </div>
+        )}
+
+        {/* Fantasma do agendamento sendo arrastado (Fase 2) */}
+        {draggingEv && (
+          <div ref={dragGhostRef} style={{ position: "fixed", transform: "translate(-50%, -135%)", zIndex: 100000, pointerEvents: "none", background: draggingEv.tipo?.startsWith("bloq") ? "#C0392B" : getEventColor(draggingEv.tipo, artists, draggingEv.artista), color: "#fff", padding: "7px 13px", borderRadius: 7, fontSize: 12, fontWeight: 700, boxShadow: "0 8px 26px rgba(0,0,0,.55)", opacity: .95, whiteSpace: "nowrap", maxWidth: "72vw", overflow: "hidden", textOverflow: "ellipsis", textShadow: "0 1px 2px rgba(0,0,0,.7)" }}>
+            ✋ {buildEventTitle(draggingEv, agEvents)} · {draggingEv.start}h
+          </div>
+        )}
+        {/* Desfazer reagendamento (Fase 2) */}
+        {undoReag && (
+          <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 9999, background: "var(--dk2)", border: "1px solid var(--ab)", borderRadius: 10, padding: "12px 20px", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 24px rgba(0,0,0,.5)", minWidth: 320, maxWidth: "92vw" }}>
+            <span style={{ fontSize: 13, color: "var(--tx)", flex: 1 }}>📅 Reagendado para {undoReag.novoTexto}</span>
+            <button onClick={desfazerReag} style={{ background: "var(--ab)", color: "#000", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+              Desfazer
+            </button>
+            <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, borderRadius: "0 0 10px 10px", background: "var(--ab)", animation: "resetBar 8s linear forwards" }} />
           </div>
         )}
 
