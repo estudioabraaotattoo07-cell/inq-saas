@@ -13449,9 +13449,21 @@ export default function CRM() {
                 </button>
                 <button onClick={() => {
                   const cid = agendarProximaModal.cid;
+                  const cliLocal = clients.find(c => c.id === cid);
                   setAgendarProximaModal(null);
                   executarMove(cid, "sessao_agend");
                   changeTab("agenda");
+                  if (cliLocal) {
+                    setTimeout(() => {
+                      const artistaId = cliLocal.artista || (artists[0]?.id || "");
+                      setEditingEvent(null);
+                      setAgClientVinc(cliLocal);
+                      setAgClientSearch("");
+                      setAgForm({ title: cliLocal.nome, desc: "", tipo: "sess_" + artistaId, date: new Date().toISOString().split("T")[0], start: 9, end: 11, sinal: "", sinalPago: false } as any);
+                      setSessoesExtras([]);
+                      setShowAgForm(true);
+                    }, 400);
+                  }
                 }} style={{ background: "rgba(74,158,191,.12)", border: "1px solid rgba(74,158,191,.4)", borderRadius: 8, padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#4A9EBF", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", textAlign: "left" }}>
                   📅 Agendar próxima sessão agora
                   <div style={{ fontSize: 11, fontWeight: 400, color: "rgba(74,158,191,.8)", marginTop: 3 }}>Abre a agenda para marcar a data — cliente vai para Sessão Marcada</div>
