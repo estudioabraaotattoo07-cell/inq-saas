@@ -1196,6 +1196,7 @@ export default function CRM() {
   const dragRef2 = useRef<any>(null);
   const dragGhostRef = useRef<HTMLDivElement | null>(null);
   const dropCellRef = useRef<HTMLElement | null>(null);
+  const justDraggedRef = useRef(false);
   const [draggingEv, setDraggingEv] = useState<any>(null);
   const [undoReag, setUndoReag] = useState<any>(null);
   const undoReagTimer = useRef<any>(null);
@@ -3867,7 +3868,8 @@ export default function CRM() {
     if (d.edgeDir === dir) return;
     if (d.edgeTimer) clearInterval(d.edgeTimer);
     d.edgeDir = dir;
-    d.edgeTimer = setInterval(() => agNav(dir), 750);
+    agSlide(dir); // primeira passagem já animada, em vez de esperar 750ms parado
+    d.edgeTimer = setInterval(() => agSlide(dir), 900);
   };
   const finalizarReagendamento = async (ev: any, newDate: string, newHour: number) => {
     if (!newDate) return;
@@ -3907,16 +3909,14 @@ export default function CRM() {
       setClients(p => p.map(c => c.id === u.cliente_id ? { ...c, disparos_enviados: u.oldDisparos } : c));
     }
   };
-  const dragDocMove = (ev: TouchEvent) => {
-    const d = dragRef2.current; if (!d || !d.active) return;
-    ev.preventDefault();
-    const t = ev.touches[0]; if (!t) return;
-    agMoveGhost(t.clientX, t.clientY);
+  const dragApplyPosition = (clientX: number, clientY: number) => {
+    const d = dragRef2.current; if (!d) return;
+    agMoveGhost(clientX, clientY);
     const W = window.innerWidth;
-    if (t.clientX > W - 42) agEdge(1);
-    else if (t.clientX < 42) agEdge(-1);
+    if (clientX > W - 42) agEdge(1);
+    else if (clientX < 42) agEdge(-1);
     else agEdge(0);
-    const el = document.elementFromPoint(t.clientX, t.clientY) as HTMLElement | null;
+    const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
     const cell = el ? (el.closest("[data-drop-date]") as HTMLElement | null) : null;
     if (cell) {
       d.dropDate = cell.dataset.dropDate;
@@ -3925,6 +3925,20 @@ export default function CRM() {
       agSetDropHint(cell);
     }
   };
+  const dragCommit = () => {
+    const d = dragRef2.current;
+    if (d && d.edgeTimer) clearInterval(d.edgeTimer);
+    agSetDropHint(null);
+    dragRef2.current = null;
+    setDraggingEv(null);
+    if (d && d.active) finalizarReagendamento(d.event, d.dropDate, d.dropHour);
+  };
+  const dragDocMove = (ev: TouchEvent) => {
+    const d = dragRef2.current; if (!d || !d.active) return;
+    ev.preventDefault();
+    const t = ev.touches[0]; if (!t) return;
+    dragApplyPosition(t.clientX, t.clientY);
+  };
   const dragDocEnd = (ev?: TouchEvent) => {
     const d = dragRef2.current;
     if (d && d.active && ev && ev.cancelable) ev.preventDefault(); // suprime o clique após arrastar
@@ -3932,12 +3946,34 @@ export default function CRM() {
       document.removeEventListener("touchmove", d.docMove);
       document.removeEventListener("touchend", d.docEnd);
       document.removeEventListener("touchcancel", d.docEnd);
-      if (d.edgeTimer) clearInterval(d.edgeTimer);
     }
-    agSetDropHint(null);
-    dragRef2.current = null;
-    setDraggingEv(null);
-    if (d && d.active) finalizarReagendamento(d.event, d.dropDate, d.dropHour);
+    dragCommit();
+  };
+  // ── Mouse (desktop): sem long-press — o proprio movimento do mouse com o botao
+  // pressionado ja ativa o arraste (nao ha ambiguidade com rolagem como no touch) ──
+  const onEvMouseDown = (e: React.MouseEvent, ev: any) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const startX = e.clientX, startY = e.clientY;
+    const state: any = { event: ev, active: false, startX, startY, dropDate: ev.date, dropHour: ev.start, edgeTimer: null, edgeDir: 0 };
+    const move = (mev: MouseEvent) => {
+      if (!state.active) {
+        if (Math.abs(mev.clientX - startX) < 5 && Math.abs(mev.clientY - startY) < 5) return;
+        state.active = true;
+        dragRef2.current = state;
+        setDraggingEv(ev);
+        requestAnimationFrame(() => agMoveGhost(mev.clientX, mev.clientY));
+      }
+      dragApplyPosition(mev.clientX, mev.clientY);
+    };
+    const end = () => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", end);
+      if (state.active) justDraggedRef.current = true;
+      dragCommit();
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", end);
   };
   const onEvTouchStart = (e: React.TouchEvent, ev: any) => {
     if (e.touches.length > 1) return;
@@ -5193,7 +5229,8 @@ export default function CRM() {
                           return (
                             <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista), cursor: "pointer", opacity: e.status === "concluido" ? 0.45 : 1, touchAction: e.tipo?.startsWith("bloq") ? undefined : "pan-y" }}
                               onTouchStart={te => onEvTouchStart(te, e)} onTouchMove={onEvTouchMove} onTouchEnd={onEvTouchEnd}
-                              onClick={ev => { ev.stopPropagation(); const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
+                              onMouseDown={me => onEvMouseDown(me, e)}
+                              onClick={ev => { ev.stopPropagation(); if (justDraggedRef.current) { justDraggedRef.current = false; return; } const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
                               {e.status === "concluido" && "✅ "}{anivHoje && "🎂 "}{e.start}h {buildEventTitle(e, agEvents)}
                             </div>
                           );
@@ -5247,7 +5284,8 @@ export default function CRM() {
                                 touchAction: "pan-y"
                               }}
                               onTouchStart={te => onEvTouchStart(te, e)} onTouchMove={onEvTouchMove} onTouchEnd={onEvTouchEnd}
-                              onClick={ev => { ev.stopPropagation(); const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
+                              onMouseDown={me => onEvMouseDown(me, e)}
+                              onClick={ev => { ev.stopPropagation(); if (justDraggedRef.current) { justDraggedRef.current = false; return; } const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
                                 <span style={{overflow:"hidden",flex:1,minWidth:0}}>
                                   {e.status === "concluido" && <span style={{ fontSize: 10, marginRight: 3 }}>✅</span>}
                                   {(() => {
@@ -5310,7 +5348,8 @@ export default function CRM() {
                                   touchAction: "pan-y"
                                 }}
                                 onTouchStart={te => onEvTouchStart(te, e)} onTouchMove={onEvTouchMove} onTouchEnd={onEvTouchEnd}
-                                onClick={ev => { ev.stopPropagation(); setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
+                                onMouseDown={me => onEvMouseDown(me, e)}
+                                onClick={ev => { ev.stopPropagation(); if (justDraggedRef.current) { justDraggedRef.current = false; return; } setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
                                 <span style={{ fontWeight: 600 }}>
                                   {e.status === "concluido" && "✅ "}
                                   {(() => {
