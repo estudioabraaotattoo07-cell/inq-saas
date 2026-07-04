@@ -191,6 +191,7 @@ export default async function handler(req, res) {
   }
 
 
+
   const hoje = new Date();
   let totalDisparos = 0;
   let totalErros = 0;
