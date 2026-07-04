@@ -3868,8 +3868,7 @@ export default function CRM() {
     if (d.edgeDir === dir) return;
     if (d.edgeTimer) clearInterval(d.edgeTimer);
     d.edgeDir = dir;
-    agSlide(dir); // primeira passagem já animada, em vez de esperar 750ms parado
-    d.edgeTimer = setInterval(() => agSlide(dir), 900);
+    d.edgeTimer = setInterval(() => agSlide(dir), 1500); // 1,5s parado na borda antes de cada passagem
   };
   const finalizarReagendamento = async (ev: any, newDate: string, newHour: number) => {
     if (!newDate) return;
