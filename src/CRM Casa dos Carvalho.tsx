@@ -1192,12 +1192,19 @@ export default function CRM() {
   const toggleAgSegStart = () => { setAgSegStart(p => { const n = !p; localStorage.setItem("inq_ag_seg_start", n ? "1" : "0"); return n; }); };
   const agRailRef = useRef<HTMLDivElement>(null);
   const agTouchNav = useRef<{ x: number; y: number; engaged: boolean; dx: number } | null>(null);
-  // Fase 2 — arrastar agendamento (long-press)
-  const dragRef2 = useRef<any>(null);
+  // Fase 2 — mover agendamento
+  const dragRef2 = useRef<any>(null);            // PC: arraste contínuo com o mouse
   const dragGhostRef = useRef<HTMLDivElement | null>(null);
   const dropCellRef = useRef<HTMLElement | null>(null);
   const justDraggedRef = useRef(false);
   const [draggingEv, setDraggingEv] = useState<any>(null);
+  // Mobile: modelo "pegar → navegar livre → tocar para soltar" (não arrasta com o
+  // dedo segurado, para não brigar com os gestos nativos do iOS). Segurar ~0,45s
+  // no evento o "pega" (carryingEv); depois é só navegar e tocar na casa destino.
+  const [carryingEv, setCarryingEv] = useState<any>(null);
+  const pickupTimerRef = useRef<any>(null);
+  const pickupStartRef = useRef<{ x: number; y: number } | null>(null);
+  const justPickedUpRef = useRef(false);
   const [undoReag, setUndoReag] = useState<any>(null);
   const undoReagTimer = useRef<any>(null);
   const [horarios, setHorarios] = useState([
@@ -3958,21 +3965,11 @@ export default function CRM() {
     document.body.classList.remove("ag-dragging");
     if (d && d.active) finalizarReagendamento(d.event, d.dropDate, d.dropHour);
   };
-  const dragDocMove = (ev: TouchEvent) => {
-    const d = dragRef2.current; if (!d || !d.active) return;
-    ev.preventDefault();
-    const t = ev.touches[0]; if (!t) return;
-    dragApplyPosition(t.clientX, t.clientY);
-  };
-  const dragDocEnd = (ev?: TouchEvent) => {
-    const d = dragRef2.current;
-    if (d && d.active && ev && ev.cancelable) ev.preventDefault(); // suprime o clique após arrastar
-    if (d) {
-      document.removeEventListener("touchmove", d.docMove);
-      document.removeEventListener("touchend", d.docEnd);
-      document.removeEventListener("touchcancel", d.docEnd);
-    }
-    dragCommit();
+  // Mobile: solta o agendamento que está "na mão" na casa tocada (dia + hora).
+  const dropCarried = (date?: string, hour?: number) => {
+    const ev = carryingEv; if (!ev || !date) { setCarryingEv(null); return; }
+    setCarryingEv(null);
+    finalizarReagendamento(ev, date, (hour !== undefined && hour !== null && !isNaN(hour)) ? hour : ev.start);
   };
   // ── Mouse (desktop): sem long-press — o proprio movimento do mouse com o botao
   // pressionado ja ativa o arraste (nao ha ambiguidade com rolagem como no touch) ──
@@ -4003,38 +4000,35 @@ export default function CRM() {
     document.addEventListener("mousemove", move);
     document.addEventListener("mouseup", end);
   };
+  // Mobile: segurar ~0,45s no evento o "pega" (entra em carryingEv). O dedo pode
+  // sair; a partir daí navega-se normalmente e um toque na casa destino solta.
   const onEvTouchStart = (e: React.TouchEvent, ev: any) => {
     if (e.touches.length > 1) return;
+    if (carryingEv) return; // já carregando um evento → o toque será tratado como soltar (onClick)
     const t = e.touches[0];
-    const move = (mev: TouchEvent) => dragDocMove(mev);
-    const end = (eev?: TouchEvent) => dragDocEnd(eev);
-    dragRef2.current = { event: ev, active: false, startX: t.clientX, startY: t.clientY, dropDate: ev.date, dropHour: ev.start, timer: null, edgeTimer: null, edgeDir: 0, docMove: move, docEnd: end };
-    dragRef2.current.timer = setTimeout(() => {
-      const d = dragRef2.current; if (!d) return;
-      d.active = true;
+    pickupStartRef.current = { x: t.clientX, y: t.clientY };
+    if (pickupTimerRef.current) clearTimeout(pickupTimerRef.current);
+    pickupTimerRef.current = setTimeout(() => {
+      pickupTimerRef.current = null;
       if ((navigator as any).vibrate) { try { (navigator as any).vibrate(25); } catch {} }
-      setDraggingEv(ev);
-      document.body.classList.add("ag-dragging");
-      requestAnimationFrame(() => agMoveGhost(d.startX, d.startY));
-      document.addEventListener("touchmove", d.docMove, { passive: false });
-      document.addEventListener("touchend", d.docEnd, { passive: false });
-      document.addEventListener("touchcancel", d.docEnd);
-      // trava de seguranca: se o iOS "roubar" o gesto perto da borda e nunca
-      // entregar touchend/touchcancel, cancela sozinho em vez de travar
-      d.watchdog = setTimeout(() => { if (dragRef2.current === d) dragDocEnd(); }, 8000);
-    }, 550);
+      agTouchNav.current = null;     // impede que o mesmo toque (ainda no ar) vire swipe do carrossel
+      justPickedUpRef.current = true; // absorve o clique que o iOS dispara logo após o long-press
+      // auto-limpa: se o iOS NÃO disparar o clique fantasma, a flag não pode ficar
+      // presa e engolir um toque intencional depois. 600ms cobre o clique imediato.
+      setTimeout(() => { justPickedUpRef.current = false; }, 600);
+      setCarryingEv(ev);
+    }, 450);
   };
   const onEvTouchMove = (e: React.TouchEvent) => {
-    const d = dragRef2.current; if (!d || d.active) return;
+    const s = pickupStartRef.current; if (!s || !pickupTimerRef.current) return;
     const t = e.touches[0];
-    if (Math.abs(t.clientX - d.startX) > 12 || Math.abs(t.clientY - d.startY) > 12) {
-      if (d.timer) clearTimeout(d.timer);
-      dragRef2.current = null;
+    // moveu antes de completar o long-press → é rolagem/swipe, cancela o "pegar"
+    if (Math.abs(t.clientX - s.x) > 12 || Math.abs(t.clientY - s.y) > 12) {
+      clearTimeout(pickupTimerRef.current); pickupTimerRef.current = null;
     }
   };
   const onEvTouchEnd = () => {
-    const d = dragRef2.current;
-    if (d && !d.active) { if (d.timer) clearTimeout(d.timer); dragRef2.current = null; }
+    if (pickupTimerRef.current) { clearTimeout(pickupTimerRef.current); pickupTimerRef.current = null; }
   };
 
   const agTitle = () => {
@@ -5251,18 +5245,18 @@ export default function CRM() {
                   {mDates.map((item, i) => {
                     const ds = fmtDate(item.date); const evs = evOn(ds);
                     return (
-                      <div key={i} className={"mday" + (item.cur ? "" : " om") + (ds === todayStr ? " today" : "")}
+                      <div key={i} className={"mday" + (item.cur ? "" : " om") + (ds === todayStr ? " today" : "") + (carryingEv ? " ag-droppable" : "")}
                         data-drop-date={ds}
-                        onClick={() => { setAgDate(item.date); setAgView("day"); }}>
+                        onClick={() => { if (carryingEv) { dropCarried(ds, carryingEv.start); return; } setAgDate(item.date); setAgView("day"); }}>
                         <div className="mdn">{item.date.getDate()}</div>
                         {evs.slice(0, 3).map(e => {
                           const cliEv = e.cliente_id ? clients.find((c:any) => c.id === e.cliente_id) : null;
                           const anivHoje = cliEv ? isAniversHoje((cliEv as any).nascimento || "") : false;
                           return (
-                            <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista), cursor: "pointer", opacity: e.status === "concluido" ? 0.45 : 1, touchAction: e.tipo?.startsWith("bloq") ? undefined : "pan-y" }}
+                            <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista), cursor: "pointer", opacity: carryingEv?.id === e.id ? 0.4 : (e.status === "concluido" ? 0.45 : 1), outline: carryingEv?.id === e.id ? "2px dashed var(--gold)" : undefined, touchAction: e.tipo?.startsWith("bloq") ? undefined : "pan-y" }}
                               onTouchStart={te => onEvTouchStart(te, e)} onTouchMove={onEvTouchMove} onTouchEnd={onEvTouchEnd}
                               onMouseDown={me => onEvMouseDown(me, e)}
-                              onClick={ev => { ev.stopPropagation(); if (justDraggedRef.current) { justDraggedRef.current = false; return; } const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
+                              onClick={ev => { ev.stopPropagation(); if (justPickedUpRef.current) { justPickedUpRef.current = false; return; } if (justDraggedRef.current) { justDraggedRef.current = false; return; } if (carryingEv) { dropCarried(e.date, e.start); return; } const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
                               {e.status === "concluido" && "✅ "}{anivHoje && "🎂 "}{e.start}h {buildEventTitle(e, agEvents)}
                             </div>
                           );
@@ -5291,9 +5285,9 @@ export default function CRM() {
                       const evs = agEvents.filter(e => e.date === ds && e.start === h);
                       const occupied = agEvents.some(e => e.date === ds && e.start < h && e.end > h);
                       return (
-                        <div key={h + "-" + di} className="wc" style={{ position: "relative", overflow: "visible" }}
+                        <div key={h + "-" + di} className={"wc" + (carryingEv ? " ag-droppable" : "")} style={{ position: "relative", overflow: "visible" }}
                           data-drop-date={ds} data-drop-hour={h}
-                          onClick={() => { setAgDate(d); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); setAgForm({ title: "", desc: "", tipo: "cons_" + (artists[0]?.id || ""), date: ds, start: h, end: h + 2, sinal: "", sinalPago: false } as any); setShowAgForm(true); }}>
+                          onClick={() => { if (carryingEv) { dropCarried(ds, h); return; } setAgDate(d); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); setAgForm({ title: "", desc: "", tipo: "cons_" + (artists[0]?.id || ""), date: ds, start: h, end: h + 2, sinal: "", sinalPago: false } as any); setShowAgForm(true); }}>
                           {evs.map((e, ei) => {
                             const eStart = isNaN(e.start) || e.start == null ? 9 : Number(e.start);
                             const eEnd = isNaN(e.end) || e.end == null ? eStart + 2 : Number(e.end);
@@ -5313,11 +5307,12 @@ export default function CRM() {
                                 opacity: e.status === "concluido" ? 0.45 : e.status === "cancelado" ? 0.55 : 1,
                                 filter: e.status === "concluido" ? "saturate(0.4)" : "none",
                                 textDecoration: e.status === "cancelado" ? "line-through" : "none",
+                                outline: carryingEv?.id === e.id ? "2px dashed var(--gold)" : undefined,
                                 touchAction: "pan-y"
                               }}
                               onTouchStart={te => onEvTouchStart(te, e)} onTouchMove={onEvTouchMove} onTouchEnd={onEvTouchEnd}
                               onMouseDown={me => onEvMouseDown(me, e)}
-                              onClick={ev => { ev.stopPropagation(); if (justDraggedRef.current) { justDraggedRef.current = false; return; } const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
+                              onClick={ev => { ev.stopPropagation(); if (justPickedUpRef.current) { justPickedUpRef.current = false; return; } if (justDraggedRef.current) { justDraggedRef.current = false; return; } if (carryingEv) { dropCarried(e.date, e.start); return; } const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
                                 <span style={{overflow:"hidden",flex:1,minWidth:0}}>
                                   {e.status === "concluido" && <span style={{ fontSize: 10, marginRight: 3 }}>✅</span>}
                                   {(() => {
@@ -5358,9 +5353,9 @@ export default function CRM() {
                     return (
                       <div key={h} className="dr" data-hora={h}>
                         <div className="dtime">{h}:00</div>
-                        <div className="dslot" style={{ position: "relative", minHeight: 46 }}
+                        <div className={"dslot" + (carryingEv ? " ag-droppable" : "")} style={{ position: "relative", minHeight: 46 }}
                           data-drop-date={ds} data-drop-hour={h}
-                          onClick={() => { if (!evs.length && !occupied) { setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); setAgForm({ title: "", desc: "", tipo: "cons_" + (artists[0]?.id || ""), date: ds, start: h, end: h + 2, sinal: "", sinalPago: false } as any); setShowAgForm(true); } }}>
+                          onClick={() => { if (carryingEv) { dropCarried(ds, h); return; } if (!evs.length && !occupied) { setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); setAgForm({ title: "", desc: "", tipo: "cons_" + (artists[0]?.id || ""), date: ds, start: h, end: h + 2, sinal: "", sinalPago: false } as any); setShowAgForm(true); } }}>
                           {evs.map(e => {
                             const eStart = isNaN(e.start) || e.start == null ? 9 : Number(e.start);
                             const eEnd = isNaN(e.end) || e.end == null ? eStart + 2 : Number(e.end);
@@ -5375,13 +5370,14 @@ export default function CRM() {
                                   display: "flex", alignItems: "flex-start", justifyContent: "space-between",
                                   cursor: "pointer", color: "#fff",
                                   textShadow: e.status === "cancelado" ? "none" : "0 1px 2px rgba(0,0,0,.8), 0 0 4px rgba(0,0,0,.6)",
-                                  opacity: e.status === "concluido" ? 0.45 : e.status === "cancelado" ? 0.55 : 1,
+                                  opacity: carryingEv?.id === e.id ? 0.4 : (e.status === "concluido" ? 0.45 : e.status === "cancelado" ? 0.55 : 1),
                                   filter: e.status === "concluido" ? "saturate(0.4)" : "none",
+                                  outline: carryingEv?.id === e.id ? "2px dashed var(--gold)" : undefined,
                                   touchAction: "pan-y"
                                 }}
                                 onTouchStart={te => onEvTouchStart(te, e)} onTouchMove={onEvTouchMove} onTouchEnd={onEvTouchEnd}
                                 onMouseDown={me => onEvMouseDown(me, e)}
-                                onClick={ev => { ev.stopPropagation(); if (justDraggedRef.current) { justDraggedRef.current = false; return; } setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
+                                onClick={ev => { ev.stopPropagation(); if (justPickedUpRef.current) { justPickedUpRef.current = false; return; } if (justDraggedRef.current) { justDraggedRef.current = false; return; } if (carryingEv) { dropCarried(e.date, e.start); return; } setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); }}>
                                 <span style={{ fontWeight: 600 }}>
                                   {e.status === "concluido" && "✅ "}
                                   {(() => {
@@ -11701,6 +11697,16 @@ export default function CRM() {
         {draggingEv && (
           <div ref={dragGhostRef} style={{ position: "fixed", transform: "translate(-50%, -135%)", zIndex: 100000, pointerEvents: "none", background: draggingEv.tipo?.startsWith("bloq") ? "#C0392B" : getEventColor(draggingEv.tipo, artists, draggingEv.artista), color: "#fff", padding: "7px 13px", borderRadius: 7, fontSize: 12, fontWeight: 700, boxShadow: "0 8px 26px rgba(0,0,0,.55)", opacity: .95, whiteSpace: "nowrap", maxWidth: "72vw", overflow: "hidden", textOverflow: "ellipsis", textShadow: "0 1px 2px rgba(0,0,0,.7)" }}>
             ✋ {draggingEv.tipo?.startsWith("bloq") ? ("🔒 " + (draggingEv.titulo_bloqueio || "Bloqueio")) : (buildEventTitle(draggingEv, agEvents) || draggingEv.title || "Evento")} · {draggingEv.start}h
+          </div>
+        )}
+        {/* Mobile: barra "carregando um agendamento" (modelo pegar → navegar → tocar) */}
+        {carryingEv && (
+          <div style={{ position: "fixed", left: 10, right: 10, bottom: "max(env(safe-area-inset-bottom),14px)", zIndex: 100002, background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 11, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 10px 30px rgba(0,0,0,.55)" }}>
+            <span style={{ fontSize: 18, flexShrink: 0 }}>✋</span>
+            <span style={{ flex: 1, fontSize: 12.5, color: "var(--tx)", lineHeight: 1.35 }}>
+              Movendo <b>{carryingEv.tipo?.startsWith("bloq") ? (carryingEv.titulo_bloqueio || "Bloqueio") : (buildEventTitle(carryingEv, agEvents) || carryingEv.title || "evento")}</b> — navegue e toque no novo dia/horário para soltar.
+            </span>
+            <button onClick={() => setCarryingEv(null)} style={{ background: "transparent", border: "1px solid var(--br)", borderRadius: 7, color: "var(--tx2)", padding: "6px 11px", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0, fontFamily: "'DM Sans',sans-serif" }}>Cancelar</button>
           </div>
         )}
         {/* Desfazer reagendamento (Fase 2) */}
