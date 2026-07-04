@@ -3862,13 +3862,31 @@ export default function CRM() {
     if (cell) cell.classList.add("drop-hint");
     dropCellRef.current = cell;
   };
+  const agEdgeStop = (d: any) => {
+    if (!d) return;
+    if (d.edgeTimer) { clearInterval(d.edgeTimer); d.edgeTimer = null; }
+    if (d.edgeNavTimeout) { clearTimeout(d.edgeNavTimeout); d.edgeNavTimeout = null; }
+    d.edgeDir = 0;
+  };
   const agEdge = (dir: number) => {
     const d = dragRef2.current; if (!d) return;
-    if (dir === 0) { if (d.edgeTimer) { clearInterval(d.edgeTimer); d.edgeTimer = null; d.edgeDir = 0; } return; }
+    if (dir === 0) { agEdgeStop(d); return; }
     if (d.edgeDir === dir) return;
-    if (d.edgeTimer) clearInterval(d.edgeTimer);
+    agEdgeStop(d);
     d.edgeDir = dir;
-    d.edgeTimer = setInterval(() => agSlide(dir), 1500); // 1,5s parado na borda antes de cada passagem
+    // versão própria (não usa agSlide) porque precisa ser 100% cancelável: o
+    // setTimeout que troca a data fica guardado em d.edgeNavTimeout, então soltar
+    // o dedo ou sair da borda cancela de fato o avanço agendado, em vez de deixar
+    // ele disparar sozinho mais tarde e dar a impressão de "continua passando".
+    const tick = () => {
+      const el = agRailRef.current;
+      if (el) {
+        el.style.transition = "transform .28s ease";
+        el.style.transform = dir === 1 ? `translateX(-${AG_MID * 2}%)` : "translateX(0%)";
+      }
+      d.edgeNavTimeout = window.setTimeout(() => { agNav(dir); }, 285);
+    };
+    d.edgeTimer = setInterval(tick, 1500); // 1,5s parado na borda antes de cada passagem
   };
   const finalizarReagendamento = async (ev: any, newDate: string, newHour: number) => {
     if (!newDate) return;
@@ -3926,7 +3944,7 @@ export default function CRM() {
   };
   const dragCommit = () => {
     const d = dragRef2.current;
-    if (d && d.edgeTimer) clearInterval(d.edgeTimer);
+    agEdgeStop(d);
     agSetDropHint(null);
     dragRef2.current = null;
     setDraggingEv(null);
