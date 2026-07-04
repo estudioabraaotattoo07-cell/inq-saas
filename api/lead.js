@@ -519,7 +519,7 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log } = req.body;
+  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada } = req.body;
   if (!nome && !tel && !email) return res.status(400).json({ error: "pelo menos um dado obrigatorio" });
 
   const ideaFinal = idea || ideia || "";
@@ -539,7 +539,7 @@ export default async function handler(req, res) {
     email: email || "",
     insta: insta || "",
     qual: "Q1",
-    etapa: "lead",
+    etapa: etapaSolicitada || "lead",
     orig: orig || "Site",
     descricao: ideaFinal,
     nascimento: nascimentoISO,
@@ -578,10 +578,12 @@ export default async function handler(req, res) {
 
   let clienteId = null;
   let isNewClient = true;
+  let matchInfo = null;
+  let artistaDefinidoAgora = false;
   {
     const telDigits = tel ? tel.replace(/[^0-9]/g, "").slice(-11) : null;
     const emailNorm = email ? email.trim().toLowerCase() : null;
-    const { data: existentes } = await sb.from("clientes").select("id,tel,nome,email,insta,descricao,nascimento,artista,regiao").eq("user_id", row.user_id);
+    const { data: existentes } = await sb.from("clientes").select("id,tel,nome,email,insta,descricao,nascimento,artista,regiao,etapa,projetos").eq("user_id", row.user_id);
     const match =
       (telDigits && (existentes || []).find(c => c.tel && c.tel.replace(/[^0-9]/g, "").slice(-11) === telDigits)) ||
       (emailNorm && (existentes || []).find(c => c.email && c.email.trim().toLowerCase() === emailNorm));
@@ -602,9 +604,22 @@ export default async function handler(req, res) {
       const regiaoVal = maisCompleto(match.regiao, regiao);
       if (regiaoVal) updateFields.regiao = regiaoVal;
       if (obsExtra) updateFields.obs = `Lead captado via Aura Chat no site. ${obsExtra}`;
+      // Classificação (Sessão/Consulta/Aguardando nova solicitação) só move a etapa
+      // quando o chat explicitamente pedir — nunca sobrescreve silenciosamente
+      // uma etapa mais avançada do pipeline (ex: cliente já com Sessão Marcada).
+      if (etapaSolicitada) {
+        updateFields.etapa = etapaSolicitada;
+        updateFields.etapa_desde = new Date().toISOString();
+      }
       await sb.from("clientes").update(updateFields).eq("id", match.id);
       clienteId = match.id;
       isNewClient = false;
+      artistaDefinidoAgora = !(match.artista || "").trim() && !!(artista || "").trim();
+      matchInfo = {
+        artista: updateFields.artista || match.artista || null,
+        etapa: match.etapa || null,
+        projetos: match.projetos || [],
+      };
     }
   }
 
@@ -632,8 +647,17 @@ export default async function handler(req, res) {
     } catch (e) { console.warn("chat_log save error:", e); }
   }
 
-  // Dispara SMS e e-mail apenas no primeiro cadastro (não em updates progressivos)
-  if (!isNewClient) return res.status(200).json({ ok: true, clienteId, updated: true });
+  // Dispara e-mail/SMS só no momento em que o profissional responsável é definido pela
+  // primeira vez — seja no cadastro novo (já veio com artista) ou numa atualização de
+  // cliente que ainda não tinha artista (ex: index.html salva nome+telefone cedo, sem
+  // saber ainda quem é o profissional, e só notifica na chamada seguinte, quando
+  // Camilla/Abraão é escolhido). Evita notificação prematura e incompleta.
+  const deveNotificar = isNewClient ? !!(artista || "").trim() : artistaDefinidoAgora;
+  if (!isNewClient) {
+    if (!deveNotificar) return res.status(200).json({ ok: true, clienteId, updated: true, ...matchInfo });
+  } else if (!deveNotificar) {
+    return res.status(200).json({ ok: true, clienteId });
+  }
 
   // Buscar toggles de automação
   const { data: cfgDisparos } = await sb.from("configuracoes")
@@ -641,7 +665,7 @@ export default async function handler(req, res) {
     .eq("user_id", row.user_id).single();
 
   const zenviaKey = process.env.ZENVIA_API_KEY;
-  const fn = nome.trim().split(" ")[0];
+  const fn = (nome || "").trim().split(" ")[0] || "Cliente";
 
   // E-mail de boas-vindas ao cliente (controlado por fluxo_boas_vindas_email_ativa)
   const resendKey = process.env.RESEND_API_KEY;
