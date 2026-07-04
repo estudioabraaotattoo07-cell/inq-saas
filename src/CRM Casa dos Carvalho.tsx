@@ -3929,11 +3929,14 @@ export default function CRM() {
   const dragApplyPosition = (clientX: number, clientY: number) => {
     const d = dragRef2.current; if (!d) return;
     agMoveGhost(clientX, clientY);
-    const W = window.innerWidth;
-    if (clientX > W - 64) agEdge(1);
-    else if (clientX < 64) agEdge(-1);
-    else agEdge(0);
     const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    // Navegar segurando na borda física da tela: no iPhone, o Safari pode "roubar" o
+    // toque perto da borda (gesto nativo de voltar/avançar), travando o arraste. Por
+    // isso a navegação agora acontece ao pairar sobre os botões de seta (bem afastados
+    // da borda de verdade), em vez de depender da posição bruta do dedo na tela.
+    const navBtn = el ? (el.closest("[data-drop-nav]") as HTMLElement | null) : null;
+    if (navBtn) agEdge(parseInt(navBtn.dataset.dropNav || "0"));
+    else agEdge(0);
     const cell = el ? (el.closest("[data-drop-date]") as HTMLElement | null) : null;
     if (cell) {
       d.dropDate = cell.dataset.dropDate;
@@ -11696,6 +11699,15 @@ export default function CRM() {
           <div ref={dragGhostRef} style={{ position: "fixed", transform: "translate(-50%, -135%)", zIndex: 100000, pointerEvents: "none", background: draggingEv.tipo?.startsWith("bloq") ? "#C0392B" : getEventColor(draggingEv.tipo, artists, draggingEv.artista), color: "#fff", padding: "7px 13px", borderRadius: 7, fontSize: 12, fontWeight: 700, boxShadow: "0 8px 26px rgba(0,0,0,.55)", opacity: .95, whiteSpace: "nowrap", maxWidth: "72vw", overflow: "hidden", textOverflow: "ellipsis", textShadow: "0 1px 2px rgba(0,0,0,.7)" }}>
             ✋ {draggingEv.tipo?.startsWith("bloq") ? ("🔒 " + (draggingEv.titulo_bloqueio || "Bloqueio")) : (buildEventTitle(draggingEv, agEvents) || draggingEv.title || "Evento")} · {draggingEv.start}h
           </div>
+        )}
+        {/* Alvos de navegação durante o arraste (Fase 2) — arraste o dedo até aqui pra
+            avançar/voltar de período. Ficam afastados da borda física da tela de propósito
+            (no iPhone, o Safari pode "roubar" o toque perto do limite real da tela). */}
+        {draggingEv && (
+          <>
+            <div data-drop-nav={-1} style={{ position: "fixed", left: 58, top: "50%", transform: "translateY(-50%)", zIndex: 99998, width: 46, height: 46, borderRadius: "50%", background: "rgba(201,168,76,.22)", border: "2px solid var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "var(--gold)", boxShadow: "0 4px 14px rgba(0,0,0,.4)" }}>‹</div>
+            <div data-drop-nav={1} style={{ position: "fixed", right: 58, top: "50%", transform: "translateY(-50%)", zIndex: 99998, width: 46, height: 46, borderRadius: "50%", background: "rgba(201,168,76,.22)", border: "2px solid var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "var(--gold)", boxShadow: "0 4px 14px rgba(0,0,0,.4)" }}>›</div>
+          </>
         )}
         {/* Desfazer reagendamento (Fase 2) */}
         {undoReag && (
