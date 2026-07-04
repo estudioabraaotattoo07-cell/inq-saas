@@ -3864,29 +3864,30 @@ export default function CRM() {
   };
   const agEdgeStop = (d: any) => {
     if (!d) return;
-    if (d.edgeTimer) { clearInterval(d.edgeTimer); d.edgeTimer = null; }
-    if (d.edgeNavTimeout) { clearTimeout(d.edgeNavTimeout); d.edgeNavTimeout = null; }
+    // se havia um avanço pendente ainda não efetivado, aborta E devolve o trilho ao
+    // centro (senão ficaria travado deslizado — o mesmo bug do carrossel antigo).
+    if (d.edgeNavTimeout) { clearTimeout(d.edgeNavTimeout); d.edgeNavTimeout = null; agSetRail(0, false); }
     d.edgeDir = 0;
   };
+  // Navegação de borda ONE-SHOT: avança UM período por entrada na zona lateral e NÃO
+  // repete sozinha. Nada de setInterval — a navegação só acontece como reação direta
+  // ao movimento do dedo (via dragApplyPosition, chamado no touchmove/mousemove). Se o
+  // dedo para, é solto, ou o iOS "rouba" o toque, não há timer solto avançando: no pior
+  // caso acontece UM avanço, nunca uma sequência descontrolada. Para avançar de novo, o
+  // dedo precisa sair da zona (volta ao meio) e entrar outra vez.
   const agEdge = (dir: number) => {
     const d = dragRef2.current; if (!d) return;
-    if (dir === 0) { agEdgeStop(d); return; }
-    if (d.edgeDir === dir) return;
-    agEdgeStop(d);
+    if (dir === 0) { d.edgeDir = 0; d.everCentered = true; return; } // saiu da zona → libera novo avanço
+    if (!d.everCentered) return;      // começou o arraste já na borda → não navega até passar pelo meio
+    if (d.edgeDir === dir) return;    // já avançou nesta entrada; espera sair e voltar
     d.edgeDir = dir;
-    // versão própria (não usa agSlide) porque precisa ser 100% cancelável: o
-    // setTimeout que troca a data fica guardado em d.edgeNavTimeout, então soltar
-    // o dedo ou sair da borda cancela de fato o avanço agendado, em vez de deixar
-    // ele disparar sozinho mais tarde e dar a impressão de "continua passando".
-    const tick = () => {
-      const el = agRailRef.current;
-      if (el) {
-        el.style.transition = "transform .28s ease";
-        el.style.transform = dir === 1 ? `translateX(-${AG_MID * 2}%)` : "translateX(0%)";
-      }
-      d.edgeNavTimeout = window.setTimeout(() => { agNav(dir); }, 285);
-    };
-    d.edgeTimer = setInterval(tick, 1500); // 1,5s parado na borda antes de cada passagem
+    const el = agRailRef.current;
+    if (el) {
+      el.style.transition = "transform .28s ease";
+      el.style.transform = dir === 1 ? `translateX(-${AG_MID * 2}%)` : "translateX(0%)";
+    }
+    if (d.edgeNavTimeout) clearTimeout(d.edgeNavTimeout);
+    d.edgeNavTimeout = window.setTimeout(() => { const dd = dragRef2.current; if (dd) dd.edgeNavTimeout = null; agNav(dir); }, 285);
   };
   const finalizarReagendamento = async (ev: any, newDate: string, newHour: number) => {
     if (!newDate) return;
@@ -3930,12 +3931,14 @@ export default function CRM() {
     const d = dragRef2.current; if (!d) return;
     agMoveGhost(clientX, clientY);
     const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
-    // Navegar segurando na borda física da tela: no iPhone, o Safari pode "roubar" o
-    // toque perto da borda (gesto nativo de voltar/avançar), travando o arraste. Por
-    // isso a navegação agora acontece ao pairar sobre os botões de seta (bem afastados
-    // da borda de verdade), em vez de depender da posição bruta do dedo na tela.
-    const navBtn = el ? (el.closest("[data-drop-nav]") as HTMLElement | null) : null;
-    if (navBtn) agEdge(parseInt(navBtn.dataset.dropNav || "0"));
+    // Navegar arrastando até a lateral (igual ao PC): zona larga (~22% de cada lado)
+    // para o dedo disparar a passagem bem antes de chegar na borda física — onde o
+    // iOS reconheceria o gesto nativo de voltar/avançar. Como agEdge é one-shot, chegar
+    // na lateral avança só UM período; não sai correndo sozinho.
+    const W = window.innerWidth;
+    const edge = Math.max(60, W * 0.22);
+    if (clientX > W - edge) agEdge(1);
+    else if (clientX < edge) agEdge(-1);
     else agEdge(0);
     const cell = el ? (el.closest("[data-drop-date]") as HTMLElement | null) : null;
     if (cell) {
@@ -11699,15 +11702,6 @@ export default function CRM() {
           <div ref={dragGhostRef} style={{ position: "fixed", transform: "translate(-50%, -135%)", zIndex: 100000, pointerEvents: "none", background: draggingEv.tipo?.startsWith("bloq") ? "#C0392B" : getEventColor(draggingEv.tipo, artists, draggingEv.artista), color: "#fff", padding: "7px 13px", borderRadius: 7, fontSize: 12, fontWeight: 700, boxShadow: "0 8px 26px rgba(0,0,0,.55)", opacity: .95, whiteSpace: "nowrap", maxWidth: "72vw", overflow: "hidden", textOverflow: "ellipsis", textShadow: "0 1px 2px rgba(0,0,0,.7)" }}>
             ✋ {draggingEv.tipo?.startsWith("bloq") ? ("🔒 " + (draggingEv.titulo_bloqueio || "Bloqueio")) : (buildEventTitle(draggingEv, agEvents) || draggingEv.title || "Evento")} · {draggingEv.start}h
           </div>
-        )}
-        {/* Alvos de navegação durante o arraste (Fase 2) — arraste o dedo até aqui pra
-            avançar/voltar de período. Ficam afastados da borda física da tela de propósito
-            (no iPhone, o Safari pode "roubar" o toque perto do limite real da tela). */}
-        {draggingEv && (
-          <>
-            <div data-drop-nav={-1} style={{ position: "fixed", left: 58, top: "50%", transform: "translateY(-50%)", zIndex: 99998, width: 46, height: 46, borderRadius: "50%", background: "rgba(201,168,76,.22)", border: "2px solid var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "var(--gold)", boxShadow: "0 4px 14px rgba(0,0,0,.4)" }}>‹</div>
-            <div data-drop-nav={1} style={{ position: "fixed", right: 58, top: "50%", transform: "translateY(-50%)", zIndex: 99998, width: 46, height: 46, borderRadius: "50%", background: "rgba(201,168,76,.22)", border: "2px solid var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "var(--gold)", boxShadow: "0 4px 14px rgba(0,0,0,.4)" }}>›</div>
-          </>
         )}
         {/* Desfazer reagendamento (Fase 2) */}
         {undoReag && (
