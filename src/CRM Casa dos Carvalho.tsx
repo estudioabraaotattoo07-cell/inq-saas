@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { createClient } from "@supabase/supabase-js";
 import { jsPDF } from "jspdf";
@@ -3811,6 +3811,13 @@ export default function CRM() {
     }
     window.setTimeout(() => { agNav(dir); }, 285);
   };
+  // React não reaplica o style do trilho em re-renders normais (o valor de repouso
+  // é sempre o mesmo objeto/valores, então o diff de props não detecta mudança e
+  // pula a escrita no DOM). Sem isto, depois de qualquer navegação (botão, arraste
+  // até a borda, "Hoje", clique num dia) o trilho ficava travado na posição do
+  // último transform imperativo, mostrando o painel errado. Forçamos o reset aqui,
+  // toda vez que a data/visão realmente mudar.
+  useLayoutEffect(() => { agSetRail(0, false); }, [agDate, agView]);
   const onAgTouchStart = (e: React.TouchEvent) => {
     if (dragRef2.current) return; // dedo começou sobre um evento → não navega (deixa o arraste agir)
     const t = e.touches[0];
