@@ -613,27 +613,33 @@ function fmtDate(d: Date): string {
     String(d.getDate()).padStart(2, "0");
 }
 
-function getWeekDates(d: Date): Date[] {
+function getWeekDates(d: Date, segStart?: boolean): Date[] {
   const day = d.getDay();
-  const mon = new Date(d);
-  mon.setDate(d.getDate() - day);
+  const offset = segStart ? (day === 0 ? 6 : day - 1) : day;
+  const start = new Date(d);
+  start.setDate(d.getDate() - offset);
   return Array.from({ length: 7 }, (_, i) => {
-    const x = new Date(mon);
-    x.setDate(mon.getDate() + i);
+    const x = new Date(start);
+    x.setDate(start.getDate() + i);
     return x;
   });
 }
 
-function getMonthDates(d: Date): { date: Date; cur: boolean }[] {
+function getMonthDates(d: Date, segStart?: boolean): { date: Date; cur: boolean }[] {
   const y = d.getFullYear(), m = d.getMonth();
   const first = new Date(y, m, 1);
   const last = new Date(y, m + 1, 0);
-  const sd = first.getDay();
+  const fd = first.getDay();
+  const sd = segStart ? (fd === 0 ? 6 : fd - 1) : fd;
   const days: { date: Date; cur: boolean }[] = [];
   for (let i = 0; i < sd; i++) days.push({ date: new Date(y, m, 1 - sd + i), cur: false });
   for (let i = 1; i <= last.getDate(); i++) days.push({ date: new Date(y, m, i), cur: true });
   while (days.length % 7 !== 0) days.push({ date: new Date(y, m + 1, days.length - last.getDate() - sd + 1), cur: false });
   return days;
+}
+
+function orderedWeekdays(segStart?: boolean): string[] {
+  return segStart ? [...WEEKDAYS.slice(1), WEEKDAYS[0]] : WEEKDAYS;
 }
 
 // ─── CONTRACT GENERATORS ─────────────────────────────────────────────────────
@@ -1182,6 +1188,8 @@ export default function CRM() {
   const [msgEdit, setMsgEdit] = useState("");
   const [agView, setAgView] = useState("week");
   const [agDate, setAgDate] = useState(new Date());
+  const [agSegStart, setAgSegStart] = useState(() => localStorage.getItem("inq_ag_seg_start") === "1");
+  const toggleAgSegStart = () => { setAgSegStart(p => { const n = !p; localStorage.setItem("inq_ag_seg_start", n ? "1" : "0"); return n; }); };
   const agRailRef = useRef<HTMLDivElement>(null);
   const agTouchNav = useRef<{ x: number; y: number; engaged: boolean; dx: number } | null>(null);
   // Fase 2 — arrastar agendamento (long-press)
@@ -3776,8 +3784,8 @@ export default function CRM() {
   }, [clientesFiltrados]);
   const maxO = origC[0]?.[1] || 1;
   const maxE = estilos[0]?.[1] || 1;
-  const wDates = useMemo(() => getWeekDates(agDate), [agDate]);
-  const mDates = useMemo(() => getMonthDates(agDate), [agDate]);
+  const wDates = useMemo(() => getWeekDates(agDate, agSegStart), [agDate, agSegStart]);
+  const mDates = useMemo(() => getMonthDates(agDate, agSegStart), [agDate, agSegStart]);
   const todayStr = fmtDate(new Date());
   const evOn = (d: string) => agEvents.filter(e => e.date === d);
   const agNav = (dir: number) => {
@@ -3964,7 +3972,7 @@ export default function CRM() {
   const agTitle = () => {
     if (agView === "day") return agDate.getDate() + " de " + MONTHS[agDate.getMonth()] + " " + agDate.getFullYear();
     if (agView === "week") {
-      const wd = getWeekDates(agDate);
+      const wd = getWeekDates(agDate, agSegStart);
       return wd[0].getDate() + " a " + wd[6].getDate() + " de " + MONTHS[agDate.getMonth()] + " " + agDate.getFullYear();
     }
     return MONTHS[agDate.getMonth()] + " " + agDate.getFullYear();
@@ -5140,6 +5148,9 @@ export default function CRM() {
                   </button>
                 ))}
               </div>
+              <button className="ag-nb" title="Primeiro dia da semana" style={{ fontSize: 11 }} onClick={toggleAgSegStart}>
+                Início: {agSegStart ? "Segunda" : "Domingo"}
+              </button>
               <button className="btn-new" style={{ marginLeft: "auto" }} onClick={() => { setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); setAgForm({ title: "", desc: "", tipo: "cons_" + (artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11, sinal: "", sinalPago: false } as any); setShowAgForm(true); }}>+ Evento</button>
             </div>
             <div className="ag-leg">
@@ -5161,14 +5172,14 @@ export default function CRM() {
 
             {(() => {
               const renderAgView = (viewDate: Date) => {
-                const wDates = getWeekDates(viewDate);
-                const mDates = getMonthDates(viewDate);
+                const wDates = getWeekDates(viewDate, agSegStart);
+                const mDates = getMonthDates(viewDate, agSegStart);
                 const agDate = viewDate;
                 return (<>
             {agView === "month" && (
               <div className="ag-month">
                 <div className="mg">
-                  {WEEKDAYS.map(d => <div className="mdh" key={d}>{d}</div>)}
+                  {orderedWeekdays(agSegStart).map(d => <div className="mdh" key={d}>{d}</div>)}
                   {mDates.map((item, i) => {
                     const ds = fmtDate(item.date); const evs = evOn(ds);
                     return (
