@@ -3930,8 +3930,8 @@ export default function CRM() {
     const d = dragRef2.current; if (!d) return;
     agMoveGhost(clientX, clientY);
     const W = window.innerWidth;
-    if (clientX > W - 42) agEdge(1);
-    else if (clientX < 42) agEdge(-1);
+    if (clientX > W - 64) agEdge(1);
+    else if (clientX < 64) agEdge(-1);
     else agEdge(0);
     const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
     const cell = el ? (el.closest("[data-drop-date]") as HTMLElement | null) : null;
@@ -3944,10 +3944,12 @@ export default function CRM() {
   };
   const dragCommit = () => {
     const d = dragRef2.current;
+    if (d && d.watchdog) clearTimeout(d.watchdog);
     agEdgeStop(d);
     agSetDropHint(null);
     dragRef2.current = null;
     setDraggingEv(null);
+    document.body.classList.remove("ag-dragging");
     if (d && d.active) finalizarReagendamento(d.event, d.dropDate, d.dropHour);
   };
   const dragDocMove = (ev: TouchEvent) => {
@@ -3979,6 +3981,9 @@ export default function CRM() {
         state.active = true;
         dragRef2.current = state;
         setDraggingEv(ev);
+        document.body.classList.add("ag-dragging");
+        // trava de seguranca: se o mouseup nao chegar por algum motivo, cancela sozinho
+        state.watchdog = setTimeout(() => { if (dragRef2.current === state) { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", end); dragCommit(); } }, 8000);
         requestAnimationFrame(() => agMoveGhost(mev.clientX, mev.clientY));
       }
       dragApplyPosition(mev.clientX, mev.clientY);
@@ -4003,10 +4008,14 @@ export default function CRM() {
       d.active = true;
       if ((navigator as any).vibrate) { try { (navigator as any).vibrate(25); } catch {} }
       setDraggingEv(ev);
+      document.body.classList.add("ag-dragging");
       requestAnimationFrame(() => agMoveGhost(d.startX, d.startY));
       document.addEventListener("touchmove", d.docMove, { passive: false });
       document.addEventListener("touchend", d.docEnd, { passive: false });
       document.addEventListener("touchcancel", d.docEnd);
+      // trava de seguranca: se o iOS "roubar" o gesto perto da borda e nunca
+      // entregar touchend/touchcancel, cancela sozinho em vez de travar
+      d.watchdog = setTimeout(() => { if (dragRef2.current === d) dragDocEnd(); }, 8000);
     }, 550);
   };
   const onEvTouchMove = (e: React.TouchEvent) => {
