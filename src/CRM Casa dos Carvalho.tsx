@@ -149,7 +149,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .dgrid{grid-template-columns:1fr!important;}
   /* Agenda */
   .ag-ctrl{flex-direction:column!important;align-items:stretch!important;}
-  .ag-nav{justify-content:center!important;}
+  .ag-nav{justify-content:center!important;flex-wrap:wrap!important;row-gap:5px!important;}
   .ag-title{min-width:auto!important;font-size:15px!important;}
   .ag-vg{margin-left:0!important;justify-content:center!important;}
   .ag-week{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;}
@@ -5140,6 +5140,9 @@ export default function CRM() {
                 <div className="ag-title">{agTitle()}</div>
                 <button className="ag-nb" onClick={() => agSlide(1)}>&gt;</button>
                 <button className="ag-nb" style={{ fontSize: 11 }} onClick={() => setAgDate(new Date())}>Hoje</button>
+                <button className="ag-nb" title="Primeiro dia da semana da agenda" style={{ fontSize: 10, padding: "4px 8px", opacity: .6, background: "transparent" }} onClick={toggleAgSegStart}>
+                  {agSegStart ? "Seg" : "Dom"}
+                </button>
               </div>
               <div className="ag-vg">
                 {["day", "week", "month"].map(v => (
@@ -5148,9 +5151,6 @@ export default function CRM() {
                   </button>
                 ))}
               </div>
-              <button className="ag-nb" title="Primeiro dia da semana" style={{ fontSize: 11 }} onClick={toggleAgSegStart}>
-                Início: {agSegStart ? "Segunda" : "Domingo"}
-              </button>
               <button className="btn-new" style={{ marginLeft: "auto" }} onClick={() => { setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); setAgForm({ title: "", desc: "", tipo: "cons_" + (artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11, sinal: "", sinalPago: false } as any); setShowAgForm(true); }}>+ Evento</button>
             </div>
             <div className="ag-leg">
