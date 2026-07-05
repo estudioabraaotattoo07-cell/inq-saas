@@ -13743,7 +13743,6 @@ export default function CRM() {
                     entrada_cats: entradaCats,
                     saida_cats: saidaCats,
                     servico_opts: servicoOpts,
-                    estoque_itens: estoqueItens,
                     resend_api_key: resendApiKey,
                     email_remetente: emailRemetente,
                     nome_remetente: nomeRemetente,
