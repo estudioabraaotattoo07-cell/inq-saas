@@ -2272,31 +2272,64 @@ export default function CRM() {
     const dataHojeISO = new Date().toISOString().split("T")[0];
     const pgtoTexto = pagFormas.filter(f => parseFloat(f.valor) > 0)
       .map(f => f.forma === "Cartão" ? `Cartão ${f.parcelas}x` : f.forma).join(" + ");
+    const projVinculado = (projParaConcluir && projParaConcluir.clienteId === cid)
+      ? (cliente?.projetos || []).find((p: any) => p.id === projParaConcluir.projetoId) : null;
     for (const f of pagFormas) {
       const val = parseFloat(f.valor.replace(/\./g, "").replace(",", ".")) || 0;
       if (val <= 0) continue;
       const taxaPct = f.forma === "Cartão" ? (parseFloat(((f as any).taxa || "0").replace(",", ".")) || 0) : 0;
-      const valLiquido = taxaPct > 0 ? val * (1 - taxaPct / 100) : val;
       const nParcelas = f.forma === "Cartão" ? (parseInt(f.parcelas) || 1) : 1;
-      const finRowPag = {
-        cliente_id: cid,
-        cliente_nome: cliente?.nome || "",
-        artista: artistaId,
-        data: dataHojeISO,
-        val_a: val,
-        val_c: valLiquido,
-        pgto: f.forma === "Cartão" ? "Cartão " + f.parcelas + "x" : f.forma,
-        parcelas: nParcelas,
-        com_base: f.forma === "Permuta" ? 0 : comSess,
-        com_sess: f.forma === "Permuta" ? 0 : comSess,
-        categoria: "sessao",
-        tipo: "entrada",
-        is_permuta: f.forma === "Permuta" ? true : false,
-        user_id: userId,
-      };
-      const { data: fdPag, error } = await sb.from("financeiro").insert(finRowPag).select().single();
-      if (error) { console.error("financeiro insert (sessão):", error); setShowAviso("Erro ao registrar pagamento no financeiro. Verifique sua conexão e tente novamente."); return; }
-      if (fdPag) setFin(p => [...p, { ...finRowPag, id: fdPag.id, cliente: cliente?.nome || "" }]);
+
+      let partes: { valor: number; com: number; descricao?: string }[];
+      if (projVinculado?.piercingModo === "joia") {
+        // Venda de joia avulsa: sem comissão
+        partes = [{ valor: val, com: 0, descricao: "Joia" }];
+      } else if (projVinculado?.piercingModo === "joia_aplicacao") {
+        // Comissão incide só sobre a parte de aplicação, nunca sobre a joia
+        const valorJoiaProj = projVinculado.valorJoia || 0;
+        const valorAplicacaoProj = projVinculado.valorAplicacao || 0;
+        const totalProj = valorJoiaProj + valorAplicacaoProj;
+        const propJoia = totalProj > 0 ? valorJoiaProj / totalProj : 0;
+        const valorJoiaPagto = val * propJoia;
+        const valorAplicacaoPagto = val - valorJoiaPagto;
+        let comAplicacaoPct = comSess;
+        if (artistaObj?.piercing_comissao_tipo === "percentual") {
+          comAplicacaoPct = Number(artistaObj.piercing_comissao_valor) || 0;
+        } else if (artistaObj?.piercing_comissao_tipo === "fixo" && valorAplicacaoProj > 0) {
+          // Converte o valor fixo configurado numa % equivalente sobre o valor da aplicação, para reaproveitar o mecanismo de repasse por %
+          comAplicacaoPct = (Number(artistaObj.piercing_comissao_valor) || 0) / valorAplicacaoProj * 100;
+        }
+        if (f.forma === "Permuta") comAplicacaoPct = 0;
+        partes = [];
+        if (valorJoiaPagto > 0) partes.push({ valor: valorJoiaPagto, com: 0, descricao: "Joia" });
+        if (valorAplicacaoPagto > 0) partes.push({ valor: valorAplicacaoPagto, com: comAplicacaoPct, descricao: "Aplicação" });
+      } else {
+        partes = [{ valor: val, com: f.forma === "Permuta" ? 0 : comSess }];
+      }
+
+      for (const parte of partes) {
+        const valLiquido = taxaPct > 0 ? parte.valor * (1 - taxaPct / 100) : parte.valor;
+        const finRowPag: any = {
+          cliente_id: cid,
+          cliente_nome: cliente?.nome || "",
+          artista: artistaId,
+          data: dataHojeISO,
+          val_a: parte.valor,
+          val_c: valLiquido,
+          pgto: f.forma === "Cartão" ? "Cartão " + f.parcelas + "x" : f.forma,
+          parcelas: nParcelas,
+          com_base: parte.com,
+          com_sess: parte.com,
+          categoria: "sessao",
+          tipo: "entrada",
+          is_permuta: f.forma === "Permuta" ? true : false,
+          user_id: userId,
+        };
+        if (parte.descricao) finRowPag.descricao = parte.descricao;
+        const { data: fdPag, error } = await sb.from("financeiro").insert(finRowPag).select().single();
+        if (error) { console.error("financeiro insert (sessão):", error); setShowAviso("Erro ao registrar pagamento no financeiro. Verifique sua conexão e tente novamente."); return; }
+        if (fdPag) setFin(p => [...p, { ...finRowPag, id: fdPag.id, cliente: cliente?.nome || "" }]);
+      }
     }
     // Registrar no histórico do cliente
     const formasTexto = pagFormas.filter(f => parseFloat(f.valor) > 0).map(f => `${f.forma} R$${parseFloat(f.valor).toFixed(2)}${f.forma === "Cartão" ? ` ${f.parcelas}x` : ""}`).join(" + ");
