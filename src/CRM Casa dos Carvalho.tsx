@@ -9348,8 +9348,14 @@ export default function CRM() {
                                   setNovoProjetoForm(p => ({ ...p, piercingModo: "joia", valorTotal: novoTotal ? novoTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : p.valorTotal }));
                                 }} style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: novoProjetoForm.piercingModo === "joia" ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (novoProjetoForm.piercingModo === "joia" ? "var(--gold)" : "var(--br)"), color: novoProjetoForm.piercingModo === "joia" ? "var(--gold)" : "var(--tx2)" }}>Somente Joia</button>
                                 <button type="button" onClick={() => {
-                                  const novoTotal = valorJoia + valorAplicacaoNum;
-                                  setNovoProjetoForm(p => ({ ...p, piercingModo: "joia_aplicacao", valorTotal: novoTotal ? novoTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : p.valorTotal }));
+                                  const artistaResp = artists.find((a: any) => a.id === (novoProjetoForm.artista || sc.artista || ""));
+                                  let valorAplicacaoStr = novoProjetoForm.valorAplicacao;
+                                  if (!valorAplicacaoStr && artistaResp?.piercing_comissao_tipo === "fixo" && artistaResp?.piercing_comissao_valor) {
+                                    valorAplicacaoStr = Number(artistaResp.piercing_comissao_valor).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                  }
+                                  const valorAplicacaoDefault = parseFloat(valorAplicacaoStr.replace(/\./g, "").replace(",", ".")) || 0;
+                                  const novoTotal = valorJoia + valorAplicacaoDefault;
+                                  setNovoProjetoForm(p => ({ ...p, piercingModo: "joia_aplicacao", valorAplicacao: valorAplicacaoStr, valorTotal: novoTotal ? novoTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : p.valorTotal }));
                                 }} style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: novoProjetoForm.piercingModo === "joia_aplicacao" ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (novoProjetoForm.piercingModo === "joia_aplicacao" ? "var(--gold)" : "var(--br)"), color: novoProjetoForm.piercingModo === "joia_aplicacao" ? "var(--gold)" : "var(--tx2)" }}>Joia + Aplicação</button>
                               </div>
                             </div>
@@ -9381,7 +9387,7 @@ export default function CRM() {
                           onChange={e => { const raw = e.target.value.replace(/[^0-9]/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setNovoProjetoForm(p => ({ ...p, valorTotal: num })); }} />
                       </div>
                       <div className="fi2">
-                        <div className="fil">Descrição do Projeto</div>
+                        <div className="fil">Descrição do Serviço</div>
                         <textarea className="ef" placeholder="Descreva o projeto..." value={novoProjetoForm.desc} onChange={e => setNovoProjetoForm(p => ({ ...p, desc: e.target.value }))}
                           style={{ resize: "vertical", minHeight: 55, width: "100%", fontFamily: "inherit" }} />
                       </div>
@@ -9500,7 +9506,7 @@ export default function CRM() {
                               </div>
                             </div>
                             <div className="fi2">
-                              <div className="fil">Descrição do Projeto</div>
+                              <div className="fil">Descrição do Serviço</div>
                               <textarea className="ef" value={proj.desc || ""} onChange={e => {
                                 const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
                                 const idx = projs.findIndex((p: any) => p.id === proj.id);
