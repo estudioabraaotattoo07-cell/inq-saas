@@ -1127,6 +1127,8 @@ export default function CRM() {
   const [addingEstoque, setAddingEstoque] = useState<string | null>(null); // categoria sendo editada, ou null
   const [novoEstoqueForm, setNovoEstoqueForm] = useState({ nome: "", grupo: "", subgrupo: "", tamanho: "", quantidade: "", unidade: "un", custo: "", precoVenda: "", estoqueMinimo: "" });
   const [novaCategoriaEstoque, setNovaCategoriaEstoque] = useState("");
+  const [editingEstoqueId, setEditingEstoqueId] = useState<string | null>(null);
+  const [editEstoqueForm, setEditEstoqueForm] = useState({ nome: "", grupo: "", subgrupo: "", tamanho: "", quantidade: "", unidade: "un", custo: "", precoVenda: "", estoqueMinimo: "" });
   const [googleLink, setGoogleLink] = useState("");
   const [studioSite, setStudioSite] = useState("");
   // ── ORIGENS ──
@@ -13508,7 +13510,60 @@ export default function CRM() {
                   </div>
                   {(() => {
                     const categorias = Array.from(new Set(estoqueItens.map(i => i.categoria)));
+                    const abrirEdicaoEstoque = (item: typeof estoqueItens[number]) => {
+                      setEditingEstoqueId(item.id);
+                      setEditEstoqueForm({
+                        nome: item.nome, grupo: item.grupo || "", subgrupo: item.subgrupo || "", tamanho: item.tamanho || "",
+                        quantidade: String(item.quantidade), unidade: item.unidade,
+                        custo: item.custo != null ? String(item.custo) : "",
+                        precoVenda: item.precoVenda != null ? String(item.precoVenda) : "",
+                        estoqueMinimo: item.estoqueMinimo != null ? String(item.estoqueMinimo) : "",
+                      });
+                    };
+                    const salvarEdicaoEstoque = (id: string) => {
+                      if (!editEstoqueForm.nome.trim()) { setShowAviso("Preencha ao menos o nome do item."); return; }
+                      salvarEstoque(estoqueItens.map(i => i.id !== id ? i : {
+                        ...i,
+                        nome: editEstoqueForm.nome.trim(),
+                        grupo: editEstoqueForm.grupo.trim() || undefined,
+                        subgrupo: editEstoqueForm.subgrupo.trim() || undefined,
+                        tamanho: editEstoqueForm.tamanho.trim() || undefined,
+                        quantidade: Number(editEstoqueForm.quantidade.replace(/[^0-9]/g, "")) || 0,
+                        unidade: editEstoqueForm.unidade.trim() || "un",
+                        custo: editEstoqueForm.custo ? Number(editEstoqueForm.custo.replace(",", ".")) : undefined,
+                        precoVenda: editEstoqueForm.precoVenda ? Number(editEstoqueForm.precoVenda.replace(",", ".")) : undefined,
+                        estoqueMinimo: editEstoqueForm.estoqueMinimo ? Number(editEstoqueForm.estoqueMinimo.replace(/[^0-9]/g, "")) : undefined,
+                      }));
+                      setEditingEstoqueId(null);
+                    };
                     const renderItem = (item: typeof estoqueItens[number]) => {
+                      if (editingEstoqueId === item.id) {
+                        return (
+                          <div key={item.id} style={{ background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 7, padding: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                            <input className="ef" placeholder="Nome do item" value={editEstoqueForm.nome} onChange={e => setEditEstoqueForm(p => ({ ...p, nome: e.target.value }))} />
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <input className="ef" placeholder="Grupo (opcional)" value={editEstoqueForm.grupo} onChange={e => setEditEstoqueForm(p => ({ ...p, grupo: e.target.value }))} />
+                              <input className="ef" placeholder="Subgrupo (opcional)" value={editEstoqueForm.subgrupo} onChange={e => setEditEstoqueForm(p => ({ ...p, subgrupo: e.target.value }))} />
+                            </div>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <input className="ef" placeholder="Tamanho (opcional)" value={editEstoqueForm.tamanho} onChange={e => setEditEstoqueForm(p => ({ ...p, tamanho: e.target.value }))} />
+                              <input className="ef" placeholder="Unidade" value={editEstoqueForm.unidade} onChange={e => setEditEstoqueForm(p => ({ ...p, unidade: e.target.value }))} />
+                            </div>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <input className="ef" type="text" inputMode="numeric" placeholder="Quantidade" value={editEstoqueForm.quantidade} onChange={e => setEditEstoqueForm(p => ({ ...p, quantidade: e.target.value.replace(/[^0-9]/g, "") }))} />
+                              <input className="ef" type="text" inputMode="numeric" placeholder="Estoque mínimo (opcional)" value={editEstoqueForm.estoqueMinimo} onChange={e => setEditEstoqueForm(p => ({ ...p, estoqueMinimo: e.target.value.replace(/[^0-9]/g, "") }))} />
+                            </div>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <input className="ef" placeholder="Custo R$ (opcional)" value={editEstoqueForm.custo} onChange={e => setEditEstoqueForm(p => ({ ...p, custo: e.target.value.replace(/[^0-9,]/g, "") }))} />
+                              <input className="ef" placeholder="Preço de venda R$ (opcional)" value={editEstoqueForm.precoVenda} onChange={e => setEditEstoqueForm(p => ({ ...p, precoVenda: e.target.value.replace(/[^0-9,]/g, "") }))} />
+                            </div>
+                            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                              <button className="btn-c" onClick={() => setEditingEstoqueId(null)}>Cancelar</button>
+                              <button className="btn-s" onClick={() => salvarEdicaoEstoque(item.id)}>Salvar</button>
+                            </div>
+                          </div>
+                        );
+                      }
                       const baixo = item.estoqueMinimo != null && item.quantidade <= item.estoqueMinimo;
                       return (
                         <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--dk3)", borderRadius: 7, padding: "8px 12px", border: baixo ? "1px solid rgba(231,76,60,.4)" : "1px solid transparent" }}>
@@ -13516,17 +13571,12 @@ export default function CRM() {
                             {item.nome}{item.tamanho ? " (" + item.tamanho + ")" : ""}
                             {baixo && <span style={{ marginLeft: 6, fontSize: 10, color: "#E74C3C", fontWeight: 700 }}>⚠ estoque baixo</span>}
                           </span>
-                          <input type="text" inputMode="numeric" defaultValue={item.quantidade}
-                            onBlur={e => {
-                              const novaQtd = Number(e.target.value.replace(/[^0-9]/g, "")) || 0;
-                              if (novaQtd === item.quantidade) return;
-                              salvarEstoque(estoqueItens.map(i => i.id === item.id ? { ...i, quantidade: novaQtd } : i));
-                            }}
-                            style={{ width: 46, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 4, padding: "3px 5px", fontSize: 12, color: "var(--tx)", textAlign: "right" }} />
-                          <span style={{ fontSize: 12, color: "var(--tx2)" }}>{item.unidade}</span>
+                          <span style={{ fontSize: 12, color: "var(--tx2)" }}>{item.quantidade} {item.unidade}</span>
                           {item.precoVenda != null && item.precoVenda > 0 && (
                             <span style={{ fontSize: 12, color: "var(--gold)", fontWeight: 600 }}>R$ {Number(item.precoVenda).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                           )}
+                          <button onClick={() => abrirEdicaoEstoque(item)}
+                            style={{ background: "none", border: "none", color: "var(--tx2)", cursor: "pointer", fontSize: 14 }}>✎</button>
                           <button onClick={() => salvarEstoque(estoqueItens.filter(i => i.id !== item.id))}
                             style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 14 }}>🗑</button>
                         </div>
