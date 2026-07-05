@@ -1230,7 +1230,10 @@ export default function CRM() {
   });
   const [formAg, setFormAg] = useState({ agendar: false, data: "", hora: "09:00", tipo: "cons" });
   const [artForm, setArtForm] = useState({
-    nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "", email: "", tel: ""
+    nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "", email: "", tel: "",
+    funcao: "", atendeCliente: true,
+    piercingComissaoTipo: "" as "" | "percentual" | "fixo", piercingComissaoValor: "",
+    remuneracaoTipo: "" as "" | "salario_fixo" | "por_hora" | "outro", remuneracaoValor: ""
   });
   const [agForm, setAgForm] = useState({
     title: "", tipo: "cons_" + (artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11, desc: "", servico: ""
@@ -2587,6 +2590,12 @@ export default function CRM() {
       insta: artForm.insta || "",
       email: artForm.email || "",
       tel: artForm.tel || "",
+      funcao: artForm.funcao || "",
+      atende_cliente: artForm.atendeCliente,
+      piercing_comissao_tipo: artForm.piercingComissaoTipo || null,
+      piercing_comissao_valor: artForm.piercingComissaoValor ? Number(artForm.piercingComissaoValor) : null,
+      remuneracao_tipo: artForm.remuneracaoTipo || null,
+      remuneracao_valor: artForm.remuneracaoValor ? Number(artForm.remuneracaoValor) : null,
       user_id: userId
     };
     const { data: artData, error: artError } = await sb.from("artistas").insert(row).select().single();
@@ -2596,7 +2605,7 @@ export default function CRM() {
     }
     setArtists(p => [...p, { ...row, id: artData.id }]);
     setShowArtForm(false);
-    setArtForm({ nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "@", email: "", tel: "" });
+    setArtForm({ nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "@", email: "", tel: "", funcao: "", atendeCliente: true, piercingComissaoTipo: "", piercingComissaoValor: "", remuneracaoTipo: "", remuneracaoValor: "" });
     addLog(`Profissional "${artForm.nome}" cadastrado`);
     if (!onboardingDone) { setOnbStep(s => s + 1); }
   };
@@ -4059,7 +4068,7 @@ export default function CRM() {
   const artistaDoProjeto = (proj: any, cliente: any) => proj?.artista || cliente?.artista || "";
   const SeletorProfissionalProjeto = ({ valor, onEscolher }: { valor: string; onEscolher: (id: string) => void }) => (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-      {artists.filter((a: any) => a.ativo).map((a: any) => {
+      {artists.filter((a: any) => a.ativo && a.atende_cliente !== false).map((a: any) => {
         const ativo = valor === a.id;
         return (
           <div key={a.id} onClick={() => onEscolher(a.id)}
@@ -6605,6 +6614,47 @@ export default function CRM() {
                     </div>
                   </div>
                 </div>
+                <div className="ff">
+                  <label className="fl">Função</label>
+                  <input className="fi" list="funcao-opts-edit" placeholder="Ex: Tatuador, Piercer, Faxineira, Contador(a)..." value={editingArtist.funcao || ""} onChange={e => setEditingArtist({ ...editingArtist, funcao: e.target.value })} />
+                  <datalist id="funcao-opts-edit">
+                    {Array.from(new Set(artists.map((a: any) => a.funcao).filter(Boolean))).map((f: any) => <option key={f} value={f} />)}
+                  </datalist>
+                </div>
+                <div className="ff" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="checkbox" checked={editingArtist.atende_cliente !== false} onChange={e => setEditingArtist({ ...editingArtist, atende_cliente: e.target.checked })} />
+                  <label className="fl" style={{ margin: 0 }}>Atende cliente diretamente (aparece na Agenda e no Pipeline)</label>
+                </div>
+                {editingArtist.atende_cliente !== false ? (
+                  <div className="ff">
+                    <label className="fl" title="Separado da comissão de tatuagem acima — só usado quando o serviço é piercing com aplicação.">Comissão de Piercing (por aplicação)</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <select className="fs" style={{ maxWidth: 140 }} value={editingArtist.piercing_comissao_tipo || ""} onChange={e => setEditingArtist({ ...editingArtist, piercing_comissao_tipo: e.target.value || null })}>
+                        <option value="">Sem comissão de piercing</option>
+                        <option value="fixo">Valor fixo</option>
+                        <option value="percentual">Percentual</option>
+                      </select>
+                      {editingArtist.piercing_comissao_tipo && (
+                        <input className="fi" type="text" inputMode="numeric" placeholder={editingArtist.piercing_comissao_tipo === "fixo" ? "R$ por aplicação" : "% por aplicação"} value={editingArtist.piercing_comissao_valor ?? ""} onChange={e => setEditingArtist({ ...editingArtist, piercing_comissao_valor: e.target.value.replace(/[^0-9,]/g, "") })} />
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="ff">
+                    <label className="fl">Remuneração</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <select className="fs" style={{ maxWidth: 160 }} value={editingArtist.remuneracao_tipo || ""} onChange={e => setEditingArtist({ ...editingArtist, remuneracao_tipo: e.target.value || null })}>
+                        <option value="">Selecione...</option>
+                        <option value="salario_fixo">Salário fixo mensal</option>
+                        <option value="por_hora">Por hora</option>
+                        <option value="outro">Outro</option>
+                      </select>
+                      {editingArtist.remuneracao_tipo && (
+                        <input className="fi" type="text" inputMode="numeric" placeholder="R$" value={editingArtist.remuneracao_valor ?? ""} onChange={e => setEditingArtist({ ...editingArtist, remuneracao_valor: e.target.value.replace(/[^0-9,]/g, "") })} />
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="fr">
                   <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={editingArtist.insta || ""} onChange={e => { const v = e.target.value; setEditingArtist({ ...editingArtist, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                   <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email" value={editingArtist.email || ""} onChange={e => setEditingArtist({ ...editingArtist, email: e.target.value.toLowerCase() })} /></div>
@@ -6630,7 +6680,13 @@ export default function CRM() {
                     insta: editingArtist.insta,
                     email: editingArtist.email,
                     tel: editingArtist.tel,
-                    ativo: editingArtist.ativo
+                    ativo: editingArtist.ativo,
+                    funcao: editingArtist.funcao || "",
+                    atende_cliente: editingArtist.atende_cliente !== false,
+                    piercing_comissao_tipo: editingArtist.piercing_comissao_tipo || null,
+                    piercing_comissao_valor: editingArtist.piercing_comissao_valor ? Number(String(editingArtist.piercing_comissao_valor).replace(",", ".")) : null,
+                    remuneracao_tipo: editingArtist.remuneracao_tipo || null,
+                    remuneracao_valor: editingArtist.remuneracao_valor ? Number(String(editingArtist.remuneracao_valor).replace(",", ".")) : null
                   }).eq("id", editingArtist.id);
                   if (error) { console.error("Erro ao salvar artista:", error); alert("Erro ao salvar artista."); return; }
                   setEditingArtist(null);
@@ -10352,6 +10408,47 @@ export default function CRM() {
                   </div>
                 </div>
                 </div>
+                <div className="ff">
+                  <label className="fl">Função</label>
+                  <input className="fi" list="funcao-opts" placeholder="Ex: Tatuador, Piercer, Faxineira, Contador(a)..." value={artForm.funcao} onChange={e => setArtForm({ ...artForm, funcao: e.target.value })} />
+                  <datalist id="funcao-opts">
+                    {Array.from(new Set(artists.map((a: any) => a.funcao).filter(Boolean))).map((f: any) => <option key={f} value={f} />)}
+                  </datalist>
+                </div>
+                <div className="ff" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="checkbox" checked={artForm.atendeCliente} onChange={e => setArtForm({ ...artForm, atendeCliente: e.target.checked })} />
+                  <label className="fl" style={{ margin: 0 }}>Atende cliente diretamente (aparece na Agenda e no Pipeline)</label>
+                </div>
+                {artForm.atendeCliente ? (
+                  <div className="ff">
+                    <label className="fl" title="Separado da comissão de tatuagem acima — só usado quando o serviço é piercing com aplicação.">Comissão de Piercing (por aplicação)</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <select className="fs" style={{ maxWidth: 140 }} value={artForm.piercingComissaoTipo} onChange={e => setArtForm({ ...artForm, piercingComissaoTipo: e.target.value as any })}>
+                        <option value="">Sem comissão de piercing</option>
+                        <option value="fixo">Valor fixo</option>
+                        <option value="percentual">Percentual</option>
+                      </select>
+                      {artForm.piercingComissaoTipo && (
+                        <input className="fi" type="text" inputMode="numeric" placeholder={artForm.piercingComissaoTipo === "fixo" ? "R$ por aplicação" : "% por aplicação"} value={artForm.piercingComissaoValor} onChange={e => setArtForm({ ...artForm, piercingComissaoValor: e.target.value.replace(/[^0-9,]/g, "") })} />
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="ff">
+                    <label className="fl">Remuneração</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <select className="fs" style={{ maxWidth: 160 }} value={artForm.remuneracaoTipo} onChange={e => setArtForm({ ...artForm, remuneracaoTipo: e.target.value as any })}>
+                        <option value="">Selecione...</option>
+                        <option value="salario_fixo">Salário fixo mensal</option>
+                        <option value="por_hora">Por hora</option>
+                        <option value="outro">Outro</option>
+                      </select>
+                      {artForm.remuneracaoTipo && (
+                        <input className="fi" type="text" inputMode="numeric" placeholder="R$" value={artForm.remuneracaoValor} onChange={e => setArtForm({ ...artForm, remuneracaoValor: e.target.value.replace(/[^0-9,]/g, "") })} />
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="fr">
                   <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => { const v = e.target.value; setArtForm({ ...artForm, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                   <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email" value={artForm.email} onChange={e => setArtForm({ ...artForm, email: e.target.value.toLowerCase() })} /></div>
@@ -10464,7 +10561,7 @@ export default function CRM() {
                 <div className="ff">
                   <label className="fl">Profissional</label>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {artists.filter(a => a.ativo).map(a => {
+                    {artists.filter(a => a.ativo && a.atende_cliente !== false).map(a => {
                       const chipActive = agForm.tipo?.includes(a.id) || ((agForm as any).artista_exec === a.id);
                       return (
                         <div key={a.id} onClick={() => {
@@ -13021,6 +13118,11 @@ export default function CRM() {
                               <span style={{ background: a.role === "residente" ? "rgba(39,174,96,.15)" : "rgba(201,168,76,.15)", color: a.role === "residente" ? "var(--q3)" : "var(--gold)", border: "1px solid " + (a.role === "residente" ? "rgba(39,174,96,.3)" : "rgba(201,168,76,.3)"), borderRadius: 3, padding: "2px 6px", fontSize: 10, fontWeight: 700, marginRight: 7, textTransform: "uppercase" as const }}>
                                 {a.role === "residente" ? "RESIDENTE" : "GUEST"}
                               </span>
+                              {a.funcao && (
+                                <span style={{ background: "rgba(52,152,219,.12)", color: "#3498DB", border: "1px solid rgba(52,152,219,.3)", borderRadius: 3, padding: "2px 6px", fontSize: 10, fontWeight: 700, marginRight: 7 }}>
+                                  {a.funcao}
+                                </span>
+                              )}
                               {a.ativo ? "Ativo" : "Inativo"} {a.insta || "Sem Instagram"}
                             </div>
                           </div>
