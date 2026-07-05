@@ -1119,7 +1119,14 @@ export default function CRM() {
   const [metaSessoes, setMetaSessoes] = useState(0);
   const [metaLeads, setMetaLeads] = useState(0);
   const [metaNPS, setMetaNPS] = useState(0);
-  const [settingsTab, setSettingsTab] = useState<"estudio"|"profissionais"|"ia"|"sistema">("estudio");
+  const [settingsTab, setSettingsTab] = useState<"estudio"|"profissionais"|"estoque"|"ia"|"sistema">("estudio");
+  // ── ESTOQUE (materiais de procedimento, joias/revenda, limpeza, equipamentos) ──
+  // Guardado como lista dentro de `configuracoes` (mesmo padrão já usado por servicoOpts) —
+  // nasce vazio pra cada estúdio novo, sem nada fixo no código.
+  const [estoqueItens, setEstoqueItens] = useState<{id: string; categoria: string; nome: string; tamanho?: string; quantidade: number; unidade: string; custo?: number; precoVenda?: number; estoqueMinimo?: number}[]>([]);
+  const [addingEstoque, setAddingEstoque] = useState<string | null>(null); // categoria sendo editada, ou null
+  const [novoEstoqueForm, setNovoEstoqueForm] = useState({ nome: "", tamanho: "", quantidade: "", unidade: "un", custo: "", precoVenda: "", estoqueMinimo: "" });
+  const [novaCategoriaEstoque, setNovaCategoriaEstoque] = useState("");
   const [googleLink, setGoogleLink] = useState("");
   const [studioSite, setStudioSite] = useState("");
   // ── ORIGENS ──
@@ -1623,6 +1630,7 @@ export default function CRM() {
           if (cfg.entrada_cats && Array.isArray(cfg.entrada_cats) && cfg.entrada_cats.length) setEntradaCats(cfg.entrada_cats);
           if (cfg.saida_cats && Array.isArray(cfg.saida_cats) && cfg.saida_cats.length) setSaidaCats(cfg.saida_cats);
           if (cfg.servico_opts && Array.isArray(cfg.servico_opts) && cfg.servico_opts.length) setServicoOpts(cfg.servico_opts);
+          if (cfg.estoque_itens && Array.isArray(cfg.estoque_itens)) setEstoqueItens(cfg.estoque_itens);
           if (cfg.studio_site) setStudioSite(cfg.studio_site);
           if (cfg.resend_api_key) setResendApiKey(cfg.resend_api_key);
           if (cfg.email_remetente) setEmailRemetente(cfg.email_remetente);
@@ -4038,6 +4046,11 @@ export default function CRM() {
       return wd[0].getDate() + " a " + wd[6].getDate() + " de " + MONTHS[agDate.getMonth()] + " " + agDate.getFullYear();
     }
     return MONTHS[agDate.getMonth()] + " " + agDate.getFullYear();
+  };
+  const salvarEstoque = async (updated: typeof estoqueItens) => {
+    setEstoqueItens(updated);
+    const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
+    if (cfgEx?.id) await sb.from("configuracoes").update({ estoque_itens: updated }).eq("id", cfgEx.id);
   };
   const aName = (id: string) => artists.find(a => a.id === id)?.nome || id || "";
   const aColor = (id: string) => artists.find(a => a.id === id)?.cor || "#C9A84C";
@@ -12721,7 +12734,7 @@ export default function CRM() {
               </div>
               {/* ABAS */}
               <div className="settings-tabs-bar" style={{ display: "flex", borderBottom: "1px solid var(--br)" }}>
-                {([["estudio","🏠 Estúdio"],["profissionais","💼 Profissionais"],["ia","🤖 IA"],["sistema","⚙️ Sistema"]] as const).map(([id, label]) => (
+                {([["estudio","🏠 Estúdio"],["profissionais","💼 Colaboradores"],["estoque","📦 Estoque"],["ia","🤖 IA"],["sistema","⚙️ Sistema"]] as const).map(([id, label]) => (
                   <div key={id} onClick={() => setSettingsTab(id)}
                     style={{ flex: 1, padding: "10px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, cursor: "pointer", letterSpacing: ".04em",
                       color: settingsTab === id ? "var(--gold)" : "var(--tx3)",
@@ -13231,6 +13244,94 @@ export default function CRM() {
                 </>}
 
 
+                {/* ── ABA ESTOQUE ── */}
+                {settingsTab === "estoque" && <>
+                  <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 14, lineHeight: 1.6 }}>
+                    Materiais de procedimento, joias/itens de revenda, limpeza, equipamentos — o que quiser controlar.
+                    Item com "Preço de Venda" preenchido aparece pra seleção na Solicitação de Serviço (ex: joias de piercing).
+                  </div>
+                  {(() => {
+                    const categorias = Array.from(new Set(estoqueItens.map(i => i.categoria)));
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                        {categorias.map(cat => (
+                          <div key={cat}>
+                            <div className="stit">{cat}</div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+                              {estoqueItens.filter(i => i.categoria === cat).map(item => {
+                                const baixo = item.estoqueMinimo != null && item.quantidade <= item.estoqueMinimo;
+                                return (
+                                  <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--dk3)", borderRadius: 7, padding: "8px 12px", border: baixo ? "1px solid rgba(231,76,60,.4)" : "1px solid transparent" }}>
+                                    <span style={{ flex: 1, fontSize: 13, color: "var(--tx)" }}>
+                                      {item.nome}{item.tamanho ? " (" + item.tamanho + ")" : ""}
+                                      {baixo && <span style={{ marginLeft: 6, fontSize: 10, color: "#E74C3C", fontWeight: 700 }}>⚠ estoque baixo</span>}
+                                    </span>
+                                    <span style={{ fontSize: 12, color: "var(--tx2)" }}>{item.quantidade} {item.unidade}</span>
+                                    {item.precoVenda != null && item.precoVenda > 0 && (
+                                      <span style={{ fontSize: 12, color: "var(--gold)", fontWeight: 600 }}>R$ {Number(item.precoVenda).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                                    )}
+                                    <button onClick={() => salvarEstoque(estoqueItens.filter(i => i.id !== item.id))}
+                                      style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 14 }}>🗑</button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                        {estoqueItens.length === 0 && (
+                          <div style={{ fontSize: 12, color: "var(--tx3)", fontStyle: "italic" }}>Nenhum item cadastrado ainda.</div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  <div style={{ marginTop: 16 }}>
+                    {addingEstoque !== null ? (
+                      <div style={{ background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 8, padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                        <input className="ef" list="estoque-categorias" placeholder="Categoria (ex: Materiais de Procedimento, Joias, Limpeza...)" value={addingEstoque}
+                          onChange={e => setAddingEstoque(e.target.value)} />
+                        <datalist id="estoque-categorias">
+                          {Array.from(new Set(estoqueItens.map(i => i.categoria))).map(c => <option key={c} value={c} />)}
+                        </datalist>
+                        <input className="ef" placeholder="Nome do item *" value={novoEstoqueForm.nome} onChange={e => setNovoEstoqueForm(p => ({ ...p, nome: e.target.value }))} />
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <input className="ef" placeholder="Tamanho (opcional, ex: G/M/P)" value={novoEstoqueForm.tamanho} onChange={e => setNovoEstoqueForm(p => ({ ...p, tamanho: e.target.value }))} />
+                          <input className="ef" placeholder="Unidade (un, caixa...)" value={novoEstoqueForm.unidade} onChange={e => setNovoEstoqueForm(p => ({ ...p, unidade: e.target.value }))} />
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <input className="ef" type="text" inputMode="numeric" placeholder="Quantidade" value={novoEstoqueForm.quantidade} onChange={e => setNovoEstoqueForm(p => ({ ...p, quantidade: e.target.value.replace(/[^0-9]/g, "") }))} />
+                          <input className="ef" type="text" inputMode="numeric" placeholder="Estoque mínimo (opcional)" value={novoEstoqueForm.estoqueMinimo} onChange={e => setNovoEstoqueForm(p => ({ ...p, estoqueMinimo: e.target.value.replace(/[^0-9]/g, "") }))} />
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <input className="ef" placeholder="Custo R$ (opcional)" value={novoEstoqueForm.custo} onChange={e => setNovoEstoqueForm(p => ({ ...p, custo: e.target.value.replace(/[^0-9,]/g, "") }))} />
+                          <input className="ef" placeholder="Preço de venda R$ (só p/ itens vendidos ao cliente, ex: joia)" value={novoEstoqueForm.precoVenda} onChange={e => setNovoEstoqueForm(p => ({ ...p, precoVenda: e.target.value.replace(/[^0-9,]/g, "") }))} />
+                        </div>
+                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                          <button className="btn-c" onClick={() => { setAddingEstoque(null); setNovoEstoqueForm({ nome: "", tamanho: "", quantidade: "", unidade: "un", custo: "", precoVenda: "", estoqueMinimo: "" }); }}>Cancelar</button>
+                          <button className="btn-s" onClick={() => {
+                            if (!addingEstoque.trim() || !novoEstoqueForm.nome.trim()) { setShowAviso("Preencha ao menos categoria e nome."); return; }
+                            const item = {
+                              id: "est" + Date.now(),
+                              categoria: addingEstoque.trim(),
+                              nome: novoEstoqueForm.nome.trim(),
+                              tamanho: novoEstoqueForm.tamanho.trim() || undefined,
+                              quantidade: Number(novoEstoqueForm.quantidade) || 0,
+                              unidade: novoEstoqueForm.unidade.trim() || "un",
+                              custo: novoEstoqueForm.custo ? Number(novoEstoqueForm.custo.replace(",", ".")) : undefined,
+                              precoVenda: novoEstoqueForm.precoVenda ? Number(novoEstoqueForm.precoVenda.replace(",", ".")) : undefined,
+                              estoqueMinimo: novoEstoqueForm.estoqueMinimo ? Number(novoEstoqueForm.estoqueMinimo) : undefined,
+                            };
+                            salvarEstoque([...estoqueItens, item]);
+                            setAddingEstoque(null);
+                            setNovoEstoqueForm({ nome: "", tamanho: "", quantidade: "", unidade: "un", custo: "", precoVenda: "", estoqueMinimo: "" });
+                          }}>Salvar item</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button className="btn-sm gold" onClick={() => setAddingEstoque("")}>+ Adicionar item ao estoque</button>
+                    )}
+                  </div>
+                </>}
+
                 {/* ── ABA IA ── */}
                 {settingsTab === "ia" && <>
                   <div style={{ background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.15)", borderRadius: 8, padding: "12px 14px", marginBottom: 4 }}>
@@ -13436,6 +13537,7 @@ export default function CRM() {
                     entrada_cats: entradaCats,
                     saida_cats: saidaCats,
                     servico_opts: servicoOpts,
+                    estoque_itens: estoqueItens,
                     resend_api_key: resendApiKey,
                     email_remetente: emailRemetente,
                     nome_remetente: nomeRemetente,
