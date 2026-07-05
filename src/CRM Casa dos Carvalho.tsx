@@ -1254,7 +1254,7 @@ export default function CRM() {
   const [formStep, setFormStep] = useState(1);
   const [emailError, setEmailError] = useState("");
   const [confirmMover, setConfirmMover] = useState<{cid: any; stage: any; agEvents: any[]} | null>(null);
-  const [confirmPagamento, setConfirmPagamento] = useState<{cid: any; agEvent: any} | null>(null);
+  const [confirmPagamento, setConfirmPagamento] = useState<{cid: any; agEvent: any; projArtista?: string} | null>(null);
   const [projParaConcluir, setProjParaConcluir] = useState<{clienteId: any; projetoId: any} | null>(null);
   const [pipelineMotivo, setPipelineMotivo] = useState<{cid: any; stage: any; motivo: string; dias?: string} | null>(null);
   const [confirmCancelarEvento, setConfirmCancelarEvento] = useState<{event: any; motivo: string} | null>(null);
@@ -1276,7 +1276,7 @@ export default function CRM() {
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [proximaSessaoModal, setProximaSessaoModal] = useState<{cid: any; agEvent: any} | null>(null);
   const [editandoProjConc, setEditandoProjConc] = useState<{clienteId: any; projetoId: any} | null>(null);
-  const [pgAvulso, setPgAvulso] = useState<{clienteId: any; clienteNome: string; artistaId: string; fase: "form"|"confirm"; valor: string; forma: string; obs: string} | null>(null);
+  const [pgAvulso, setPgAvulso] = useState<{clienteId: any; clienteNome: string; artistaId: string; projetos?: any[]; projetoId?: any; fase: "form"|"confirm"; valor: string; forma: string; obs: string} | null>(null);
   const [agendarProximaModal, setAgendarProximaModal] = useState<{cid: any} | null>(null);
   const [instrucaoDisparo, setInstrucaoDisparo] = useState<Record<string, string>>({});
   const [gerandoDisparo, setGerandoDisparo] = useState<string | null>(null);
@@ -1285,7 +1285,7 @@ export default function CRM() {
   const [cancelMotivos, setCancelMotivos] = useState<string[]>(["Cliente desistiu", "Questão financeira", "Mudança de projeto", "Sem resposta do cliente", "Outro"]);
   const [enviandoRelatorio, setEnviandoRelatorio] = useState(false);
   const [novoProjetoAberto, setNovoProjetoAberto] = useState<any>(null);
-  const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "" });
+  const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "" });
   const [showRecorrenteModal, setShowRecorrenteModal] = useState<{cid: any} | null>(null);
   const [recorrenteForm, setRecorrenteForm] = useState({ dataInicio: new Date().toISOString().split("T")[0], intervalo: 7, total: 4, hora: 9, duracao: 2, artista: "" });
   const [fichaRevelada, setFichaRevelada] = useState<Set<any>>(new Set());
@@ -2255,7 +2255,7 @@ export default function CRM() {
     const dataHoje = new Date().toLocaleDateString("pt-BR");
     // Lançar cada forma no financeiro
     const cliente = clients.find(c => c.id === cid);
-    const artistaId = confirmPagamento.agEvent?.artista || cliente?.artista || "";
+    const artistaId = confirmPagamento.agEvent?.artista || confirmPagamento.projArtista || cliente?.artista || "";
     const artistaObj = artists.find(a => a.id === artistaId);
     const comSess = artistaObj?.com || 0;
     const dataHojeISO = new Date().toISOString().split("T")[0];
@@ -4041,6 +4041,25 @@ export default function CRM() {
   };
   const aName = (id: string) => artists.find(a => a.id === id)?.nome || id || "";
   const aColor = (id: string) => artists.find(a => a.id === id)?.cor || "#C9A84C";
+  // Profissional responsável por UMA solicitação/projeto específico — cai pro
+  // profissional da ficha só quando a solicitação não tiver o seu próprio definido.
+  const artistaDoProjeto = (proj: any, cliente: any) => proj?.artista || cliente?.artista || "";
+  const SeletorProfissionalProjeto = ({ valor, onEscolher }: { valor: string; onEscolher: (id: string) => void }) => (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {artists.filter((a: any) => a.ativo).map((a: any) => {
+        const ativo = valor === a.id;
+        return (
+          <div key={a.id} onClick={() => onEscolher(a.id)}
+            style={{ padding: "4px 11px", borderRadius: 20, cursor: "pointer", fontSize: 11, fontWeight: 600,
+              background: ativo ? a.cor + "33" : "var(--dk3)",
+              border: "1px solid " + (ativo ? a.cor : "var(--br)"),
+              color: ativo ? a.cor : "var(--tx2)" }}>
+            {a.nome.split(" ")[0]}
+          </div>
+        );
+      })}
+    </div>
+  );
   const aClass = (id: string) => "";
   const aStyle = (id: string) => {
     const a = artists.find(x => x.id === id);
@@ -9114,7 +9133,7 @@ export default function CRM() {
                     {novoProjetoAberto !== sc.id && (
                       <button title="Cada projeto representa uma tatuagem ou trabalho artístico do cliente. Você pode ter múltiplos projetos por cliente." onClick={() => {
                         setNovoProjetoAberto(sc.id);
-                        setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "" });
+                        setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "" });
                       }} style={{ fontSize: 11, fontWeight: 600, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 10px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                         + Nova Solicitação de Projeto
                       </button>
@@ -9137,6 +9156,10 @@ export default function CRM() {
                         </select>
                       </div>
                       <div className="fi2">
+                        <div className="fil" title="Se este projeto for feito por outro profissional (diferente do responsável pela ficha), selecione aqui — o financeiro e a comissão vão para quem estiver marcado.">Profissional Responsável (por este projeto)</div>
+                        <SeletorProfissionalProjeto valor={novoProjetoForm.artista || sc.artista || ""} onEscolher={id => setNovoProjetoForm(p => ({ ...p, artista: id }))} />
+                      </div>
+                      <div className="fi2">
                         <div className="fil">Valor Total do Projeto (R$)</div>
                         <input className="ef" type="text" placeholder="0,00" value={novoProjetoForm.valorTotal}
                           onChange={e => { const raw = e.target.value.replace(/[^0-9]/g,""); const num = raw ? (Number(raw)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""; setNovoProjetoForm(p => ({ ...p, valorTotal: num })); }} />
@@ -9147,11 +9170,11 @@ export default function CRM() {
                           style={{ resize: "vertical", minHeight: 55, width: "100%", fontFamily: "inherit" }} />
                       </div>
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <button onClick={() => { setNovoProjetoAberto(null); setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "" }); }} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Descartar</button>
+                        <button onClick={() => { setNovoProjetoAberto(null); setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "" }); }} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Descartar</button>
                         <button onClick={() => {
                           if (!novoProjetoForm.estilo.trim()) { setShowAviso("Preencha o nome/identificação do projeto."); return; }
                           const val = parseFloat(novoProjetoForm.valorTotal.replace(/\./g,"").replace(",",".")) || 0;
-                          const proj = { id: Date.now(), estilo: novoProjetoForm.estilo, tam: novoProjetoForm.tam, primeira: novoProjetoForm.primeira, desc: novoProjetoForm.desc, servico: (novoProjetoForm as any).servico || "", valorTotal: val, status: "ativo", criadoEm: new Date().toLocaleDateString("pt-BR"), pagamentos: [] };
+                          const proj = { id: Date.now(), estilo: novoProjetoForm.estilo, tam: novoProjetoForm.tam, primeira: novoProjetoForm.primeira, desc: novoProjetoForm.desc, servico: (novoProjetoForm as any).servico || "", artista: novoProjetoForm.artista || sc.artista || "", valorTotal: val, status: "ativo", criadoEm: new Date().toLocaleDateString("pt-BR"), pagamentos: [] };
                           const projs = [...(sc.projetos || [])];
                           if (projs.length === 0 && (sc.estilo || sc.desc)) {
                             projs.push({ id: Date.now()-1, estilo: sc.estilo||"", tam: sc.tam||"Medio", primeira: sc.primeira||false, desc: sc.desc||"", valorTotal: 0, status: "ativo", criadoEm: "—", pagamentos: [] });
@@ -9200,7 +9223,7 @@ export default function CRM() {
                                   }
                                   // Abre modal de pagamento antes de concluir
                                   const evVinculado = agEvents.find(e => e.cliente_id === sc.id && e.status !== "concluido");
-                                  setConfirmPagamento({ cid: sc.id, agEvent: evVinculado || null });
+                                  setConfirmPagamento({ cid: sc.id, agEvent: evVinculado || null, projArtista: artistaDoProjeto(proj, sc) });
                                   // Após confirmar pagamento, marca projeto como concluído e move pipeline
                                   setProjParaConcluir({ clienteId: sc.id, projetoId: proj.id });
                                 }} style={{ fontSize: 10, fontWeight: 600, background: "rgba(39,174,96,.1)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 5, padding: "3px 9px", color: "#27AE60", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
@@ -9222,6 +9245,15 @@ export default function CRM() {
                                 </div>
                               ) : null;
                             })()}
+                            <div className="fi2">
+                              <div className="fil" title="Se este projeto for feito por outro profissional (diferente do responsável pela ficha), selecione aqui — o financeiro e a comissão vão para quem estiver marcado.">Profissional Responsável (por este projeto)</div>
+                              <SeletorProfissionalProjeto valor={artistaDoProjeto(proj, sc)} onEscolher={id => {
+                                const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+                                const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                if (idx >= 0) { projs[idx] = { ...projs[idx], artista: id }; upC(sc.id, "projetos", projs); }
+                                else upC(sc.id, "projetos", [{ ...proj, artista: id }]);
+                              }} />
+                            </div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: 2 }}>
                               <div className="fi2">
                                 <div className="fil">Valor Total do Projeto (R$)</div>
@@ -9282,6 +9314,14 @@ export default function CRM() {
                                   {estaEditando ? (
                                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                       <div style={{ fontSize: 11, color: "var(--gold)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>✏️ Editando solicitação concluída</div>
+                                      <div className="fi2">
+                                        <div className="fil" title="Corrige quem é o profissional responsável por este projeto específico — útil se foi lançado errado.">Profissional Responsável (por este projeto)</div>
+                                        <SeletorProfissionalProjeto valor={artistaDoProjeto(proj, sc)} onEscolher={id => {
+                                          const projs = [...(sc.projetos || [])];
+                                          const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                          if (idx >= 0) { projs[idx] = { ...projs[idx], artista: id }; upC(sc.id, "projetos", projs); }
+                                        }} />
+                                      </div>
                                       <div className="fi2">
                                         <div className="fil">Descrição</div>
                                         <textarea className="ef" value={proj.desc || ""} onChange={e => {
@@ -9393,7 +9433,12 @@ export default function CRM() {
                           </div>
                         </div>
                         <button
-                          onClick={() => setPgAvulso({ clienteId: sc.id, clienteNome: sc.nome, artistaId: sc.artista || "", fase: "form", valor: "", forma: "Pix", obs: "" })}
+                          onClick={() => {
+                            // Se há só 1 projeto ativo, já usa o profissional dele. Com 2+, deixa em
+                            // branco/ficha por enquanto — a pessoa escolhe a solicitação no modal.
+                            const artistaPadrao = projs.length === 1 ? artistaDoProjeto(projs[0], sc) : (sc.artista || "");
+                            setPgAvulso({ clienteId: sc.id, clienteNome: sc.nome, artistaId: artistaPadrao, projetos: projs, projetoId: projs.length === 1 ? projs[0].id : "", fase: "form", valor: "", forma: "Pix", obs: "" });
+                          }}
                           style={{ alignSelf: "flex-start", background: "rgba(201,168,76,.12)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 7, padding: "8px 14px", fontSize: 12, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                           + Registrar pagamento
                         </button>
@@ -13828,6 +13873,27 @@ export default function CRM() {
                   </div>
                   <div style={{ fontSize: 12, color: "var(--tx2)" }}>Cliente: <strong>{pgAvulso.clienteNome}</strong></div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {(pgAvulso.projetos || []).length > 1 && (
+                      <div>
+                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Qual solicitação é este pagamento? *</div>
+                        <select
+                          value={pgAvulso.projetoId || ""}
+                          onChange={e => {
+                            const pid = e.target.value;
+                            const proj = (pgAvulso.projetos || []).find((p: any) => String(p.id) === String(pid));
+                            const cliente = clients.find(c => c.id === pgAvulso.clienteId);
+                            setPgAvulso(p => p ? { ...p, projetoId: pid, artistaId: proj ? artistaDoProjeto(proj, cliente) : p.artistaId } : p);
+                          }}
+                          style={{ width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "9px 12px", fontSize: 13, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", boxSizing: "border-box" }}>
+                          <option value="">Selecione...</option>
+                          {(pgAvulso.projetos || []).map((p: any) => <option key={p.id} value={p.id}>{p.estilo || p.servico || "Solicitação"}</option>)}
+                        </select>
+                      </div>
+                    )}
+                    <div>
+                      <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Profissional (recebe a comissão deste pagamento)</div>
+                      <SeletorProfissionalProjeto valor={pgAvulso.artistaId} onEscolher={id => setPgAvulso(p => p ? { ...p, artistaId: id } : p)} />
+                    </div>
                     <div>
                       <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Valor (R$) *</div>
                       <input
