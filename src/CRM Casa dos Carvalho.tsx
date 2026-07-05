@@ -9249,7 +9249,7 @@ export default function CRM() {
                       <div style={{ fontSize: 11, color: "var(--gold)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>Nova Solicitação de Serviço</div>
                       <div className="fi2">
                         <div className="fil">Nome / Identificação do Projeto *</div>
-                        <input className="ef" placeholder="Ex: Tatuagem no braço, Limpeza de pele, Implante..." value={novoProjetoForm.estilo}
+                        <input className="ef" placeholder="Ex: Tatuagem na coxa, Cobertura de tattoo antiga, Piercing na orelha..." value={novoProjetoForm.estilo}
                           onChange={e => setNovoProjetoForm(p => ({ ...p, estilo: e.target.value }))} />
                       </div>
                       <div className="fi2">
