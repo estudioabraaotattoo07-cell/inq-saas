@@ -1297,10 +1297,12 @@ export default function CRM() {
   const [instrucaoDisparo, setInstrucaoDisparo] = useState<Record<string, string>>({});
   const [gerandoDisparo, setGerandoDisparo] = useState<string | null>(null);
   const [confirmDisparo, setConfirmDisparo] = useState<{clientes: any[]; mensagem: string; segmento: string} | null>(null);
-  const [cancelProjetoModal, setCancelProjetoModal] = useState<{clienteId: any; projetoId: any; motivo: string} | null>(null);
+  const [cancelProjetoModal, setCancelProjetoModal] = useState<{clienteId: any; projetoId: any; motivo: string; motivoSelecionado: string} | null>(null);
   const [cancelMotivos, setCancelMotivos] = useState<string[]>(["Cliente desistiu", "Questão financeira", "Mudança de projeto", "Sem resposta do cliente", "Outro"]);
   const [enviandoRelatorio, setEnviandoRelatorio] = useState(false);
   const [novoProjetoAberto, setNovoProjetoAberto] = useState<any>(null);
+  // Rascunho local das edições de uma solicitação já existente — só grava no banco quando o usuário clica em Salvar
+  const [projDrafts, setProjDrafts] = useState<Record<string, any>>({});
   // Painel de adicionar joia/aplicação numa solicitação de piercing JÁ existente (não a de criação)
   const [piercingEditProjId, setPiercingEditProjId] = useState<any>(null);
   const [piercingEditForm, setPiercingEditForm] = useState({ joiaId: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" });
@@ -2282,6 +2284,22 @@ export default function CRM() {
     const etapaAlvo = (cliente as any).etapa_antes_agenda || "lead";
     executarMove(cliente.id, etapaAlvo, { etapa_antes_agenda: null });
   };
+  // Rascunho de edição de uma solicitação: enquanto existir draft, a tela mostra ele (não o dado salvo).
+  // Nada grava no banco até chamar salvarProjDraft — evita autosave campo a campo.
+  const getProjDraft = (proj: any) => projDrafts[proj.id] || proj;
+  const setProjDraftField = (proj: any, fields: any) => {
+    setProjDrafts(p => ({ ...p, [proj.id]: { ...(p[proj.id] || proj), ...fields } }));
+  };
+  const salvarProjDraft = (sc: any, proj: any) => {
+    const draft = projDrafts[proj.id];
+    if (!draft) return;
+    const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+    const idx = projs.findIndex((p: any) => p.id === proj.id);
+    if (idx >= 0) projs[idx] = draft; else projs.push(draft);
+    upC(sc.id, "projetos", projs);
+    setProjDrafts(p => { const n = { ...p }; delete n[proj.id]; return n; });
+  };
+  const descartarProjDraft = (proj: any) => setProjDrafts(p => { const n = { ...p }; delete n[proj.id]; return n; });
   // Projetos ativos (não concluído/cancelado) de um cliente — usado pra saber se o pagamento
   // precisa perguntar "qual solicitação" ou se dá pra deduzir sozinho (só 1 ativa).
   const projetosAtivos = (cid: any) => (clients.find(c => c.id === cid)?.projetos || []).filter((p: any) => p.status !== "concluido" && p.status !== "cancelado");
@@ -9649,19 +9667,23 @@ export default function CRM() {
                         {projetos.length === 0 && (
                           <div style={{ fontSize: 12, color: "var(--tx3)", fontStyle: "italic", padding: "8px 0" }}>Nenhuma solicitação cadastrada. Clique em + Nova Solicitação de Serviço.</div>
                         )}
-                        {ativos.map((proj: any, pi: number) => (
-                          <div key={proj.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                        {ativos.map((proj: any, pi: number) => {
+                          const draft = getProjDraft(proj);
+                          const dirty = !!projDrafts[proj.id];
+                          return (
+                          <div key={proj.id} style={{ background: "var(--dk3)", border: "1px solid " + (dirty ? "var(--gold)" : "var(--br)"), borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                               <span style={{ fontSize: 11, color: "var(--gold)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>Solicitação {pi + 1} Em andamento</span>
-                      {(proj as any).servico && <span style={{ fontSize: 10, background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 10, padding: "1px 8px", color: "var(--gold)", marginLeft: 6 }}>{(proj as any).servico}</span>}
+                      {(draft as any).servico && <span style={{ fontSize: 10, background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 10, padding: "1px 8px", color: "var(--gold)", marginLeft: 6 }}>{(draft as any).servico}</span>}
                               <div style={{ display: "flex", gap: 6 }}>
-                                <button onClick={() => setCancelProjetoModal({ clienteId: sc.id, projetoId: proj.id, motivo: "" })}
+                                <button onClick={() => setCancelProjetoModal({ clienteId: sc.id, projetoId: proj.id, motivo: "", motivoSelecionado: "" })}
                                   style={{ fontSize: 10, fontWeight: 600, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "3px 9px", color: "var(--q1)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                                   ✕ Cancelar
                                 </button>
                                 <button onClick={() => {
+                                  if (dirty) salvarProjDraft(sc, proj);
                                   if (!window.confirm) {
-                                    const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+                                    const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...draft }];
                                     const idx = projs.findIndex((p: any) => p.id === proj.id);
                                     if (idx >= 0) {
                                       projs[idx] = { ...projs[idx], status: "concluido", concluidoEm: new Date().toLocaleDateString("pt-BR") };
@@ -9671,7 +9693,7 @@ export default function CRM() {
                                   }
                                   // Abre modal de pagamento antes de concluir
                                   const evVinculado = agEvents.find(e => e.cliente_id === sc.id && e.status !== "concluido");
-                                  setConfirmPagamento({ cid: sc.id, agEvent: evVinculado || null, projArtista: artistaDoProjeto(proj, sc) });
+                                  setConfirmPagamento({ cid: sc.id, agEvent: evVinculado || null, projArtista: artistaDoProjeto(draft, sc) });
                                   // Após confirmar pagamento, marca projeto como concluído e move pipeline
                                   setProjParaConcluir({ clienteId: sc.id, projetoId: proj.id });
                                 }} style={{ fontSize: 10, fontWeight: 600, background: "rgba(39,174,96,.1)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 5, padding: "3px 9px", color: "#27AE60", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
@@ -9679,9 +9701,9 @@ export default function CRM() {
                                 </button>
                               </div>
                             </div>
-                            {/* Valor total do projeto + saldo devedor */}
+                            {/* Valor total do projeto + saldo devedor (já reflete o rascunho, antes de salvar) */}
                             {(() => {
-                              const valorTotal = Number(proj.valorTotal) || 0;
+                              const valorTotal = Number(draft.valorTotal) || 0;
                               const totalPagoReal = fin.filter((f: any) => f.cliente_id === sc.id && (!f.tipo || f.tipo === "entrada") && (f.projeto_id ? String(f.projeto_id) === String(proj.id) : true)).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
                               const saldo = valorTotal - totalPagoReal;
                               return valorTotal > 0 ? (
@@ -9695,34 +9717,21 @@ export default function CRM() {
                             })()}
                             <div className="fi2">
                               <div className="fil" title="Se este projeto for feito por outro profissional (diferente do responsável pela ficha), selecione aqui — o financeiro e a comissão vão para quem estiver marcado.">Profissional Responsável (por este projeto)</div>
-                              <SeletorProfissionalProjeto valor={artistaDoProjeto(proj, sc)} onEscolher={id => {
-                                const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
-                                const idx = projs.findIndex((p: any) => p.id === proj.id);
-                                if (idx >= 0) { projs[idx] = { ...projs[idx], artista: id }; upC(sc.id, "projetos", projs); }
-                                else upC(sc.id, "projetos", [{ ...proj, artista: id }]);
-                              }} />
+                              <SeletorProfissionalProjeto valor={artistaDoProjeto(draft, sc)} onEscolher={id => setProjDraftField(proj, { artista: id })} />
                             </div>
                             <div className="fi2">
                               <div className="fil">Serviço</div>
-                              <select className="ef" value={(proj as any).servico || ""} onChange={e => {
-                                const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
-                                const idx = projs.findIndex((p: any) => p.id === proj.id);
-                                if (idx >= 0) { projs[idx] = { ...projs[idx], servico: e.target.value }; upC(sc.id, "projetos", projs); }
-                                else upC(sc.id, "projetos", [{ ...proj, servico: e.target.value }]);
-                              }}>
+                              <select className="ef" value={(draft as any).servico || ""} onChange={e => setProjDraftField(proj, { servico: e.target.value })}>
                                 <option value="">Selecione o serviço...</option>
                                 {servicoOpts.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
                               </select>
                             </div>
-                            {((proj as any).servico || "").toLowerCase().includes("piercing") && (() => {
+                            {((draft as any).servico || "").toLowerCase().includes("piercing") && (() => {
                               const joias = estoqueItens.filter(i => i.precoVenda != null && i.precoVenda > 0);
-                              const itensAtuais: any[] = (proj as any).piercingItens || [];
+                              const itensAtuais: any[] = (draft as any).piercingItens || [];
                               const salvarPiercingItens = (novaLista: any[]) => {
                                 const novoValorTotal = novaLista.reduce((s: number, i: any) => s + i.valorJoia + i.valorAplicacao, 0);
-                                const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
-                                const idx = projs.findIndex((p: any) => p.id === proj.id);
-                                if (idx >= 0) { projs[idx] = { ...projs[idx], piercingItens: novaLista, valorTotal: novoValorTotal }; upC(sc.id, "projetos", projs); }
-                                else upC(sc.id, "projetos", [{ ...proj, piercingItens: novaLista, valorTotal: novoValorTotal }]);
+                                setProjDraftField(proj, { piercingItens: novaLista, valorTotal: novoValorTotal });
                               };
                               const joiaEscolhida = joias.find(j => j.id === piercingEditForm.joiaId);
                               const valorJoia = joiaEscolhida?.precoVenda || 0;
@@ -9766,7 +9775,7 @@ export default function CRM() {
                                               <button type="button" onClick={() => setPiercingEditForm(p => ({ ...p, piercingModo: "joia" }))}
                                                 style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: piercingEditForm.piercingModo === "joia" ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (piercingEditForm.piercingModo === "joia" ? "var(--gold)" : "var(--br)"), color: piercingEditForm.piercingModo === "joia" ? "var(--gold)" : "var(--tx2)" }}>Somente Joia</button>
                                               <button type="button" onClick={() => {
-                                                const artistaResp = artists.find((a: any) => a.id === artistaDoProjeto(proj, sc));
+                                                const artistaResp = artists.find((a: any) => a.id === artistaDoProjeto(draft, sc));
                                                 let valorAplicacaoStr = piercingEditForm.valorAplicacao;
                                                 if (!valorAplicacaoStr && artistaResp?.piercing_comissao_tipo === "fixo" && artistaResp?.piercing_comissao_valor) {
                                                   valorAplicacaoStr = Number(artistaResp.piercing_comissao_valor).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -9810,39 +9819,26 @@ export default function CRM() {
                             <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: 2 }}>
                               <div className="fi2">
                                 <div className="fil">Valor Total do Projeto (R$)</div>
-                                <input className="ef" type="text" placeholder="0,00" value={proj.valorTotal ? Number(proj.valorTotal).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""}
+                                <input className="ef" type="text" placeholder="0,00" value={draft.valorTotal ? Number(draft.valorTotal).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""}
                                   onChange={e => {
                                     const raw = e.target.value.replace(/\D/g,""); const num = raw ? Number(raw)/100 : 0;
-                                    const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
-                                    const idx = projs.findIndex((p: any) => p.id === proj.id);
-                                    if (idx >= 0) { projs[idx] = { ...projs[idx], valorTotal: num }; upCLocal(sc.id, "projetos", projs); }
-                                    else upCLocal(sc.id, "projetos", [{ ...proj, valorTotal: num }]);
-                                  }}
-                                  onBlur={e => {
-                                    const raw = e.target.value.replace(/\D/g,""); const num = raw ? Number(raw)/100 : 0;
-                                    const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
-                                    const idx = projs.findIndex((p: any) => p.id === proj.id);
-                                    if (idx >= 0) { projs[idx] = { ...projs[idx], valorTotal: num }; upC(sc.id, "projetos", projs); }
-                                    else upC(sc.id, "projetos", [{ ...proj, valorTotal: num }]);
+                                    setProjDraftField(proj, { valorTotal: num });
                                   }} />
                               </div>
                             </div>
                             <div className="fi2">
                               <div className="fil">Descrição do Serviço</div>
-                              <textarea className="ef" value={proj.desc || ""} onChange={e => {
-                                const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
-                                const idx = projs.findIndex((p: any) => p.id === proj.id);
-                                if (idx >= 0) { projs[idx] = { ...projs[idx], desc: e.target.value }; upCLocal(sc.id, "projetos", projs); }
-                                else upCLocal(sc.id, "projetos", [{ ...proj, desc: e.target.value }]);
-                              }} onBlur={e => {
-                                const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
-                                const idx = projs.findIndex((p: any) => p.id === proj.id);
-                                if (idx >= 0) { projs[idx] = { ...projs[idx], desc: e.target.value }; upC(sc.id, "projetos", projs); }
-                                else upC(sc.id, "projetos", [{ ...proj, desc: e.target.value }]);
-                              }} style={{ resize: "vertical", minHeight: 55, width: "100%", fontFamily: "inherit" }} />
+                              <textarea className="ef" value={draft.desc || ""} onChange={e => setProjDraftField(proj, { desc: e.target.value })}
+                                style={{ resize: "vertical", minHeight: 55, width: "100%", fontFamily: "inherit" }} />
                             </div>
+                            {dirty && (
+                              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", borderTop: "1px solid var(--br)", paddingTop: 8, marginTop: 2 }}>
+                                <button onClick={() => descartarProjDraft(proj)} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Descartar alterações</button>
+                                <button onClick={() => salvarProjDraft(sc, proj)} style={{ background: "var(--gold-d)", border: "1px solid var(--gold)", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>💾 Salvar alterações</button>
+                              </div>
+                            )}
                           </div>
-                        ))}
+                        );})}
                         {projetos.filter((p: any) => p.status === "cancelado").length > 0 && (
                           <div style={{ borderTop: "1px solid var(--br)", paddingTop: 8, marginTop: 2 }}>
                             <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Cancelados</div>
@@ -12098,14 +12094,14 @@ export default function CRM() {
                     <label style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Motivo do cancelamento *</label>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {cancelMotivos.map(m => (
-                        <button key={m} onClick={() => setCancelProjetoModal(p => p ? { ...p, motivo: m } : p)}
-                          style={{ padding: "5px 12px", fontSize: 11, borderRadius: 20, border: `1px solid ${cancelProjetoModal.motivo === m ? "var(--gold)" : "var(--br)"}`, background: cancelProjetoModal.motivo === m ? "rgba(201,168,76,.15)" : "var(--dk3)", color: cancelProjetoModal.motivo === m ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                        <button key={m} onClick={() => setCancelProjetoModal(p => p ? { ...p, motivoSelecionado: m, motivo: m === "Outro" ? "" : m } : p)}
+                          style={{ padding: "5px 12px", fontSize: 11, borderRadius: 20, border: `1px solid ${cancelProjetoModal.motivoSelecionado === m ? "var(--gold)" : "var(--br)"}`, background: cancelProjetoModal.motivoSelecionado === m ? "rgba(201,168,76,.15)" : "var(--dk3)", color: cancelProjetoModal.motivoSelecionado === m ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                           {m}
                         </button>
                       ))}
                     </div>
-                    {cancelProjetoModal.motivo === "Outro" && (
-                      <input className="fi" placeholder="Descreva o motivo..." value={cancelProjetoModal.motivo === "Outro" ? "" : cancelProjetoModal.motivo}
+                    {cancelProjetoModal.motivoSelecionado === "Outro" && (
+                      <input className="fi" placeholder="Descreva o motivo..." value={cancelProjetoModal.motivo}
                         onChange={e => setCancelProjetoModal(p => p ? { ...p, motivo: e.target.value } : p)}
                         style={{ marginTop: 4 }} />
                     )}
