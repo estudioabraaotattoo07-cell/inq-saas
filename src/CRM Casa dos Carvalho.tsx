@@ -14138,8 +14138,8 @@ export default function CRM() {
                       setEditEstoqueForm({
                         nome: item.nome, grupo: item.grupo || "", subgrupo: item.subgrupo || "", tamanho: item.tamanho || "",
                         quantidade: String(item.quantidade), unidade: item.unidade,
-                        custo: item.custo != null ? String(item.custo) : "",
-                        precoVenda: item.precoVenda != null ? String(item.precoVenda) : "",
+                        custo: item.custo != null ? Number(item.custo).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+                        precoVenda: item.precoVenda != null ? Number(item.precoVenda).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
                         estoqueMinimo: item.estoqueMinimo != null ? String(item.estoqueMinimo) : "",
                       });
                     };
