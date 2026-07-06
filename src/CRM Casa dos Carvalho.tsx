@@ -1299,6 +1299,9 @@ export default function CRM() {
   const [cancelMotivos, setCancelMotivos] = useState<string[]>(["Cliente desistiu", "Questão financeira", "Mudança de projeto", "Sem resposta do cliente", "Outro"]);
   const [enviandoRelatorio, setEnviandoRelatorio] = useState(false);
   const [novoProjetoAberto, setNovoProjetoAberto] = useState<any>(null);
+  // Painel de adicionar joia/aplicação numa solicitação de piercing JÁ existente (não a de criação)
+  const [piercingEditProjId, setPiercingEditProjId] = useState<any>(null);
+  const [piercingEditForm, setPiercingEditForm] = useState({ joiaId: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" });
   const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] as { id: string; joiaId: string; nome: string; tamanho?: string; valorJoia: number; valorAplicacao: number }[] });
   const [showRecorrenteModal, setShowRecorrenteModal] = useState<{cid: any} | null>(null);
   const [recorrenteForm, setRecorrenteForm] = useState({ dataInicio: new Date().toISOString().split("T")[0], intervalo: 7, total: 4, hora: 9, duracao: 2, artista: "" });
@@ -4214,6 +4217,72 @@ export default function CRM() {
       })}
     </div>
   );
+  // Seletor de joia em cascata (categoria > subcategoria > peça), reutilizado onde precisar escolher uma joia do estoque.
+  const SeletorJoiaCascata = ({ joias, grupo, subgrupo, joiaId, onGrupo, onSubgrupo, onEscolher, onTrocar }: {
+    joias: typeof estoqueItens; grupo: string; subgrupo: string; joiaId: string;
+    onGrupo: (g: string) => void; onSubgrupo: (s: string) => void; onEscolher: (jid: string) => void; onTrocar: () => void;
+  }) => {
+    const joiaEscolhida = joias.find(j => j.id === joiaId);
+    const linhaItem = (j: typeof joias[number]) => (
+      <div key={j.id} onClick={() => onEscolher(j.id)} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "8px 12px", cursor: "pointer", fontSize: 12, color: "var(--tx)", borderTop: "1px solid var(--br)" }}>
+        <span>{j.nome}{j.tamanho ? " (" + j.tamanho + ")" : ""} — R$ {Number(j.precoVenda).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+        <span style={{ fontSize: 11, color: j.quantidade > 0 ? "var(--tx3)" : "#E74C3C", flexShrink: 0 }}>{j.quantidade > 0 ? "estoque: " + j.quantidade : "sem estoque"}</span>
+      </div>
+    );
+    if (joiaEscolhida) {
+      return (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "8px 10px" }}>
+          <span style={{ fontSize: 12, color: "var(--tx)" }}>{joiaEscolhida.nome}{joiaEscolhida.tamanho ? " (" + joiaEscolhida.tamanho + ")" : ""} — R$ {Number(joiaEscolhida.precoVenda).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} <span style={{ color: joiaEscolhida.quantidade > 0 ? "var(--tx3)" : "#E74C3C" }}>({joiaEscolhida.quantidade > 0 ? "estoque: " + joiaEscolhida.quantidade : "sem estoque"})</span></span>
+          <button type="button" onClick={onTrocar} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 9px", fontSize: 11, color: "var(--tx2)", cursor: "pointer", flexShrink: 0 }}>Trocar</button>
+        </div>
+      );
+    }
+    if (joias.length === 0) {
+      return <div style={{ fontSize: 11, color: "var(--tx3)" }}>Nenhuma joia cadastrada ainda. Cadastre em Configurações → Estoque (com "Preço de Venda" preenchido).</div>;
+    }
+    const gruposMap: Record<string, typeof joias> = {};
+    const soltas: typeof joias = [];
+    joias.forEach(j => { if (!j.grupo) soltas.push(j); else (gruposMap[j.grupo] = gruposMap[j.grupo] || []).push(j); });
+    if (subgrupo && grupo) {
+      const itens = (gruposMap[grupo] || []).filter(j => j.subgrupo === subgrupo);
+      return (
+        <div style={{ border: "1px solid var(--br)", borderRadius: 6, overflow: "hidden" }}>
+          <div onClick={() => onSubgrupo("")} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: "var(--dk4)", fontSize: 11, color: "var(--gold)", cursor: "pointer" }}>
+            ← {grupo} › {subgrupo}
+          </div>
+          {itens.map(linhaItem)}
+        </div>
+      );
+    }
+    if (grupo) {
+      const itensDoGrupo = gruposMap[grupo] || [];
+      const subgrupos = Array.from(new Set(itensDoGrupo.filter(j => j.subgrupo).map(j => j.subgrupo as string)));
+      const semSubgrupo = itensDoGrupo.filter(j => !j.subgrupo);
+      return (
+        <div style={{ border: "1px solid var(--br)", borderRadius: 6, overflow: "hidden" }}>
+          <div onClick={() => onGrupo("")} style={{ padding: "6px 10px", background: "var(--dk4)", fontSize: 11, color: "var(--gold)", cursor: "pointer" }}>
+            ← {grupo}
+          </div>
+          {subgrupos.map(sg => (
+            <div key={sg} onClick={() => onSubgrupo(sg)} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", cursor: "pointer", fontSize: 12, color: "var(--tx)", borderTop: "1px solid var(--br)" }}>
+              <span>{sg}</span><span style={{ color: "var(--tx3)" }}>›</span>
+            </div>
+          ))}
+          {semSubgrupo.map(linhaItem)}
+        </div>
+      );
+    }
+    return (
+      <div style={{ border: "1px solid var(--br)", borderRadius: 6, overflow: "hidden" }}>
+        {Object.keys(gruposMap).map(g => (
+          <div key={g} onClick={() => onGrupo(g)} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", cursor: "pointer", fontSize: 12, color: "var(--tx)", borderTop: "1px solid var(--br)" }}>
+            <span>{g}</span><span style={{ color: "var(--tx3)" }}>›</span>
+          </div>
+        ))}
+        {soltas.map(linhaItem)}
+      </div>
+    );
+  };
   const aClass = (id: string) => "";
   const aStyle = (id: string) => {
     const a = artists.find(x => x.id === id);
@@ -9620,6 +9689,99 @@ export default function CRM() {
                                 else upC(sc.id, "projetos", [{ ...proj, artista: id }]);
                               }} />
                             </div>
+                            {((proj as any).servico || "").toLowerCase().includes("piercing") && (() => {
+                              const joias = estoqueItens.filter(i => i.precoVenda != null && i.precoVenda > 0);
+                              const itensAtuais: any[] = (proj as any).piercingItens || [];
+                              const salvarPiercingItens = (novaLista: any[]) => {
+                                const novoValorTotal = novaLista.reduce((s: number, i: any) => s + i.valorJoia + i.valorAplicacao, 0);
+                                const projs = (sc.projetos && sc.projetos.length > 0) ? [...sc.projetos] : [{ ...proj }];
+                                const idx = projs.findIndex((p: any) => p.id === proj.id);
+                                if (idx >= 0) { projs[idx] = { ...projs[idx], piercingItens: novaLista, valorTotal: novoValorTotal }; upC(sc.id, "projetos", projs); }
+                                else upC(sc.id, "projetos", [{ ...proj, piercingItens: novaLista, valorTotal: novoValorTotal }]);
+                              };
+                              const joiaEscolhida = joias.find(j => j.id === piercingEditForm.joiaId);
+                              const valorJoia = joiaEscolhida?.precoVenda || 0;
+                              const valorAplicacaoNum = parseFloat((piercingEditForm.valorAplicacao || "0").replace(/\./g, "").replace(",", ".")) || 0;
+                              const editandoAqui = piercingEditProjId === proj.id;
+                              return (
+                                <div className="fi2">
+                                  <div className="fil">Joias / Aplicações desta solicitação</div>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                    {itensAtuais.map((item: any) => (
+                                      <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 10px" }}>
+                                        <span style={{ fontSize: 12, color: "var(--tx)" }}>
+                                          {item.nome}{item.tamanho ? " (" + item.tamanho + ")" : ""} — Joia R$ {Number(item.valorJoia).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                          {item.valorAplicacao > 0 && <> + Aplicação R$ {Number(item.valorAplicacao).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</>}
+                                        </span>
+                                        <button type="button" onClick={() => salvarPiercingItens(itensAtuais.filter((i: any) => i.id !== item.id))}
+                                          style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 13, flexShrink: 0 }}>🗑</button>
+                                      </div>
+                                    ))}
+                                    {!editandoAqui && (
+                                      <button type="button" onClick={() => { setPiercingEditProjId(proj.id); setPiercingEditForm({ joiaId: "", piercingModo: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" }); }}
+                                        style={{ alignSelf: "flex-start", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 600, color: "var(--tx2)", cursor: "pointer" }}>
+                                        + Adicionar joia/aplicação
+                                      </button>
+                                    )}
+                                    {editandoAqui && (
+                                      <div style={{ border: "1px solid var(--gold)", borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                                        <SeletorJoiaCascata
+                                          joias={joias}
+                                          grupo={piercingEditForm.joiaCascGrupo}
+                                          subgrupo={piercingEditForm.joiaCascSubgrupo}
+                                          joiaId={piercingEditForm.joiaId}
+                                          onGrupo={g => setPiercingEditForm(p => ({ ...p, joiaCascGrupo: g }))}
+                                          onSubgrupo={s => setPiercingEditForm(p => ({ ...p, joiaCascSubgrupo: s }))}
+                                          onEscolher={jid => setPiercingEditForm(p => ({ ...p, joiaId: jid }))}
+                                          onTrocar={() => setPiercingEditForm(p => ({ ...p, joiaId: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingModo: "", valorAplicacao: "" }))}
+                                        />
+                                        {joiaEscolhida && (
+                                          <>
+                                            <div style={{ display: "flex", gap: 8 }}>
+                                              <button type="button" onClick={() => setPiercingEditForm(p => ({ ...p, piercingModo: "joia" }))}
+                                                style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: piercingEditForm.piercingModo === "joia" ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (piercingEditForm.piercingModo === "joia" ? "var(--gold)" : "var(--br)"), color: piercingEditForm.piercingModo === "joia" ? "var(--gold)" : "var(--tx2)" }}>Somente Joia</button>
+                                              <button type="button" onClick={() => {
+                                                const artistaResp = artists.find((a: any) => a.id === artistaDoProjeto(proj, sc));
+                                                let valorAplicacaoStr = piercingEditForm.valorAplicacao;
+                                                if (!valorAplicacaoStr && artistaResp?.piercing_comissao_tipo === "fixo" && artistaResp?.piercing_comissao_valor) {
+                                                  valorAplicacaoStr = Number(artistaResp.piercing_comissao_valor).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                                }
+                                                setPiercingEditForm(p => ({ ...p, piercingModo: "joia_aplicacao", valorAplicacao: valorAplicacaoStr }));
+                                              }} style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: piercingEditForm.piercingModo === "joia_aplicacao" ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (piercingEditForm.piercingModo === "joia_aplicacao" ? "var(--gold)" : "var(--br)"), color: piercingEditForm.piercingModo === "joia_aplicacao" ? "var(--gold)" : "var(--tx2)" }}>Joia + Aplicação</button>
+                                            </div>
+                                            {piercingEditForm.piercingModo === "joia_aplicacao" && (
+                                              <input className="ef" type="text" placeholder="Valor da aplicação (R$)" value={piercingEditForm.valorAplicacao}
+                                                onChange={e => {
+                                                  const raw = e.target.value.replace(/[^0-9]/g, ""); const num = raw ? (Number(raw) / 100) : 0;
+                                                  const fmt = raw ? num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+                                                  setPiercingEditForm(p => ({ ...p, valorAplicacao: fmt }));
+                                                }} />
+                                            )}
+                                          </>
+                                        )}
+                                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                                          <button type="button" onClick={() => setPiercingEditProjId(null)} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer" }}>Cancelar</button>
+                                          <button type="button" disabled={!joiaEscolhida || !piercingEditForm.piercingModo} onClick={() => {
+                                            const novoItem = {
+                                              id: "pi" + Date.now(),
+                                              joiaId: joiaEscolhida.id,
+                                              nome: joiaEscolhida.nome,
+                                              tamanho: joiaEscolhida.tamanho,
+                                              valorJoia,
+                                              valorAplicacao: piercingEditForm.piercingModo === "joia_aplicacao" ? valorAplicacaoNum : 0,
+                                            };
+                                            salvarPiercingItens([...itensAtuais, novoItem]);
+                                            setPiercingEditProjId(null);
+                                          }} style={{ background: (joiaEscolhida && piercingEditForm.piercingModo) ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + ((joiaEscolhida && piercingEditForm.piercingModo) ? "var(--gold)" : "var(--br)"), borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 600, color: (joiaEscolhida && piercingEditForm.piercingModo) ? "var(--gold)" : "var(--tx3)", cursor: (joiaEscolhida && piercingEditForm.piercingModo) ? "pointer" : "not-allowed" }}>
+                                            + Adicionar
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                             <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: 2 }}>
                               <div className="fi2">
                                 <div className="fil">Valor Total do Projeto (R$)</div>
