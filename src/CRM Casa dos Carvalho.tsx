@@ -1237,6 +1237,10 @@ export default function CRM() {
   });
   const [formAg, setFormAg] = useState({ agendar: false, data: "", hora: "09:00", tipo: "cons" });
   // Joias/aplicações de piercing escolhidas na criação do "Novo Cliente" (vira a 1ª solicitação da ficha ao salvar)
+  // Navegação em abas do Estoque: categoria > grupo > subgrupo
+  const [estoqueCatTab, setEstoqueCatTab] = useState<string>("");
+  const [estoqueGrupoTab, setEstoqueGrupoTab] = useState<string>("");
+  const [estoqueSubgrupoTab, setEstoqueSubgrupoTab] = useState<string>("");
   const [novoClientePiercing, setNovoClientePiercing] = useState({ piercingItens: [] as { id: string; joiaId: string; nome: string; tamanho?: string; valorJoia: number; valorAplicacao: number }[], joiaId: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" });
   const [artForm, setArtForm] = useState({
     nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "", email: "", tel: "",
@@ -14149,8 +14153,8 @@ export default function CRM() {
                         tamanho: editEstoqueForm.tamanho.trim() || undefined,
                         quantidade: Number(editEstoqueForm.quantidade.replace(/[^0-9]/g, "")) || 0,
                         unidade: editEstoqueForm.unidade.trim() || "un",
-                        custo: editEstoqueForm.custo ? Number(editEstoqueForm.custo.replace(",", ".")) : undefined,
-                        precoVenda: editEstoqueForm.precoVenda ? Number(editEstoqueForm.precoVenda.replace(",", ".")) : undefined,
+                        custo: editEstoqueForm.custo ? Number(editEstoqueForm.custo.replace(/\./g, "").replace(",", ".")) : undefined,
+                        precoVenda: editEstoqueForm.precoVenda ? Number(editEstoqueForm.precoVenda.replace(/\./g, "").replace(",", ".")) : undefined,
                         estoqueMinimo: editEstoqueForm.estoqueMinimo ? Number(editEstoqueForm.estoqueMinimo.replace(/[^0-9]/g, "")) : undefined,
                       }));
                       setEditingEstoqueId(null);
@@ -14173,8 +14177,8 @@ export default function CRM() {
                               <input className="ef" type="text" inputMode="numeric" placeholder="Estoque mínimo (opcional)" value={editEstoqueForm.estoqueMinimo} onChange={e => setEditEstoqueForm(p => ({ ...p, estoqueMinimo: e.target.value.replace(/[^0-9]/g, "") }))} />
                             </div>
                             <div style={{ display: "flex", gap: 8 }}>
-                              <input className="ef" placeholder="Custo R$ (opcional)" value={editEstoqueForm.custo} onChange={e => setEditEstoqueForm(p => ({ ...p, custo: e.target.value.replace(/[^0-9,]/g, "") }))} />
-                              <input className="ef" placeholder="Preço de venda R$ (opcional)" value={editEstoqueForm.precoVenda} onChange={e => setEditEstoqueForm(p => ({ ...p, precoVenda: e.target.value.replace(/[^0-9,]/g, "") }))} />
+                              <input className="ef" placeholder="Custo R$ (opcional)" value={editEstoqueForm.custo} onChange={e => { const raw = e.target.value.replace(/\D/g, ""); const num = raw ? (Number(raw) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""; setEditEstoqueForm(p => ({ ...p, custo: num })); }} />
+                              <input className="ef" placeholder="Preço de venda R$ (opcional)" value={editEstoqueForm.precoVenda} onChange={e => { const raw = e.target.value.replace(/\D/g, ""); const num = raw ? (Number(raw) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""; setEditEstoqueForm(p => ({ ...p, precoVenda: num })); }} />
                             </div>
                             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                               <button className="btn-c" onClick={() => setEditingEstoqueId(null)}>Cancelar</button>
@@ -14201,45 +14205,81 @@ export default function CRM() {
                         </div>
                       );
                     };
+                    if (estoqueItens.length === 0) {
+                      return <div style={{ fontSize: 12, color: "var(--tx3)", fontStyle: "italic" }}>Nenhum item cadastrado ainda.</div>;
+                    }
+                    const alfaNum = (a: string, b: string) => a.localeCompare(b, "pt-BR", { numeric: true, sensitivity: "base" });
+                    const categoriasOrd = [...categorias].sort(alfaNum);
+                    const catAtiva = categoriasOrd.includes(estoqueCatTab) ? estoqueCatTab : categoriasOrd[0];
+                    const itensCat = estoqueItens.filter(i => i.categoria === catAtiva);
+                    const gruposCat = Array.from(new Set(itensCat.filter(i => i.grupo).map(i => i.grupo as string))).sort(alfaNum);
+                    const temSemGrupo = itensCat.some(i => !i.grupo);
+                    const usaGrupo = gruposCat.length > 0;
+
+                    let itensParaMostrar = itensCat;
+                    let grupoAtivo = "";
+                    if (usaGrupo) {
+                      const opcoesGrupo = [...(temSemGrupo ? [""] : []), ...gruposCat];
+                      grupoAtivo = opcoesGrupo.includes(estoqueGrupoTab) ? estoqueGrupoTab : opcoesGrupo[0];
+                      itensParaMostrar = grupoAtivo === "" ? itensCat.filter(i => !i.grupo) : itensCat.filter(i => i.grupo === grupoAtivo);
+                    }
+
+                    const subgruposGrupo = usaGrupo && grupoAtivo !== "" ? Array.from(new Set(itensParaMostrar.filter(i => i.subgrupo).map(i => i.subgrupo as string))).sort(alfaNum) : [];
+                    const temSemSub = itensParaMostrar.some(i => !i.subgrupo);
+                    const usaSubgrupo = subgruposGrupo.length > 0;
+
+                    let itensFinal = itensParaMostrar;
+                    let subAtivo = "";
+                    if (usaSubgrupo) {
+                      const opcoesSub = [...(temSemSub ? [""] : []), ...subgruposGrupo];
+                      subAtivo = opcoesSub.includes(estoqueSubgrupoTab) ? estoqueSubgrupoTab : opcoesSub[0];
+                      itensFinal = subAtivo === "" ? itensParaMostrar.filter(i => !i.subgrupo) : itensParaMostrar.filter(i => i.subgrupo === subAtivo);
+                    }
+                    itensFinal = [...itensFinal].sort((a, b) => alfaNum(a.nome, b.nome));
+
                     return (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                        {categorias.map(cat => {
-                          const itensCat = estoqueItens.filter(i => i.categoria === cat);
-                          const semGrupo = itensCat.filter(i => !i.grupo);
-                          const grupos = Array.from(new Set(itensCat.filter(i => i.grupo).map(i => i.grupo as string)));
-                          return (
-                            <div key={cat}>
-                              <div className="stit">{cat}</div>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
-                                {semGrupo.map(renderItem)}
-                                {grupos.map(g => {
-                                  const itensGrupo = itensCat.filter(i => i.grupo === g);
-                                  const semSub = itensGrupo.filter(i => !i.subgrupo);
-                                  const subgrupos = Array.from(new Set(itensGrupo.filter(i => i.subgrupo).map(i => i.subgrupo as string)));
-                                  return (
-                                    <div key={g} style={{ marginTop: 4 }}>
-                                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{g}</div>
-                                      <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 10 }}>
-                                        {semSub.map(renderItem)}
-                                        {subgrupos.map(sg => (
-                                          <div key={sg}>
-                                            <div style={{ fontSize: 11, color: "var(--tx2)", marginBottom: 4 }}>{sg}</div>
-                                            <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 10 }}>
-                                              {itensGrupo.filter(i => i.subgrupo === sg).map(renderItem)}
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {estoqueItens.length === 0 && (
-                          <div style={{ fontSize: 12, color: "var(--tx3)", fontStyle: "italic" }}>Nenhum item cadastrado ainda.</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", borderBottom: "1px solid var(--br)", paddingBottom: 8 }}>
+                          {categoriasOrd.map(cat => (
+                            <button key={cat} onClick={() => { setEstoqueCatTab(cat); setEstoqueGrupoTab(""); setEstoqueSubgrupoTab(""); }}
+                              style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans',sans-serif",
+                                background: cat === catAtiva ? "var(--gold-d)" : "var(--dk3)",
+                                border: "1px solid " + (cat === catAtiva ? "var(--gold)" : "var(--br)"),
+                                color: cat === catAtiva ? "var(--gold)" : "var(--tx2)" }}>
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
+                        {usaGrupo && (
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {(temSemGrupo ? [""] : ([] as string[])).concat(gruposCat).map(g => (
+                              <button key={g || "__sem__"} onClick={() => { setEstoqueGrupoTab(g); setEstoqueSubgrupoTab(""); }}
+                                style={{ padding: "5px 12px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans',sans-serif",
+                                  background: g === grupoAtivo ? "rgba(201,168,76,.15)" : "var(--dk4)",
+                                  border: "1px solid " + (g === grupoAtivo ? "var(--gold)" : "var(--br)"),
+                                  color: g === grupoAtivo ? "var(--gold)" : "var(--tx2)" }}>
+                                {g || "Outros"}
+                              </button>
+                            ))}
+                          </div>
                         )}
+                        {usaSubgrupo && (
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingLeft: 10 }}>
+                            {(temSemSub ? [""] : ([] as string[])).concat(subgruposGrupo).map(sg => (
+                              <button key={sg || "__sem__"} onClick={() => setEstoqueSubgrupoTab(sg)}
+                                style={{ padding: "4px 10px", borderRadius: 5, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans',sans-serif",
+                                  background: sg === subAtivo ? "rgba(201,168,76,.1)" : "transparent",
+                                  border: "1px solid " + (sg === subAtivo ? "var(--gold)" : "var(--br)"),
+                                  color: sg === subAtivo ? "var(--gold)" : "var(--tx3)" }}>
+                                {sg || "Outros"}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {itensFinal.map(renderItem)}
+                          {itensFinal.length === 0 && <div style={{ fontSize: 12, color: "var(--tx3)", fontStyle: "italic" }}>Nenhum item nesta categoria.</div>}
+                        </div>
                       </div>
                     );
                   })()}
@@ -14271,8 +14311,8 @@ export default function CRM() {
                           <input className="ef" type="text" inputMode="numeric" placeholder="Estoque mínimo (opcional)" value={novoEstoqueForm.estoqueMinimo} onChange={e => setNovoEstoqueForm(p => ({ ...p, estoqueMinimo: e.target.value.replace(/[^0-9]/g, "") }))} />
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
-                          <input className="ef" placeholder="Custo R$ (opcional)" value={novoEstoqueForm.custo} onChange={e => setNovoEstoqueForm(p => ({ ...p, custo: e.target.value.replace(/[^0-9,]/g, "") }))} />
-                          <input className="ef" placeholder="Preço de venda R$ (só p/ itens vendidos ao cliente, ex: joia)" value={novoEstoqueForm.precoVenda} onChange={e => setNovoEstoqueForm(p => ({ ...p, precoVenda: e.target.value.replace(/[^0-9,]/g, "") }))} />
+                          <input className="ef" placeholder="Custo R$ (opcional)" value={novoEstoqueForm.custo} onChange={e => { const raw = e.target.value.replace(/\D/g, ""); const num = raw ? (Number(raw) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""; setNovoEstoqueForm(p => ({ ...p, custo: num })); }} />
+                          <input className="ef" placeholder="Preço de venda R$ (só p/ itens vendidos ao cliente, ex: joia)" value={novoEstoqueForm.precoVenda} onChange={e => { const raw = e.target.value.replace(/\D/g, ""); const num = raw ? (Number(raw) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""; setNovoEstoqueForm(p => ({ ...p, precoVenda: num })); }} />
                         </div>
                         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                           <button className="btn-c" onClick={() => { setAddingEstoque(null); setNovoEstoqueForm({ nome: "", grupo: "", subgrupo: "", tamanho: "", quantidade: "", unidade: "un", custo: "", precoVenda: "", estoqueMinimo: "" }); }}>Cancelar</button>
@@ -14287,8 +14327,8 @@ export default function CRM() {
                               tamanho: novoEstoqueForm.tamanho.trim() || undefined,
                               quantidade: Number(novoEstoqueForm.quantidade) || 0,
                               unidade: novoEstoqueForm.unidade.trim() || "un",
-                              custo: novoEstoqueForm.custo ? Number(novoEstoqueForm.custo.replace(",", ".")) : undefined,
-                              precoVenda: novoEstoqueForm.precoVenda ? Number(novoEstoqueForm.precoVenda.replace(",", ".")) : undefined,
+                              custo: novoEstoqueForm.custo ? Number(novoEstoqueForm.custo.replace(/\./g, "").replace(",", ".")) : undefined,
+                              precoVenda: novoEstoqueForm.precoVenda ? Number(novoEstoqueForm.precoVenda.replace(/\./g, "").replace(",", ".")) : undefined,
                               estoqueMinimo: novoEstoqueForm.estoqueMinimo ? Number(novoEstoqueForm.estoqueMinimo) : undefined,
                             };
                             salvarEstoque([...estoqueItens, item]);
