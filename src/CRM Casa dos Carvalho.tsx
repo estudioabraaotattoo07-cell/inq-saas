@@ -459,6 +459,7 @@ const DEFAULT_STAGES = [
   { id: "precisa_remarcar", label: "Precisa Remarcar", color: "#E74C3C", emoji: "📞" },
   { id: "aguard_agend", label: "Aguardando Agendamento de Sessão em Andamento", color: "#F39C12", emoji: "⏰" },
   { id: "pos_venda", label: "Pós-venda", color: "#E67E22", emoji: "💬" },
+  { id: "pos_venda_piercing", label: "Pós-venda Piercing", color: "#D4527E", emoji: "💍" },
   { id: "lista_espera", label: "Lista de Espera", color: "#3498DB", emoji: "⏳" },
   { id: "hibernacao", label: "Hibernação", color: "#666", emoji: "💤" },
   { id: "blacklist", label: "Blacklist", color: "#C0392B", emoji: "🚫" },
@@ -477,6 +478,7 @@ const STAGE_INFO: Record<string, string> = {
   precisa_remarcar: "Cliente recusou a confirmação de presença ou sinalizou que precisa remarcar. Entre em contato imediatamente via WhatsApp para redefinir a data antes que o slot seja perdido.",
   aguard_agend: "Cliente que confirmou interesse em agendar mas ainda não tem data definida — seja por indisponibilidade de agenda, aguardo de orçamento ou outro motivo. Monitore e entre em contato assim que houver abertura. Não deixe esfriar.",
   pos_venda: "Clientes que passaram pela régua de pós-venda após a sessão. Foco em satisfação, cicatrização saudável e fidelização. Mantenha o relacionamento ativo: eles têm grande potencial para retornar e indicar novas pessoas.",
+  pos_venda_piercing: "Cliente que acabou de fazer um piercing. Régua própria de acompanhamento de cicatrização (dias 0, 1, 7, 15 e 30) e garantia com retorno presencial obrigatório entre o 30º e o 37º dia. Fique de olho na foto enviada no dia 7 — se houver vermelhidão, inchaço ou secreção, o cliente já foi orientado a chamar no WhatsApp.",
   lista_espera: "Clientes que querem ser atendidos mas a agenda está sem disponibilidade no momento. Estão aguardando a vez. Contate assim que surgir uma abertura — eles já demonstraram comprometimento ao aceitar esperar.",
   hibernacao: "Clientes inativos temporariamente: sem resposta, sem interesse imediato ou que pediram para ser contatados futuramente. A IA recontata automaticamente na data programada. Não descarte — muitos retornam quando o momento é certo.",
   blacklist: "Clientes com ocorrências graves: faltas repetidas sem aviso, comportamento inadequado, inadimplência ou outros motivos que justifiquem a suspensão do atendimento. Registro para controle interno. Visível apenas pela equipe.",
@@ -2395,6 +2397,9 @@ export default function CRM() {
     const dataHoje = new Date().toLocaleDateString("pt-BR");
     // Lançar cada forma no financeiro
     const cliente = clients.find(c => c.id === cid);
+    const projConcluidoServ = (projParaConcluir && projParaConcluir.clienteId === cid)
+      ? (cliente?.projetos || []).find((p: any) => p.id === projParaConcluir.projetoId) : null;
+    const ehPiercingConcluido = (projConcluidoServ?.servico || "").toLowerCase().includes("piercing");
     const artistaId = confirmPagamento.agEvent?.artista || confirmPagamento.projArtista || cliente?.artista || "";
     const artistaObj = artists.find(a => a.id === artistaId);
     const comSess = artistaObj?.com || 0;
@@ -2499,7 +2504,13 @@ export default function CRM() {
     } finally {
       setConfirmPagamento(null);
       setProjPagamentoAtual(null);
-      setAgendarProximaModal({ cid });
+      if (ehPiercingConcluido) {
+        // Piercing tem régua própria de pós-venda — pula o "e agora?" e já dispara o e-mail do dia 0
+        executarMove(cid, "pos_venda_piercing");
+        enviarEmailPosVendaPiercingDia0(cid);
+      } else {
+        setAgendarProximaModal({ cid });
+      }
     }
   };
 
@@ -2792,6 +2803,50 @@ export default function CRM() {
     setArtForm({ nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "@", email: "", tel: "", funcao: "", atendeCliente: true, piercingComissaoTipo: "", piercingComissaoValor: "", remuneracaoTipo: "", remuneracaoValor: "", formaRecebimento: "" });
     addLog(`Profissional "${artForm.nome}" cadastrado`);
     if (!onboardingDone) { setOnbStep(s => s + 1); }
+  };
+
+  // E-mail do dia 0 da régua de pós-venda de piercing — disparado na hora em que a solicitação é concluída.
+  // Os dias 1/7/15/30 (e o SMS do dia 37) rodam pelo cron do servidor, não por aqui.
+  const enviarEmailPosVendaPiercingDia0 = async (cid: number) => {
+    const cliente = clients.find(c => c.id === cid);
+    if (!resendApiKey || !emailRemetente || !cliente?.email) return;
+    const studioNomeF = (studioName || "A Casa dos Carvalho").replace(/_/g, " ");
+    const whatsappFmt = studioTel ? maskTel(studioTel) : "";
+    const waNumero = (studioTel || "").replace(/\D/g, "");
+    const waLink = "https://wa.me/55" + waNumero + "?text=" + encodeURIComponent("Olá! Acabei de fazer meu piercing hoje e tenho uma dúvida sobre os cuidados.");
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;">
+        <div style="background:#1a1a1a;padding:24px 32px;text-align:center;">
+          <span style="color:#c9a84c;font-size:22px;font-weight:700;letter-spacing:.05em;">${studioNomeF}</span>
+        </div>
+        <div style="padding:32px;">
+          <p style="font-size:15px;">Olá, <strong>${cliente.nome}</strong>!</p>
+          <p style="font-size:14px;color:#333;">Que alegria ter cuidado do seu piercing hoje. Agora começa a parte mais importante: os cuidados na cicatrização, que fazem toda a diferença no resultado final.</p>
+          <div style="background:#f9f6f0;border-left:3px solid #c9a84c;border-radius:4px;padding:14px 18px;margin:18px 0;font-size:13px;">
+            📸 <strong>Dica:</strong> tire um print deste e-mail agora — ele tem tudo que você vai precisar nos próximos dias, e é bem mais fácil de achar assim do que procurando na caixa de entrada depois.
+          </div>
+          <p style="font-size:13px;color:#444;font-weight:700;margin-bottom:6px;">Nos próximos dias, siga estas orientações:</p>
+          <ul style="margin:0 0 16px;padding-left:20px;color:#444;font-size:13px;line-height:2;">
+            <li>Compre um spray antisséptico próprio para piercing — qualquer dúvida sobre onde encontrar, chama a gente.</li>
+            <li>Higienize a região com o spray na frequência recomendada.</li>
+            <li>Remova qualquer secreção (crostinha) delicadamente com gaze e soro fisiológico gelado — nunca com as mãos ou algodão.</li>
+            <li>Evite tocar no piercing sem necessidade, e sempre com as mãos limpas.</li>
+          </ul>
+          <p style="font-size:13px;color:#555;"><strong>Um pedido importante:</strong> cada pele reage de um jeito, e cicatrização de piercing tem muito mito por aí. Não siga indicação de amigos que já colocaram piercing antes, mesmo com boa intenção — siga só as nossas orientações.</p>
+          <p style="font-size:13px;color:#555;"><strong>Sobre a garantia:</strong> seu piercing tem garantia contra defeito de fabricação da joia, válida mediante retorno presencial entre o 30º e o 37º dia — vamos te avisar de novo próximo dessa data. Os detalhes completos estão no contrato que você assinou com a gente; os cuidados diários de higiene são de sua responsabilidade, e estamos aqui pra te ajudar em cada passo.</p>
+          <p style="margin-top:20px;"><a href="${waLink}" style="display:inline-block;background:#d4a84b;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:bold;">💬 Falar no WhatsApp</a></p>
+        </div>
+        <div style="background:#f7f7f7;padding:12px 32px;font-size:11px;color:#aaa;text-align:center;">
+          Com carinho, ${studioNomeF}${whatsappFmt ? " — " + whatsappFmt : ""}
+        </div>
+      </div>`;
+    try {
+      await fetch("/api/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: resendApiKey, from: `${nomeRemetente || studioNomeF} <${emailRemetente}>`, to: cliente.email, subject: `Seu piercing foi feito, ${cliente.nome}! Cuidados importantes 🖤`, html }),
+      });
+    } catch { /* silencioso — solicitação já foi concluída */ }
   };
 
   const traduzirErro = (msg: string): string => {
