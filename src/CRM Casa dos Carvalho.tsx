@@ -1099,6 +1099,9 @@ export default function CRM() {
   const [dark, setDark] = useState(true);
   const [tema, setTema] = useState<ThemeId>("carvalho");
   const [studioName, setStudioName] = useState("");
+  // Data de corte pro cálculo de comissão pendente — só conta lançamentos a partir daqui,
+  // pra não misturar com comissões antigas possivelmente já pagas por fora do sistema.
+  const [comissaoSaldoInicio, setComissaoSaldoInicio] = useState<string>(new Date().toISOString().split("T")[0]);
   const [studioLogo, setStudioLogo] = useState<string>(() => localStorage.getItem("inq_logo") || "");
   const [studioTel, setStudioTel] = useState("");
   const [studioOwner, setStudioOwner] = useState("");
@@ -1239,7 +1242,8 @@ export default function CRM() {
     nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "", email: "", tel: "",
     funcao: "", atendeCliente: true,
     piercingComissaoTipo: "" as "" | "percentual" | "fixo", piercingComissaoValor: "",
-    remuneracaoTipo: "" as "" | "salario_fixo" | "por_hora" | "outro", remuneracaoValor: ""
+    remuneracaoTipo: "" as "" | "salario_fixo" | "por_hora" | "outro", remuneracaoValor: "",
+    formaRecebimento: ""
   });
   const [agForm, setAgForm] = useState({
     title: "", tipo: "cons_" + (artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11, desc: "", servico: ""
@@ -1297,6 +1301,7 @@ export default function CRM() {
   const [editandoProjConc, setEditandoProjConc] = useState<{clienteId: any; projetoId: any} | null>(null);
   const [pgAvulso, setPgAvulso] = useState<{clienteId: any; clienteNome: string; artistaId: string; projetos?: any[]; projetoId?: any; fase: "form"|"confirm"; valor: string; forma: string; obs: string} | null>(null);
   const [agendarProximaModal, setAgendarProximaModal] = useState<{cid: any} | null>(null);
+  const [repasseModal, setRepasseModal] = useState<{artistaId: string; pendente: number; valor: string; forma: string; vale: boolean} | null>(null);
   const [instrucaoDisparo, setInstrucaoDisparo] = useState<Record<string, string>>({});
   const [gerandoDisparo, setGerandoDisparo] = useState<string | null>(null);
   const [confirmDisparo, setConfirmDisparo] = useState<{clientes: any[]; mensagem: string; segmento: string} | null>(null);
@@ -1620,6 +1625,7 @@ export default function CRM() {
         if (cfgs && cfgs.length > 0) {
           const cfg = cfgs[0];
           if (cfg.studio_name) setStudioName(cfg.studio_name);
+          if (cfg.comissao_saldo_inicio) setComissaoSaldoInicio(cfg.comissao_saldo_inicio);
           if (cfg.studio_tel) setStudioTel(cfg.studio_tel);
           if (cfg.studio_owner) setStudioOwner(cfg.studio_owner);
           if (cfg.studio_email) setStudioEmail(cfg.studio_email);
@@ -2308,6 +2314,43 @@ export default function CRM() {
   // precisa perguntar "qual solicitação" ou se dá pra deduzir sozinho (só 1 ativa).
   const projetosAtivos = (cid: any) => (clients.find(c => c.id === cid)?.projetos || []).filter((p: any) => p.status !== "concluido" && p.status !== "cancelado");
 
+  // Saldo de comissão pendente de repasse a um profissional: soma da comissão gerada (mesma fórmula
+  // usada nos relatórios: val_a * com_sess / 100) menos o que já foi pago em saídas do tipo repasse_comissao.
+  // Só conta lançamentos a partir de comissaoSaldoInicio (não mistura com comissões antigas).
+  const comissaoPendente = (artistaId: string) => {
+    const gerado = fin.filter((f: any) => f.artista === artistaId && (!f.tipo || f.tipo === "entrada") && !f.is_permuta && (f.data || "") >= comissaoSaldoInicio)
+      .reduce((s: number, f: any) => s + (Number(f.val_a) || 0) * (Number(f.com_sess) || 0) / 100, 0);
+    const pago = fin.filter((f: any) => f.artista === artistaId && f.tipo === "saida" && f.categoria === "repasse_comissao" && (f.data || "") >= comissaoSaldoInicio)
+      .reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
+    return Math.max(gerado - pago, 0);
+  };
+  const confirmarRepasse = async () => {
+    if (!repasseModal) return;
+    const valor = parseFloat((repasseModal.valor || "0").replace(/\./g, "").replace(",", ".")) || 0;
+    if (valor <= 0) { setShowAviso("Informe um valor válido para o repasse."); return; }
+    const artista = artists.find((a: any) => a.id === repasseModal.artistaId);
+    const hoje = new Date();
+    const row = {
+      artista: repasseModal.artistaId,
+      val_a: valor, val_c: valor,
+      pgto: repasseModal.forma,
+      data: hoje.toISOString().split("T")[0],
+      competencia: hoje.toISOString().split("T")[0].slice(0, 7),
+      categoria: "repasse_comissao",
+      descricao: (repasseModal.vale ? "Vale de comissão" : "Repasse de comissão") + (artista ? " — " + artista.nome : ""),
+      tipo: "saida",
+      com_base: 0, com_sess: 0,
+      is_permuta: false,
+      user_id: userId,
+    };
+    const { data, error } = await sb.from("financeiro").insert(row).select().single();
+    if (error) { setShowAviso("Erro ao registrar repasse: " + error.message); return; }
+    setFin((p: any[]) => [...p, { ...row, id: data?.id }]);
+    addLog(`Repasse de comissão registrado — R$${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} para ${artista?.nome || "profissional"}`);
+    setRepasseModal(null);
+    setShowAviso("✅ Repasse registrado com sucesso.");
+  };
+
   // Ao abrir "Sessão Realizada", pré-seleciona a solicitação automaticamente quando não há ambiguidade:
   // veio do botão "✓ Solicitação Concluída" da ficha (já sabe qual é), ou o cliente só tem 1 solicitação ativa.
   useEffect(() => {
@@ -2726,6 +2769,7 @@ export default function CRM() {
       piercing_comissao_valor: artForm.piercingComissaoValor ? Number(artForm.piercingComissaoValor) : null,
       remuneracao_tipo: artForm.remuneracaoTipo || null,
       remuneracao_valor: artForm.remuneracaoValor ? Number(artForm.remuneracaoValor) : null,
+      forma_recebimento: artForm.formaRecebimento || null,
       user_id: userId
     };
     const { data: artData, error: artError } = await sb.from("artistas").insert(row).select().single();
@@ -2735,7 +2779,7 @@ export default function CRM() {
     }
     setArtists(p => [...p, { ...row, id: artData.id }]);
     setShowArtForm(false);
-    setArtForm({ nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "@", email: "", tel: "", funcao: "", atendeCliente: true, piercingComissaoTipo: "", piercingComissaoValor: "", remuneracaoTipo: "", remuneracaoValor: "" });
+    setArtForm({ nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "@", email: "", tel: "", funcao: "", atendeCliente: true, piercingComissaoTipo: "", piercingComissaoValor: "", remuneracaoTipo: "", remuneracaoValor: "", formaRecebimento: "" });
     addLog(`Profissional "${artForm.nome}" cadastrado`);
     if (!onboardingDone) { setOnbStep(s => s + 1); }
   };
@@ -6753,7 +6797,17 @@ export default function CRM() {
                       {a.ativo ? "Ativo" : "Inativo"} {a.insta || "Sem Instagram"}
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 6 }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    {(() => {
+                      const pendente = comissaoPendente(a.id);
+                      if (pendente <= 0) return null;
+                      return (
+                        <button className="btn-sm" onClick={() => setRepasseModal({ artistaId: a.id, pendente, valor: pendente.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), forma: a.forma_recebimento || "Pix", vale: false })}
+                          style={{ background: "rgba(230,126,34,.15)", border: "1px solid rgba(230,126,34,.4)", color: "#E67E22", fontWeight: 700 }}>
+                          ⚠ R$ {pendente.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} pendente
+                        </button>
+                      );
+                    })()}
                     <button className="btn-sm gold" onClick={() => setEditingArtist({ ...a })}>✏️ Editar</button>
                     <button className="btn-sm gold" onClick={() => setShowCtr({ type: "artist", a })}>📄 Contrato</button>
                     <button className="btn-sm" onClick={() => setArtists(p => p.map(x => x.id === a.id ? { ...x, ativo: !x.ativo } : x))}>
@@ -6905,6 +6959,16 @@ export default function CRM() {
                     </div>
                   </div>
                 )}
+                <div className="ff">
+                  <label className="fl" title="Como esse profissional prefere receber o repasse de comissão">Forma de Recebimento (comissão)</label>
+                  <select className="fs" value={editingArtist.forma_recebimento || ""} onChange={e => setEditingArtist({ ...editingArtist, forma_recebimento: e.target.value || null })}>
+                    <option value="">Selecione...</option>
+                    <option value="Pix">Pix</option>
+                    <option value="Transferência">Transferência</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
                 <div className="fr">
                   <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={editingArtist.insta || ""} onChange={e => { const v = e.target.value; setEditingArtist({ ...editingArtist, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                   <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email" value={editingArtist.email || ""} onChange={e => setEditingArtist({ ...editingArtist, email: e.target.value.toLowerCase() })} /></div>
@@ -6936,7 +7000,8 @@ export default function CRM() {
                     piercing_comissao_tipo: editingArtist.piercing_comissao_tipo || null,
                     piercing_comissao_valor: editingArtist.piercing_comissao_valor ? Number(String(editingArtist.piercing_comissao_valor).replace(",", ".")) : null,
                     remuneracao_tipo: editingArtist.remuneracao_tipo || null,
-                    remuneracao_valor: editingArtist.remuneracao_valor ? Number(String(editingArtist.remuneracao_valor).replace(",", ".")) : null
+                    remuneracao_valor: editingArtist.remuneracao_valor ? Number(String(editingArtist.remuneracao_valor).replace(",", ".")) : null,
+                    forma_recebimento: editingArtist.forma_recebimento || null
                   }).eq("id", editingArtist.id);
                   if (error) { console.error("Erro ao salvar artista:", error); alert("Erro ao salvar artista."); return; }
                   setEditingArtist(null);
@@ -11067,6 +11132,16 @@ export default function CRM() {
                     </div>
                   </div>
                 )}
+                <div className="ff">
+                  <label className="fl" title="Como esse profissional prefere receber o repasse de comissão">Forma de Recebimento (comissão)</label>
+                  <select className="fs" value={artForm.formaRecebimento} onChange={e => setArtForm({ ...artForm, formaRecebimento: e.target.value })}>
+                    <option value="">Selecione...</option>
+                    <option value="Pix">Pix</option>
+                    <option value="Transferência">Transferência</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
                 <div className="fr">
                   <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => { const v = e.target.value; setArtForm({ ...artForm, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
                   <div className="ff"><label className="fl">Email</label><input className="fi" placeholder="email" value={artForm.email} onChange={e => setArtForm({ ...artForm, email: e.target.value.toLowerCase() })} /></div>
@@ -14767,6 +14842,47 @@ export default function CRM() {
             </div>
           </div>
         )}
+
+        {/* ── MODAL: REGISTRAR REPASSE DE COMISSÃO ── */}
+        {repasseModal && (() => {
+          const artista = artists.find((a: any) => a.id === repasseModal.artistaId);
+          return (
+            <div className="ov" onClick={() => setRepasseModal(null)}>
+              <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(440px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>
+                  💰 Repasse de comissão — {artista?.nome || ""}
+                </div>
+                <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "10px 14px", fontSize: 13 }}>
+                  Pendente: <strong style={{ color: "var(--gold)" }}>R$ {repasseModal.pendente.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => setRepasseModal(p => p ? { ...p, vale: false, valor: p.pendente.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) } : p)}
+                    style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: !repasseModal.vale ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (!repasseModal.vale ? "var(--gold)" : "var(--br)"), color: !repasseModal.vale ? "var(--gold)" : "var(--tx2)" }}>Quitar tudo</button>
+                  <button onClick={() => setRepasseModal(p => p ? { ...p, vale: true, valor: "" } : p)}
+                    style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: repasseModal.vale ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (repasseModal.vale ? "var(--gold)" : "var(--br)"), color: repasseModal.vale ? "var(--gold)" : "var(--tx2)" }}>Registrar vale (parcial)</button>
+                </div>
+                <div className="fi2">
+                  <div className="fil">Valor do repasse (R$)</div>
+                  <input className="ef" type="text" placeholder="0,00" value={repasseModal.valor}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/\D/g, ""); const num = raw ? Number(raw) / 100 : 0;
+                      setRepasseModal(p => p ? { ...p, valor: raw ? num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "" } : p);
+                    }} />
+                </div>
+                <div className="fi2">
+                  <div className="fil">Forma de pagamento</div>
+                  <select className="ef" value={repasseModal.forma} onChange={e => setRepasseModal(p => p ? { ...p, forma: e.target.value } : p)}>
+                    {["Pix", "Transferência", "Dinheiro", "Outro"].map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button className="btn-c" onClick={() => setRepasseModal(null)}>Cancelar</button>
+                  <button className="btn-s" onClick={confirmarRepasse}>Confirmar Repasse</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── MODAL: SESSÃO CONCLUÍDA — PROJETO COMPLETO? ── */}
         {agendarProximaModal && (
