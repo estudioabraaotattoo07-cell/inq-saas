@@ -10061,6 +10061,7 @@ export default function CRM() {
                             onClick={() => window.open(url, "_blank")} />
                           <button
                             onClick={async () => {
+                              if (!window.confirm("Remover esta foto de referência? Essa ação não pode ser desfeita.")) return;
                               const refs: string[] = ((sc as any).referencias || []).filter((_: string, j: number) => j !== i);
                               upC(sc.id, "referencias", refs);
                               await sb.from("clientes").update({ referencias: refs }).eq("id", sc.id);
@@ -10153,6 +10154,7 @@ export default function CRM() {
                           <div style={{ fontSize: 9, color: "var(--tx3)", textAlign: "center" }}>{arq.criado_em ? new Date(arq.criado_em).toLocaleDateString("pt-BR") : ""}</div>
                           <button onClick={async e => {
                             e.stopPropagation();
+                            if (!window.confirm(`Excluir "${arq.nome}"? Essa ação não pode ser desfeita — se for um documento assinado ou de autorização, ele será perdido.`)) return;
                             const novos = ((sc as any).docs_arquivos || []).filter((_: any, idx: number) => idx !== i);
                             await sb.from("clientes").update({ docs_arquivos: novos }).eq("id", sc.id);
                             upCFicha(sc.id, "docs_arquivos", novos);
