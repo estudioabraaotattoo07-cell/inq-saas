@@ -417,6 +417,7 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 .fmt{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;color:var(--tx);}
 .fmb{padding:17px 21px;display:flex;flex-direction:column;gap:11px;}
 .fr{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.fr-time{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
 .ff{display:flex;flex-direction:column;gap:4px;}
 .fl{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--tx2);}
 .fi,.fs,.fta{background:var(--dk3);border:1px solid var(--br);border-radius:5px;color:var(--tx);padding:7px 10px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;}
@@ -9689,7 +9690,10 @@ export default function CRM() {
                           return (
                           <div key={proj.id} style={{ background: "var(--dk3)", border: "1px solid " + (dirty ? "var(--gold)" : "var(--br)"), borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-                              <span style={{ fontSize: 11, color: "var(--gold)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>Solicitação {pi + 1} Em andamento</span>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                                <span style={{ fontSize: 9, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em" }}>Solicitação {pi + 1} — Em andamento</span>
+                                <span style={{ fontSize: 13, color: "var(--gold)", fontWeight: 700 }}>{draft.estilo || "(sem título)"}</span>
+                              </div>
                       {(draft as any).servico && <span style={{ fontSize: 10, background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 10, padding: "1px 8px", color: "var(--gold)", marginLeft: 6 }}>{(draft as any).servico}</span>}
                               <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={() => setCancelProjetoModal({ clienteId: sc.id, projetoId: proj.id, motivo: "", motivoSelecionado: "" })}
@@ -9731,6 +9735,10 @@ export default function CRM() {
                                 </div>
                               ) : null;
                             })()}
+                            <div className="fi2">
+                              <div className="fil">Nome / Identificação do Projeto</div>
+                              <input className="ef" placeholder="Ex: Tatuagem na coxa, Cobertura de tattoo antiga, Piercing na orelha..." value={draft.estilo || ""} onChange={e => setProjDraftField(proj, { estilo: e.target.value })} />
+                            </div>
                             <div className="fi2">
                               <div className="fil" title="Se este projeto for feito por outro profissional (diferente do responsável pela ficha), selecione aqui — o financeiro e a comissão vão para quem estiver marcado.">Profissional Responsável (por este projeto)</div>
                               <SeletorProfissionalProjeto valor={artistaDoProjeto(draft, sc)} onEscolher={id => setProjDraftField(proj, { artista: id })} />
@@ -11145,8 +11153,8 @@ export default function CRM() {
                   <DateScroller label="Data" value={agForm.date} onChange={val => { const ano = parseInt(val.split("-")[0]); if (!val || (ano >= 2020 && ano <= 2099)) setAgForm({ ...agForm, date: val }); }} />
                 </div>
 
-                {/* 3. HORÁRIO */}
-                <div className="fr">
+                {/* 3. HORÁRIO — sempre lado a lado, mesmo no mobile (são só dois seletores de hora, não precisam empilhar) */}
+                <div className="fr-time">
                   <TimeScroller label="Início" value={agForm.start || 9} onChange={(h, m) => setAgForm({ ...agForm, start: h })} />
                   <TimeScroller label="Fim" value={agForm.end || 11} onChange={(h, m) => setAgForm({ ...agForm, end: h })} />
                 </div>
@@ -11257,13 +11265,13 @@ export default function CRM() {
                       const cliVinc = agClientVinc ? clients.find(c => c.id === agClientVinc.id) : null;
                       const ativosVinc = (cliVinc?.projetos || []).filter((p: any) => p.status !== "concluido" && p.status !== "cancelado");
                       const escolherServico = (nome: string, projetoId?: any) => {
+                        // Só preenche o formulário aqui — mover o pipeline é responsabilidade do saveAgEvent,
+                        // que só roda quando o usuário de fato clica em Salvar (senão o pipeline mudava sem nada ser salvo).
                         const artist = artists.find(a => (agForm.tipo || "").includes(a.id))?.id || (cliVinc?.artista || artists[0]?.id || "");
                         const nomeLower = nome.toLowerCase();
                         const novoTipo = nomeLower.includes("piercing") ? "piercing" : nomeLower.includes("consulta") ? "cons_" + artist : "sess_" + artist;
-                        const novaEtapa = nomeLower.includes("consulta") ? "cons_agendada" : "sessao_agend";
                         const descAuto = nomeLower.includes("piercing") ? "Sessão de colocação de piercing" : nomeLower.includes("consulta") ? "Consulta" : nomeLower.includes("tatuagem") ? "Sessão de tatuagem" : "Sessão de " + nomeLower;
                         setAgForm({ ...agForm, servico: nome, tipo: novoTipo, projetoId: projetoId ?? (agForm as any).projetoId, desc: (agForm as any).desc ? (agForm as any).desc : descAuto } as any);
-                        if (cliVinc && cliVinc.etapa !== novaEtapa) executarMove(cliVinc.id, novaEtapa);
                       };
                       if (cliVinc && ativosVinc.length > 0 && !(agForm as any).ignorarSolicitacoes) {
                         return (
@@ -11280,6 +11288,13 @@ export default function CRM() {
                                     color: activeP ? cor : "var(--tx2)" }}>
                                   <div>{p.estilo || servicoNome}</div>
                                   {p.servico && <div style={{ fontSize: 10, opacity: .8, marginTop: 2, fontWeight: 400 }}>{p.servico}</div>}
+                                  {(p.piercingItens || []).length > 0 && (
+                                    <div style={{ fontSize: 10, opacity: .8, marginTop: 2, fontWeight: 400 }}>
+                                      {(p.piercingItens || []).map((i: any) =>
+                                        i.nome + (i.tamanho ? " (" + i.tamanho + ")" : "") + " — Joia R$ " + Number(i.valorJoia).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + (i.valorAplicacao > 0 ? " + Aplic. R$ " + Number(i.valorAplicacao).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "")
+                                      ).join(" · ")}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
