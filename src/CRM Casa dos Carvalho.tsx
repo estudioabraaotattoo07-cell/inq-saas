@@ -2350,6 +2350,12 @@ export default function CRM() {
     setRepasseModal(null);
     setShowAviso("✅ Repasse registrado com sucesso.");
   };
+  // Colaboradores ativos com saldo de comissão pendente — alimenta o badge do topo, o resumo do
+  // Financeiro e o card em Colaboradores, todos a partir do mesmo cálculo (comissaoPendente).
+  const colaboradoresComPendencia = useMemo(() =>
+    artists.filter((a: any) => a.ativo).map((a: any) => ({ artista: a, pendente: comissaoPendente(a.id) })).filter(x => x.pendente > 0),
+    [artists, fin, comissaoSaldoInicio]
+  );
 
   // Ao abrir "Sessão Realizada", pré-seleciona a solicitação automaticamente quando não há ambiguidade:
   // veio do botão "✓ Solicitação Concluída" da ficha (já sabe qual é), ou o cliente só tem 1 solicitação ativa.
@@ -4829,6 +4835,12 @@ export default function CRM() {
                 </div>
               </div>
             )}
+            {colaboradoresComPendencia.length > 0 && (
+              <div className="alert-btn" title="Comissão pendente de repasse" onClick={() => { setShowSettings(true); setSettingsTab("profissionais" as any); }}
+                style={{ background: "rgba(230,126,34,.15)", borderColor: "rgba(230,126,34,.4)", color: "#E67E22" }}>
+                💰 {colaboradoresComPendencia.length} repasse{colaboradoresComPendencia.length > 1 ? "s" : ""} pendente{colaboradoresComPendencia.length > 1 ? "s" : ""}
+              </div>
+            )}
             <button className="theme-btn" title="Sair" onClick={async () => { await sb.auth.signOut(); setLogado(false); }} style={{ fontSize: 13 }}>🚪</button>
             <button className="btn-new" onClick={() => setShowForm(true)}>+ Novo Cliente</button>
           </div>
@@ -5815,6 +5827,24 @@ export default function CRM() {
                 </button>
               ))}
             </div>
+
+            {colaboradoresComPendencia.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, background: "rgba(230,126,34,.08)", border: "1px solid rgba(230,126,34,.3)", borderRadius: 8, padding: "10px 14px", margin: "8px 0" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#E67E22", textTransform: "uppercase", letterSpacing: ".05em" }}>💰 Repasses de comissão pendentes</div>
+                {colaboradoresComPendencia.map(({ artista, pendente }) => (
+                  <div key={artista.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                    <span style={{ color: "var(--tx)" }}>{artista.nome}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ color: "#E67E22", fontWeight: 700 }}>R$ {pendente.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                      <button onClick={() => setRepasseModal({ artistaId: artista.id, pendente, valor: pendente.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), forma: artista.forma_recebimento || "Pix", vale: false })}
+                        style={{ background: "rgba(230,126,34,.15)", border: "1px solid rgba(230,126,34,.4)", borderRadius: 5, padding: "3px 9px", fontSize: 11, fontWeight: 600, color: "#E67E22", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                        Registrar repasse
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* ── FILTROS ── */}
             {finAbaAtiva !== "equipamentos" && finAbaAtiva !== "metas" && (
