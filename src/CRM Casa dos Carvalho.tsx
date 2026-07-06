@@ -2294,6 +2294,11 @@ export default function CRM() {
       setProjPagamentoAtual({ clienteId: confirmPagamento.cid, projetoId: projParaConcluir.projetoId });
       return;
     }
+    // O agendamento já sabia a qual solicitação pertencia desde que foi criado — usa direto, sem perguntar de novo.
+    if ((confirmPagamento.agEvent as any)?.projeto_id) {
+      setProjPagamentoAtual({ clienteId: confirmPagamento.cid, projetoId: (confirmPagamento.agEvent as any).projeto_id });
+      return;
+    }
     const ativos = projetosAtivos(confirmPagamento.cid);
     if (ativos.length === 1) {
       setProjPagamentoAtual({ clienteId: confirmPagamento.cid, projetoId: ativos[0].id });
@@ -2859,7 +2864,8 @@ export default function CRM() {
       sinal: parseFloat(String((agForm as any).sinal || "0").replace(/\./g, "").replace(",", ".")) || 0,
       sinal_pago: !!(agForm as any).sinalPago,
       user_id: userId,
-      ...(agClientVinc ? { cliente_id: agClientVinc.id, cliente_nome: agClientVinc.nome } : {})
+      ...(agClientVinc ? { cliente_id: agClientVinc.id, cliente_nome: agClientVinc.nome } : {}),
+      ...((agForm as any).projetoId ? { projeto_id: String((agForm as any).projetoId) } : {})
     };
 
     if (editingEvent) {
@@ -11211,27 +11217,56 @@ export default function CRM() {
                 <div className="ff">
                   <label className="fl">Serviço</label>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                    {servicoOpts.map(svc => {
-                      const active = (agForm as any).servico === svc.nome;
-                      return (
-                        <div key={svc.id} onClick={() => {
-                          const artist = artists.find(a => (agForm.tipo || "").includes(a.id))?.id || (artists[0]?.id || "");
-                          const nomeLower = svc.nome.toLowerCase();
-                          const novoTipo = nomeLower.includes("piercing") ? "piercing" : nomeLower.includes("consulta") ? "cons_" + artist : (nomeLower.includes("sess") ? "sess_" + artist : "sess_" + artist);
-                          const novaEtapa = nomeLower.includes("consulta") ? "cons_agendada" : (nomeLower.includes("sess") || nomeLower.includes("piercing")) ? "sessao_agend" : null;
-                          setAgForm({ ...agForm, servico: svc.nome, tipo: novoTipo } as any);
-                          if (novaEtapa && agClientVinc) {
-                            const cli = clients.find(c => c.id === agClientVinc.id);
-                            if (cli && cli.etapa !== novaEtapa) executarMove(agClientVinc.id, novaEtapa);
-                          }
-                        }} style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
-                          background: active ? svc.cor + "33" : "var(--dk3)",
-                          border: "1px solid " + (active ? svc.cor : "var(--br)"),
-                          color: active ? svc.cor : "var(--tx2)" }}>
-                          {svc.nome}
-                        </div>
-                      );
-                    })}
+                    {(() => {
+                      const cliVinc = agClientVinc ? clients.find(c => c.id === agClientVinc.id) : null;
+                      const ativosVinc = (cliVinc?.projetos || []).filter((p: any) => p.status !== "concluido" && p.status !== "cancelado");
+                      const escolherServico = (nome: string, projetoId?: any) => {
+                        const artist = artists.find(a => (agForm.tipo || "").includes(a.id))?.id || (cliVinc?.artista || artists[0]?.id || "");
+                        const nomeLower = nome.toLowerCase();
+                        const novoTipo = nomeLower.includes("piercing") ? "piercing" : nomeLower.includes("consulta") ? "cons_" + artist : "sess_" + artist;
+                        const novaEtapa = nomeLower.includes("consulta") ? "cons_agendada" : "sessao_agend";
+                        const descAuto = nomeLower.includes("piercing") ? "Sessão de colocação de piercing" : nomeLower.includes("consulta") ? "Consulta" : nomeLower.includes("tatuagem") ? "Sessão de tatuagem" : "Sessão de " + nomeLower;
+                        setAgForm({ ...agForm, servico: nome, tipo: novoTipo, projetoId: projetoId ?? (agForm as any).projetoId, desc: (agForm as any).desc ? (agForm as any).desc : descAuto } as any);
+                        if (cliVinc && cliVinc.etapa !== novaEtapa) executarMove(cliVinc.id, novaEtapa);
+                      };
+                      if (cliVinc && ativosVinc.length > 0 && !(agForm as any).ignorarSolicitacoes) {
+                        return (
+                          <>
+                            {ativosVinc.map((p: any) => {
+                              const activeP = (agForm as any).projetoId === p.id;
+                              const servicoNome = p.servico || "Solicitação";
+                              const cor = servicoOpts.find(s => s.nome === p.servico)?.cor || "#C9A84C";
+                              return (
+                                <div key={p.id} onClick={() => escolherServico(servicoNome, p.id)}
+                                  style={{ padding: "6px 14px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontWeight: 600, minWidth: 120,
+                                    background: activeP ? cor + "33" : "var(--dk3)",
+                                    border: "1px solid " + (activeP ? cor : "var(--br)"),
+                                    color: activeP ? cor : "var(--tx2)" }}>
+                                  <div>{p.estilo || servicoNome}</div>
+                                  {p.servico && <div style={{ fontSize: 10, opacity: .8, marginTop: 2, fontWeight: 400 }}>{p.servico}</div>}
+                                </div>
+                              );
+                            })}
+                            <div onClick={() => setAgForm({ ...agForm, ignorarSolicitacoes: true } as any)}
+                              style={{ display: "flex", alignItems: "center", fontSize: 11, color: "var(--tx3)", cursor: "pointer", textDecoration: "underline" }}>
+                              Nenhuma dessas / outro serviço
+                            </div>
+                          </>
+                        );
+                      }
+                      return servicoOpts.map(svc => {
+                        const active = (agForm as any).servico === svc.nome;
+                        return (
+                          <div key={svc.id} onClick={() => escolherServico(svc.nome)}
+                            style={{ padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                            background: active ? svc.cor + "33" : "var(--dk3)",
+                            border: "1px solid " + (active ? svc.cor : "var(--br)"),
+                            color: active ? svc.cor : "var(--tx2)" }}>
+                            {svc.nome}
+                          </div>
+                        );
+                      });
+                    })()}
                     {/* Bloqueio */}
                     <div onClick={() => {
                       const isBloq = (agForm.tipo || "").startsWith("bloq");
