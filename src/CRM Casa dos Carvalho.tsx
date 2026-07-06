@@ -495,13 +495,12 @@ const STAR_REASONS = [
 const getEventColor = (tipo: string, artists: any[], artistaId?: string): string => {
   if (!tipo) return "#888";
   if (tipo === "bloq_geral") return "#555";
-  if (tipo === "piercing") return "#E91E8C";
   const parts = tipo.split("_");
   const prefix = parts[0];
   if (prefix === "bloq") return "#C0392B";
-  const id = artistaId || parts.slice(1).join("_");
+  const id = artistaId || (tipo === "piercing" ? "" : parts.slice(1).join("_"));
   const artist = artists.find(a => a.id === id);
-  return artist?.cor || "#888";
+  return artist?.cor || (tipo === "piercing" ? "#E91E8C" : "#888");
 };
 
 const getBloqLabel = (tipo: string, artistsList: any[]) => {
