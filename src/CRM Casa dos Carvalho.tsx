@@ -1318,6 +1318,7 @@ export default function CRM() {
   const [undoSessao, setUndoSessao] = useState<{cid: any; etapaAnterior: string; finIds: any[]} | null>(null);
   const [undoSessaoTimer, setUndoSessaoTimer] = useState<any>(null);
   const [confirmAgForm, setConfirmAgForm] = useState(false);
+  const savingAgRef = useRef(false); // trava contra duplo clique/toque no "Confirmar" do agendamento
   const [confirmPresenca, setConfirmPresenca] = useState<{event: any} | null>(null);
   const [consultaCumpridaExpanded, setConsultaCumpridaExpanded] = useState(false);
   const [naoCompExpanded, setNaoCompExpanded] = useState(false);
@@ -1954,6 +1955,7 @@ export default function CRM() {
       id: typeof c.id === "number" ? undefined : c.id,
       nome: c.nome, insta: c.insta || "", tel: c.tel || "",
       qual: c.qual, artista: c.artista, etapa: c.etapa, etapa_desde: (c as any).etapa_desde ?? null,
+      etapa_antes_agenda: (c as any).etapa_antes_agenda ?? null,
       orig: c.orig || "", email: c.email || "",
       tam: c.tam || "Medio", intencao: c.intencao || "", primeira: c.primeira || false,
       cob: c.cob || false, descricao: c.desc || "",
@@ -2227,14 +2229,14 @@ export default function CRM() {
     executarMove(cid, ns);
   };
 
-  const executarMove = (cid: number, ns: string) => {
+  const executarMove = (cid: number, ns: string, extra?: any) => {
     const lbl = stages.find(s => s.id === ns)?.label || ns;
     const orq = ns === "sessao_agend";
     const tatuado = ns === "tatuado";
     const posVenda = ns === "pos_venda";
     setClients(p => {
       const updated = p.map(c => c.id !== cid ? c : {
-        ...c, etapa: ns, etapa_desde: new Date().toISOString(), orcamento: orq,
+        ...c, ...extra, etapa: ns, etapa_desde: new Date().toISOString(), orcamento: orq,
         pv: tatuado ? [] : c.pv,
         // Reset de avaliação se entrar em pos_venda com ciclo incompleto (aguardando = nunca respondeu)
         avaliacao_fluxo_status: posVenda && (c as any).avaliacao_fluxo_status === "aguardando" ? null : (c as any).avaliacao_fluxo_status,
@@ -2258,6 +2260,19 @@ export default function CRM() {
       addLog(`Pipeline: "${nome}" movido para ${lbl}`);
       return updated;
     });
+  };
+  // Ao excluir um agendamento (de verdade, após a janela de desfazer), devolve o cliente pra etapa
+  // em que estava antes — mas só se ele não tiver outro evento pendente e ainda estiver na etapa
+  // que ESSE agendamento causou (se já avançou mais, ou se ainda tem outro evento, não mexe).
+  const reverterPipelineAoExcluirEvento = (evento: any) => {
+    if (!evento?.cliente_id) return;
+    const outrosEventos = agEvents.filter(x => x.id !== evento.id && x.cliente_id === evento.cliente_id && x.status !== "cancelado");
+    if (outrosEventos.length > 0) return;
+    const cliente = clients.find(c => c.id === evento.cliente_id);
+    if (!cliente) return;
+    if (cliente.etapa !== "cons_agendada" && cliente.etapa !== "sessao_agend") return;
+    const etapaAlvo = (cliente as any).etapa_antes_agenda || "lead";
+    executarMove(cliente.id, etapaAlvo, { etapa_antes_agenda: null });
   };
 
   const confirmarPagamento = async () => {
@@ -2583,6 +2598,10 @@ export default function CRM() {
         // Definir etapa inicial baseada na qualificação
         const etapaInicial = "lead";
         setClients(p => [{ ...nc, id: data.id, etapa: etapaInicial }, ...p]);
+        if (nc.email) {
+          const artistaNomeNc = artists.find((a: any) => a.id === nc.artista)?.nome || "";
+          enviarEmailBoasVindas({ nome: nc.nome, email: nc.email }, artistaNomeNc);
+        }
         // Salvar agendamento se marcado
         if (formAg.agendar && formAg.data) {
           await dbUpsert("agenda", {
@@ -2649,6 +2668,36 @@ export default function CRM() {
     if (msg.includes("violates foreign key")) return "Referência inválida. Verifique os dados e tente novamente.";
     if (msg.includes("JWT")) return "Sessão expirada. Recarregue a página.";
     return "Algo deu errado. Tente novamente.";
+  };
+
+  // Boas-vindas para clientes cadastrados manualmente no CRM (o site já dispara o equivalente sozinho via /api/lead)
+  const enviarEmailBoasVindas = async (cliente: any, artistaNome: string) => {
+    if (!resendApiKey || !emailRemetente || !cliente?.email) return;
+    if (!fluxoToggles.boas_vindas_email) return;
+    const studioNomeF = (studioName || "A Casa dos Carvalho").replace(/_/g, " ");
+    const whatsappFmt = studioTel ? maskTel(studioTel) : "nosso WhatsApp";
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;">
+        <div style="background:#1a1a1a;padding:24px 32px;text-align:center;">
+          <span style="color:#c9a84c;font-size:22px;font-weight:700;letter-spacing:.05em;">${studioNomeF}</span>
+        </div>
+        <div style="padding:32px;">
+          <p style="font-size:15px;">Olá, <strong>${cliente.nome}</strong>!</p>
+          <p style="font-size:14px;color:#333;">Seja bem-vindo(a) — você agora faz parte da nossa lista de clientes na <strong>${studioNomeF}</strong>${artistaNome ? `, com <strong>${artistaNome}</strong>` : ""}.</p>
+          <p style="font-size:13px;color:#555;">A partir de agora vamos manter você por dentro dos seus agendamentos e do andamento do seu projeto por aqui.</p>
+          <p style="font-size:13px;color:#555;">Qualquer dúvida, estamos no WhatsApp: <strong>${whatsappFmt}</strong></p>
+        </div>
+        <div style="background:#f7f7f7;padding:12px 32px;font-size:11px;color:#aaa;text-align:center;">
+          Com carinho, ${studioNomeF}
+        </div>
+      </div>`;
+    try {
+      await fetch("/api/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: resendApiKey, from: `${nomeRemetente || studioNomeF} <${emailRemetente}>`, to: cliente.email, subject: `Bem-vindo(a) à ${studioNomeF}, ${cliente.nome}! 🖤`, html }),
+      });
+    } catch { /* silencioso — cliente já foi salvo */ }
   };
 
   const enviarEmailAgendamento = async (tipo: "cons" | "sess", cliente: any, data: string, horaInicio: number, artistaNome: string) => {
@@ -2718,6 +2767,9 @@ export default function CRM() {
   };
 
   const saveAgEvent = async (forceRetroativo = false) => {
+    if (savingAgRef.current) return;
+    savingAgRef.current = true;
+    setTimeout(() => { savingAgRef.current = false; }, 1500);
     if (!agForm.date && !(agForm.tipo || "").startsWith("bloq")) {
       setShowAviso("Informe a data do agendamento antes de salvar.");
       return;
@@ -2877,7 +2929,8 @@ export default function CRM() {
       if (tipoKey === "cons") {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
         if (cli && ["lead"].includes(cli.etapa)) {
-          executarMove(agClientVinc.id, "cons_agendada");
+          // Guarda a etapa de origem só se ainda não houver uma guardada (evita perder o valor original em agendamentos em sequência)
+          executarMove(agClientVinc.id, "cons_agendada", { etapa_antes_agenda: (cli as any).etapa_antes_agenda ?? cli.etapa });
         }
         enviarEmailAgendamento("cons", agClientVinc, agForm.date, agForm.start, artistaNome);
       } else if (tipoKey === "sess" || tipoKey === "piercing") {
@@ -2886,7 +2939,7 @@ export default function CRM() {
           if (cli.etapa === "hibernacao" && (cli.faltas || 0) > 0) {
             setTimeout(() => setShowAviso(`⚠️ ${cli.nome} estava em hibernação por desmarcação. Lembre de cobrar R$100,00 de taxa — conforme política do estúdio.`), 500);
           }
-          executarMove(agClientVinc.id, "sessao_agend");
+          executarMove(agClientVinc.id, "sessao_agend", { etapa_antes_agenda: (cli as any).etapa_antes_agenda ?? cli.etapa });
         }
         enviarEmailAgendamento("sess", agClientVinc, agForm.date, agForm.start, artistaNome);
       }
@@ -3752,7 +3805,11 @@ export default function CRM() {
     // Guarda para desfazer por 8s
     setUndoEvento(e);
     if (undoTimer) clearTimeout(undoTimer);
-    const t = setTimeout(() => { setUndoEvento(null); setUndoTimer(null); }, 8000);
+    const t = setTimeout(() => {
+      setUndoEvento(null);
+      setUndoTimer(null);
+      reverterPipelineAoExcluirEvento(e);
+    }, 8000);
     setUndoTimer(t);
   };
 
