@@ -1267,6 +1267,9 @@ export default function CRM() {
   const [confirmMover, setConfirmMover] = useState<{cid: any; stage: any; agEvents: any[]} | null>(null);
   const [confirmPagamento, setConfirmPagamento] = useState<{cid: any; agEvent: any; projArtista?: string} | null>(null);
   const [projParaConcluir, setProjParaConcluir] = useState<{clienteId: any; projetoId: any} | null>(null);
+  // Qual solicitação um pagamento (via "Sessão Realizada") pertence — só pra saber o saldo/comissão certos,
+  // NÃO marca a solicitação como concluída (isso é só o projParaConcluir, vindo do botão da ficha).
+  const [projPagamentoAtual, setProjPagamentoAtual] = useState<{clienteId: any; projetoId: any} | null>(null);
   const [pipelineMotivo, setPipelineMotivo] = useState<{cid: any; stage: any; motivo: string; dias?: string} | null>(null);
   const [confirmCancelarEvento, setConfirmCancelarEvento] = useState<{event: any; motivo: string} | null>(null);
   const [showHistoricoModal, setShowHistoricoModal] = useState(false);
@@ -2274,10 +2277,35 @@ export default function CRM() {
     const etapaAlvo = (cliente as any).etapa_antes_agenda || "lead";
     executarMove(cliente.id, etapaAlvo, { etapa_antes_agenda: null });
   };
+  // Projetos ativos (não concluído/cancelado) de um cliente — usado pra saber se o pagamento
+  // precisa perguntar "qual solicitação" ou se dá pra deduzir sozinho (só 1 ativa).
+  const projetosAtivos = (cid: any) => (clients.find(c => c.id === cid)?.projetos || []).filter((p: any) => p.status !== "concluido" && p.status !== "cancelado");
+
+  // Ao abrir "Sessão Realizada", pré-seleciona a solicitação automaticamente quando não há ambiguidade:
+  // veio do botão "✓ Solicitação Concluída" da ficha (já sabe qual é), ou o cliente só tem 1 solicitação ativa.
+  useEffect(() => {
+    if (!confirmPagamento) return;
+    if (projParaConcluir && projParaConcluir.clienteId === confirmPagamento.cid) {
+      setProjPagamentoAtual({ clienteId: confirmPagamento.cid, projetoId: projParaConcluir.projetoId });
+      return;
+    }
+    const ativos = projetosAtivos(confirmPagamento.cid);
+    if (ativos.length === 1) {
+      setProjPagamentoAtual({ clienteId: confirmPagamento.cid, projetoId: ativos[0].id });
+    } else {
+      setProjPagamentoAtual(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmPagamento]);
 
   const confirmarPagamento = async () => {
     if (!confirmPagamento) return;
     const { cid } = confirmPagamento;
+    const ativosConfirm = projetosAtivos(cid);
+    if (ativosConfirm.length > 1 && !(projPagamentoAtual?.clienteId === cid && ativosConfirm.some((p: any) => p.id === projPagamentoAtual.projetoId))) {
+      setShowAviso("Selecione a qual solicitação este pagamento pertence antes de confirmar.");
+      return;
+    }
     const totalPago = pagFormas.reduce((s, f) => s + (parseFloat(f.valor.replace(/\./g, "").replace(",", ".")) || 0), 0);
     const dataHoje = new Date().toLocaleDateString("pt-BR");
     // Lançar cada forma no financeiro
@@ -2288,8 +2316,8 @@ export default function CRM() {
     const dataHojeISO = new Date().toISOString().split("T")[0];
     const pgtoTexto = pagFormas.filter(f => parseFloat(f.valor) > 0)
       .map(f => f.forma === "Cartão" ? `Cartão ${f.parcelas}x` : f.forma).join(" + ");
-    const projVinculado = (projParaConcluir && projParaConcluir.clienteId === cid)
-      ? (cliente?.projetos || []).find((p: any) => p.id === projParaConcluir.projetoId) : null;
+    const projVinculado = (projPagamentoAtual && projPagamentoAtual.clienteId === cid)
+      ? (cliente?.projetos || []).find((p: any) => p.id === projPagamentoAtual.projetoId) : null;
     for (const f of pagFormas) {
       const val = parseFloat(f.valor.replace(/\./g, "").replace(",", ".")) || 0;
       if (val <= 0) continue;
@@ -2339,6 +2367,7 @@ export default function CRM() {
           user_id: userId,
         };
         if (parte.descricao) finRowPag.descricao = parte.descricao;
+        if (projVinculado?.id) finRowPag.projeto_id = String(projVinculado.id);
         const { data: fdPag, error } = await sb.from("financeiro").insert(finRowPag).select().single();
         if (error) { console.error("financeiro insert (sessão):", error); setShowAviso("Erro ao registrar pagamento no financeiro. Verifique sua conexão e tente novamente."); return; }
         if (fdPag) setFin(p => [...p, { ...finRowPag, id: fdPag.id, cliente: cliente?.nome || "" }]);
@@ -2384,6 +2413,7 @@ export default function CRM() {
       console.error("Erro ao finalizar etapas pós-pagamento:", err);
     } finally {
       setConfirmPagamento(null);
+      setProjPagamentoAtual(null);
       setAgendarProximaModal({ cid });
     }
   };
@@ -9570,7 +9600,7 @@ export default function CRM() {
                             {/* Valor total do projeto + saldo devedor */}
                             {(() => {
                               const valorTotal = Number(proj.valorTotal) || 0;
-                              const totalPagoReal = fin.filter((f: any) => f.cliente_id === sc.id && (!f.tipo || f.tipo === "entrada")).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
+                              const totalPagoReal = fin.filter((f: any) => f.cliente_id === sc.id && (!f.tipo || f.tipo === "entrada") && (f.projeto_id ? String(f.projeto_id) === String(proj.id) : true)).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
                               const saldo = valorTotal - totalPagoReal;
                               return valorTotal > 0 ? (
                                 <div style={{ display: "flex", gap: 12, padding: "6px 10px", background: "var(--dk4)", borderRadius: 6, fontSize: 12 }}>
@@ -11896,11 +11926,26 @@ export default function CRM() {
                 ✅ Sessão Realizada — {clients.find(c => c.id === confirmPagamento.cid)?.nome}
               </div>
               {(() => {
+                const ativosPag = projetosAtivos(confirmPagamento.cid);
+                if (ativosPag.length <= 1) return null;
+                return (
+                  <div className="fi2">
+                    <div className="fil">Qual solicitação é este pagamento?</div>
+                    <select className="ef" value={(projPagamentoAtual?.clienteId === confirmPagamento.cid && projPagamentoAtual.projetoId) || ""}
+                      onChange={e => setProjPagamentoAtual({ clienteId: confirmPagamento.cid, projetoId: e.target.value })}>
+                      <option value="">Selecione...</option>
+                      {ativosPag.map((p: any) => <option key={p.id} value={p.id}>{p.estilo || p.servico || "Solicitação"}</option>)}
+                    </select>
+                  </div>
+                );
+              })()}
+              {(() => {
                 const cli = clients.find(c => c.id === confirmPagamento.cid);
-                const proj = (cli?.projetos || []).find((p: any) => p.status !== "concluido" && p.status !== "cancelado");
+                const ativosPag = projetosAtivos(confirmPagamento.cid);
+                const proj = (projPagamentoAtual?.clienteId === confirmPagamento.cid ? ativosPag.find((p: any) => p.id === projPagamentoAtual.projetoId) : null) || (ativosPag.length === 1 ? ativosPag[0] : null);
                 if (!proj?.valorTotal) return null;
                 const valorTotal = Number(proj.valorTotal) || 0;
-                const pagoAntes = fin.filter((f: any) => f.cliente_id === confirmPagamento.cid && (!f.tipo || f.tipo === "entrada"))
+                const pagoAntes = fin.filter((f: any) => f.cliente_id === confirmPagamento.cid && (!f.tipo || f.tipo === "entrada") && (f.projeto_id ? String(f.projeto_id) === String(proj.id) : true))
                   .reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
                 const pagandoAgora = pagFormas.reduce((s, f) => s + (parseFloat(f.valor.replace(/\./g,"").replace(",",".")) || 0), 0);
                 const totalPago = pagoAntes + pagandoAgora;
@@ -11924,7 +11969,8 @@ export default function CRM() {
               {(() => {
                 const cliAniv = clients.find(c => c.id === confirmPagamento.cid);
                 if (!cliAniv || !isAniversMes((cliAniv as any).nascimento || "")) return null;
-                const proj = (cliAniv?.projetos || []).find((p: any) => p.status !== "concluido" && p.status !== "cancelado");
+                const ativosAniv = projetosAtivos(confirmPagamento.cid);
+                const proj = (projPagamentoAtual?.clienteId === confirmPagamento.cid ? ativosAniv.find((p: any) => p.id === projPagamentoAtual.projetoId) : null) || (ativosAniv.length === 1 ? ativosAniv[0] : null);
                 const valorTotal = Number(proj?.valorTotal) || 0;
                 if (valorTotal <= 0) return null;
                 const descValor = Math.round(valorTotal * descontoAniversario / 100 * 100) / 100;
@@ -11948,10 +11994,10 @@ export default function CRM() {
               })()}
               {(() => {
                 if (!confirmPagamento) return null;
-                const cliPag = clients.find(c => c.id === confirmPagamento.cid);
-                const projPag = (cliPag?.projetos || []).find((p: any) => p.status !== "concluido" && p.status !== "cancelado") || (cliPag?.projetos || [])[0];
+                const ativosPagX = projetosAtivos(confirmPagamento.cid);
+                const projPag = (projPagamentoAtual?.clienteId === confirmPagamento.cid ? ativosPagX.find((p: any) => p.id === projPagamentoAtual.projetoId) : null) || (ativosPagX.length === 1 ? ativosPagX[0] : null);
                 const valorTotalPag = Number(projPag?.valorTotal) || 0;
-                const totalPagoAntes = fin.filter((f: any) => f.cliente_id === confirmPagamento.cid && (!f.tipo || f.tipo === "entrada")).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
+                const totalPagoAntes = fin.filter((f: any) => f.cliente_id === confirmPagamento.cid && (!f.tipo || f.tipo === "entrada") && (projPag && f.projeto_id ? String(f.projeto_id) === String(projPag.id) : true)).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
                 const saldoDevPag = Math.max(valorTotalPag - totalPagoAntes, 0);
                 if (saldoDevPag <= 0 || valorTotalPag <= 0) return null;
                 return (
@@ -14533,7 +14579,7 @@ export default function CRM() {
                     const comAvulso = artistaAvulso?.com || 0;
                     const projSelecionado = (pgAvulso.projetos || []).find((p: any) => String(p.id) === String(pgAvulso.projetoId));
                     const obsTxt = pgAvulso.obs ? " — " + pgAvulso.obs : "";
-                    const baseEntrada = {
+                    const baseEntrada: any = {
                       cliente_id: pgAvulso.clienteId,
                       cliente_nome: pgAvulso.clienteNome,
                       artista: pgAvulso.artistaId,
@@ -14545,6 +14591,7 @@ export default function CRM() {
                       is_permuta: false,
                       user_id: userId,
                     };
+                    if (projSelecionado?.id) baseEntrada.projeto_id = String(projSelecionado.id);
 
                     let entradas: any[] = [];
                     const piercing = piercingTotais(projSelecionado);
