@@ -1297,7 +1297,7 @@ export default function CRM() {
   const [cancelMotivos, setCancelMotivos] = useState<string[]>(["Cliente desistiu", "Questão financeira", "Mudança de projeto", "Sem resposta do cliente", "Outro"]);
   const [enviandoRelatorio, setEnviandoRelatorio] = useState(false);
   const [novoProjetoAberto, setNovoProjetoAberto] = useState<any>(null);
-  const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" });
+  const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] as { id: string; joiaId: string; nome: string; tamanho?: string; valorJoia: number; valorAplicacao: number }[] });
   const [showRecorrenteModal, setShowRecorrenteModal] = useState<{cid: any} | null>(null);
   const [recorrenteForm, setRecorrenteForm] = useState({ dataInicio: new Date().toISOString().split("T")[0], intervalo: 7, total: 4, hora: 9, duracao: 2, artista: "" });
   const [fichaRevelada, setFichaRevelada] = useState<Set<any>>(new Set());
@@ -2283,28 +2283,25 @@ export default function CRM() {
       const nParcelas = f.forma === "Cartão" ? (parseInt(f.parcelas) || 1) : 1;
 
       let partes: { valor: number; com: number; descricao?: string }[];
-      if (projVinculado?.piercingModo === "joia") {
-        // Venda de joia avulsa: sem comissão
-        partes = [{ valor: val, com: 0, descricao: "Joia" }];
-      } else if (projVinculado?.piercingModo === "joia_aplicacao") {
-        // Comissão incide só sobre a parte de aplicação, nunca sobre a joia
-        const valorJoiaProj = projVinculado.valorJoia || 0;
-        const valorAplicacaoProj = projVinculado.valorAplicacao || 0;
-        const totalProj = valorJoiaProj + valorAplicacaoProj;
-        const propJoia = totalProj > 0 ? valorJoiaProj / totalProj : 0;
+      const piercing = piercingTotais(projVinculado);
+      if (piercing) {
+        // Comissão incide só sobre a parte de aplicação, nunca sobre a(s) joia(s) — soma todas as aplicações da solicitação
+        const totalProj = piercing.valorJoia + piercing.valorAplicacao;
+        const propJoia = totalProj > 0 ? piercing.valorJoia / totalProj : 0;
         const valorJoiaPagto = val * propJoia;
         const valorAplicacaoPagto = val - valorJoiaPagto;
         let comAplicacaoPct = comSess;
         if (artistaObj?.piercing_comissao_tipo === "percentual") {
           comAplicacaoPct = Number(artistaObj.piercing_comissao_valor) || 0;
-        } else if (artistaObj?.piercing_comissao_tipo === "fixo" && valorAplicacaoProj > 0) {
+        } else if (artistaObj?.piercing_comissao_tipo === "fixo" && piercing.valorAplicacao > 0) {
           // Converte o valor fixo configurado numa % equivalente sobre o valor da aplicação, para reaproveitar o mecanismo de repasse por %
-          comAplicacaoPct = (Number(artistaObj.piercing_comissao_valor) || 0) / valorAplicacaoProj * 100;
+          comAplicacaoPct = (Number(artistaObj.piercing_comissao_valor) || 0) / piercing.valorAplicacao * 100;
         }
         if (f.forma === "Permuta") comAplicacaoPct = 0;
         partes = [];
         if (valorJoiaPagto > 0) partes.push({ valor: valorJoiaPagto, com: 0, descricao: "Joia" });
         if (valorAplicacaoPagto > 0) partes.push({ valor: valorAplicacaoPagto, com: comAplicacaoPct, descricao: "Aplicação" });
+        if (partes.length === 0) partes = [{ valor: val, com: 0, descricao: "Joia" }];
       } else {
         partes = [{ valor: val, com: f.forma === "Permuta" ? 0 : comSess }];
       }
@@ -4101,6 +4098,20 @@ export default function CRM() {
   // Profissional responsável por UMA solicitação/projeto específico — cai pro
   // profissional da ficha só quando a solicitação não tiver o seu próprio definido.
   const artistaDoProjeto = (proj: any, cliente: any) => proj?.artista || cliente?.artista || "";
+  // Soma os valores de joia/aplicação de uma solicitação de piercing, aceitando tanto o formato
+  // antigo (1 joia só, campos piercingModo/valorJoia/valorAplicacao) quanto o novo (piercingItens[]).
+  const piercingTotais = (proj: any): { valorJoia: number; valorAplicacao: number } | null => {
+    if (!proj) return null;
+    if (Array.isArray(proj.piercingItens) && proj.piercingItens.length > 0) {
+      return {
+        valorJoia: proj.piercingItens.reduce((s: number, i: any) => s + (Number(i.valorJoia) || 0), 0),
+        valorAplicacao: proj.piercingItens.reduce((s: number, i: any) => s + (Number(i.valorAplicacao) || 0), 0),
+      };
+    }
+    if (proj.piercingModo === "joia") return { valorJoia: proj.valorJoia || 0, valorAplicacao: 0 };
+    if (proj.piercingModo === "joia_aplicacao") return { valorJoia: proj.valorJoia || 0, valorAplicacao: proj.valorAplicacao || 0 };
+    return null;
+  };
   const SeletorProfissionalProjeto = ({ valor, onEscolher }: { valor: string; onEscolher: (id: string) => void }) => (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
       {artists.filter((a: any) => a.ativo && a.atende_cliente !== false).map((a: any) => {
@@ -9237,7 +9248,7 @@ export default function CRM() {
                     {novoProjetoAberto !== sc.id && (
                       <button title="Cada projeto representa uma tatuagem ou trabalho artístico do cliente. Você pode ter múltiplos projetos por cliente." onClick={() => {
                         setNovoProjetoAberto(sc.id);
-                        setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" });
+                        setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] });
                       }} style={{ fontSize: 11, fontWeight: 600, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 10px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                         + Nova Solicitação de Serviço
                       </button>
@@ -9268,26 +9279,64 @@ export default function CRM() {
                         const joiaEscolhida = joias.find(j => j.id === novoProjetoForm.joiaId);
                         const valorJoia = joiaEscolhida?.precoVenda || 0;
                         const valorAplicacaoNum = parseFloat((novoProjetoForm.valorAplicacao || "0").replace(/\./g, "").replace(",", ".")) || 0;
+                        const totalItensAdicionados = novoProjetoForm.piercingItens.reduce((s, i) => s + i.valorJoia + i.valorAplicacao, 0);
+
+                        const recalcularTotal = (lista: typeof novoProjetoForm.piercingItens) => lista.reduce((s, i) => s + i.valorJoia + i.valorAplicacao, 0);
+
+                        const adicionarItem = () => {
+                          if (!joiaEscolhida || !novoProjetoForm.piercingModo) return;
+                          const item = {
+                            id: "pi" + Date.now(),
+                            joiaId: joiaEscolhida.id,
+                            nome: joiaEscolhida.nome,
+                            tamanho: joiaEscolhida.tamanho,
+                            valorJoia,
+                            valorAplicacao: novoProjetoForm.piercingModo === "joia_aplicacao" ? valorAplicacaoNum : 0,
+                          };
+                          const novaLista = [...novoProjetoForm.piercingItens, item];
+                          const novoTotalGeral = recalcularTotal(novaLista);
+                          setNovoProjetoForm(p => ({ ...p, piercingItens: novaLista, valorTotal: novoTotalGeral.toLocaleString("pt-BR", { minimumFractionDigits: 2 }), joiaId: "", piercingModo: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" }));
+                        };
+                        const removerItem = (id: string) => {
+                          const novaLista = novoProjetoForm.piercingItens.filter(i => i.id !== id);
+                          const novoTotalGeral = recalcularTotal(novaLista);
+                          setNovoProjetoForm(p => ({ ...p, piercingItens: novaLista, valorTotal: novoTotalGeral.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) }));
+                        };
+
                         return (
                           <>
+                            {novoProjetoForm.piercingItens.length > 0 && (
+                              <div className="fi2">
+                                <div className="fil">Itens desta solicitação</div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                  {novoProjetoForm.piercingItens.map(item => (
+                                    <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 10px" }}>
+                                      <span style={{ fontSize: 12, color: "var(--tx)" }}>
+                                        {item.nome}{item.tamanho ? " (" + item.tamanho + ")" : ""} — Joia R$ {item.valorJoia.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                        {item.valorAplicacao > 0 && <> + Aplicação R$ {item.valorAplicacao.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</>}
+                                      </span>
+                                      <button type="button" onClick={() => removerItem(item.id)} style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 13, flexShrink: 0 }}>🗑</button>
+                                    </div>
+                                  ))}
+                                  <div style={{ fontSize: 11, color: "var(--tx2)" }}>Total até aqui: R$ {totalItensAdicionados.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+                                </div>
+                              </div>
+                            )}
                             <div className="fi2">
-                              <div className="fil">Joia</div>
+                              <div className="fil">{novoProjetoForm.piercingItens.length > 0 ? "Adicionar outra joia/aplicação" : "Joia"}</div>
                               {(() => {
-                                const escolherItem = (jid: string) => {
-                                  const j = joias.find(x => x.id === jid);
-                                  const novoTotal = j ? (j.precoVenda || 0) + (novoProjetoForm.piercingModo === "joia_aplicacao" ? valorAplicacaoNum : 0) : 0;
-                                  setNovoProjetoForm(p => ({ ...p, joiaId: jid, valorTotal: novoTotal ? novoTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : p.valorTotal }));
-                                };
+                                const escolherItem = (jid: string) => setNovoProjetoForm(p => ({ ...p, joiaId: jid }));
                                 const linhaItem = (j: typeof joias[number]) => (
-                                  <div key={j.id} onClick={() => escolherItem(j.id)} style={{ padding: "8px 12px", cursor: "pointer", fontSize: 12, color: "var(--tx)", borderTop: "1px solid var(--br)" }}>
-                                    {j.nome}{j.tamanho ? " (" + j.tamanho + ")" : ""} — R$ {Number(j.precoVenda).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                  <div key={j.id} onClick={() => escolherItem(j.id)} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "8px 12px", cursor: "pointer", fontSize: 12, color: "var(--tx)", borderTop: "1px solid var(--br)" }}>
+                                    <span>{j.nome}{j.tamanho ? " (" + j.tamanho + ")" : ""} — R$ {Number(j.precoVenda).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                                    <span style={{ fontSize: 11, color: j.quantidade > 0 ? "var(--tx3)" : "#E74C3C", flexShrink: 0 }}>{j.quantidade > 0 ? "estoque: " + j.quantidade : "sem estoque"}</span>
                                   </div>
                                 );
                                 if (joiaEscolhida) {
                                   return (
                                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "8px 10px" }}>
-                                      <span style={{ fontSize: 12, color: "var(--tx)" }}>{joiaEscolhida.nome}{joiaEscolhida.tamanho ? " (" + joiaEscolhida.tamanho + ")" : ""} — R$ {Number(joiaEscolhida.precoVenda).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
-                                      <button type="button" onClick={() => setNovoProjetoForm(p => ({ ...p, joiaId: "", joiaCascGrupo: "", joiaCascSubgrupo: "" }))}
+                                      <span style={{ fontSize: 12, color: "var(--tx)" }}>{joiaEscolhida.nome}{joiaEscolhida.tamanho ? " (" + joiaEscolhida.tamanho + ")" : ""} — R$ {Number(joiaEscolhida.precoVenda).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} <span style={{ color: joiaEscolhida.quantidade > 0 ? "var(--tx3)" : "#E74C3C" }}>({joiaEscolhida.quantidade > 0 ? "estoque: " + joiaEscolhida.quantidade : "sem estoque"})</span></span>
+                                      <button type="button" onClick={() => setNovoProjetoForm(p => ({ ...p, joiaId: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingModo: "", valorAplicacao: "" }))}
                                         style={{ background: "none", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 9px", fontSize: 11, color: "var(--tx2)", cursor: "pointer", flexShrink: 0 }}>Trocar</button>
                                     </div>
                                   );
@@ -9340,43 +9389,48 @@ export default function CRM() {
                                 );
                               })()}
                             </div>
-                            <div className="fi2">
-                              <div className="fil">Tipo de solicitação</div>
-                              <div style={{ display: "flex", gap: 8 }}>
-                                <button type="button" onClick={() => {
-                                  const novoTotal = valorJoia;
-                                  setNovoProjetoForm(p => ({ ...p, piercingModo: "joia", valorTotal: novoTotal ? novoTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : p.valorTotal }));
-                                }} style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: novoProjetoForm.piercingModo === "joia" ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (novoProjetoForm.piercingModo === "joia" ? "var(--gold)" : "var(--br)"), color: novoProjetoForm.piercingModo === "joia" ? "var(--gold)" : "var(--tx2)" }}>Somente Joia</button>
-                                <button type="button" onClick={() => {
-                                  const artistaResp = artists.find((a: any) => a.id === (novoProjetoForm.artista || sc.artista || ""));
-                                  let valorAplicacaoStr = novoProjetoForm.valorAplicacao;
-                                  if (!valorAplicacaoStr && artistaResp?.piercing_comissao_tipo === "fixo" && artistaResp?.piercing_comissao_valor) {
-                                    valorAplicacaoStr = Number(artistaResp.piercing_comissao_valor).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                                  }
-                                  const valorAplicacaoDefault = parseFloat(valorAplicacaoStr.replace(/\./g, "").replace(",", ".")) || 0;
-                                  const novoTotal = valorJoia + valorAplicacaoDefault;
-                                  setNovoProjetoForm(p => ({ ...p, piercingModo: "joia_aplicacao", valorAplicacao: valorAplicacaoStr, valorTotal: novoTotal ? novoTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : p.valorTotal }));
-                                }} style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: novoProjetoForm.piercingModo === "joia_aplicacao" ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (novoProjetoForm.piercingModo === "joia_aplicacao" ? "var(--gold)" : "var(--br)"), color: novoProjetoForm.piercingModo === "joia_aplicacao" ? "var(--gold)" : "var(--tx2)" }}>Joia + Aplicação</button>
-                              </div>
-                            </div>
-                            {novoProjetoForm.piercingModo === "joia_aplicacao" && (
-                              <div className="fi2">
-                                <div className="fil" title="Comissão do profissional incide só sobre este valor, nunca sobre a joia.">Valor da Aplicação (R$)</div>
-                                <input className="ef" type="text" placeholder="0,00" value={novoProjetoForm.valorAplicacao}
-                                  onChange={e => {
-                                    const raw = e.target.value.replace(/[^0-9]/g, ""); const num = raw ? (Number(raw) / 100) : 0;
-                                    const fmt = raw ? num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
-                                    const novoTotal = valorJoia + num;
-                                    setNovoProjetoForm(p => ({ ...p, valorAplicacao: fmt, valorTotal: novoTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) }));
-                                  }} />
-                              </div>
-                            )}
-                            {novoProjetoForm.piercingModo && (
-                              <div style={{ fontSize: 11, color: "var(--tx2)", background: "var(--dk4)", borderRadius: 6, padding: "6px 10px" }}>
-                                Joia: R$ {valorJoia.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                                {novoProjetoForm.piercingModo === "joia_aplicacao" && <> · Aplicação: R$ {valorAplicacaoNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} (só esta parte gera comissão)</>}
-                                {novoProjetoForm.piercingModo === "joia" && <> · sem comissão (venda de joia avulsa)</>}
-                              </div>
+                            {joiaEscolhida && (
+                              <>
+                                <div className="fi2">
+                                  <div className="fil">Tipo de solicitação</div>
+                                  <div style={{ display: "flex", gap: 8 }}>
+                                    <button type="button" onClick={() => setNovoProjetoForm(p => ({ ...p, piercingModo: "joia" }))}
+                                      style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: novoProjetoForm.piercingModo === "joia" ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (novoProjetoForm.piercingModo === "joia" ? "var(--gold)" : "var(--br)"), color: novoProjetoForm.piercingModo === "joia" ? "var(--gold)" : "var(--tx2)" }}>Somente Joia</button>
+                                    <button type="button" onClick={() => {
+                                      const artistaResp = artists.find((a: any) => a.id === (novoProjetoForm.artista || sc.artista || ""));
+                                      let valorAplicacaoStr = novoProjetoForm.valorAplicacao;
+                                      if (!valorAplicacaoStr && artistaResp?.piercing_comissao_tipo === "fixo" && artistaResp?.piercing_comissao_valor) {
+                                        valorAplicacaoStr = Number(artistaResp.piercing_comissao_valor).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                      }
+                                      setNovoProjetoForm(p => ({ ...p, piercingModo: "joia_aplicacao", valorAplicacao: valorAplicacaoStr }));
+                                    }} style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: novoProjetoForm.piercingModo === "joia_aplicacao" ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (novoProjetoForm.piercingModo === "joia_aplicacao" ? "var(--gold)" : "var(--br)"), color: novoProjetoForm.piercingModo === "joia_aplicacao" ? "var(--gold)" : "var(--tx2)" }}>Joia + Aplicação</button>
+                                  </div>
+                                </div>
+                                {novoProjetoForm.piercingModo === "joia_aplicacao" && (
+                                  <div className="fi2">
+                                    <div className="fil" title="Comissão do profissional incide só sobre este valor, nunca sobre a joia.">Valor da Aplicação (R$)</div>
+                                    <input className="ef" type="text" placeholder="0,00" value={novoProjetoForm.valorAplicacao}
+                                      onChange={e => {
+                                        const raw = e.target.value.replace(/[^0-9]/g, ""); const num = raw ? (Number(raw) / 100) : 0;
+                                        const fmt = raw ? num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+                                        setNovoProjetoForm(p => ({ ...p, valorAplicacao: fmt }));
+                                      }} />
+                                  </div>
+                                )}
+                                {novoProjetoForm.piercingModo && (
+                                  <div style={{ fontSize: 11, color: "var(--tx2)", background: "var(--dk4)", borderRadius: 6, padding: "6px 10px" }}>
+                                    Joia: R$ {valorJoia.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                    {novoProjetoForm.piercingModo === "joia_aplicacao" && <> · Aplicação: R$ {valorAplicacaoNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} (só esta parte gera comissão)</>}
+                                    {novoProjetoForm.piercingModo === "joia" && <> · sem comissão (venda de joia avulsa)</>}
+                                  </div>
+                                )}
+                                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                                  <button type="button" onClick={adicionarItem} disabled={!novoProjetoForm.piercingModo}
+                                    style={{ background: novoProjetoForm.piercingModo ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (novoProjetoForm.piercingModo ? "var(--gold)" : "var(--br)"), borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 600, color: novoProjetoForm.piercingModo ? "var(--gold)" : "var(--tx3)", cursor: novoProjetoForm.piercingModo ? "pointer" : "not-allowed" }}>
+                                    + Adicionar à solicitação
+                                  </button>
+                                </div>
+                              </>
                             )}
                           </>
                         );
@@ -9392,18 +9446,13 @@ export default function CRM() {
                           style={{ resize: "vertical", minHeight: 55, width: "100%", fontFamily: "inherit" }} />
                       </div>
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <button onClick={() => { setNovoProjetoAberto(null); setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" }); }} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Descartar</button>
+                        <button onClick={() => { setNovoProjetoAberto(null); setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] }); }} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Descartar</button>
                         <button onClick={() => {
                           if (!novoProjetoForm.estilo.trim()) { setShowAviso("Preencha o nome/identificação do projeto."); return; }
                           const val = parseFloat(novoProjetoForm.valorTotal.replace(/\./g,"").replace(",",".")) || 0;
-                          const joiaEscolhidaSalvar = novoProjetoForm.piercingModo ? estoqueItens.find(i => i.id === novoProjetoForm.joiaId) : null;
-                          const valorAplicacaoSalvar = novoProjetoForm.piercingModo === "joia_aplicacao" ? (parseFloat((novoProjetoForm.valorAplicacao || "0").replace(/\./g,"").replace(",",".")) || 0) : 0;
                           const proj: any = { id: Date.now(), estilo: novoProjetoForm.estilo, tam: novoProjetoForm.tam, primeira: novoProjetoForm.primeira, desc: novoProjetoForm.desc, servico: (novoProjetoForm as any).servico || "", artista: novoProjetoForm.artista || sc.artista || "", valorTotal: val, status: "ativo", criadoEm: new Date().toLocaleDateString("pt-BR"), pagamentos: [] };
-                          if (novoProjetoForm.piercingModo) {
-                            proj.piercingModo = novoProjetoForm.piercingModo;
-                            proj.joiaId = novoProjetoForm.joiaId || undefined;
-                            proj.valorJoia = joiaEscolhidaSalvar?.precoVenda || 0;
-                            proj.valorAplicacao = valorAplicacaoSalvar;
+                          if (novoProjetoForm.piercingItens.length > 0) {
+                            proj.piercingItens = novoProjetoForm.piercingItens;
                           }
                           const projs = [...(sc.projetos || [])];
                           if (projs.length === 0 && (sc.estilo || sc.desc)) {
@@ -9412,7 +9461,7 @@ export default function CRM() {
                           projs.push(proj);
                           upC(sc.id, "projetos", projs);
                           setNovoProjetoAberto(null);
-                          setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" });
+                          setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] });
                           setClients(p => p.map(c => c.id !== sc.id ? c : { ...c, hist: [...c.hist, { t: "Projeto criado: R$" + val.toLocaleString("pt-BR",{minimumFractionDigits:2}), d: new Date().toLocaleDateString("pt-BR") }] }));
                         }} style={{ background: "var(--gold)", color: "#000", border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Salvar Projeto</button>
                       </div>
@@ -14442,26 +14491,23 @@ export default function CRM() {
                     };
 
                     let entradas: any[] = [];
-                    if (projSelecionado?.piercingModo === "joia") {
-                      // Venda de joia avulsa: sem comissão
-                      entradas = [{ ...baseEntrada, val_a: valorNum, val_c: valorNum, descricao: "Pagamento avulso — Joia" + obsTxt, com_base: 0, com_sess: 0 }];
-                    } else if (projSelecionado?.piercingModo === "joia_aplicacao") {
-                      // Comissão incide só sobre a parte de aplicação, nunca sobre a joia
-                      const valorJoiaProj = projSelecionado.valorJoia || 0;
-                      const valorAplicacaoProj = projSelecionado.valorAplicacao || 0;
-                      const totalProj = valorJoiaProj + valorAplicacaoProj;
-                      const propJoia = totalProj > 0 ? valorJoiaProj / totalProj : 0;
+                    const piercing = piercingTotais(projSelecionado);
+                    if (piercing) {
+                      // Comissão incide só sobre a parte de aplicação, nunca sobre a(s) joia(s) — soma todas as aplicações da solicitação
+                      const totalProj = piercing.valorJoia + piercing.valorAplicacao;
+                      const propJoia = totalProj > 0 ? piercing.valorJoia / totalProj : 0;
                       const valorJoiaPagto = valorNum * propJoia;
                       const valorAplicacaoPagto = valorNum - valorJoiaPagto;
                       let comAplicacaoPct = comAvulso;
                       if (artistaAvulso?.piercing_comissao_tipo === "percentual") {
                         comAplicacaoPct = Number(artistaAvulso.piercing_comissao_valor) || 0;
-                      } else if (artistaAvulso?.piercing_comissao_tipo === "fixo" && valorAplicacaoProj > 0) {
+                      } else if (artistaAvulso?.piercing_comissao_tipo === "fixo" && piercing.valorAplicacao > 0) {
                         // Converte o valor fixo configurado numa % equivalente sobre o valor da aplicação, para reaproveitar o mecanismo de repasse por %
-                        comAplicacaoPct = (Number(artistaAvulso.piercing_comissao_valor) || 0) / valorAplicacaoProj * 100;
+                        comAplicacaoPct = (Number(artistaAvulso.piercing_comissao_valor) || 0) / piercing.valorAplicacao * 100;
                       }
                       if (valorJoiaPagto > 0) entradas.push({ ...baseEntrada, val_a: valorJoiaPagto, val_c: valorJoiaPagto, descricao: "Pagamento avulso — Joia" + obsTxt, com_base: 0, com_sess: 0 });
                       if (valorAplicacaoPagto > 0) entradas.push({ ...baseEntrada, val_a: valorAplicacaoPagto, val_c: valorAplicacaoPagto, descricao: "Pagamento avulso — Aplicação" + obsTxt, com_base: comAplicacaoPct, com_sess: comAplicacaoPct });
+                      if (entradas.length === 0) entradas = [{ ...baseEntrada, val_a: valorNum, val_c: valorNum, descricao: "Pagamento avulso — Joia" + obsTxt, com_base: 0, com_sess: 0 }];
                     } else {
                       entradas = [{ ...baseEntrada, val_a: valorNum, val_c: valorNum, descricao: "Pagamento avulso" + obsTxt, com_base: comAvulso, com_sess: comAvulso }];
                     }
