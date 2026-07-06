@@ -6000,6 +6000,7 @@ export default function CRM() {
                             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                               <span className="dok">OK</span>
                               <button onClick={async () => {
+                                if (!window.confirm("Excluir este lançamento do financeiro? Essa ação não pode ser desfeita.")) return;
                                 setFin(p => p.filter((x: any) => x.id !== f.id));
                                 await dbDelete("financeiro", f.id);
                               }} style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 13, padding: "0 2px" }} title="Excluir">✕</button>
