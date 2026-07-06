@@ -1305,6 +1305,7 @@ export default function CRM() {
   const [projDrafts, setProjDrafts] = useState<Record<string, any>>({});
   // Painel de adicionar joia/aplicação numa solicitação de piercing JÁ existente (não a de criação)
   const [piercingEditProjId, setPiercingEditProjId] = useState<any>(null);
+  const [piercingEditItemId, setPiercingEditItemId] = useState<string | null>(null); // se setado, o painel edita esse item em vez de adicionar um novo
   const [piercingEditForm, setPiercingEditForm] = useState({ joiaId: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" });
   const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] as { id: string; joiaId: string; nome: string; tamanho?: string; valorJoia: number; valorAplicacao: number }[] });
   const [showRecorrenteModal, setShowRecorrenteModal] = useState<{cid: any} | null>(null);
@@ -9760,12 +9761,24 @@ export default function CRM() {
                                           {item.nome}{item.tamanho ? " (" + item.tamanho + ")" : ""} — Joia R$ {Number(item.valorJoia).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                                           {item.valorAplicacao > 0 && <> + Aplicação R$ {Number(item.valorAplicacao).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</>}
                                         </span>
-                                        <button type="button" onClick={() => salvarPiercingItens(itensAtuais.filter((i: any) => i.id !== item.id))}
-                                          style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 13, flexShrink: 0 }}>🗑</button>
+                                        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                                          <button type="button" onClick={() => {
+                                            setPiercingEditProjId(proj.id);
+                                            setPiercingEditItemId(item.id);
+                                            setPiercingEditForm({
+                                              joiaId: item.joiaId,
+                                              piercingModo: item.valorAplicacao > 0 ? "joia_aplicacao" : "joia",
+                                              valorAplicacao: item.valorAplicacao > 0 ? Number(item.valorAplicacao).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+                                              joiaCascGrupo: "", joiaCascSubgrupo: "",
+                                            });
+                                          }} style={{ background: "none", border: "none", color: "var(--tx2)", cursor: "pointer", fontSize: 13 }}>✎</button>
+                                          <button type="button" onClick={() => salvarPiercingItens(itensAtuais.filter((i: any) => i.id !== item.id))}
+                                            style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 13 }}>🗑</button>
+                                        </div>
                                       </div>
                                     ))}
                                     {!editandoAqui && (
-                                      <button type="button" onClick={() => { setPiercingEditProjId(proj.id); setPiercingEditForm({ joiaId: "", piercingModo: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" }); }}
+                                      <button type="button" onClick={() => { setPiercingEditProjId(proj.id); setPiercingEditItemId(null); setPiercingEditForm({ joiaId: "", piercingModo: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" }); }}
                                         style={{ alignSelf: "flex-start", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 600, color: "var(--tx2)", cursor: "pointer" }}>
                                         + Adicionar joia/aplicação
                                       </button>
@@ -9807,20 +9820,24 @@ export default function CRM() {
                                           </>
                                         )}
                                         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                                          <button type="button" onClick={() => setPiercingEditProjId(null)} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer" }}>Cancelar</button>
+                                          <button type="button" onClick={() => { setPiercingEditProjId(null); setPiercingEditItemId(null); }} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer" }}>Cancelar</button>
                                           <button type="button" disabled={!joiaEscolhida || !piercingEditForm.piercingModo} onClick={() => {
-                                            const novoItem = {
-                                              id: "pi" + Date.now(),
+                                            const itemAtualizado = {
+                                              id: piercingEditItemId || ("pi" + Date.now()),
                                               joiaId: joiaEscolhida.id,
                                               nome: joiaEscolhida.nome,
                                               tamanho: joiaEscolhida.tamanho,
                                               valorJoia,
                                               valorAplicacao: piercingEditForm.piercingModo === "joia_aplicacao" ? valorAplicacaoNum : 0,
                                             };
-                                            salvarPiercingItens([...itensAtuais, novoItem]);
+                                            const novaLista = piercingEditItemId
+                                              ? itensAtuais.map((i: any) => i.id === piercingEditItemId ? itemAtualizado : i)
+                                              : [...itensAtuais, itemAtualizado];
+                                            salvarPiercingItens(novaLista);
                                             setPiercingEditProjId(null);
+                                            setPiercingEditItemId(null);
                                           }} style={{ background: (joiaEscolhida && piercingEditForm.piercingModo) ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + ((joiaEscolhida && piercingEditForm.piercingModo) ? "var(--gold)" : "var(--br)"), borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 600, color: (joiaEscolhida && piercingEditForm.piercingModo) ? "var(--gold)" : "var(--tx3)", cursor: (joiaEscolhida && piercingEditForm.piercingModo) ? "pointer" : "not-allowed" }}>
-                                            + Adicionar
+                                            {piercingEditItemId ? "Salvar edição" : "+ Adicionar"}
                                           </button>
                                         </div>
                                       </div>
