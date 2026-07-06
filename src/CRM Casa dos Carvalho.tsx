@@ -10851,6 +10851,10 @@ export default function CRM() {
                 {formStep === 2 && (
                   <>
                     <div className="ff">
+                      <label className="fl">Nome / Identificação do Projeto</label>
+                      <input className="fi" placeholder="Ex: Tatuagem na coxa, Cobertura de tattoo antiga, Piercing na orelha..." value={(form as any).estilo || ""} onChange={e => setForm({ ...form, estilo: e.target.value } as any)} />
+                    </div>
+                    <div className="ff">
                       <label className="fl">Serviço de Interesse</label>
                       <select className="fs" value={(form as any).servicoInteresse || ""} onChange={e => setForm({ ...form, servicoInteresse: e.target.value } as any)}>
                         <option value="">Selecione...</option>
