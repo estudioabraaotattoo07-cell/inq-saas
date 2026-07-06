@@ -117,8 +117,10 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .kc{min-width:42vw!important;max-width:42vw!important;}
   .fmod{max-width:96vw!important;}
   .fr{grid-template-columns:1fr!important;}
-  .fi,.fs{font-size:16px;padding:9px 11px;}
-  .fta{font-size:16px;}
+  .fi,.fs{font-size:16px!important;padding:9px 11px;}
+  .fta{font-size:16px!important;}
+  .ef{font-size:16px!important;}
+  .ci{font-size:16px!important;}
   /* Overlay e modal ficha do cliente */
   .ov{align-items:flex-start!important;padding:max(env(safe-area-inset-top),52px) 8px max(env(safe-area-inset-bottom),12px)!important;overflow-y:auto!important;}
   .fov{align-items:flex-start!important;padding:max(env(safe-area-inset-top),52px) 8px max(env(safe-area-inset-bottom),12px)!important;overflow-y:auto!important;}
@@ -138,7 +140,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .sl{font-size:9px!important;}
   /* Barra de busca */
   .ctrl{flex-direction:column!important;align-items:stretch!important;gap:6px!important;}
-  .srch{width:100%!important;}
+  .srch{width:100%!important;font-size:16px!important;}
   /* Pipeline buttons */
   .pm{gap:5px!important;}
   .sb{font-size:12px!important;padding:7px 11px!important;}
@@ -5326,7 +5328,7 @@ export default function CRM() {
                       </div>
                       <div>
                         <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 6 }}>Mensagem</div>
-                        <textarea rows={5} style={{ width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "var(--tx)", resize: "vertical", fontFamily: "'DM Sans',sans-serif", boxSizing: "border-box" }}
+                        <textarea rows={5} style={{ width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "10px 12px", fontSize: 16, color: "var(--tx)", resize: "vertical", fontFamily: "'DM Sans',sans-serif", boxSizing: "border-box" }}
                           placeholder={"Olá {nome}, temos uma novidade especial para você…"}
                           value={disparoMassa.texto}
                           onChange={e => setDisparoMassa(d => d ? { ...d, texto: e.target.value } : d)} />
@@ -13434,7 +13436,7 @@ export default function CRM() {
                           <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: cor + "22", color: cor, border: "1px solid " + cor + "55" }}>
                             {expirado ? "EXPIRADO" : vencendo ? ("VENCE EM " + diasRestantes + "d") : "ATIVO"}
                           </span>
-                          <select style={{ fontSize: 11, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 8px", color: "var(--tx)", cursor: "pointer" }}
+                          <select style={{ fontSize: 16, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 8px", color: "var(--tx)", cursor: "pointer" }}
                             value={lic.status}
                             onChange={async e => {
                               const novoStatus = e.target.value;
@@ -13445,7 +13447,7 @@ export default function CRM() {
                             <option value="expirado">Expirado</option>
                             <option value="bloqueado">Bloqueado</option>
                           </select>
-                          <input type="date" value={lic.data_vencimento || ""} style={{ fontSize: 11, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 8px", color: "var(--tx)", cursor: "pointer" }}
+                          <input type="date" value={lic.data_vencimento || ""} style={{ fontSize: 16, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 8px", color: "var(--tx)", cursor: "pointer" }}
                             onChange={async e => {
                               const novaData = e.target.value;
                               await sb.from("licencas").update({ data_vencimento: novaData, status: "ativo" }).eq("id", lic.id);
@@ -13843,7 +13845,7 @@ export default function CRM() {
                         <div>
                           <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", display: "flex", alignItems: "center", gap: 6 }}>
                             Sessão em{" "}
-                            <select value={alertaConfig.alerta_sessao_antecedencia} onChange={e => setAlertaConfig(p => ({ ...p, alerta_sessao_antecedencia: e.target.value }))} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--gold)", fontSize: 11, fontWeight: 700, padding: "1px 4px", cursor: "pointer" }}>
+                            <select value={alertaConfig.alerta_sessao_antecedencia} onChange={e => setAlertaConfig(p => ({ ...p, alerta_sessao_antecedencia: e.target.value }))} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--gold)", fontSize: 16, fontWeight: 700, padding: "1px 4px", cursor: "pointer" }}>
                               <option value="2h">2h</option>
                               <option value="4h">4h</option>
                               <option value="24h">24h</option>
@@ -13880,7 +13882,7 @@ export default function CRM() {
                         <div>
                           <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", display: "flex", alignItems: "center", gap: 6 }}>
                             Cliente sem retorno há{" "}
-                            <select value={alertaConfig.alerta_sem_retorno_dias} onChange={e => setAlertaConfig(p => ({ ...p, alerta_sem_retorno_dias: e.target.value }))} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--gold)", fontSize: 11, fontWeight: 700, padding: "1px 4px", cursor: "pointer" }}>
+                            <select value={alertaConfig.alerta_sem_retorno_dias} onChange={e => setAlertaConfig(p => ({ ...p, alerta_sem_retorno_dias: e.target.value }))} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--gold)", fontSize: 16, fontWeight: 700, padding: "1px 4px", cursor: "pointer" }}>
                               <option value="30">30 dias</option>
                               <option value="60">60 dias</option>
                               <option value="90">90 dias</option>
