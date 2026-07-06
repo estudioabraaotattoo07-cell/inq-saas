@@ -2609,6 +2609,19 @@ export default function CRM() {
   };
 
   const saveClient = async () => {
+    // Se uma joia foi configurada mas o usuário esqueceu de clicar em "+ Adicionar", inclui ela mesmo assim
+    let piercingItensFinal = novoClientePiercing.piercingItens;
+    if (novoClientePiercing.joiaId && novoClientePiercing.piercingModo) {
+      const joiaPendente = estoqueItens.find(i => i.id === novoClientePiercing.joiaId);
+      if (joiaPendente) {
+        const valorAplicacaoPendente = novoClientePiercing.piercingModo === "joia_aplicacao"
+          ? (parseFloat((novoClientePiercing.valorAplicacao || "0").replace(/\./g, "").replace(",", ".")) || 0) : 0;
+        piercingItensFinal = [...piercingItensFinal, {
+          id: "pi" + Date.now(), joiaId: joiaPendente.id, nome: joiaPendente.nome, tamanho: joiaPendente.tamanho,
+          valorJoia: joiaPendente.precoVenda || 0, valorAplicacao: valorAplicacaoPendente,
+        }];
+      }
+    }
     const nc: any = {
       ...form, data: new Date().toLocaleDateString("pt-BR"),
       dias: 0, stars: 0, starReason: "", consent: null, nps: null, obs: "",
@@ -2621,10 +2634,10 @@ export default function CRM() {
         regiao: (form as any).regiao || "",
         desc: (form as any).desc || "",
         servico: (form as any).servicoInteresse || "",
-        valorTotal: novoClientePiercing.piercingItens.length > 0
-          ? novoClientePiercing.piercingItens.reduce((s, i) => s + i.valorJoia + i.valorAplicacao, 0)
+        valorTotal: piercingItensFinal.length > 0
+          ? piercingItensFinal.reduce((s, i) => s + i.valorJoia + i.valorAplicacao, 0)
           : ((form as any).valorProjeto ? Number(String((form as any).valorProjeto).replace(/\./g,"").replace(",",".")) : 0),
-        ...(novoClientePiercing.piercingItens.length > 0 ? { piercingItens: novoClientePiercing.piercingItens } : {}),
+        ...(piercingItensFinal.length > 0 ? { piercingItens: piercingItensFinal } : {}),
         pagamentos: [], criadoEm: new Date().toLocaleDateString("pt-BR")
       }]
     };
@@ -10820,6 +10833,11 @@ export default function CRM() {
                       const joiaEscolhida = joias.find(j => j.id === novoClientePiercing.joiaId);
                       const valorJoia = joiaEscolhida?.precoVenda || 0;
                       const valorAplicacaoNum = parseFloat((novoClientePiercing.valorAplicacao || "0").replace(/\./g, "").replace(",", ".")) || 0;
+                      const somaCommitada = novoClientePiercing.piercingItens.reduce((s, i) => s + i.valorJoia + i.valorAplicacao, 0);
+                      const atualizarPreviewTotal = (valorStagedExtra: number) => {
+                        const total = somaCommitada + valorStagedExtra;
+                        setForm(p => ({ ...p, valorProjeto: total ? total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "" } as any));
+                      };
                       const adicionarItem = () => {
                         if (!joiaEscolhida || !novoClientePiercing.piercingModo) return;
                         const item = {
@@ -10867,7 +10885,7 @@ export default function CRM() {
                             {joiaEscolhida && (
                               <>
                                 <div style={{ display: "flex", gap: 8 }}>
-                                  <button type="button" onClick={() => setNovoClientePiercing(p => ({ ...p, piercingModo: "joia" }))}
+                                  <button type="button" onClick={() => { setNovoClientePiercing(p => ({ ...p, piercingModo: "joia" })); atualizarPreviewTotal(valorJoia); }}
                                     style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: novoClientePiercing.piercingModo === "joia" ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (novoClientePiercing.piercingModo === "joia" ? "var(--gold)" : "var(--br)"), color: novoClientePiercing.piercingModo === "joia" ? "var(--gold)" : "var(--tx2)" }}>Somente Joia</button>
                                   <button type="button" onClick={() => {
                                     const artistaResp = artists.find((a: any) => a.id === form.artista);
@@ -10876,6 +10894,8 @@ export default function CRM() {
                                       valorAplicacaoStr = Number(artistaResp.piercing_comissao_valor).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                                     }
                                     setNovoClientePiercing(p => ({ ...p, piercingModo: "joia_aplicacao", valorAplicacao: valorAplicacaoStr }));
+                                    const valorAplicacaoStrNum = parseFloat((valorAplicacaoStr || "0").replace(/\./g, "").replace(",", ".")) || 0;
+                                    atualizarPreviewTotal(valorJoia + valorAplicacaoStrNum);
                                   }} style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: novoClientePiercing.piercingModo === "joia_aplicacao" ? "var(--gold-d)" : "var(--dk3)", border: "1px solid " + (novoClientePiercing.piercingModo === "joia_aplicacao" ? "var(--gold)" : "var(--br)"), color: novoClientePiercing.piercingModo === "joia_aplicacao" ? "var(--gold)" : "var(--tx2)" }}>Joia + Aplicação</button>
                                 </div>
                                 {novoClientePiercing.piercingModo === "joia_aplicacao" && (
@@ -10884,6 +10904,7 @@ export default function CRM() {
                                       const raw = e.target.value.replace(/[^0-9]/g, ""); const num = raw ? (Number(raw) / 100) : 0;
                                       const fmt = raw ? num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
                                       setNovoClientePiercing(p => ({ ...p, valorAplicacao: fmt }));
+                                      atualizarPreviewTotal(valorJoia + num);
                                     }} />
                                 )}
                                 <div style={{ display: "flex", justifyContent: "flex-end" }}>
