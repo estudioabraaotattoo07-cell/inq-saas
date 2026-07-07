@@ -21,6 +21,33 @@ function diasEntre(dataISO, hoje) {
   }
 }
 
+// ─── DATAS-ÂNCORA DAS CAMPANHAS SAZONAIS ─────────────────────────────────────
+
+function nthSundayOfMonth(year, month0, nth) {
+  const first = new Date(year, month0, 1);
+  const firstSunday = 1 + ((7 - first.getDay()) % 7);
+  return new Date(year, month0, firstSunday + (nth - 1) * 7);
+}
+
+function anchorDateForCampanha(slug, year, nascimento) {
+  if (slug === "dia_maes") return nthSundayOfMonth(year, 4, 2); // maio, 2o domingo
+  if (slug === "dia_pais") return nthSundayOfMonth(year, 7, 2); // agosto, 2o domingo
+  if (slug === "dia_namorados") return new Date(year, 5, 12); // 12 de junho
+  if (slug === "natal") return new Date(year, 11, 25);
+  if (slug === "ano_novo") return new Date(year, 0, 1);
+  if (slug === "aniversario") {
+    if (!nascimento) return null;
+    const d = new Date(nascimento);
+    if (isNaN(d.getTime())) return null;
+    return new Date(year, d.getMonth(), d.getDate());
+  }
+  return null;
+}
+
+function mesmoDia(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
 function formatarTelBR(tel) {
   const digitos = (tel || "").replace(/[^0-9]/g, "");
   if (!digitos) return "";
@@ -241,7 +268,7 @@ export default async function handler(req, res) {
       try {
         const { data: cliData } = await sb
           .from("clientes")
-          .select("id, nome, email, tel, etapa, etapa_desde, sessao_concluida_em, disparos_enviados, hist, followups, confirmacao_token, confirmacao_token_exp, confirmacao_evento_id, confirmacao_presenca, artista, descricao, avaliacao_fluxo_status, avaliacao_token, avaliacao_token_exp, google_convite_em")
+          .select("id, nome, email, tel, etapa, etapa_desde, nascimento, sessao_concluida_em, disparos_enviados, hist, followups, confirmacao_token, confirmacao_token_exp, confirmacao_evento_id, confirmacao_presenca, artista, descricao, avaliacao_fluxo_status, avaliacao_token, avaliacao_token_exp, google_convite_em")
           .eq("user_id", userId)
           .is("excluido_em", null);
         if (cliData) clientes = cliData;
@@ -262,6 +289,22 @@ export default async function handler(req, res) {
           for (const fe of fluxoData) {
             if (!fluxoEtapas[fe.etapa_slug]) fluxoEtapas[fe.etapa_slug] = [];
             fluxoEtapas[fe.etapa_slug].push(fe);
+          }
+        }
+      } catch {}
+
+      // 3b. Buscar campanhas_sazonais_etapas deste user_id (agrupado por campanha_slug)
+      let campSazEtapas = {};
+      try {
+        const { data: campSazData } = await sb
+          .from("campanhas_sazonais_etapas")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("ativo", true);
+        if (campSazData) {
+          for (const fe of campSazData) {
+            if (!campSazEtapas[fe.campanha_slug]) campSazEtapas[fe.campanha_slug] = [];
+            campSazEtapas[fe.campanha_slug].push(fe);
           }
         }
       } catch {}
@@ -791,6 +834,71 @@ export default async function handler(req, res) {
                     await registrarHistorico(userId, "Fluxo [" + etapaSlug + "] — " + (fe.label || feId) + " — " + cliente.nome + " (" + canalAtual + ")");
                     totalDisparos++;
                   }
+                }
+              } catch {
+                totalErros++;
+              }
+            }
+          }
+        }
+
+        // ── CAMPANHAS SAZONAIS (Mães/Pais/Namorados/Aniversário/Natal/Ano Novo) ──
+        if (cliente.etapa !== "blacklist") {
+          for (const slug of Object.keys(campSazEtapas)) {
+            for (const fe of campSazEtapas[slug]) {
+              try {
+                for (const ano of [hoje.getFullYear() - 1, hoje.getFullYear(), hoje.getFullYear() + 1]) {
+                  const anchor = anchorDateForCampanha(slug, ano, cliente.nascimento);
+                  if (!anchor) continue;
+                  const alvo = new Date(anchor);
+                  alvo.setDate(alvo.getDate() + (fe.dias_offset || 0));
+                  if (!mesmoDia(alvo, hoje)) continue;
+
+                  const feId = "sazonal__" + fe.id + "_" + ano;
+                  if (disparosEnviados && disparosEnviados[feId]) break;
+
+                  const canalAtual = fe.canal || "email";
+                  const canalOk = canaisHabilitados ? (canaisHabilitados[canalAtual] !== false) : (canalAtual === "email");
+                  if (!canalOk) break;
+
+                  const msg = substituirVars(fe.mensagem, cliente, studioName);
+                  let ok = false;
+
+                  if (canalAtual === "email") {
+                    if (!cfg.resend_api_key || !cliente.email) break;
+                    const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" +
+                      msg.replace(/\n/g, "<br>") + "</div>";
+                    ok = await dispararEmail({
+                      apiKey: cfg.resend_api_key,
+                      from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                      nome_remetente: cfg.nome_remetente || studioName,
+                      to: cliente.email,
+                      subject: (fe.label || slug) + " — " + studioName,
+                      html
+                    });
+                  } else if (canalAtual === "sms" || canalAtual === "whatsapp") {
+                    if (!cfg.zenvia_api_key || !cfg.zenvia_numero || !cliente.tel) break;
+                    const tel = formatarTelBR(cliente.tel);
+                    ok = await dispararZenvia({
+                      apiKey: cfg.zenvia_api_key,
+                      from: cfg.zenvia_numero,
+                      to: tel,
+                      text: msg,
+                      canal: canalAtual
+                    });
+                  }
+
+                  if (ok) {
+                    let disparosAtuais = {};
+                    try {
+                      const { data: cliAtual } = await sb.from("clientes").select("disparos_enviados").eq("id", cliente.id).single();
+                      disparosAtuais = cliAtual?.disparos_enviados || {};
+                    } catch {}
+                    await marcarEnviado(cliente.id, feId, disparosAtuais);
+                    await registrarHistorico(userId, "Campanha sazonal [" + slug + "] — " + (fe.label || feId) + " — " + cliente.nome + " (" + canalAtual + ")");
+                    totalDisparos++;
+                  }
+                  break; // ano-âncora certo já processado, não precisa checar os outros
                 }
               } catch {
                 totalErros++;
