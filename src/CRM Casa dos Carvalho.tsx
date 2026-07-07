@@ -340,8 +340,8 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 .ag-week{flex:1;overflow:auto;padding:12px;}
 .wg{display:grid;grid-template-columns:48px repeat(7,1fr);border:1px solid var(--br);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.22);}
 .wh{background:var(--dk3);padding:7px 5px;text-align:center;font-size:11px;font-weight:600;color:var(--tx2);border-bottom:1px solid var(--br);border-right:1px solid var(--br);position:sticky;top:0;z-index:5;}
-.wt{background:var(--dk3);padding:3px 5px;text-align:right;font-size:10px;color:var(--tx3);border-bottom:1px solid var(--br);border-right:1px solid var(--br);height:46px;display:flex;align-items:center;justify-content:flex-end;}
-.wc{background:var(--dk2);border-bottom:1px solid var(--br);border-right:1px solid var(--br);height:46px;cursor:pointer;position:relative;padding:2px;}
+.wt{background:var(--dk3);padding:3px 5px;text-align:right;font-size:10px;color:var(--tx3);border-bottom:1px solid var(--br);border-right:1px solid var(--br);height:34px;display:flex;align-items:center;justify-content:flex-end;}
+.wc{background:var(--dk2);border-bottom:1px solid var(--br);border-right:1px solid var(--br);height:34px;cursor:pointer;position:relative;padding:2px;}
 .wc:hover{background:var(--dk3);}
 .we{font-size:10px;font-weight:600;padding:2px 4px;border-radius:2px;color:#fff;position:absolute;left:2px;right:2px;top:2px;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none;}
 .ag-day{flex:1;overflow-y:auto;padding:12px;}
@@ -5668,7 +5668,7 @@ export default function CRM() {
                           const anivHoje = cliEv ? isAniversHoje((cliEv as any).nascimento || "") : false;
                           const evColorM = e.tipo?.startsWith("bloq") ? "#888" : getEventColor(e.tipo, artists, e.artista);
                           return (
-                            <div key={e.id} className="mev" style={{ background: hexToRgba(evColorM, 0.18), border: "1px solid " + hexToRgba(evColorM, 0.4), borderLeft: "3px solid " + evColorM, color: "var(--tx)", cursor: "pointer", opacity: carryingEv?.id === e.id ? 0.4 : (e.status === "concluido" ? 0.55 : 1), outline: carryingEv?.id === e.id ? "2px dashed var(--gold)" : undefined, touchAction: e.tipo?.startsWith("bloq") ? undefined : "pan-y" }}
+                            <div key={e.id} className="mev" style={{ background: hexToRgba(evColorM, 0.6), border: "1px solid " + hexToRgba(evColorM, 0.7), borderLeft: "3px solid " + evColorM, color: "var(--tx)", cursor: "pointer", opacity: carryingEv?.id === e.id ? 0.4 : (e.status === "concluido" ? 0.55 : 1), outline: carryingEv?.id === e.id ? "2px dashed var(--gold)" : undefined, touchAction: e.tipo?.startsWith("bloq") ? undefined : "pan-y" }}
                               onTouchStart={te => onEvTouchStart(te, e)} onTouchMove={onEvTouchMove} onTouchEnd={onEvTouchEnd}
                               onMouseDown={me => onEvMouseDown(me, e)}
                               onClick={ev => { ev.stopPropagation(); if (justPickedUpRef.current) { justPickedUpRef.current = false; return; } if (justDraggedRef.current) { justDraggedRef.current = false; return; } if (carryingEv) { dropCarried(e.date, e.start); return; } const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
@@ -5713,11 +5713,11 @@ export default function CRM() {
                             const evColor = e.status === "cancelado" || e.tipo?.startsWith("bloq") ? "#888" : getEventColor(e.tipo, artists, e.artista);
                             return (
                               <div key={e.id} className="we" style={{
-                                background: hexToRgba(evColor, 0.18),
-                                border: "1px solid " + hexToRgba(evColor, 0.4),
+                                background: hexToRgba(evColor, 0.6),
+                                border: "1px solid " + hexToRgba(evColor, 0.7),
                                 borderLeft: "3px solid " + evColor,
                                 position: "absolute", left, width: w, top: 2,
-                                height: (duration * 46) - 4 + "px",
+                                height: (duration * 34) - 4 + "px",
                                 zIndex: 10, borderRadius: 8, padding: "3px 6px",
                                 overflow: "hidden", fontSize: 10, fontWeight: 600, color: e.status === "cancelado" ? "var(--tx3)" : "var(--tx)",
                                 cursor: "pointer", display: "flex", alignItems: "flex-start", justifyContent: "space-between",
@@ -5770,7 +5770,7 @@ export default function CRM() {
                     return (
                       <div key={h} className="dr" data-hora={h}>
                         <div className="dtime">{h}:00</div>
-                        <div className={"dslot" + (carryingEv ? " ag-droppable" : "")} style={{ position: "relative", minHeight: 46 }}
+                        <div className={"dslot" + (carryingEv ? " ag-droppable" : "")} style={{ position: "relative", minHeight: 34 }}
                           data-drop-date={ds} data-drop-hour={h}
                           onClick={() => { if (carryingEv) { dropCarried(ds, h); return; } if (!evs.length && !occupied) { setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); setAgForm({ title: "", desc: "", tipo: "cons_" + (artists[0]?.id || ""), date: ds, start: h, end: h + 2, sinal: "", sinalPago: false } as any); setShowAgForm(true); } }}>
                           {evs.map(e => {
@@ -5781,11 +5781,11 @@ export default function CRM() {
                             return (
                               <div key={e.id} className="dev"
                                 style={{
-                                  background: hexToRgba(evColorD, 0.18),
-                                  border: "1px solid " + hexToRgba(evColorD, 0.4),
+                                  background: hexToRgba(evColorD, 0.6),
+                                  border: "1px solid " + hexToRgba(evColorD, 0.7),
                                   borderLeft: "3px solid " + evColorD,
                                   position: "absolute", left: 0, right: 0, top: 0,
-                                  height: (duration * 46) - 4 + "px",
+                                  height: (duration * 34) - 4 + "px",
                                   zIndex: 5, borderRadius: 9, padding: "5px 10px",
                                   display: "flex", alignItems: "flex-start", justifyContent: "space-between",
                                   cursor: "pointer", color: e.status === "cancelado" ? "var(--tx3)" : "var(--tx)",
