@@ -221,25 +221,25 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .srch::placeholder{color:var(--tx3);}
 .fb{background:var(--dk3);border:1px solid var(--br);border-radius:6px;color:var(--tx2);padding:6px 11px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
 .fb.on{background:var(--gold-d);border-color:var(--gold);color:var(--gold);}
-.kw{flex:1;overflow-x:auto;padding:12px;display:flex;gap:9px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:175px;max-width:175px;display:flex;flex-direction:column;gap:5px;}@media(max-width:600px){.kc{min-width:130px;max-width:130px;}.kw{padding:8px 6px;gap:6px;}.cname{font-size:11px;}.card{padding:5px 6px;}}
+.kw{flex:1;overflow-x:auto;padding:16px;display:flex;gap:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:188px;max-width:188px;display:flex;flex-direction:column;gap:0;filter:drop-shadow(0 2px 10px rgba(0,0,0,.22));}@media(max-width:600px){.kc{min-width:134px;max-width:134px;}.kw{padding:8px 6px;gap:8px;}.cname{font-size:11px;}.card{padding:8px 9px;}}
 
-.kh{padding:8px 11px;border-radius:7px 7px 0 0;background:var(--dk3);border:1px solid var(--br);border-bottom:2px solid;display:flex;align-items:center;justify-content:space-between;}
-.kt{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
-.kn{font-size:11px;font-weight:700;background:var(--dk4);border-radius:9px;padding:2px 6px;color:var(--tx2);}
-.kb{background:var(--dk3);border:1px solid var(--br);border-top:none;border-radius:0 0 7px 7px;padding:7px;display:flex;flex-direction:column;gap:6px;min-height:70px;flex:1;}
+.kh{padding:12px 14px;border-radius:14px 14px 0 0;background:var(--dk3);border:1px solid var(--br);border-bottom:2px solid;display:flex;align-items:center;justify-content:space-between;}
+.kt{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;}
+.kn{font-size:11px;font-weight:700;background:var(--dk4);border:1px solid var(--br);border-radius:999px;padding:2px 8px;color:var(--tx2);}
+.kb{background:var(--dk3);border:1px solid var(--br);border-top:none;border-radius:0 0 14px 14px;padding:10px;display:flex;flex-direction:column;gap:9px;min-height:70px;flex:1;}
 .ke{text-align:center;color:var(--tx3);font-size:11px;padding:14px 6px;font-style:italic;}
-.card{background:var(--dk4);border:1px solid var(--br);border-radius:7px;padding:7px 8px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden;}
-.card:hover{border-color:var(--brh);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.4);}
-.ctop{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px;}
-.cname{font-family:'Cormorant Garamond',serif;font-size:13px;font-weight:600;color:var(--tx);line-height:1.2;}
-.qb{font-size:9px;font-weight:700;letter-spacing:.05em;border-radius:4px;padding:2px 5px;text-transform:uppercase;flex-shrink:0;}
+.card{background:var(--dk4);border:1px solid var(--br);border-radius:12px;padding:10px 12px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.22);}
+.card:hover{border-color:var(--brh);transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,.42);}
+.ctop{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;}
+.cname{font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:600;color:var(--tx);line-height:1.25;letter-spacing:.01em;}
+.qb{font-size:9px;font-weight:700;letter-spacing:.05em;border-radius:6px;padding:2px 6px;text-transform:uppercase;flex-shrink:0;}
 .q0c{background:rgba(142,68,173,.2);color:var(--q0);border:1px solid rgba(142,68,173,.3);}
 .q1c{background:rgba(192,57,43,.2);color:var(--q1);border:1px solid rgba(192,57,43,.3);}
 .q2c{background:rgba(212,130,10,.2);color:var(--q2);border:1px solid rgba(212,130,10,.3);}
 .q3c{background:rgba(39,174,96,.2);color:var(--q3);border:1px solid rgba(39,174,96,.3);}
-.cst{font-size:11px;color:var(--tx2);margin-bottom:5px;}
-.cft{display:flex;align-items:center;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid var(--br);}
-.at{font-size:10px;font-weight:600;letter-spacing:.04em;padding:2px 6px;border-radius:9px;text-transform:uppercase;}
+.cst{font-size:11px;color:var(--tx2);margin-bottom:6px;}
+.cft{display:flex;align-items:center;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px solid var(--br);}
+.at{font-size:10px;font-weight:600;letter-spacing:.04em;padding:3px 8px;border-radius:999px;text-transform:uppercase;}
 .at-abraao{background:rgba(74,158,191,.15);color:var(--ab);border:1px solid rgba(74,158,191,.25);}
 .at-camilla{background:rgba(155,107,181,.15);color:var(--ca);border:1px solid rgba(155,107,181,.25);}
 .cd{font-size:10px;color:var(--tx3);}
@@ -5263,7 +5263,7 @@ export default function CRM() {
                           onDragEnd={() => { setDraggingClientId(null); setDragOverStage(null); }}
                           onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}
                           style={{ animation: "fadeSlideIn .22s ease both", opacity: draggingClientId === c.id ? 0.4 : 1, cursor: "grab" }}>
-                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "3px", background: aColor(c.artista), borderRadius: "7px 0 0 7px" }} />
+                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "4px", background: aColor(c.artista), borderRadius: "12px 0 0 12px" }} />
                           <div className="ctop">
                             <div className="cname">{eMenorCard ? "👼 " : ""}{anivHoje ? "🎂 " : ""}{c.nome}</div>
                             <span className={"qb " + QC[c.qual]}>{c.qual}</span>
