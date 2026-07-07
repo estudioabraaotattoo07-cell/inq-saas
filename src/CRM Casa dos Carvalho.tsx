@@ -786,6 +786,16 @@ const CLIENTS_INIT: any[] = [];
 const FIN_INIT: any[] = [];
 
 
+// ─── ACCORDION HEADER (reutilizado em Relacionamento/Disparos) ───────────────
+function AccordionHeader({ titulo, aberto, onToggle }: { titulo: string; aberto: boolean; onToggle: () => void }) {
+  return (
+    <div onClick={onToggle} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px 8px", marginTop: 2, borderTop: "1px solid var(--br)", cursor: "pointer", userSelect: "none" }}>
+      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 700, color: "var(--tx)" }}>{titulo}</div>
+      <div style={{ fontSize: 14, color: "var(--gold)", transition: "transform .2s ease", transform: aberto ? "rotate(180deg)" : "rotate(0deg)" }}>▼</div>
+    </div>
+  );
+}
+
 // ─── TIME SCROLLER ────────────────────────────────────────────────────────────
 function TimeScroller({ value, onChange, label }: { value: number; onChange: (h: number, m: number) => void; label: string }) {
   const safeVal = (isNaN(value) || value == null) ? 9 : value;
@@ -7418,13 +7428,6 @@ export default function CRM() {
                 <div style={{ width: 15, height: 15, background: "#fff", borderRadius: "50%", position: "absolute", top: 2, left: ativa ? 17 : 2, transition: "left .2s" }} />
               </div>
               <span style={{ fontSize: 11, color: ativa ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativa ? "Ativa" : "Inativa"}</span>
-            </div>
-          );
-
-          const AccordionHeader = ({ titulo, aberto, onToggle }: { titulo: string; aberto: boolean; onToggle: () => void }) => (
-            <div onClick={onToggle} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px 8px", marginTop: 2, borderTop: "1px solid var(--br)", cursor: "pointer", userSelect: "none" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 700, color: "var(--tx)" }}>{titulo}</div>
-              <div style={{ fontSize: 14, color: "var(--gold)", transition: "transform .2s ease", transform: aberto ? "rotate(180deg)" : "rotate(0deg)" }}>▼</div>
             </div>
           );
 
