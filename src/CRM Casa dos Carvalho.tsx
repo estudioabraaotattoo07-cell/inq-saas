@@ -335,10 +335,10 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 .mday.om{opacity:.4;}
 .mdn{font-size:12px;font-weight:600;color:var(--tx);margin-bottom:3px;}
 .mday.today .mdn{color:var(--gold);}
-.mev{font-size:10px;font-weight:600;padding:2px 5px;border-radius:4px;margin-bottom:2px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none;}
+.mev{font-size:10px;font-weight:600;padding:2px 6px;border-radius:5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none;}
 .ag-day-head{position:sticky;top:0;z-index:6;background:var(--dk3);border-bottom:1px solid var(--br);padding:9px 14px;font-size:14px;font-weight:600;color:var(--tx);text-transform:capitalize;}
 .ag-week{flex:1;overflow:auto;padding:12px;}
-.wg{display:grid;grid-template-columns:48px repeat(7,1fr);border:1px solid var(--br);border-radius:7px;overflow:hidden;}
+.wg{display:grid;grid-template-columns:48px repeat(7,1fr);border:1px solid var(--br);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.22);}
 .wh{background:var(--dk3);padding:7px 5px;text-align:center;font-size:11px;font-weight:600;color:var(--tx2);border-bottom:1px solid var(--br);border-right:1px solid var(--br);position:sticky;top:0;z-index:5;}
 .wt{background:var(--dk3);padding:3px 5px;text-align:right;font-size:10px;color:var(--tx3);border-bottom:1px solid var(--br);border-right:1px solid var(--br);height:46px;display:flex;align-items:center;justify-content:flex-end;}
 .wc{background:var(--dk2);border-bottom:1px solid var(--br);border-right:1px solid var(--br);height:46px;cursor:pointer;position:relative;padding:2px;}
@@ -507,6 +507,15 @@ const getEventColor = (tipo: string, artists: any[], artistaId?: string): string
   const id = artistaId || (tipo === "piercing" ? "" : parts.slice(1).join("_"));
   const artist = artists.find(a => a.id === id);
   return artist?.cor || (tipo === "piercing" ? "#E91E8C" : "#888");
+};
+
+const hexToRgba = (hex: string, alpha: number): string => {
+  let h = (hex || "#888888").replace("#", "");
+  if (h.length === 3) h = h.split("").map(c => c + c).join("");
+  const r = parseInt(h.slice(0, 2), 16) || 0;
+  const g = parseInt(h.slice(2, 4), 16) || 0;
+  const b = parseInt(h.slice(4, 6), 16) || 0;
+  return `rgba(${r},${g},${b},${alpha})`;
 };
 
 const getBloqLabel = (tipo: string, artistsList: any[]) => {
@@ -5657,8 +5666,9 @@ export default function CRM() {
                         {evs.slice(0, 3).map(e => {
                           const cliEv = e.cliente_id ? clients.find((c:any) => c.id === e.cliente_id) : null;
                           const anivHoje = cliEv ? isAniversHoje((cliEv as any).nascimento || "") : false;
+                          const evColorM = e.tipo?.startsWith("bloq") ? "#888" : getEventColor(e.tipo, artists, e.artista);
                           return (
-                            <div key={e.id} className="mev" style={{ background: getEventColor(e.tipo, artists, e.artista), cursor: "pointer", opacity: carryingEv?.id === e.id ? 0.4 : (e.status === "concluido" ? 0.45 : 1), outline: carryingEv?.id === e.id ? "2px dashed var(--gold)" : undefined, touchAction: e.tipo?.startsWith("bloq") ? undefined : "pan-y" }}
+                            <div key={e.id} className="mev" style={{ background: hexToRgba(evColorM, 0.18), border: "1px solid " + hexToRgba(evColorM, 0.4), borderLeft: "3px solid " + evColorM, color: "var(--tx)", cursor: "pointer", opacity: carryingEv?.id === e.id ? 0.4 : (e.status === "concluido" ? 0.55 : 1), outline: carryingEv?.id === e.id ? "2px dashed var(--gold)" : undefined, touchAction: e.tipo?.startsWith("bloq") ? undefined : "pan-y" }}
                               onTouchStart={te => onEvTouchStart(te, e)} onTouchMove={onEvTouchMove} onTouchEnd={onEvTouchEnd}
                               onMouseDown={me => onEvMouseDown(me, e)}
                               onClick={ev => { ev.stopPropagation(); if (justPickedUpRef.current) { justPickedUpRef.current = false; return; } if (justDraggedRef.current) { justDraggedRef.current = false; return; } if (carryingEv) { dropCarried(e.date, e.start); return; } const eDate2 = e.date; const hoje2 = new Date(); hoje2.setHours(0,0,0,0); const evData2 = eDate2 ? new Date(eDate2 + "T12:00:00") : null; const isPast2 = evData2 && evData2 < hoje2; const semStatus2 = !e.status || e.status === ""; if (isPast2 && semStatus2 && !e.tipo?.startsWith("bloq")) { setConfirmPresenca({ event: e }); setPresencaMotivo(""); } else { setEditingEvent(e); setAgForm({ title: e.title, tipo: e.tipo, date: e.date, start: e.start, end: e.end, desc: e.obs || "", servico: e.servico || "", bloqTitulo: e.titulo_bloqueio || "", valorPrevisto: e.valor_previsto ? Number(e.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "", sinal: e.sinal_pago ? "" : (e.sinal ? Number(e.sinal).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""), sinalPago: false } as any); const cv = e.cliente_id ? clients.find(c => c.id === e.cliente_id) || null : null; setAgClientVinc(cv); setAgClientSearch(""); setShowAgForm(true); } }}>
@@ -5700,17 +5710,19 @@ export default function CRM() {
                             const total = evs.length;
                             const w = total > 1 ? `calc(${100/total}% - 3px)` : "calc(100% - 4px)";
                             const left = total > 1 ? `calc(${(ei * 100/total)}% + 1px)` : "2px";
+                            const evColor = e.status === "cancelado" || e.tipo?.startsWith("bloq") ? "#888" : getEventColor(e.tipo, artists, e.artista);
                             return (
                               <div key={e.id} className="we" style={{
-                                background: e.status === "cancelado" ? "#444" : e.tipo?.startsWith("bloq") ? "#2a2a2a" : getEventColor(e.tipo, artists, e.artista),
+                                background: hexToRgba(evColor, 0.18),
+                                border: "1px solid " + hexToRgba(evColor, 0.4),
+                                borderLeft: "3px solid " + evColor,
                                 position: "absolute", left, width: w, top: 2,
                                 height: (duration * 46) - 4 + "px",
-                                zIndex: 10, borderRadius: 4, padding: "3px 5px",
-                                overflow: "hidden", fontSize: 10, fontWeight: 600, color: e.status === "cancelado" ? "#aaa" : "#fff",
-                                textShadow: e.status === "cancelado" ? "none" : "0 1px 2px rgba(0,0,0,.8), 0 0 4px rgba(0,0,0,.6)",
+                                zIndex: 10, borderRadius: 8, padding: "3px 6px",
+                                overflow: "hidden", fontSize: 10, fontWeight: 600, color: e.status === "cancelado" ? "var(--tx3)" : "var(--tx)",
                                 cursor: "pointer", display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-                                opacity: e.status === "concluido" ? 0.45 : e.status === "cancelado" ? 0.55 : 1,
-                                filter: e.status === "concluido" ? "saturate(0.4)" : "none",
+                                opacity: e.status === "concluido" ? 0.55 : e.status === "cancelado" ? 0.55 : 1,
+                                filter: e.status === "concluido" ? "saturate(0.5)" : "none",
                                 textDecoration: e.status === "cancelado" ? "line-through" : "none",
                                 outline: carryingEv?.id === e.id ? "2px dashed var(--gold)" : undefined,
                                 touchAction: "pan-y"
@@ -5765,18 +5777,20 @@ export default function CRM() {
                             const eStart = isNaN(e.start) || e.start == null ? 9 : Number(e.start);
                             const eEnd = isNaN(e.end) || e.end == null ? eStart + 2 : Number(e.end);
                             const duration = Math.max(eEnd - eStart, 1);
+                            const evColorD = e.status === "cancelado" || e.tipo?.startsWith("bloq") ? "#888" : getEventColor(e.tipo, artists, e.artista);
                             return (
                               <div key={e.id} className="dev"
                                 style={{
-                                  background: e.status === "cancelado" ? "#444" : e.tipo?.startsWith("bloq") ? "#2a2a2a" : getEventColor(e.tipo, artists, e.artista),
+                                  background: hexToRgba(evColorD, 0.18),
+                                  border: "1px solid " + hexToRgba(evColorD, 0.4),
+                                  borderLeft: "3px solid " + evColorD,
                                   position: "absolute", left: 0, right: 0, top: 0,
                                   height: (duration * 46) - 4 + "px",
-                                  zIndex: 5, borderRadius: 5, padding: "5px 10px",
+                                  zIndex: 5, borderRadius: 9, padding: "5px 10px",
                                   display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-                                  cursor: "pointer", color: "#fff",
-                                  textShadow: e.status === "cancelado" ? "none" : "0 1px 2px rgba(0,0,0,.8), 0 0 4px rgba(0,0,0,.6)",
-                                  opacity: carryingEv?.id === e.id ? 0.4 : (e.status === "concluido" ? 0.45 : e.status === "cancelado" ? 0.55 : 1),
-                                  filter: e.status === "concluido" ? "saturate(0.4)" : "none",
+                                  cursor: "pointer", color: e.status === "cancelado" ? "var(--tx3)" : "var(--tx)",
+                                  opacity: carryingEv?.id === e.id ? 0.4 : (e.status === "concluido" ? 0.6 : e.status === "cancelado" ? 0.55 : 1),
+                                  filter: e.status === "concluido" ? "saturate(0.5)" : "none",
                                   outline: carryingEv?.id === e.id ? "2px dashed var(--gold)" : undefined,
                                   touchAction: "pan-y"
                                 }}
