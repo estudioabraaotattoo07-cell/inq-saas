@@ -221,7 +221,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .srch::placeholder{color:var(--tx3);}
 .fb{background:var(--dk3);border:1px solid var(--br);border-radius:6px;color:var(--tx2);padding:6px 11px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
 .fb.on{background:var(--gold-d);border-color:var(--gold);color:var(--gold);}
-.kw{flex:1;overflow-x:auto;padding:24px 16px 16px;display:flex;gap:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:var(--dk);}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:188px;max-width:188px;display:flex;flex-direction:column;gap:0;position:relative;}.kc::before{content:"";position:absolute;top:-14px;left:8px;right:8px;height:56px;background:var(--gold);filter:blur(28px);opacity:.32;z-index:-1;border-radius:50%;pointer-events:none;}@media(max-width:600px){.kc{min-width:134px;max-width:134px;}.kw{padding:20px 6px 8px;gap:8px;}.cname{font-size:11px;}.card{padding:8px 9px;}}
+.kw{flex:1;overflow-x:auto;padding:24px 16px 16px;display:flex;gap:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:var(--dk);}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:188px;max-width:188px;display:flex;flex-direction:column;gap:0;position:relative;}.kc::before{content:"";position:absolute;top:-14px;left:8px;right:8px;height:56px;background:var(--gold);filter:blur(28px);opacity:.32;z-index:-1;border-radius:50%;pointer-events:none;}@media(max-width:600px){.kc{min-width:134px;max-width:134px;}.kw{padding:20px 6px 8px;gap:8px;}.cname{font-size:11px;}.card{padding:8px 9px;}.kh{min-height:94px;padding:10px 11px;}.kt{font-size:9px;}}
 
 .kh{padding:12px 14px;min-height:66px;border-radius:14px 14px 0 0;background:var(--dk3);border:1px solid var(--br);border-bottom:2px solid;display:flex;align-items:center;justify-content:space-between;}
 .kt{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;}
@@ -252,9 +252,9 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .cw{flex:1;padding:14px;overflow-y:auto;}
 .ctbl{width:100%;border-collapse:collapse;}
 .ctbl th{background:var(--dk3);border:1px solid var(--br);padding:8px 11px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:600;text-align:left;}
-.ctbl td{background:var(--dk2);border:1px solid var(--br);padding:9px 11px;font-size:12px;color:var(--tx);vertical-align:middle;}
+.ctbl td{background:var(--dk2);border:1px solid var(--br);padding:11px;font-size:12px;color:var(--tx);vertical-align:middle;line-height:1.4;}
 .ctbl tr:hover td{background:var(--dk3);cursor:pointer;}
-.tdn{font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:600;}
+.tdn{font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:600;line-height:1.4;padding-top:1px;}
 .tdd{color:var(--tx2);font-size:11px;}
 .eb{font-size:10px;font-weight:600;padding:2px 7px;border-radius:9px;text-transform:uppercase;}
 .pvw{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:11px;}
@@ -7230,7 +7230,7 @@ export default function CRM() {
                     return c > 0 ? (
                       <div className="br-row" key={s.id}>
                         <div className="br-lbl">{s.emoji} {s.label}</div>
-                        <div className="br-trk"><div className="br-fil" style={{ width: (c / clients.length * 100) + "%", background: s.color }} /></div>
+                        <div className="br-trk"><div className="br-fil" style={{ width: (c / clients.length * 100) + "%", background: "var(--gold)" }} /></div>
                         <div className="br-val">{c}</div>
                       </div>
                     ) : null;
@@ -7946,7 +7946,7 @@ export default function CRM() {
                           <div onClick={() => setFluxoSlugAberto(aberto ? null : stage.id)}
                             style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", cursor: "pointer", background: aberto ? "var(--dk3)" : "transparent", userSelect: "none" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <div style={{ width: 8, height: 8, borderRadius: "50%", background: stage.color, flexShrink: 0 }} />
+                              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--gold)", flexShrink: 0 }} />
                               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)" }}>{stage.label}</span>
                               {temFluxo && (
                                 <span style={{ fontSize: 10, background: "rgba(201,168,76,.15)", color: "var(--gold)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 10, padding: "1px 7px" }}>
@@ -10631,7 +10631,7 @@ export default function CRM() {
                       const critica = ["cons_agendada","sessao_agend"].includes(s.id);
                       return (
                         <button key={s.id} className={"sb" + (sc.etapa === s.id ? " cur" : "")}
-                          style={sc.etapa === s.id ? { borderColor: s.color, color: s.color, background: s.color + "18" } : {}}
+                          style={sc.etapa === s.id ? { borderColor: "var(--gold)", color: "var(--gold)", background: "var(--gold-d)" } : {}}
                           onClick={() => {
                             if (critica && sc.etapa !== s.id) {
                               const tipoFiltro = s.id === "cons_agendada" ? "cons" : s.id === "sessao_agend" ? "sess" : null;
@@ -11624,9 +11624,9 @@ export default function CRM() {
                                 }
                               }}
                               style={{ padding: "4px 10px", borderRadius: 20, cursor: s.id === cli.etapa ? "default" : "pointer", fontSize: 11, fontWeight: 600,
-                                background: s.id === cli.etapa ? s.color + "33" : "var(--dk3)",
-                                border: `1px solid ${s.id === cli.etapa ? s.color : "var(--br)"}`,
-                                color: s.id === cli.etapa ? s.color : "var(--tx2)" }}>
+                                background: s.id === cli.etapa ? "var(--gold-d)" : "var(--dk3)",
+                                border: `1px solid ${s.id === cli.etapa ? "var(--gold)" : "var(--br)"}`,
+                                color: s.id === cli.etapa ? "var(--gold)" : "var(--tx2)" }}>
                               {s.emoji} {s.label}
                             </div>
                           ))}
