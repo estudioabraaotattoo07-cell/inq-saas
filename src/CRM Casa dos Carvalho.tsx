@@ -9990,7 +9990,19 @@ export default function CRM() {
                   };
                   return (
                     <div>
-                      <div className="stit">Historico do Cliente</div>
+                      <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>Historico do Cliente</span>
+                        <button onClick={() => setFichaRevelada(p => { const n = new Set(p); n.has(sc.id) ? n.delete(sc.id) : n.add(sc.id); return n; })}
+                          style={{ fontSize: 11, background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "3px 9px", color: fichaRevelada.has(sc.id) ? "var(--gold)" : "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                          {fichaRevelada.has(sc.id) ? "👁 Ocultar histórico" : "👁 Ver histórico"}
+                        </button>
+                      </div>
+                      {!fichaRevelada.has(sc.id) ? (
+                        <div style={{ padding: "14px 0", fontSize: 12, color: "var(--tx3)", fontStyle: "italic", textAlign: "center" }}>
+                          Histórico oculto — clique em "Ver histórico" para revelar linha do tempo, checklist, confirmações, agendamentos e avaliações
+                        </div>
+                      ) : (
+                      <>
                       {todos.length === 0 && (
                         <div style={{ textAlign: "center", color: "var(--tx3)", fontSize: 12, padding: "20px 0" }}>Nenhum evento registrado ainda.</div>
                       )}
@@ -10011,19 +10023,7 @@ export default function CRM() {
                         ))}
                       </div>
                 <div>
-                  <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>Detalhes Operacionais</span>
-                    <button onClick={() => setFichaRevelada(p => { const n = new Set(p); n.has(sc.id) ? n.delete(sc.id) : n.add(sc.id); return n; })}
-                      style={{ fontSize: 11, background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "3px 9px", color: fichaRevelada.has(sc.id) ? "var(--gold)" : "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                      {fichaRevelada.has(sc.id) ? "👁 Ocultar detalhes" : "👁 Ver detalhes"}
-                    </button>
-                  </div>
-                  {!fichaRevelada.has(sc.id) ? (
-                    <div style={{ padding: "14px 0", fontSize: 12, color: "var(--tx3)", fontStyle: "italic", textAlign: "center" }}>
-                      Detalhes ocultos — clique em "Ver detalhes" para revelar checklist, confirmações, agendamentos e avaliações
-                    </div>
-                  ) : (
-                  <>
+                  <div className="stit">Detalhes Operacionais</div>
                 {/* CHECKLIST DE SESSÃO */}
                 {["sessao_agend","tatuado"].includes(sc.etapa) && (() => {
                   const temSinal = fin.some((f: any) => f.cliente_id === sc.id && f.pgto === "Sinal");
@@ -10340,9 +10340,9 @@ export default function CRM() {
                     };
                     return <AuraChatLog />;
                   })()}
-                  </>
-                  )}
                 </div>
+                      </>
+                      )}
                     </div>
                   );
                 })()}
