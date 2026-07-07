@@ -251,8 +251,9 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .co-r{background:rgba(192,57,43,.2);color:var(--q1);border:1px solid rgba(192,57,43,.3);}
 .cw{flex:1;padding:18px;overflow-y:auto;}
 .ctbl{width:100%;border-collapse:collapse;}
-.ctbl th{background:var(--dk3);border:1px solid var(--br);padding:8px 11px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:600;text-align:left;}
-.ctbl td{background:var(--dk2);border:1px solid var(--br);padding:11px;font-size:12px;color:var(--tx);vertical-align:middle;line-height:1.4;transition:background .15s;}
+.ctbl th{background:var(--dk3);border:none;border-bottom:1px solid var(--brh);padding:12px 16px;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--gold);font-weight:600;text-align:left;}
+.ctbl td{background:var(--dk2);border:none;border-bottom:1px solid var(--br);padding:14px 16px;font-size:12px;color:var(--tx);vertical-align:middle;line-height:1.4;transition:background .15s;}
+.ctbl tr:last-child td{border-bottom:none;}
 .ctbl tr:hover td{background:var(--dk3);cursor:pointer;}
 .tdn{font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:600;line-height:1.4;padding-top:1px;}
 .tdd{color:var(--tx2);font-size:11px;}
@@ -5532,8 +5533,15 @@ export default function CRM() {
                             </td>
                           )}
                           <td>
-                            <div className="tdn">{isMenor((c as any).nascimento || "") ? "👼 " : ""}{isAniversMes((c as any).nascimento || "") ? "🎂 " : ""}{c.nome}</div>
-                            <div className="tdd">{c.insta || <span style={{ color: "var(--q2)" }}>⚠ Instagram</span>}</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <div style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--gold-d)", border: "1px solid var(--brh)", color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                {c.nome?.[0]?.toUpperCase() || "?"}
+                              </div>
+                              <div>
+                                <div className="tdn">{isMenor((c as any).nascimento || "") ? "👼 " : ""}{isAniversMes((c as any).nascimento || "") ? "🎂 " : ""}{c.nome}</div>
+                                <div className="tdd">{c.insta || <span style={{ color: "var(--q2)" }}>⚠ Instagram</span>}</div>
+                              </div>
+                            </div>
                           </td>
                           <td>
                             <div style={{ fontSize: 12 }}>{maskTel(c.tel || "")}</div>
