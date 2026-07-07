@@ -52,23 +52,23 @@ type ThemeId = "carvalho" | "sangue" | "cobalto" | "mono";
 const THEMES: Record<ThemeId, { nome: string; emoji: string; dark: Record<string,string>; light: Record<string,string>; }> = {
   carvalho: {
     nome: "Original", emoji: "⚜️",
-    dark: { "--dk":"#0E0E0E","--dk2":"#161616","--dk3":"#1E1E1E","--dk4":"#272727","--dk5":"#303030","--tx":"#E8E2D9","--tx2":"#A09585","--tx3":"#706860","--br":"rgba(201,168,76,0.18)","--brh":"rgba(201,168,76,0.45)","--gold":"#C9A84C","--gold-l":"#E8C97A","--gold-d":"rgba(201,168,76,0.13)" },
-    light: { "--dk":"#F2EDE6","--dk2":"#EAE3DA","--dk3":"#E0D8CE","--dk4":"#D4C9BC","--dk5":"#C8BAA9","--tx":"#141210","--tx2":"#3A302A","--tx3":"#6B5E54","--br":"rgba(80,55,30,0.22)","--brh":"rgba(80,55,30,0.5)","--gold":"#9A7428","--gold-l":"#C49A30","--gold-d":"rgba(154,116,40,0.13)" },
+    dark: { "--dk":"#0E0E0E","--dk2":"#161616","--dk3":"#1E1E1E","--dk4":"#272727","--dk5":"#303030","--tx":"#E8E2D9","--tx2":"#A09585","--tx3":"#706860","--br":"rgba(201,168,76,0.18)","--brh":"rgba(201,168,76,0.45)","--gold":"#C9A84C","--gold-l":"#E8C97A","--gold-d":"rgba(201,168,76,0.13)","--gold-glow":"rgba(201,168,76,0.38)" },
+    light: { "--dk":"#F2EDE6","--dk2":"#EAE3DA","--dk3":"#E0D8CE","--dk4":"#D4C9BC","--dk5":"#C8BAA9","--tx":"#141210","--tx2":"#3A302A","--tx3":"#6B5E54","--br":"rgba(80,55,30,0.22)","--brh":"rgba(80,55,30,0.5)","--gold":"#9A7428","--gold-l":"#C49A30","--gold-d":"rgba(154,116,40,0.13)","--gold-glow":"rgba(154,116,40,0.3)" },
   },
   sangue: {
     nome: "Sangue & Cinza", emoji: "🩸",
-    dark: { "--dk":"#0A0A0A","--dk2":"#141414","--dk3":"#1C1C1C","--dk4":"#252525","--dk5":"#2E2E2E","--tx":"#EDE0DE","--tx2":"#A08880","--tx3":"#706058","--br":"rgba(192,57,43,0.18)","--brh":"rgba(192,57,43,0.45)","--gold":"#C0392B","--gold-l":"#E04030","--gold-d":"rgba(192,57,43,0.13)" },
-    light: { "--dk":"#F5EFEE","--dk2":"#EDE3E1","--dk3":"#E3D5D3","--dk4":"#D7C5C2","--dk5":"#CBB3B0","--tx":"#1A0B0A","--tx2":"#3D2420","--tx3":"#6B3B36","--br":"rgba(120,30,20,0.2)","--brh":"rgba(120,30,20,0.45)","--gold":"#A0200F","--gold-l":"#C0392B","--gold-d":"rgba(160,32,15,0.13)" },
+    dark: { "--dk":"#0A0A0A","--dk2":"#141414","--dk3":"#1C1C1C","--dk4":"#252525","--dk5":"#2E2E2E","--tx":"#EDE0DE","--tx2":"#A08880","--tx3":"#706058","--br":"rgba(192,57,43,0.18)","--brh":"rgba(192,57,43,0.45)","--gold":"#C0392B","--gold-l":"#E04030","--gold-d":"rgba(192,57,43,0.13)","--gold-glow":"rgba(192,57,43,0.38)" },
+    light: { "--dk":"#F5EFEE","--dk2":"#EDE3E1","--dk3":"#E3D5D3","--dk4":"#D7C5C2","--dk5":"#CBB3B0","--tx":"#1A0B0A","--tx2":"#3D2420","--tx3":"#6B3B36","--br":"rgba(120,30,20,0.2)","--brh":"rgba(120,30,20,0.45)","--gold":"#A0200F","--gold-l":"#C0392B","--gold-d":"rgba(160,32,15,0.13)","--gold-glow":"rgba(160,32,15,0.3)" },
   },
   cobalto: {
     nome: "Noir Cobalto", emoji: "💠",
-    dark: { "--dk":"#080C12","--dk2":"#101520","--dk3":"#181F2E","--dk4":"#20283A","--dk5":"#283246","--tx":"#D6E8F5","--tx2":"#7AA5C0","--tx3":"#4A7090","--br":"rgba(74,158,191,0.18)","--brh":"rgba(74,158,191,0.45)","--gold":"#4A9EBF","--gold-l":"#6BBAD8","--gold-d":"rgba(74,158,191,0.13)" },
-    light: { "--dk":"#EAF2F8","--dk2":"#DDE9F2","--dk3":"#D0E0EC","--dk4":"#C1D3E3","--dk5":"#B0C6D8","--tx":"#060D14","--tx2":"#1A3A52","--tx3":"#3A6882","--br":"rgba(30,80,120,0.2)","--brh":"rgba(30,80,120,0.45)","--gold":"#1A6F8F","--gold-l":"#2A90B8","--gold-d":"rgba(26,111,143,0.13)" },
+    dark: { "--dk":"#080C12","--dk2":"#101520","--dk3":"#181F2E","--dk4":"#20283A","--dk5":"#283246","--tx":"#D6E8F5","--tx2":"#7AA5C0","--tx3":"#4A7090","--br":"rgba(74,158,191,0.18)","--brh":"rgba(74,158,191,0.45)","--gold":"#4A9EBF","--gold-l":"#6BBAD8","--gold-d":"rgba(74,158,191,0.13)","--gold-glow":"rgba(74,158,191,0.38)" },
+    light: { "--dk":"#EAF2F8","--dk2":"#DDE9F2","--dk3":"#D0E0EC","--dk4":"#C1D3E3","--dk5":"#B0C6D8","--tx":"#060D14","--tx2":"#1A3A52","--tx3":"#3A6882","--br":"rgba(30,80,120,0.2)","--brh":"rgba(30,80,120,0.45)","--gold":"#1A6F8F","--gold-l":"#2A90B8","--gold-d":"rgba(26,111,143,0.13)","--gold-glow":"rgba(26,111,143,0.3)" },
   },
   mono: {
     nome: "Monocromático", emoji: "◻️",
-    dark: { "--dk":"#080808","--dk2":"#111111","--dk3":"#1A1A1A","--dk4":"#242424","--dk5":"#2E2E2E","--tx":"#F0F0F0","--tx2":"#A0A0A0","--tx3":"#686868","--br":"rgba(200,200,200,0.12)","--brh":"rgba(200,200,200,0.3)","--gold":"#C8C8C8","--gold-l":"#E0E0E0","--gold-d":"rgba(200,200,200,0.1)" },
-    light: { "--dk":"#F8F8F8","--dk2":"#EEEEEE","--dk3":"#E4E4E4","--dk4":"#D8D8D8","--dk5":"#CCCCCC","--tx":"#0A0A0A","--tx2":"#404040","--tx3":"#707070","--br":"rgba(80,80,80,0.18)","--brh":"rgba(80,80,80,0.4)","--gold":"#444444","--gold-l":"#666666","--gold-d":"rgba(68,68,68,0.13)" },
+    dark: { "--dk":"#080808","--dk2":"#111111","--dk3":"#1A1A1A","--dk4":"#242424","--dk5":"#2E2E2E","--tx":"#F0F0F0","--tx2":"#A0A0A0","--tx3":"#686868","--br":"rgba(200,200,200,0.12)","--brh":"rgba(200,200,200,0.3)","--gold":"#C8C8C8","--gold-l":"#E0E0E0","--gold-d":"rgba(200,200,200,0.1)","--gold-glow":"rgba(200,200,200,0.28)" },
+    light: { "--dk":"#F8F8F8","--dk2":"#EEEEEE","--dk3":"#E4E4E4","--dk4":"#D8D8D8","--dk5":"#CCCCCC","--tx":"#0A0A0A","--tx2":"#404040","--tx3":"#707070","--br":"rgba(80,80,80,0.18)","--brh":"rgba(80,80,80,0.4)","--gold":"#444444","--gold-l":"#666666","--gold-d":"rgba(68,68,68,0.13)","--gold-glow":"rgba(68,68,68,0.24)" },
   },
 };
 
@@ -106,7 +106,7 @@ const S = `
 @keyframes countUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 @keyframes goldPulse{0%{box-shadow:0 0 0 0 rgba(201,168,76,.4)}70%{box-shadow:0 0 0 8px rgba(201,168,76,0)}100%{box-shadow:0 0 0 0 rgba(201,168,76,0)}}
 :root{
-  --gold:#C9A84C;--gold-l:#E8C97A;--gold-d:rgba(201,168,76,0.13);
+  --gold:#C9A84C;--gold-l:#E8C97A;--gold-d:rgba(201,168,76,0.13);--gold-glow:rgba(201,168,76,0.38);
   --q0:#8E44AD;--q1:#C0392B;--q2:#D4820A;--q3:#27AE60;
   --ab:#4A9EBF;--ca:#9B6BB5;
 }
@@ -221,15 +221,15 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .srch::placeholder{color:var(--tx3);}
 .fb{background:var(--dk3);border:1px solid var(--br);border-radius:6px;color:var(--tx2);padding:6px 11px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
 .fb.on{background:var(--gold-d);border-color:var(--gold);color:var(--gold);}
-.kw{flex:1;overflow-x:auto;padding:16px;display:flex;gap:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:188px;max-width:188px;display:flex;flex-direction:column;gap:0;filter:drop-shadow(0 2px 10px rgba(0,0,0,.22));}@media(max-width:600px){.kc{min-width:134px;max-width:134px;}.kw{padding:8px 6px;gap:8px;}.cname{font-size:11px;}.card{padding:8px 9px;}}
+.kw{flex:1;overflow-x:auto;padding:16px;display:flex;gap:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:radial-gradient(ellipse 900px 420px at 18% -8%,var(--gold-d),transparent 65%),radial-gradient(ellipse 700px 380px at 82% 108%,var(--gold-d),transparent 60%),var(--dk);}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:188px;max-width:188px;display:flex;flex-direction:column;gap:0;filter:drop-shadow(0 2px 10px rgba(0,0,0,.22));}@media(max-width:600px){.kc{min-width:134px;max-width:134px;}.kw{padding:8px 6px;gap:8px;}.cname{font-size:11px;}.card{padding:8px 9px;}}
 
 .kh{padding:12px 14px;border-radius:14px 14px 0 0;background:var(--dk3);border:1px solid var(--br);border-bottom:2px solid;display:flex;align-items:center;justify-content:space-between;}
 .kt{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;}
 .kn{font-size:11px;font-weight:700;background:var(--dk4);border:1px solid var(--br);border-radius:999px;padding:2px 8px;color:var(--tx2);}
 .kb{background:var(--dk3);border:1px solid var(--br);border-top:none;border-radius:0 0 14px 14px;padding:10px;display:flex;flex-direction:column;gap:9px;min-height:70px;flex:1;}
 .ke{text-align:center;color:var(--tx3);font-size:11px;padding:14px 6px;font-style:italic;}
-.card{background:var(--dk4);border:1px solid var(--br);border-radius:12px;padding:10px 12px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.22);}
-.card:hover{border-color:var(--brh);transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,.42);}
+.card{background:var(--dk4);border:1px solid var(--br);border-radius:12px;padding:10px 12px;cursor:pointer;transition:box-shadow .22s ease,transform .18s ease,border-color .18s ease;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.22);}
+.card:hover{border-color:var(--brh);transform:translateY(-2px);box-shadow:0 0 0 1px var(--brh),0 0 30px 2px var(--gold-glow),0 12px 28px rgba(0,0,0,.45);}
 .ctop{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;}
 .cname{font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:600;color:var(--tx);line-height:1.25;letter-spacing:.01em;}
 .qb{font-size:9px;font-weight:700;letter-spacing:.05em;border-radius:6px;padding:2px 6px;text-transform:uppercase;flex-shrink:0;}
@@ -5213,7 +5213,7 @@ export default function CRM() {
                     }
                   }}
                   style={{ outline: dragOverStage === stage.id ? "2px solid " + stage.color : undefined, borderRadius: dragOverStage === stage.id ? 10 : undefined, transition: "outline .1s" }}>
-                  <div className="kh" style={{ borderBottomColor: stage.color, position: "relative" }}>
+                  <div className="kh" style={{ borderBottomColor: stage.color, position: "relative", boxShadow: "0 6px 18px -8px " + stage.color + "cc" }}>
                     <span className="kt" style={{ color: stage.color }}>{stage.emoji} {stage.label}
                       {stage.id === "lead" && newLeadsBadge > 0 && (
                         <span onClick={() => setNewLeadsBadge(0)} title="Novos leads — clique para dispensar" style={{ marginLeft: 6, background: "#E74C3C", color: "#fff", fontSize: 10, fontWeight: 700, borderRadius: 10, padding: "1px 6px", cursor: "pointer", verticalAlign: "middle", animation: "pulse 1.5s infinite" }}>{newLeadsBadge}</span>
