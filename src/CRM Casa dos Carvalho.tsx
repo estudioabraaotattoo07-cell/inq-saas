@@ -441,7 +441,7 @@ table.ft tr:nth-child(even) td{background:var(--dk4);}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:var(--dk2);}
 ::-webkit-scrollbar-thumb{background:var(--dk5);border-radius:3px;}
-.empty{text-align:center;padding:48px 14px;color:var(--tx3);font-size:13px;}
+.empty{text-align:center;padding:26px 14px;color:var(--tx3);font-size:13px;}
 .tag-bl{background:rgba(192,57,43,.15);color:var(--q1);border:1px solid rgba(192,57,43,.25);font-size:9px;font-weight:700;padding:2px 4px;border-radius:3px;}
 .tag-wl{background:rgba(74,158,191,.15);color:var(--ab);border:1px solid rgba(74,158,191,.25);font-size:9px;font-weight:700;padding:2px 4px;border-radius:3px;}
 @keyframes resetBar{from{width:100%}to{width:0%}}
@@ -7760,7 +7760,7 @@ export default function CRM() {
           );
 
           const AccordionHeader = ({ titulo, aberto, onToggle }: { titulo: string; aberto: boolean; onToggle: () => void }) => (
-            <div onClick={onToggle} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 8px", marginTop: 8, borderTop: "1px solid var(--br)", cursor: "pointer", userSelect: "none" }}>
+            <div onClick={onToggle} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px 8px", marginTop: 2, borderTop: "1px solid var(--br)", cursor: "pointer", userSelect: "none" }}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 700, color: "var(--tx)" }}>{titulo}</div>
               <div style={{ fontSize: 14, color: "var(--gold)", transition: "transform .2s ease", transform: aberto ? "rotate(180deg)" : "rotate(0deg)" }}>▼</div>
             </div>
@@ -7820,7 +7820,7 @@ export default function CRM() {
               )}
 
               {/* ── CANAIS HABILITADOS (status somente leitura, baseado em teste confirmado) ── */}
-              <div style={{ padding: "14px 16px", background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 9, margin: "8px 0 0" }}>
+              <div style={{ padding: "16px 18px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 14, margin: "8px 0 0", boxShadow: "0 1px 3px rgba(0,0,0,.22)" }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", marginBottom: 4 }}>Canais habilitados</div>
                 <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 10 }}>Status definido por teste real, em Configurações → IA. O canal usado em cada mensagem é escolhido na própria régua.</div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -7829,7 +7829,7 @@ export default function CRM() {
                     return (
                       <div key={ch}
                         title={testado ? "Testado e aprovado" : "Ainda não testado — vá em Configurações → IA para testar"}
-                        style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 12px", background: testado ? "rgba(39,174,96,.08)" : "var(--dk3)", border: "1px solid " + (testado ? "rgba(39,174,96,.3)" : "var(--br)"), borderRadius: 7, opacity: testado ? 1 : 0.55 }}>
+                        style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 12px", background: testado ? "rgba(39,174,96,.08)" : "var(--dk4)", border: "1px solid " + (testado ? "rgba(39,174,96,.3)" : "var(--br)"), borderRadius: 9, opacity: testado ? 1 : 0.55 }}>
                         <div style={{ width: 9, height: 9, borderRadius: "50%", background: testado ? "var(--q3)" : "var(--tx3)", flexShrink: 0 }} />
                         <span style={{ fontSize: 12, color: testado ? "var(--q3)" : "var(--tx3)", fontWeight: 500 }}>{label}</span>
                         <span style={{ fontSize: 10, color: "var(--tx3)" }}>{testado ? "— testado e aprovado" : "— não testado"}</span>
@@ -7969,16 +7969,16 @@ export default function CRM() {
                       const temFluxo = totalFluxos > 0;
                       const aberto = fluxoSlugAberto === stage.id;
                       return (
-                        <div key={stage.id} style={{ marginBottom: 6, border: "1px solid var(--br)", borderRadius: 8, overflow: "hidden" }}>
+                        <div key={stage.id} style={{ marginBottom: 8, border: "1px solid var(--br)", borderRadius: 11, overflow: "hidden" }}>
                           <div onClick={() => setFluxoSlugAberto(aberto ? null : stage.id)}
                             style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", cursor: "pointer", background: aberto ? "var(--dk3)" : "transparent", userSelect: "none" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                               <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--gold)", flexShrink: 0 }} />
                               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)" }}>{stage.label}</span>
                               {temFluxo && (
-                                <span style={{ fontSize: 10, background: "rgba(201,168,76,.15)", color: "var(--gold)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 10, padding: "1px 7px" }}>
+                                <span style={{ fontSize: 10, background: "var(--gold-d)", color: "var(--gold)", border: "1px solid var(--brh)", borderRadius: 10, padding: "1px 7px" }}>
                                   {totalFluxos} {totalFluxos === 1 ? "fluxo" : "fluxos"}
-                                  {totalSistema > 0 && <span style={{ color: "rgba(201,168,76,.7)", marginLeft: 3 }}>· {totalSistema} sistema</span>}
+                                  {totalSistema > 0 && <span style={{ color: "var(--gold)", opacity: .75, marginLeft: 3 }}>· {totalSistema} sistema</span>}
                                 </span>
                               )}
                             </div>
@@ -7989,11 +7989,11 @@ export default function CRM() {
                               {/* ── Cards de automações do sistema por etapa ── */}
                               {(() => {
                                 const CardSistema = ({ label, gatilho, preview, ativo = true, toggleKey }: { label: string; gatilho: string; preview: string; ativo?: boolean; toggleKey?: keyof typeof fluxoToggles }) => (
-                                  <div style={{ background: "rgba(201,168,76,.05)", border: "1px solid rgba(201,168,76,.2)", borderRadius: 7, padding: "10px 12px", opacity: ativo ? 1 : 0.5 }}>
+                                  <div style={{ background: "var(--gold-d)", border: "1px solid var(--br)", borderRadius: 9, padding: "10px 12px", opacity: ativo ? 1 : 0.5 }}>
                                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
                                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                         <span style={{ fontSize: 11, fontWeight: 700, color: "var(--tx)" }}>{label}</span>
-                                        <span style={{ fontSize: 9, background: "rgba(201,168,76,.15)", color: "var(--gold)", border: "1px solid rgba(201,168,76,.25)", borderRadius: 8, padding: "1px 6px", fontWeight: 700 }}>SISTEMA</span>
+                                        <span style={{ fontSize: 9, background: "var(--gold-d)", color: "var(--gold)", border: "1px solid var(--brh)", borderRadius: 8, padding: "1px 6px", fontWeight: 700 }}>SISTEMA</span>
                                       </div>
                                       {toggleKey ? (
                                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
