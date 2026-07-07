@@ -303,6 +303,8 @@ table.ft tr:nth-child(even) td{background:var(--dk4);}
 .dw{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:13px;}
 .dgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 .dcard{background:var(--dk3);border:1px solid var(--br);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.22);}
+.alert-row{transition:border-color .15s,transform .15s;}
+.alert-row:hover{border-color:var(--brh);transform:translateY(-1px);}
 .dch{padding:11px 15px;background:var(--dk3);border-bottom:1px solid var(--br);font-size:12px;font-weight:600;color:var(--tx);}
 .dcb{padding:16px 18px;}
 .br-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
@@ -6053,7 +6055,7 @@ export default function CRM() {
                     const repasse = ss.reduce((s, f) => s + ((Number(f.val_a) || 0) * (Number(f.com_sess) || 0) / 100), 0);
                     const ticket = ss.length > 0 ? Math.round(fat / ss.length) : 0;
                     return (
-                      <div key={a.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "11px 13px" }}>
+                      <div key={a.id} style={{ background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 9, padding: "11px 13px" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                           <span style={{ ...aStyle(a.id), fontFamily: "'Cormorant Garamond',serif", fontSize: 16, fontWeight: 600, padding: "2px 8px", borderRadius: 5 }}>{a.nome.split(" ")[0]}</span>
                           <span style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase" }}>{a.role}</span>
@@ -6321,7 +6323,7 @@ export default function CRM() {
                       const repasse = lancArtista.reduce((s: number, f: any) => s + ((Number(f.val_a) || 0) * ((Number(f.com_sess) || 0) / 100)), 0);
                       if (totalBruto <= 0) return null;
                       return (
-                        <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "var(--dk3)", borderRadius: 6, marginBottom: 4 }}>
+                        <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "var(--dk4)", borderRadius: 8, marginBottom: 4 }}>
                           <span style={{ fontSize: 12, ...aStyle(a.id) }}>{a.nome}</span>
                           <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
                             <span style={{ color: "var(--tx3)" }}>Gerou: <strong style={{ color: "var(--tx)" }}>{fmtR(totalBruto)}</strong></span>
@@ -6437,7 +6439,7 @@ export default function CRM() {
                       const repasse = lancArtista.reduce((s: number, f: any) => s + ((Number(f.val_a) || 0) * ((Number(f.com_sess) || 0) / 100)), 0);
                       if (totalBruto <= 0) return null;
                       return (
-                        <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "var(--dk3)", borderRadius: 6, marginBottom: 4 }}>
+                        <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "var(--dk4)", borderRadius: 8, marginBottom: 4 }}>
                           <span style={{ fontSize: 12, ...aStyle(a.id) }}>{a.nome}</span>
                           <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
                             <span style={{ color: "var(--tx3)" }}>Gerou: <strong style={{ color: "var(--tx)" }}>{fmtR(totalBruto)}</strong></span>
@@ -6522,7 +6524,7 @@ export default function CRM() {
                     <div style={{ padding: "13px 15px", display: "flex", flexDirection: "column", gap: 10 }}>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                         {[{l: "Próximos 30 dias", n: n30}, {l: "31 a 60 dias", n: n60}, {l: "61 a 90 dias", n: n90}].map(({ l, n }) => (
-                          <div key={l} style={{ flex: 1, minWidth: 140, background: "var(--dk3)", borderRadius: 8, padding: "10px 12px", border: "1px solid var(--br)" }}>
+                          <div key={l} style={{ flex: 1, minWidth: 140, background: "var(--dk4)", borderRadius: 8, padding: "10px 12px", border: "1px solid var(--br)" }}>
                             <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>{l}</div>
                             <div style={{ fontSize: 15, fontWeight: 700, color: "var(--q3)", fontFamily: "'Cormorant Garamond',serif" }}>{fmtR(n * ticket)}</div>
                             <div style={{ fontSize: 10, color: "var(--tx2)", marginTop: 2 }}>{n} sessão{n !== 1 ? "ões" : ""} agendada{n !== 1 ? "s" : ""}</div>
@@ -7183,7 +7185,7 @@ export default function CRM() {
         {tab === "dashboard" && (
           <div className="dw">
             {/* ── Seletor de período ── */}
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 16, padding: "10px 14px", background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 16, padding: "10px 14px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 12 }}>
               <span style={{ fontSize: 11, color: "var(--tx3)", marginRight: 4 }}>Período:</span>
               {(["hoje", "7dias", "mes", "custom"] as const).map(a => {
                 const lbl = a === "hoje" ? "Hoje" : a === "7dias" ? "7 dias" : a === "mes" ? "Este mês" : "Personalizado";
@@ -7195,7 +7197,7 @@ export default function CRM() {
                     else if (a === "7dias") { const d7 = new Date(hj); d7.setDate(d7.getDate() - 6); setDashPeriodo({ atalho: "7dias", inicio: d7.toISOString().slice(0, 10), fim: hjS }); }
                     else if (a === "mes") setDashPeriodo({ atalho: "mes", inicio: hjS.slice(0, 7) + "-01", fim: hjS });
                     else setDashPeriodo(p => ({ ...p, atalho: "custom" }));
-                  }} style={{ padding: "5px 12px", borderRadius: 20, fontSize: 11, fontWeight: ativo ? 700 : 400, cursor: "pointer", border: ativo ? "1px solid var(--gold)" : "1px solid var(--br)", background: ativo ? "rgba(201,168,76,.15)" : "var(--dk3)", color: ativo ? "var(--gold)" : "var(--tx2)", transition: "all .15s" }}>{lbl}</button>
+                  }} style={{ padding: "5px 12px", borderRadius: 20, fontSize: 11, fontWeight: ativo ? 700 : 400, cursor: "pointer", border: ativo ? "1px solid var(--gold)" : "1px solid var(--br)", background: ativo ? "var(--gold-d)" : "var(--dk4)", color: ativo ? "var(--gold)" : "var(--tx2)", transition: "all .15s" }}>{lbl}</button>
                 );
               })}
               {dashPeriodo.atalho === "custom" && (
@@ -7270,7 +7272,7 @@ export default function CRM() {
                     : alertas.map(c => {
                       const m = miss(c); const ch = churn(c);
                       return (
-                        <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }} style={{ padding: "8px 10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, marginBottom: 5, cursor: "pointer" }}>
+                        <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }} className="alert-row" style={{ padding: "9px 11px", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 9, marginBottom: 6, cursor: "pointer" }}>
                           <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, marginBottom: 3 }}>{c.nome}</div>
                           <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                             {m.map(x => <span key={x} className="atag">⚠ Sem {x}</span>)}
@@ -7321,7 +7323,7 @@ export default function CRM() {
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
                   <div className="dch" style={{ marginBottom: 0 }}>🎯 Metas — {dashLabel}</div>
                   {dashPeriodo.atalho !== "mes" && (
-                    <span style={{ fontSize: 10, color: "var(--tx3)", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 10, padding: "2px 8px", whiteSpace: "nowrap" }}>Comparando com a meta do mês completo</span>
+                    <span style={{ fontSize: 10, color: "var(--tx3)", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 10, padding: "2px 8px", whiteSpace: "nowrap" }}>Comparando com a meta do mês completo</span>
                   )}
                 </div>
                 <div className="dcb">
@@ -7349,7 +7351,7 @@ export default function CRM() {
                   {reativacao.length === 0
                     ? <div style={{ color: "var(--tx3)", fontSize: 12 }}>Nenhum cliente para reativar.</div>
                     : reativacao.map(c => (
-                      <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }} style={{ padding: "8px 10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, marginBottom: 5, cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
+                      <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }} className="alert-row" style={{ padding: "9px 11px", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 9, marginBottom: 6, cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontWeight: 600, color: "var(--tx)" }}>{c.nome}</div>
                           <div style={{ fontSize: 11, color: "var(--tx2)" }}>{c.dias} dias sem movimento {c.qual}</div>
