@@ -1063,6 +1063,21 @@ function isAniversMes(nasc: string): boolean {
   if (!d) return false;
   return d.getMonth() === new Date().getMonth();
 }
+function isAniversarioPromoAtivo(nasc: string): boolean {
+  if (!nasc) return false;
+  const d = parseNascimento(nasc);
+  if (!d) return false;
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const msDay = 1000 * 60 * 60 * 24;
+  // Checa a ocorrencia do aniversario no ano anterior, atual e seguinte,
+  // pra cobrir corretamente a janela quando o aniversario cai perto da virada do ano.
+  for (const ano of [hoje.getFullYear() - 1, hoje.getFullYear(), hoje.getFullYear() + 1]) {
+    const aniversario = new Date(ano, d.getMonth(), d.getDate());
+    const diff = Math.round((hoje.getTime() - aniversario.getTime()) / msDay);
+    if (diff >= -7 && diff <= 15) return true;
+  }
+  return false;
+}
 function isMenor(nasc: string): boolean {
   if (!nasc) return false;
   const d = parseNascimento(nasc);
@@ -1336,7 +1351,7 @@ export default function CRM() {
   // Painel de adicionar joia/aplicação numa solicitação de piercing JÁ existente (não a de criação)
   const [piercingEditProjId, setPiercingEditProjId] = useState<any>(null);
   const [piercingEditItemId, setPiercingEditItemId] = useState<string | null>(null); // se setado, o painel edita esse item em vez de adicionar um novo
-  const [piercingEditForm, setPiercingEditForm] = useState({ joiaId: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" });
+  const [piercingEditForm, setPiercingEditForm] = useState({ joiaId: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", desconto: "" });
   const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] as { id: string; joiaId: string; nome: string; tamanho?: string; valorJoia: number; valorAplicacao: number }[] });
   const [showRecorrenteModal, setShowRecorrenteModal] = useState<{cid: any} | null>(null);
   const [recorrenteForm, setRecorrenteForm] = useState({ dataInicio: new Date().toISOString().split("T")[0], intervalo: 7, total: 4, hora: 9, duracao: 2, artista: "" });
@@ -9944,9 +9959,14 @@ export default function CRM() {
                                 setProjDraftField(proj, { piercingItens: novaLista, valorTotal: novoValorTotal });
                               };
                               const joiaEscolhida = joias.find(j => j.id === piercingEditForm.joiaId);
-                              const valorJoia = joiaEscolhida?.precoVenda || 0;
+                              const valorJoiaOriginal = joiaEscolhida?.precoVenda || 0;
                               const valorAplicacaoNum = parseFloat((piercingEditForm.valorAplicacao || "0").replace(/\./g, "").replace(",", ".")) || 0;
                               const editandoAqui = piercingEditProjId === proj.id;
+                              const itemIndexAtual = piercingEditItemId ? itensAtuais.findIndex((i: any) => i.id === piercingEditItemId) : itensAtuais.length;
+                              const aniversarioAtivo = isAniversarioPromoAtivo((sc as any).nascimento || "");
+                              const descontoMax = (aniversarioAtivo && itemIndexAtual < 3) ? 50 : 15;
+                              const descontoPct = Math.min(Number(piercingEditForm.desconto) || 0, descontoMax);
+                              const valorJoia = valorJoiaOriginal * (1 - descontoPct / 100);
                               return (
                                 <div className="fi2">
                                   <div className="fil">Joias / Aplicações desta solicitação</div>
@@ -9955,6 +9975,7 @@ export default function CRM() {
                                       <div key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 10px" }}>
                                         <span style={{ fontSize: 12, color: "var(--tx)" }}>
                                           {item.nome}{item.tamanho ? " (" + item.tamanho + ")" : ""} — Joia R$ {Number(item.valorJoia).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                          {item.descontoPct > 0 && <span style={{ color: "var(--gold)" }}> ({item.descontoPct}% off de R$ {Number(item.valorJoiaOriginal).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})</span>}
                                           {item.valorAplicacao > 0 && <> + Aplicação R$ {Number(item.valorAplicacao).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</>}
                                         </span>
                                         <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
@@ -9966,6 +9987,7 @@ export default function CRM() {
                                               piercingModo: item.valorAplicacao > 0 ? "joia_aplicacao" : "joia",
                                               valorAplicacao: item.valorAplicacao > 0 ? Number(item.valorAplicacao).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
                                               joiaCascGrupo: "", joiaCascSubgrupo: "",
+                                              desconto: item.descontoPct ? String(item.descontoPct) : "",
                                             });
                                           }} style={{ background: "none", border: "none", color: "var(--tx2)", cursor: "pointer", fontSize: 13 }}>✎</button>
                                           <button type="button" onClick={() => salvarPiercingItens(itensAtuais.filter((i: any) => i.id !== item.id))}
@@ -9974,7 +9996,7 @@ export default function CRM() {
                                       </div>
                                     ))}
                                     {!editandoAqui && (
-                                      <button type="button" onClick={() => { setPiercingEditProjId(proj.id); setPiercingEditItemId(null); setPiercingEditForm({ joiaId: "", piercingModo: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" }); }}
+                                      <button type="button" onClick={() => { setPiercingEditProjId(proj.id); setPiercingEditItemId(null); setPiercingEditForm({ joiaId: "", piercingModo: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", desconto: "" }); }}
                                         style={{ alignSelf: "flex-start", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 600, color: "var(--tx2)", cursor: "pointer" }}>
                                         + Adicionar joia/aplicação
                                       </button>
@@ -10013,6 +10035,25 @@ export default function CRM() {
                                                   setPiercingEditForm(p => ({ ...p, valorAplicacao: fmt }));
                                                 }} />
                                             )}
+                                            {aniversarioAtivo && itemIndexAtual < 3 && (
+                                              <div style={{ fontSize: 11, color: "var(--gold)", background: "var(--gold-d)", border: "1px solid var(--brh)", borderRadius: 7, padding: "5px 9px" }}>
+                                                🎂 Aniversariante — desconto até 50% liberado nesta joia (válido para as 3 primeiras joias da solicitação)
+                                              </div>
+                                            )}
+                                            <div>
+                                              <div className="fil">{"Desconto na joia (%) — máximo " + descontoMax + "%"}</div>
+                                              <input className="ef" type="text" inputMode="numeric" placeholder="0" value={piercingEditForm.desconto}
+                                                onChange={e => {
+                                                  const raw = e.target.value.replace(/[^0-9]/g, "");
+                                                  const num = raw ? Math.min(Number(raw), descontoMax) : 0;
+                                                  setPiercingEditForm(p => ({ ...p, desconto: raw ? String(num) : "" }));
+                                                }} />
+                                              {descontoPct > 0 && (
+                                                <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 3 }}>
+                                                  {"Joia com desconto: R$ " + valorJoia.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " (de R$ " + valorJoiaOriginal.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + ") — aplicação não entra no desconto"}
+                                                </div>
+                                              )}
+                                            </div>
                                           </>
                                         )}
                                         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -10024,6 +10065,8 @@ export default function CRM() {
                                               nome: joiaEscolhida.nome,
                                               tamanho: joiaEscolhida.tamanho,
                                               valorJoia,
+                                              valorJoiaOriginal,
+                                              descontoPct,
                                               valorAplicacao: piercingEditForm.piercingModo === "joia_aplicacao" ? valorAplicacaoNum : 0,
                                             };
                                             const novaLista = piercingEditItemId
