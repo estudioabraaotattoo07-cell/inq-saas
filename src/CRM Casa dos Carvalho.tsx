@@ -1204,6 +1204,7 @@ export default function CRM() {
   const [finFiltroArtista, setFinFiltroArtista] = useState("todos");
   const [finFiltroTipo, setFinFiltroTipo] = useState("todos");
   const [finAbaAtiva, setFinAbaAtiva] = useState<"livrocaixa"|"dre"|"equipamentos"|"metas">("livrocaixa");
+  const [pvSubTab, setPvSubTab] = useState<"relacionamento"|"disparos"|"campanhas">("relacionamento");
   const [clients, setClients] = useState<any[]>([]);
   const [artists, setArtists] = useState<any[]>([]);
   const [newLeadsBadge, setNewLeadsBadge] = useState(0);
@@ -5087,9 +5088,7 @@ export default function CRM() {
             { id: "financeiro", l: "Financeiro", i: "💰", roles: ["admin"] },
             { id: "dashboard", l: "Visão Geral", i: "📊", roles: ["admin","profissional"] },
             { id: "posvenda", l: "Relacionamento", i: "💬", roles: ["admin","profissional"] },
-            { id: "disparos", l: "Disparos", i: "📣", roles: ["admin"] },
             { id: "origens", l: "Origens", i: "🔗", roles: ["admin"] },
-            { id: "campanhas", l: "Campanhas", i: "🎯", roles: ["admin"] },
             { id: "licencas", l: "Licenças", i: "🔑", roles: ["owner"] },
           ] as {id:string;l:string;i:string;roles:string[]}[]).filter(t => {
             if (t.id === "licencas") return authEmail === OWNER_EMAIL;
@@ -7596,160 +7595,6 @@ export default function CRM() {
             );
           })()}
 
-        {/* ── CAMPANHAS ── */}
-        {tab === "campanhas" && (() => {
-          const hoje = new Date().toISOString().split("T")[0];
-          const statusCamp = (c: any) => {
-            if (!c.data_inicio || !c.data_fim) return "sem data";
-            if (hoje < c.data_inicio) return "agendada";
-            if (hoje > c.data_fim) return "encerrada";
-            return "ativa";
-          };
-          const statusStyle = (s: string) => {
-            if (s === "ativa") return { background: "rgba(39,174,96,.15)", color: "#27AE60", border: "1px solid rgba(39,174,96,.3)" };
-            if (s === "agendada") return { background: "rgba(52,152,219,.15)", color: "#3498DB", border: "1px solid rgba(52,152,219,.3)" };
-            return { background: "rgba(127,140,141,.15)", color: "var(--tx3)", border: "1px solid var(--br)" };
-          };
-          const slugPalavra = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "").trim();
-          const salvarCamp = async (form: {nome: string; palavra_chave: string; data_inicio: string; data_fim: string}, idx: number | null) => {
-            if (!form.nome.trim() || !form.palavra_chave.trim()) return;
-            const row = { ...form, palavra_chave: slugPalavra(form.palavra_chave), user_id: userId, criado_em: idx === null ? new Date().toISOString() : undefined };
-            try {
-              if (idx === null) {
-                const { data: nova } = await sb.from("campanhas").insert(row).select("*").single();
-                if (nova) setCampanhas(prev => [...prev, nova]);
-              } else {
-                const { data: atualizada } = await sb.from("campanhas").update({ nome: row.nome, palavra_chave: row.palavra_chave, data_inicio: row.data_inicio, data_fim: row.data_fim }).eq("id", campanhas[idx].id).select("*").single();
-                if (atualizada) setCampanhas(prev => prev.map((c, i) => i === idx ? atualizada : c));
-              }
-            } catch {}
-            setCampEditIdx(null);
-            setCampEditForm({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" });
-          };
-          const excluirCamp = async (idx: number) => {
-            try {
-              await sb.from("campanhas").delete().eq("id", campanhas[idx].id);
-              setCampanhas(prev => prev.filter((_, i) => i !== idx));
-            } catch {}
-            setCampConfirmDel(null);
-          };
-          const campForm = (idx: number | null) => {
-            const hojeStr = new Date().toISOString().split("T")[0];
-            const erroInicio = campEditForm.data_inicio && campEditForm.data_inicio < hojeStr
-              ? "A data de início não pode ser anterior a hoje."
-              : "";
-            const erroFim = campEditForm.data_fim && campEditForm.data_inicio && campEditForm.data_fim <= campEditForm.data_inicio
-              ? "A data de fim deve ser posterior à data de início."
-              : "";
-            const podeSalvar = !erroInicio && !erroFim && !!campEditForm.data_inicio && !!campEditForm.data_fim;
-            return (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Nome da campanha</div>
-                    <input className="ef" placeholder="Ex: Black Friday 2025" value={campEditForm.nome} onChange={e => setCampEditForm(f => ({ ...f, nome: e.target.value }))} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Palavra-chave</div>
-                    <input className="ef" placeholder="Ex: blackfriday2025" value={campEditForm.palavra_chave} onChange={e => setCampEditForm(f => ({ ...f, palavra_chave: e.target.value }))} />
-                  </div>
-                  <div>
-                    <DateScroller label="Início" value={campEditForm.data_inicio} onChange={v => setCampEditForm(f => ({ ...f, data_inicio: v }))} />
-                    {erroInicio && <div style={{ fontSize: 10, color: "var(--q1)", marginTop: 3 }}>{erroInicio}</div>}
-                  </div>
-                  <div>
-                    <DateScroller label="Fim" value={campEditForm.data_fim} onChange={v => setCampEditForm(f => ({ ...f, data_fim: v }))} />
-                    {erroFim && <div style={{ fontSize: 10, color: "var(--q1)", marginTop: 3 }}>{erroFim}</div>}
-                  </div>
-                </div>
-                {campEditForm.palavra_chave.trim() && (
-                  <div style={{ fontSize: 11, color: "var(--tx3)" }}>
-                    Palavra salva como: <span style={{ color: "var(--gold)", fontFamily: "monospace" }}>{slugPalavra(campEditForm.palavra_chave)}</span>
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <button className="btn-c" onClick={() => { setCampEditIdx(null); setCampEditForm({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" }); }}>Cancelar</button>
-                  <button className="btn-s" style={{ opacity: podeSalvar ? 1 : 0.45, cursor: podeSalvar ? "pointer" : "not-allowed" }} onClick={() => { if (podeSalvar) salvarCamp(campEditForm, idx); }}>Salvar</button>
-                </div>
-              </div>
-            );
-          };
-          return (
-            <div style={{ padding: "24px 16px", maxWidth: 700, margin: "0 auto" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🎯 Campanhas</div>
-                <button className="btn-s" onClick={() => { setCampEditIdx(-1); setCampEditForm({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" }); }}>+ Nova campanha</button>
-              </div>
-              <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 20, lineHeight: 1.6 }}>
-                Crie campanhas com uma palavra-chave secreta. Quando um lead mencionar a palavra na conversa com a Aura do site, ela é vinculada automaticamente à campanha.
-              </div>
-              {/* Modal confirmação exclusão */}
-              {campConfirmDel !== null && (
-                <div className="ov" style={{ zIndex: 9999 }} onClick={() => setCampConfirmDel(null)}>
-                  <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(360px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>Remover campanha?</div>
-                    <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>Esta ação não pode ser desfeita. Leads já vinculados à campanha perdem o vínculo.</div>
-                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                      <button className="btn-c" onClick={() => setCampConfirmDel(null)}>Cancelar</button>
-                      <button className="btn-s" style={{ background: "rgba(192,57,43,.18)", color: "#C0392B", border: "1px solid rgba(192,57,43,.4)" }} onClick={() => excluirCamp(campConfirmDel!)}>Remover</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {/* Form nova campanha */}
-              {campEditIdx === -1 && (
-                <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "16px", marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, color: "var(--tx3)", fontWeight: 600, marginBottom: 10 }}>Nova campanha</div>
-                  {campForm(null)}
-                </div>
-              )}
-              {/* Lista */}
-              {campanhas.length === 0 && campEditIdx !== -1 && (
-                <div style={{ textAlign: "center", color: "var(--tx3)", fontSize: 13, padding: "40px 0" }}>
-                  Nenhuma campanha cadastrada ainda. Clique em "+ Nova campanha" para começar.
-                </div>
-              )}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {campanhas.map((camp, idx) => {
-                  const st = statusCamp(camp);
-                  const leadsCount = clients.filter(c => c.campanha_id === camp.id).length;
-                  const isEditing = campEditIdx === idx;
-                  return (
-                    <div key={camp.id} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px" }}>
-                      {isEditing ? campForm(idx) : (
-                        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--tx)" }}>{camp.nome}</div>
-                              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, ...statusStyle(st) }}>{st.toUpperCase()}</span>
-                            </div>
-                            <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 4 }}>
-                              Palavra-chave: <span style={{ color: "var(--gold)", fontFamily: "monospace", fontWeight: 600 }}>{camp.palavra_chave}</span>
-                            </div>
-                            {(camp.data_inicio || camp.data_fim) && (
-                              <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 6 }}>
-                                {camp.data_inicio && camp.data_fim ? camp.data_inicio + " → " + camp.data_fim : camp.data_inicio || camp.data_fim}
-                              </div>
-                            )}
-                            <button
-                              onClick={() => { setFiltroExtra({ tipo: "campanha", valor: camp.id }); setFa("todos"); changeTab("clientes"); }}
-                              style={{ background: "none", border: "none", padding: 0, fontSize: 11, color: leadsCount > 0 ? "var(--q3)" : "var(--tx3)", cursor: leadsCount > 0 ? "pointer" : "default", textDecoration: leadsCount > 0 ? "underline" : "none", fontFamily: "inherit" }}>
-                              {leadsCount} lead{leadsCount !== 1 ? "s" : ""} capturado{leadsCount !== 1 ? "s" : ""}
-                            </button>
-                          </div>
-                          <button title="Editar" onClick={() => { setCampEditIdx(idx); setCampEditForm({ nome: camp.nome, palavra_chave: camp.palavra_chave, data_inicio: camp.data_inicio || "", data_fim: camp.data_fim || "" }); }}
-                            style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "var(--tx2)", flexShrink: 0 }}>✏️</button>
-                          <button title="Remover" onClick={() => setCampConfirmDel(idx)}
-                            style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "#C0392B", flexShrink: 0 }}>✕</button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
 
         {/* ── PRÉ/PÓS-VENDA ── */}
         {tab === "posvenda" && (() => {
@@ -7783,6 +7628,19 @@ export default function CRM() {
 
           return (
             <div className="pvw">
+              {/* ── SUB-ABAS: Relacionamento / Disparos / Campanhas ── */}
+              <div style={{ display: "flex", gap: 3, padding: "0 0 2px", borderBottom: "1px solid var(--br)", marginBottom: 12 }}>
+                {([["relacionamento","💬 Relacionamento"],["disparos","📣 Disparos"],["campanhas","🎯 Campanhas"]] as [any,string][]).map(([id, lbl]) => (
+                  <button key={id} onClick={() => setPvSubTab(id)}
+                    style={{ padding: "7px 16px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", borderRadius: "6px 6px 0 0", fontFamily: "'DM Sans',sans-serif",
+                      background: pvSubTab === id ? "var(--gold-d)" : "var(--dk3)",
+                      color: pvSubTab === id ? "var(--gold)" : "var(--tx2)",
+                      borderBottom: pvSubTab === id ? "2px solid var(--gold)" : "2px solid transparent" }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+              {pvSubTab === "relacionamento" && (<>
               {/* ── AGENDAMENTOS PENDENTES (vindos da Aura do site) ── */}
               {agendamentosPendentes.length > 0 && (
                 <div style={{ padding: "14px 16px", background: "rgba(212,130,10,.07)", border: "1px solid rgba(212,130,10,.3)", borderRadius: 9, margin: "8px 0 0", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -8174,12 +8032,12 @@ export default function CRM() {
                 );
               })()}
 
+              </>)}
             </div>
           );
         })()}
-
         {/* ── DISPAROS ── */}
-        {tab === "disparos" && (
+        {tab === "posvenda" && pvSubTab === "disparos" && (
           <div style={{ flex: 1, padding: "16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, maxWidth: 780, width: "100%", animation: "fadeIn .15s ease" }}>
 
             {/* Cabeçalho */}
@@ -8501,6 +8359,161 @@ export default function CRM() {
 
           </div>
         )}
+        {/* ── CAMPANHAS ── */}
+        {tab === "posvenda" && pvSubTab === "campanhas" && (() => {
+          const hoje = new Date().toISOString().split("T")[0];
+          const statusCamp = (c: any) => {
+            if (!c.data_inicio || !c.data_fim) return "sem data";
+            if (hoje < c.data_inicio) return "agendada";
+            if (hoje > c.data_fim) return "encerrada";
+            return "ativa";
+          };
+          const statusStyle = (s: string) => {
+            if (s === "ativa") return { background: "rgba(39,174,96,.15)", color: "#27AE60", border: "1px solid rgba(39,174,96,.3)" };
+            if (s === "agendada") return { background: "rgba(52,152,219,.15)", color: "#3498DB", border: "1px solid rgba(52,152,219,.3)" };
+            return { background: "rgba(127,140,141,.15)", color: "var(--tx3)", border: "1px solid var(--br)" };
+          };
+          const slugPalavra = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "").trim();
+          const salvarCamp = async (form: {nome: string; palavra_chave: string; data_inicio: string; data_fim: string}, idx: number | null) => {
+            if (!form.nome.trim() || !form.palavra_chave.trim()) return;
+            const row = { ...form, palavra_chave: slugPalavra(form.palavra_chave), user_id: userId, criado_em: idx === null ? new Date().toISOString() : undefined };
+            try {
+              if (idx === null) {
+                const { data: nova } = await sb.from("campanhas").insert(row).select("*").single();
+                if (nova) setCampanhas(prev => [...prev, nova]);
+              } else {
+                const { data: atualizada } = await sb.from("campanhas").update({ nome: row.nome, palavra_chave: row.palavra_chave, data_inicio: row.data_inicio, data_fim: row.data_fim }).eq("id", campanhas[idx].id).select("*").single();
+                if (atualizada) setCampanhas(prev => prev.map((c, i) => i === idx ? atualizada : c));
+              }
+            } catch {}
+            setCampEditIdx(null);
+            setCampEditForm({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" });
+          };
+          const excluirCamp = async (idx: number) => {
+            try {
+              await sb.from("campanhas").delete().eq("id", campanhas[idx].id);
+              setCampanhas(prev => prev.filter((_, i) => i !== idx));
+            } catch {}
+            setCampConfirmDel(null);
+          };
+          const campForm = (idx: number | null) => {
+            const hojeStr = new Date().toISOString().split("T")[0];
+            const erroInicio = campEditForm.data_inicio && campEditForm.data_inicio < hojeStr
+              ? "A data de início não pode ser anterior a hoje."
+              : "";
+            const erroFim = campEditForm.data_fim && campEditForm.data_inicio && campEditForm.data_fim <= campEditForm.data_inicio
+              ? "A data de fim deve ser posterior à data de início."
+              : "";
+            const podeSalvar = !erroInicio && !erroFim && !!campEditForm.data_inicio && !!campEditForm.data_fim;
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Nome da campanha</div>
+                    <input className="ef" placeholder="Ex: Black Friday 2025" value={campEditForm.nome} onChange={e => setCampEditForm(f => ({ ...f, nome: e.target.value }))} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Palavra-chave</div>
+                    <input className="ef" placeholder="Ex: blackfriday2025" value={campEditForm.palavra_chave} onChange={e => setCampEditForm(f => ({ ...f, palavra_chave: e.target.value }))} />
+                  </div>
+                  <div>
+                    <DateScroller label="Início" value={campEditForm.data_inicio} onChange={v => setCampEditForm(f => ({ ...f, data_inicio: v }))} />
+                    {erroInicio && <div style={{ fontSize: 10, color: "var(--q1)", marginTop: 3 }}>{erroInicio}</div>}
+                  </div>
+                  <div>
+                    <DateScroller label="Fim" value={campEditForm.data_fim} onChange={v => setCampEditForm(f => ({ ...f, data_fim: v }))} />
+                    {erroFim && <div style={{ fontSize: 10, color: "var(--q1)", marginTop: 3 }}>{erroFim}</div>}
+                  </div>
+                </div>
+                {campEditForm.palavra_chave.trim() && (
+                  <div style={{ fontSize: 11, color: "var(--tx3)" }}>
+                    Palavra salva como: <span style={{ color: "var(--gold)", fontFamily: "monospace" }}>{slugPalavra(campEditForm.palavra_chave)}</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button className="btn-c" onClick={() => { setCampEditIdx(null); setCampEditForm({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" }); }}>Cancelar</button>
+                  <button className="btn-s" style={{ opacity: podeSalvar ? 1 : 0.45, cursor: podeSalvar ? "pointer" : "not-allowed" }} onClick={() => { if (podeSalvar) salvarCamp(campEditForm, idx); }}>Salvar</button>
+                </div>
+              </div>
+            );
+          };
+          return (
+            <div style={{ padding: "24px 16px", maxWidth: 700, margin: "0 auto" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🎯 Campanhas</div>
+                <button className="btn-s" onClick={() => { setCampEditIdx(-1); setCampEditForm({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" }); }}>+ Nova campanha</button>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 20, lineHeight: 1.6 }}>
+                Crie campanhas com uma palavra-chave secreta. Quando um lead mencionar a palavra na conversa com a Aura do site, ela é vinculada automaticamente à campanha.
+              </div>
+              {/* Modal confirmação exclusão */}
+              {campConfirmDel !== null && (
+                <div className="ov" style={{ zIndex: 9999 }} onClick={() => setCampConfirmDel(null)}>
+                  <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(360px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>Remover campanha?</div>
+                    <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>Esta ação não pode ser desfeita. Leads já vinculados à campanha perdem o vínculo.</div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button className="btn-c" onClick={() => setCampConfirmDel(null)}>Cancelar</button>
+                      <button className="btn-s" style={{ background: "rgba(192,57,43,.18)", color: "#C0392B", border: "1px solid rgba(192,57,43,.4)" }} onClick={() => excluirCamp(campConfirmDel!)}>Remover</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Form nova campanha */}
+              {campEditIdx === -1 && (
+                <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "16px", marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, color: "var(--tx3)", fontWeight: 600, marginBottom: 10 }}>Nova campanha</div>
+                  {campForm(null)}
+                </div>
+              )}
+              {/* Lista */}
+              {campanhas.length === 0 && campEditIdx !== -1 && (
+                <div style={{ textAlign: "center", color: "var(--tx3)", fontSize: 13, padding: "40px 0" }}>
+                  Nenhuma campanha cadastrada ainda. Clique em "+ Nova campanha" para começar.
+                </div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {campanhas.map((camp, idx) => {
+                  const st = statusCamp(camp);
+                  const leadsCount = clients.filter(c => c.campanha_id === camp.id).length;
+                  const isEditing = campEditIdx === idx;
+                  return (
+                    <div key={camp.id} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px" }}>
+                      {isEditing ? campForm(idx) : (
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--tx)" }}>{camp.nome}</div>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, ...statusStyle(st) }}>{st.toUpperCase()}</span>
+                            </div>
+                            <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 4 }}>
+                              Palavra-chave: <span style={{ color: "var(--gold)", fontFamily: "monospace", fontWeight: 600 }}>{camp.palavra_chave}</span>
+                            </div>
+                            {(camp.data_inicio || camp.data_fim) && (
+                              <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 6 }}>
+                                {camp.data_inicio && camp.data_fim ? camp.data_inicio + " → " + camp.data_fim : camp.data_inicio || camp.data_fim}
+                              </div>
+                            )}
+                            <button
+                              onClick={() => { setFiltroExtra({ tipo: "campanha", valor: camp.id }); setFa("todos"); changeTab("clientes"); }}
+                              style={{ background: "none", border: "none", padding: 0, fontSize: 11, color: leadsCount > 0 ? "var(--q3)" : "var(--tx3)", cursor: leadsCount > 0 ? "pointer" : "default", textDecoration: leadsCount > 0 ? "underline" : "none", fontFamily: "inherit" }}>
+                              {leadsCount} lead{leadsCount !== 1 ? "s" : ""} capturado{leadsCount !== 1 ? "s" : ""}
+                            </button>
+                          </div>
+                          <button title="Editar" onClick={() => { setCampEditIdx(idx); setCampEditForm({ nome: camp.nome, palavra_chave: camp.palavra_chave, data_inicio: camp.data_inicio || "", data_fim: camp.data_fim || "" }); }}
+                            style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "var(--tx2)", flexShrink: 0 }}>✏️</button>
+                          <button title="Remover" onClick={() => setCampConfirmDel(idx)}
+                            style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "#C0392B", flexShrink: 0 }}>✕</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
 
         {/* ── AVISO ALTERAÇÕES NÃO SALVAS ── */}
         {(fichaWarnSair || fichaTabPendente) && (
