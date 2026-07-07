@@ -575,7 +575,6 @@ const SEGS = [
   { id: "tatuados", label: "Tatuados", desc: "Ja fizeram sessao", icon: "🖤", f: (c: any) => c.etapa === "tatuado" || c.etapa === "aguard_agend" || c.etapa === "pos_venda" },
   { id: "primeira", label: "Primeira Tattoo", desc: "Primeira vez", icon: "✨", f: (c: any) => c.primeira },
   { id: "google", label: "Avaliacao Google", desc: "Tatuados sem avaliacao", icon: "⭐", f: (c: any) => (c.etapa === "tatuado" || c.etapa === "aguard_agend" || c.etapa === "pos_venda") && !c.googleReview },
-  { id: "retorno", label: "Retorno Sazonal", desc: "Tatuados ha mais de 6 meses", icon: "🔄", f: (c: any) => (c.etapa === "tatuado" || c.etapa === "aguard_agend" || c.etapa === "pos_venda") && c.dias >= 180 },
 ];
 
 const DATAS = [
@@ -7832,156 +7831,6 @@ export default function CRM() {
                 );
               })()}
 
-              {/* ── CAMPANHAS SAZONAIS (datas comemorativas — automático) ── */}
-              <AccordionHeader titulo="Campanhas Sazonais" aberto={pvAccordion.sazonais} onToggle={() => setPvAccordion(p => ({ ...p, sazonais: !p.sazonais }))} />
-              {pvAccordion.sazonais && (() => {
-                const CAMPANHAS_SAZONAIS_DEF = [
-                  { slug: "dia_maes", label: "Dia das Mães", emoji: "🌸", desc: "2º domingo de maio · tatuagem mãe + filho(a) até 15cm cada — filho(a) paga a dele, mãe ganha a dela" },
-                  { slug: "dia_pais", label: "Dia dos Pais", emoji: "👨‍👦", desc: "2º domingo de agosto · tatuagem pai + filho(a) até 15cm cada — filho(a) paga a dele, pai ganha a dele" },
-                  { slug: "dia_namorados", label: "Dia dos Namorados", emoji: "💝", desc: "12 de junho · tatuagem-presente até 15cm com 30% de desconto" },
-                  { slug: "aniversario", label: "Aniversário do Cliente", emoji: "🎂", desc: "Data de nascimento de cada cliente · 50% de desconto em piercing, até 3 joias com aplicação" },
-                  { slug: "natal", label: "Natal", emoji: "🎄", desc: "25 de dezembro · só felicitações do casal, sem venda" },
-                  { slug: "ano_novo", label: "Ano Novo", emoji: "🎆", desc: "1º de janeiro · só felicitações do casal, sem venda" },
-                ];
-                const salvarCampSazEtapa = async (etapa: any) => {
-                  setCampSazSalvando(true);
-                  try {
-                    if (etapa.id && !etapa.id.startsWith("new_")) {
-                      const { error: errUpd } = await sb.from("campanhas_sazonais_etapas").update({ label: etapa.label, dias_offset: etapa.dias_offset, canal: etapa.canal, mensagem: etapa.mensagem, ativo: etapa.ativo }).eq("id", etapa.id);
-                      if (errUpd) { console.error("campanhas_sazonais_etapas update error:", JSON.stringify(errUpd)); }
-                      else { setCampSazEtapas(p => p.map((f: any) => f.id === etapa.id ? { ...f, ...etapa } : f)); setCampSazEditandoId(null); setCampSazEditLocal(null); }
-                    } else {
-                      const { data: novo, error: errIns } = await sb.from("campanhas_sazonais_etapas").insert({ ...etapa, user_id: userId, id: undefined }).select().single();
-                      if (errIns) { console.error("campanhas_sazonais_etapas insert error:", JSON.stringify(errIns)); }
-                      else if (novo) { setCampSazEtapas(p => [...p, novo]); setCampSazEditandoId(null); setCampSazEditLocal(null); }
-                    }
-                  } catch(e) { console.error("campanhas_sazonais_etapas save exception:", e); }
-                  setCampSazSalvando(false);
-                };
-                const excluirCampSazEtapa = async (id: string) => {
-                  await sb.from("campanhas_sazonais_etapas").delete().eq("id", id);
-                  setCampSazEtapas(p => p.filter((f: any) => f.id !== id));
-                };
-                const adicionarNovaCampSazEtapa = (slug: string) => {
-                  const tempId = "new_" + Date.now();
-                  const novaEtapa = { id: tempId, campanha_slug: slug, label: "Nova mensagem", dias_offset: 0, canal: "email", mensagem: "Olá, {nome}! ...", ativo: true, ordem: campSazEtapas.filter((f: any) => f.campanha_slug === slug).length };
-                  setCampSazEditandoId(tempId);
-                  setCampSazEditLocal(novaEtapa);
-                  setCampSazSlugAberto(slug);
-                };
-                const CANAIS_OPT_SAZ = [{ v: "email", l: "E-mail" }, { v: "sms", l: "SMS" }];
-                return (
-                  <div style={{ padding: "8px 16px 16px" }}>
-                    <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 14 }}>
-                      Mensagens automáticas por data comemorativa. O sistema calcula a data de cada ano sozinho (aniversário é por cliente, as demais são pra toda a base).
-                    </div>
-                    {CAMPANHAS_SAZONAIS_DEF.map((camp) => {
-                      const etapasDesteSlug = campSazEtapas.filter((f: any) => f.campanha_slug === camp.slug);
-                      const aberto = campSazSlugAberto === camp.slug;
-                      return (
-                        <div key={camp.slug} style={{ marginBottom: 8, border: "1px solid var(--br)", borderRadius: 11, overflow: "hidden" }}>
-                          <div onClick={() => setCampSazSlugAberto(aberto ? null : camp.slug)}
-                            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", cursor: "pointer", background: aberto ? "var(--dk3)" : "transparent", userSelect: "none" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontSize: 14 }}>{camp.emoji}</span>
-                              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)" }}>{camp.label}</span>
-                              {etapasDesteSlug.length > 0 && (
-                                <span style={{ fontSize: 10, background: "var(--gold-d)", color: "var(--gold)", border: "1px solid var(--brh)", borderRadius: 10, padding: "1px 7px" }}>
-                                  {etapasDesteSlug.length} {etapasDesteSlug.length === 1 ? "mensagem" : "mensagens"}
-                                </span>
-                              )}
-                            </div>
-                            <span style={{ fontSize: 11, color: "var(--tx3)" }}>{aberto ? "▲" : "▼"}</span>
-                          </div>
-                          {aberto && (
-                            <div style={{ padding: "10px 14px 14px", borderTop: "1px solid var(--br)", display: "flex", flexDirection: "column", gap: 8 }}>
-                              <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>{camp.desc}</div>
-                              {etapasDesteSlug.map((fe: any) => (
-                                campSazEditandoId === fe.id ? (
-                                  <div key={fe.id} style={{ background: "var(--dk3)", borderRadius: 7, padding: "12px", display: "flex", flexDirection: "column", gap: 8 }}>
-                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                      <div style={{ flex: 1, minWidth: 120 }}>
-                                        <div className="fil" style={{ marginBottom: 3 }}>Rótulo</div>
-                                        <input className="ef" value={campSazEditLocal?.label || ""} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, label: e.target.value }))} placeholder="Ex: E-mail -7 dias" />
-                                      </div>
-                                      <div style={{ width: 100 }}>
-                                        <div className="fil" style={{ marginBottom: 3 }}>Dias (± data)</div>
-                                        <input className="ef" type="number" value={campSazEditLocal?.dias_offset ?? 0} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, dias_offset: parseInt(e.target.value) || 0 }))} />
-                                      </div>
-                                      <div style={{ width: 130 }}>
-                                        <div className="fil" style={{ marginBottom: 3 }}>Canal</div>
-                                        <select className="ef" value={campSazEditLocal?.canal || "email"} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, canal: e.target.value }))}>
-                                          {CANAIS_OPT_SAZ.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-                                        </select>
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="fil" style={{ marginBottom: 3 }}>Mensagem <span style={{ color: "var(--tx3)", fontWeight: 400 }}>(use {"{nome}"} e {"{estudio}"})</span></div>
-                                      <textarea className="ef" rows={4} value={campSazEditLocal?.mensagem || ""} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, mensagem: e.target.value }))} style={{ resize: "vertical", width: "100%" }} />
-                                    </div>
-                                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                                      <button className="btn-c" onClick={() => { setCampSazEditandoId(null); setCampSazEditLocal(null); }}>Cancelar</button>
-                                      <button className="btn-s" onClick={() => salvarCampSazEtapa(campSazEditLocal)} disabled={campSazSalvando}>{campSazSalvando ? "Salvando..." : "Salvar"}</button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div key={fe.id} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, background: fe.ativo ? "var(--dk3)" : "rgba(0,0,0,0.1)", borderRadius: 7, padding: "10px 12px", opacity: fe.ativo ? 1 : 0.6 }}>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx)" }}>{fe.label}</span>
-                                        <span style={{ fontSize: 10, color: "var(--tx3)" }}>{(fe.dias_offset > 0 ? "+" : "") + fe.dias_offset + "d"} · {CANAIS_OPT_SAZ.find(o => o.v === fe.canal)?.l || fe.canal}</span>
-                                      </div>
-                                      <div style={{ fontSize: 11, color: "var(--tx3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{fe.mensagem}</div>
-                                    </div>
-                                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                                      <button onClick={() => { setCampSazEditandoId(fe.id); setCampSazEditLocal({ ...fe }); }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: "pointer" }}>Editar</button>
-                                      <button onClick={() => { if (window.confirm("Remover esta mensagem?")) excluirCampSazEtapa(fe.id); }} style={{ fontSize: 11, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "3px 8px", color: "var(--q1)", cursor: "pointer" }}>✕</button>
-                                    </div>
-                                  </div>
-                                )
-                              ))}
-                              {campSazEditandoId && campSazEditandoId.startsWith("new_") && (campSazEditLocal as any)?.campanha_slug === camp.slug ? (
-                                <div style={{ background: "var(--dk3)", borderRadius: 7, padding: "12px", display: "flex", flexDirection: "column", gap: 8 }}>
-                                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                    <div style={{ flex: 1, minWidth: 120 }}>
-                                      <div className="fil" style={{ marginBottom: 3 }}>Rótulo</div>
-                                      <input className="ef" value={campSazEditLocal?.label || ""} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, label: e.target.value }))} placeholder="Ex: E-mail -7 dias" />
-                                    </div>
-                                    <div style={{ width: 100 }}>
-                                      <div className="fil" style={{ marginBottom: 3 }}>Dias (± data)</div>
-                                      <input className="ef" type="number" value={campSazEditLocal?.dias_offset ?? 0} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, dias_offset: parseInt(e.target.value) || 0 }))} />
-                                    </div>
-                                    <div style={{ width: 130 }}>
-                                      <div className="fil" style={{ marginBottom: 3 }}>Canal</div>
-                                      <select className="ef" value={campSazEditLocal?.canal || "email"} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, canal: e.target.value }))}>
-                                        {CANAIS_OPT_SAZ.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-                                      </select>
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <div className="fil" style={{ marginBottom: 3 }}>Mensagem <span style={{ color: "var(--tx3)", fontWeight: 400 }}>(use {"{nome}"} e {"{estudio}"})</span></div>
-                                    <textarea className="ef" rows={4} value={campSazEditLocal?.mensagem || ""} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, mensagem: e.target.value }))} style={{ resize: "vertical", width: "100%" }} />
-                                  </div>
-                                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                                    <button className="btn-c" onClick={() => { setCampSazEditandoId(null); setCampSazEditLocal(null); }}>Cancelar</button>
-                                    <button className="btn-s" onClick={() => salvarCampSazEtapa(campSazEditLocal)} disabled={campSazSalvando}>{campSazSalvando ? "Salvando..." : "Salvar"}</button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <button onClick={() => adicionarNovaCampSazEtapa(camp.slug)}
-                                  style={{ alignSelf: "flex-start", fontSize: 11, background: "var(--dk4)", border: "1px dashed var(--br)", borderRadius: 6, padding: "5px 12px", color: "var(--tx3)", cursor: "pointer" }}>
-                                  + Adicionar mensagem
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-
               </>)}
             </div>
           );
@@ -8239,7 +8088,6 @@ export default function CRM() {
                   titulo: "🔥 Reativação", subtitulo: "Clientes que sumiram mas podem voltar",
                   itens: [
                     { id: "q2", icon: "🟡", label: "Q2 — Prontos para avançar", desc: "Manifestaram interesse mas ainda não agendaram", f: (c: any) => c.qual === "Q2" },
-                    { id: "retorno", icon: "🔄", label: "Retorno Sazonal", desc: "Tatuados há mais de 6 meses sem movimento", f: (c: any) => (c.etapa === "tatuado" || c.etapa === "pos_venda") && c.dias >= 180 },
                     { id: "q1", icon: "🔴", label: "Q1 — Em nutrição", desc: "Ainda não estão prontos — mensagem de valor", f: (c: any) => c.qual === "Q1" },
                   ]
                 },
@@ -8374,19 +8222,19 @@ export default function CRM() {
               ));
             })()}
 
-            {/* BLOCO: Datas comemorativas */}
+            {/* BLOCO: Datas comemorativas sem automação ainda (as demais viraram Campanhas Sazonais) */}
             <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, overflow: "hidden" }}>
               <div style={{ padding: "12px 16px", background: "var(--dk3)", borderBottom: "1px solid var(--br)" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>📅 Datas Comemorativas</div>
-                <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Mensagens emocionais para toda a base — cada uma com a assinatura do estúdio</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>📅 Outras Datas</div>
+                <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Datas sem fluxo automático ainda — disparo manual pra toda a base</div>
               </div>
               <div style={{ display: "flex", flexDirection: "column" }}>
-                {DATAS.filter(d => d.id !== "aniversario").map((d, idx) => {
+                {DATAS.filter(d => !["aniversario","maes","namorados","pais","natal","anoNovo"].includes(d.id)).map((d, idx, arr) => {
                   const isOpen = dateSel === d.id;
                   const msg = MSGS[d.id] || "";
                   const cnt = clients.length;
                   return (
-                    <div key={d.id} style={{ borderBottom: idx < DATAS.filter(x => x.id !== "aniversario").length - 1 ? "1px solid var(--br)" : "none" }}>
+                    <div key={d.id} style={{ borderBottom: idx < arr.length - 1 ? "1px solid var(--br)" : "none" }}>
                       <div onClick={() => { setDateSel(isOpen ? null : d.id); setSegSel(null); setSent(false); setEditing(false); setMsgEdit(""); }}
                         style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", background: isOpen ? "rgba(201,168,76,.06)" : "transparent" }}>
                         <span style={{ fontSize: 18, flexShrink: 0 }}>{d.icon}</span>
@@ -8439,57 +8287,155 @@ export default function CRM() {
               </div>
             </div>
 
-            {/* BLOCO: Programa Aniversariante */}
-            <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, overflow: "hidden" }}>
-              <div style={{ padding: "12px 16px", background: "var(--dk3)", borderBottom: "1px solid var(--br)" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>🎂 Programa Aniversariante</div>
-                <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Disparo automático às 9h do dia do aniversário — cada mensagem personalizada com nome e estilo do cliente</div>
-              </div>
-              {(() => {
-                const isOpen = dateSel === "aniversario";
-                const anivMes = clients.filter(c => isAniversMes((c as any).nascimento || ""));
-                const anivHoje = clients.filter(c => isAniversHoje((c as any).nascimento || ""));
+              {/* ── CAMPANHAS SAZONAIS (datas comemorativas — automático) ── */}
+              <AccordionHeader titulo="Campanhas Sazonais" aberto={pvAccordion.sazonais} onToggle={() => setPvAccordion(p => ({ ...p, sazonais: !p.sazonais }))} />
+              {pvAccordion.sazonais && (() => {
+                const CAMPANHAS_SAZONAIS_DEF = [
+                  { slug: "dia_maes", label: "Dia das Mães", emoji: "🌸", desc: "2º domingo de maio · tatuagem mãe + filho(a) até 15cm cada — filho(a) paga a dele, mãe ganha a dela" },
+                  { slug: "dia_pais", label: "Dia dos Pais", emoji: "👨‍👦", desc: "2º domingo de agosto · tatuagem pai + filho(a) até 15cm cada — filho(a) paga a dele, pai ganha a dele" },
+                  { slug: "dia_namorados", label: "Dia dos Namorados", emoji: "💝", desc: "12 de junho · tatuagem-presente até 15cm com 30% de desconto" },
+                  { slug: "aniversario", label: "Aniversário do Cliente", emoji: "🎂", desc: "Data de nascimento de cada cliente · 50% de desconto em piercing, até 3 joias com aplicação" },
+                  { slug: "natal", label: "Natal", emoji: "🎄", desc: "25 de dezembro · só felicitações do casal, sem venda" },
+                  { slug: "ano_novo", label: "Ano Novo", emoji: "🎆", desc: "1º de janeiro · só felicitações do casal, sem venda" },
+                ];
+                const salvarCampSazEtapa = async (etapa: any) => {
+                  setCampSazSalvando(true);
+                  try {
+                    if (etapa.id && !etapa.id.startsWith("new_")) {
+                      const { error: errUpd } = await sb.from("campanhas_sazonais_etapas").update({ label: etapa.label, dias_offset: etapa.dias_offset, canal: etapa.canal, mensagem: etapa.mensagem, ativo: etapa.ativo }).eq("id", etapa.id);
+                      if (errUpd) { console.error("campanhas_sazonais_etapas update error:", JSON.stringify(errUpd)); }
+                      else { setCampSazEtapas(p => p.map((f: any) => f.id === etapa.id ? { ...f, ...etapa } : f)); setCampSazEditandoId(null); setCampSazEditLocal(null); }
+                    } else {
+                      const { data: novo, error: errIns } = await sb.from("campanhas_sazonais_etapas").insert({ ...etapa, user_id: userId, id: undefined }).select().single();
+                      if (errIns) { console.error("campanhas_sazonais_etapas insert error:", JSON.stringify(errIns)); }
+                      else if (novo) { setCampSazEtapas(p => [...p, novo]); setCampSazEditandoId(null); setCampSazEditLocal(null); }
+                    }
+                  } catch(e) { console.error("campanhas_sazonais_etapas save exception:", e); }
+                  setCampSazSalvando(false);
+                };
+                const excluirCampSazEtapa = async (id: string) => {
+                  await sb.from("campanhas_sazonais_etapas").delete().eq("id", id);
+                  setCampSazEtapas(p => p.filter((f: any) => f.id !== id));
+                };
+                const adicionarNovaCampSazEtapa = (slug: string) => {
+                  const tempId = "new_" + Date.now();
+                  const novaEtapa = { id: tempId, campanha_slug: slug, label: "Nova mensagem", dias_offset: 0, canal: "email", mensagem: "Olá, {nome}! ...", ativo: true, ordem: campSazEtapas.filter((f: any) => f.campanha_slug === slug).length };
+                  setCampSazEditandoId(tempId);
+                  setCampSazEditLocal(novaEtapa);
+                  setCampSazSlugAberto(slug);
+                };
+                const CANAIS_OPT_SAZ = [{ v: "email", l: "E-mail" }, { v: "sms", l: "SMS" }];
                 return (
-                  <div>
-                    <div onClick={() => { setDateSel(isOpen ? null : "aniversario"); setSegSel(null); setSent(false); setEditing(false); setMsgEdit(""); }}
-                      style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", background: isOpen ? "rgba(201,168,76,.06)" : "transparent" }}>
-                      <span style={{ fontSize: 18 }}>🎂</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: isOpen ? "var(--gold)" : "var(--tx)" }}>Configurar programa</div>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 1 }}>
-                          {anivMes.length > 0 ? anivMes.length + " aniversariante" + (anivMes.length > 1 ? "s" : "") + " este mês" : "Nenhum aniversariante este mês"}
-                          {anivHoje.length > 0 && " · 🎉 Hoje: " + anivHoje.map(c => c.nome.split(" ")[0]).join(", ")}
-                        </div>
-                      </div>
-                      <span style={{ fontSize: 12, color: "var(--gold)", fontWeight: 700, background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.2)", borderRadius: 20, padding: "2px 10px" }}>{descontoAniversario}% desc.</span>
-                      <span style={{ fontSize: 12, color: "var(--tx3)" }}>{isOpen ? "▲" : "▼"}</span>
+                  <div style={{ padding: "8px 16px 16px" }}>
+                    <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 14 }}>
+                      Mensagens automáticas por data comemorativa. O sistema calcula a data de cada ano sozinho (aniversário é por cliente, as demais são pra toda a base).
                     </div>
-                    {isOpen && (
-                      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12, borderTop: "1px solid var(--br)", paddingTop: 14 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <label style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Desconto (%)</label>
-                            <input type="number" min={0} max={50} value={descontoAniversario} onChange={e => setDescontoAniversario(Number(e.target.value))}
-                              style={{ background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 6, padding: "7px 11px", fontSize: 16, fontWeight: 700, color: "var(--gold)", outline: "none", width: 80, fontFamily: "'DM Sans',sans-serif", textAlign: "center" }} />
+                    {CAMPANHAS_SAZONAIS_DEF.map((camp) => {
+                      const etapasDesteSlug = campSazEtapas.filter((f: any) => f.campanha_slug === camp.slug);
+                      const aberto = campSazSlugAberto === camp.slug;
+                      return (
+                        <div key={camp.slug} style={{ marginBottom: 8, border: "1px solid var(--br)", borderRadius: 11, overflow: "hidden" }}>
+                          <div onClick={() => setCampSazSlugAberto(aberto ? null : camp.slug)}
+                            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", cursor: "pointer", background: aberto ? "var(--dk3)" : "transparent", userSelect: "none" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 14 }}>{camp.emoji}</span>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)" }}>{camp.label}</span>
+                              {etapasDesteSlug.length > 0 && (
+                                <span style={{ fontSize: 10, background: "var(--gold-d)", color: "var(--gold)", border: "1px solid var(--brh)", borderRadius: 10, padding: "1px 7px" }}>
+                                  {etapasDesteSlug.length} {etapasDesteSlug.length === 1 ? "mensagem" : "mensagens"}
+                                </span>
+                              )}
+                            </div>
+                            <span style={{ fontSize: 11, color: "var(--tx3)" }}>{aberto ? "▲" : "▼"}</span>
                           </div>
-                          <div style={{ flex: 1, background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.15)", borderRadius: 7, padding: "10px 12px", fontSize: 11, color: "var(--tx2)", lineHeight: 1.6 }}>
-                            🎂 <strong style={{ color: "var(--gold)" }}>{anivMes.length}</strong> cliente{anivMes.length !== 1 ? "s" : ""} fazem aniversário este mês
-                            {anivHoje.length > 0 && <><br/>🎉 <strong style={{ color: "var(--gold)" }}>Hoje:</strong> {anivHoje.map(c => c.nome.split(" ")[0]).join(", ")}</>}
-                          </div>
+                          {aberto && (
+                            <div style={{ padding: "10px 14px 14px", borderTop: "1px solid var(--br)", display: "flex", flexDirection: "column", gap: 8 }}>
+                              <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>{camp.desc}</div>
+                              {etapasDesteSlug.map((fe: any) => (
+                                campSazEditandoId === fe.id ? (
+                                  <div key={fe.id} style={{ background: "var(--dk3)", borderRadius: 7, padding: "12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                      <div style={{ flex: 1, minWidth: 120 }}>
+                                        <div className="fil" style={{ marginBottom: 3 }}>Rótulo</div>
+                                        <input className="ef" value={campSazEditLocal?.label || ""} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, label: e.target.value }))} placeholder="Ex: E-mail -7 dias" />
+                                      </div>
+                                      <div style={{ width: 100 }}>
+                                        <div className="fil" style={{ marginBottom: 3 }}>Dias (± data)</div>
+                                        <input className="ef" type="number" value={campSazEditLocal?.dias_offset ?? 0} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, dias_offset: parseInt(e.target.value) || 0 }))} />
+                                      </div>
+                                      <div style={{ width: 130 }}>
+                                        <div className="fil" style={{ marginBottom: 3 }}>Canal</div>
+                                        <select className="ef" value={campSazEditLocal?.canal || "email"} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, canal: e.target.value }))}>
+                                          {CANAIS_OPT_SAZ.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                                        </select>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="fil" style={{ marginBottom: 3 }}>Mensagem <span style={{ color: "var(--tx3)", fontWeight: 400 }}>(use {"{nome}"} e {"{estudio}"})</span></div>
+                                      <textarea className="ef" rows={4} value={campSazEditLocal?.mensagem || ""} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, mensagem: e.target.value }))} style={{ resize: "vertical", width: "100%" }} />
+                                    </div>
+                                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                                      <button className="btn-c" onClick={() => { setCampSazEditandoId(null); setCampSazEditLocal(null); }}>Cancelar</button>
+                                      <button className="btn-s" onClick={() => salvarCampSazEtapa(campSazEditLocal)} disabled={campSazSalvando}>{campSazSalvando ? "Salvando..." : "Salvar"}</button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div key={fe.id} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, background: fe.ativo ? "var(--dk3)" : "rgba(0,0,0,0.1)", borderRadius: 7, padding: "10px 12px", opacity: fe.ativo ? 1 : 0.6 }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx)" }}>{fe.label}</span>
+                                        <span style={{ fontSize: 10, color: "var(--tx3)" }}>{(fe.dias_offset > 0 ? "+" : "") + fe.dias_offset + "d"} · {CANAIS_OPT_SAZ.find(o => o.v === fe.canal)?.l || fe.canal}</span>
+                                      </div>
+                                      <div style={{ fontSize: 11, color: "var(--tx3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{fe.mensagem}</div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                                      <button onClick={() => { setCampSazEditandoId(fe.id); setCampSazEditLocal({ ...fe }); }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: "pointer" }}>Editar</button>
+                                      <button onClick={() => { if (window.confirm("Remover esta mensagem?")) excluirCampSazEtapa(fe.id); }} style={{ fontSize: 11, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "3px 8px", color: "var(--q1)", cursor: "pointer" }}>✕</button>
+                                    </div>
+                                  </div>
+                                )
+                              ))}
+                              {campSazEditandoId && campSazEditandoId.startsWith("new_") && (campSazEditLocal as any)?.campanha_slug === camp.slug ? (
+                                <div style={{ background: "var(--dk3)", borderRadius: 7, padding: "12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                    <div style={{ flex: 1, minWidth: 120 }}>
+                                      <div className="fil" style={{ marginBottom: 3 }}>Rótulo</div>
+                                      <input className="ef" value={campSazEditLocal?.label || ""} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, label: e.target.value }))} placeholder="Ex: E-mail -7 dias" />
+                                    </div>
+                                    <div style={{ width: 100 }}>
+                                      <div className="fil" style={{ marginBottom: 3 }}>Dias (± data)</div>
+                                      <input className="ef" type="number" value={campSazEditLocal?.dias_offset ?? 0} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, dias_offset: parseInt(e.target.value) || 0 }))} />
+                                    </div>
+                                    <div style={{ width: 130 }}>
+                                      <div className="fil" style={{ marginBottom: 3 }}>Canal</div>
+                                      <select className="ef" value={campSazEditLocal?.canal || "email"} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, canal: e.target.value }))}>
+                                        {CANAIS_OPT_SAZ.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                                      </select>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="fil" style={{ marginBottom: 3 }}>Mensagem <span style={{ color: "var(--tx3)", fontWeight: 400 }}>(use {"{nome}"} e {"{estudio}"})</span></div>
+                                    <textarea className="ef" rows={4} value={campSazEditLocal?.mensagem || ""} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, mensagem: e.target.value }))} style={{ resize: "vertical", width: "100%" }} />
+                                  </div>
+                                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                                    <button className="btn-c" onClick={() => { setCampSazEditandoId(null); setCampSazEditLocal(null); }}>Cancelar</button>
+                                    <button className="btn-s" onClick={() => salvarCampSazEtapa(campSazEditLocal)} disabled={campSazSalvando}>{campSazSalvando ? "Salvando..." : "Salvar"}</button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button onClick={() => adicionarNovaCampSazEtapa(camp.slug)}
+                                  style={{ alignSelf: "flex-start", fontSize: 11, background: "var(--dk4)", border: "1px dashed var(--br)", borderRadius: 6, padding: "5px 12px", color: "var(--tx3)", cursor: "pointer" }}>
+                                  + Adicionar mensagem
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          <label style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Instrução para a {auraName || "IA"}</label>
-                          <textarea defaultValue={"Enviar no dia do aniversário do cliente. Usar o nome do cliente. Parabenizar pelo aniversário de forma calorosa e personalizada. Mencionar o estilo de tatuagem favorito do cliente se disponível. Oferecer " + descontoAniversario + "% de desconto em qualquer sessão realizada durante o mês do aniversário. Tom: caloroso e pessoal, não promocional. Finalizar com convite para agendar."}
-                            style={{ width: "100%", minHeight: 110, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", fontSize: 11, color: "var(--tx2)", fontFamily: "'DM Sans',sans-serif", resize: "vertical", outline: "none", lineHeight: 1.6 }} />
-                          <div style={{ fontSize: 10, color: "var(--tx3)" }}>{"A " + (auraName || "IA") + " usa estas instruções para compor cada mensagem — personalizada com nome, estilo e artista do cliente."}</div>
-                        </div>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>💡 O disparo acontece automaticamente às 9h do dia do aniversário — sem precisar lembrar.</div>
-                      </div>
-                    )}
+                      );
+                    })}
                   </div>
                 );
               })()}
-            </div>
 
             {/* Histórico de disparos */}
             {disparosHist.length > 0 && (
