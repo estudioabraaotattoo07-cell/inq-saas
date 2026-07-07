@@ -221,9 +221,9 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .srch::placeholder{color:var(--tx3);}
 .fb{background:var(--dk3);border:1px solid var(--br);border-radius:6px;color:var(--tx2);padding:6px 11px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
 .fb.on{background:var(--gold-d);border-color:var(--gold);color:var(--gold);}
-.kw{flex:1;overflow-x:auto;padding:16px;display:flex;gap:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:radial-gradient(ellipse 900px 420px at 18% -8%,var(--gold-d),transparent 65%),radial-gradient(ellipse 700px 380px at 82% 108%,var(--gold-d),transparent 60%),var(--dk);}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:188px;max-width:188px;display:flex;flex-direction:column;gap:0;filter:drop-shadow(0 2px 10px rgba(0,0,0,.22));}@media(max-width:600px){.kc{min-width:134px;max-width:134px;}.kw{padding:8px 6px;gap:8px;}.cname{font-size:11px;}.card{padding:8px 9px;}}
+.kw{flex:1;overflow-x:auto;padding:24px 16px 16px;display:flex;gap:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:var(--dk);}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:188px;max-width:188px;display:flex;flex-direction:column;gap:0;position:relative;}.kc::before{content:"";position:absolute;top:-14px;left:8px;right:8px;height:56px;background:var(--col-glow,var(--gold));filter:blur(30px);opacity:.42;z-index:-1;border-radius:50%;pointer-events:none;}@media(max-width:600px){.kc{min-width:134px;max-width:134px;}.kw{padding:20px 6px 8px;gap:8px;}.cname{font-size:11px;}.card{padding:8px 9px;}}
 
-.kh{padding:12px 14px;border-radius:14px 14px 0 0;background:var(--dk3);border:1px solid var(--br);border-bottom:2px solid;display:flex;align-items:center;justify-content:space-between;}
+.kh{padding:12px 14px;min-height:66px;border-radius:14px 14px 0 0;background:var(--dk3);border:1px solid var(--br);border-bottom:2px solid;display:flex;align-items:center;justify-content:space-between;}
 .kt{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;}
 .kn{font-size:11px;font-weight:700;background:var(--dk4);border:1px solid var(--br);border-radius:999px;padding:2px 8px;color:var(--tx2);}
 .kb{background:var(--dk3);border:1px solid var(--br);border-top:none;border-radius:0 0 14px 14px;padding:10px;display:flex;flex-direction:column;gap:9px;min-height:70px;flex:1;}
@@ -5212,7 +5212,7 @@ export default function CRM() {
                       setDraggingClientId(null);
                     }
                   }}
-                  style={{ outline: dragOverStage === stage.id ? "2px solid " + stage.color : undefined, borderRadius: dragOverStage === stage.id ? 10 : undefined, transition: "outline .1s" }}>
+                  style={{ ["--col-glow" as any]: stage.color, outline: dragOverStage === stage.id ? "2px solid " + stage.color : undefined, borderRadius: dragOverStage === stage.id ? 10 : undefined, transition: "outline .1s" }}>
                   <div className="kh" style={{ borderBottomColor: stage.color, position: "relative", boxShadow: "0 6px 18px -8px " + stage.color + "cc" }}>
                     <span className="kt" style={{ color: stage.color }}>{stage.emoji} {stage.label}
                       {stage.id === "lead" && newLeadsBadge > 0 && (
