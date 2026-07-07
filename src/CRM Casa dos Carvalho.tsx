@@ -725,11 +725,15 @@ function montarClausulasContrato(sc: any, obsContrato?: string): string[] {
     : servicoRaw.toLowerCase() === "piercing" ? "piercing"
     : "procedimento artístico";
 
+  const isPiercing = termoServico === "piercing";
+
   const clausulas: string[] = [
     `1. DO PROJETO: O serviço de ${termoServico} a ser realizado foi previamente acordado entre as partes, incluindo design, tamanho, região do corpo e valor.`,
     `2. DO PAGAMENTO: O valor total acordado deverá ser pago conforme combinado. Sinais e reservas de agenda não são reembolsáveis em caso de cancelamento com menos de 48h de antecedência ou falta sem aviso prévio.`,
     `3. DA CICATRIZAÇÃO: O resultado final do ${termoServico} depende dos cuidados pós-sessão realizados pelo(a) cliente. O profissional não se responsabiliza por resultados decorrentes de negligência nos cuidados ou condições de saúde não informadas previamente.`,
-    `4. DOS RETOQUES: Retoques gratuitos são garantidos por até 37 dias após a sessão, desde que o(a) cliente siga os cuidados indicados. Após esse prazo ou em caso de negligência, retoques serão cobrados.`,
+    isPiercing
+      ? `4. DA GARANTIA: A garantia do piercing cobre exclusivamente defeito de fabricação da joia aplicada, mediante substituição sem custo. É condição para validade da garantia o retorno presencial do(a) cliente ao estúdio entre o 30º e o 37º dia após a aplicação, para avaliação profissional da cicatrização. Após o 37º dia, a garantia se encerra automaticamente. A garantia NÃO cobre: reposicionamento ou abertura de novo furo; rejeição da pele ao piercing; intercorrências decorrentes do não cumprimento das orientações de cuidado; perda, dano ou extravio da joia causados pelo(a) cliente.`
+      : `4. DOS RETOQUES: Retoques gratuitos são garantidos por até 37 dias após a sessão, desde que o(a) cliente siga os cuidados indicados. Após esse prazo ou em caso de negligência, retoques serão cobrados.`,
     `5. DA SAÚDE: O(a) cliente declara ter respondido com veracidade à ficha de anamnese e não ter condições de saúde que contraindiquem o procedimento. Em caso de omissão, o profissional se exime de responsabilidade.`,
     `6. DOS DIREITOS DE IMAGEM: O profissional e o estúdio podem utilizar fotos do ${termoServico} realizado para divulgação em redes sociais e portfólio, salvo manifestação contrária expressa do(a) cliente.`,
     `7. DA CONCORDÂNCIA: Ao assinar este contrato, o(a) cliente declara ter lido, compreendido e concordado com todos os termos acima, conferindo a este instrumento plena validade legal nos termos da Lei nº 14.063/2020.`,
@@ -9074,7 +9078,7 @@ export default function CRM() {
                   };
 
                   const docs = [
-                    { id: "anamnese", titulo: "Ficha de Anamnese", subtitulo: "Questionario de saude pre-tatuagem" },
+                    { id: "anamnese", titulo: "Ficha de Anamnese", subtitulo: "Questionario de saude pre-procedimento" },
                     { id: "contrato", titulo: "Contrato de Execucao", subtitulo: "Termos e condicoes do projeto artistico" },
                     ...(eMenor ? [{ id: "menor", titulo: "Autorizacao de Menor", subtitulo: "Responsavel legal — cliente menor de 18 anos" }] : []),
                   ];
@@ -10264,6 +10268,67 @@ export default function CRM() {
                     </div>
                     {(!(sc as any).referencias || (sc as any).referencias.length === 0) && (
                       <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic", marginTop: 8 }}>Nenhuma referência ainda.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="stit">Acompanhamento de Cicatrização</div>
+                  <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px" }}>
+                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>
+                      Fotos que o cliente envia pelo WhatsApp durante o pós-venda de piercing (dia 7, retorno de 30 dias, ou qualquer intercorrência). Salve aqui manualmente com data e observação.
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                      {((sc as any).cicatrizacao_fotos || []).map((foto: any, i: number) => (
+                        <div key={i} style={{ position: "relative", width: 130, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 8, padding: 6, flexShrink: 0 }}>
+                          <img src={foto.url} alt={`cicatrizacao-${i}`}
+                            style={{ width: "100%", height: 100, objectFit: "cover", borderRadius: 6, cursor: "pointer" }}
+                            onClick={() => window.open(foto.url, "_blank")} />
+                          <input type="date" value={foto.data || ""}
+                            onChange={async e => {
+                              const atual = [...(((sc as any).cicatrizacao_fotos) || [])];
+                              atual[i] = { ...atual[i], data: e.target.value };
+                              await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
+                              upCFicha(sc.id, "cicatrizacao_fotos", atual);
+                            }}
+                            style={{ width: "100%", marginTop: 5, fontSize: 11, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--tx)", padding: "2px 4px" }} />
+                          <input type="text" placeholder="Observação (ex.: leve vermelhidão)" defaultValue={foto.obs || ""}
+                            onBlur={async e => {
+                              const atual = [...(((sc as any).cicatrizacao_fotos) || [])];
+                              atual[i] = { ...atual[i], obs: e.target.value };
+                              await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
+                              upCFicha(sc.id, "cicatrizacao_fotos", atual);
+                            }}
+                            style={{ width: "100%", marginTop: 4, fontSize: 10, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--tx)", padding: "2px 4px" }} />
+                          <button
+                            onClick={async () => {
+                              if (!window.confirm("Remover esta foto de acompanhamento? Essa ação não pode ser desfeita.")) return;
+                              const atual = (((sc as any).cicatrizacao_fotos) || []).filter((_: any, j: number) => j !== i);
+                              await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
+                              upCFicha(sc.id, "cicatrizacao_fotos", atual);
+                            }}
+                            style={{ position: "absolute", top: -6, right: -6, background: "#c0392b", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
+                            title="Remover">✕</button>
+                        </div>
+                      ))}
+                      <label style={{ width: 130, height: 154, border: "1px dashed var(--br)", borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--tx3)", gap: 4, flexShrink: 0 }} title="Adicionar foto de cicatrização">
+                        <span style={{ fontSize: 22 }}>+</span>
+                        <span style={{ fontSize: 9, textAlign: "center", padding: "0 6px" }}>Adicionar foto</span>
+                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const fname = `cicatrizacao-${sc.id}-${Date.now()}-${file.name.replace(/\s/g,"_")}`;
+                          await sb.storage.from("referencias").upload(fname, file, { contentType: file.type, upsert: true });
+                          const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
+                          const atual = [...(((sc as any).cicatrizacao_fotos) || []), { url: pub.publicUrl, data: new Date().toISOString().slice(0, 10), obs: "" }];
+                          await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
+                          upCFicha(sc.id, "cicatrizacao_fotos", atual);
+                          e.target.value = "";
+                        }} />
+                      </label>
+                    </div>
+                    {(!(sc as any).cicatrizacao_fotos || (sc as any).cicatrizacao_fotos.length === 0) && (
+                      <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic", marginTop: 8 }}>Nenhuma foto de acompanhamento ainda.</div>
                     )}
                   </div>
                 </div>
