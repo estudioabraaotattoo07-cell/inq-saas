@@ -271,7 +271,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .pvp{background:rgba(212,130,10,.15);color:var(--q2);border:1px solid rgba(212,130,10,.25);}
 .pvf{background:var(--dk4);color:var(--tx3);border:1px solid var(--br);}
 .fw{flex:1;padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;}
-.fsum{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+.fsum{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
 .fsc{background:var(--dk3);border:1px solid var(--br);border-radius:14px;padding:13px;box-shadow:0 1px 3px rgba(0,0,0,.22);}
 .fsl{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--tx2);margin-bottom:4px;}
 .fsv{font-size:24px;font-weight:600;font-family:'Cormorant Garamond',serif;}
@@ -5985,7 +5985,7 @@ export default function CRM() {
             {finAbaAtiva === "livrocaixa" && (<>
 
               {/* cards resumo */}
-              <div className="fsum" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
+              <div className="fsum">
                 {(() => {
                   const totalAReceber = clients.reduce((acc: number, c: any) => {
                     const projs = (c.projetos || []).filter((p: any) => p.status !== "concluido" && p.status !== "cancelado");
