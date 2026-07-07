@@ -9999,7 +9999,7 @@ export default function CRM() {
                       </div>
                       {!fichaRevelada.has(sc.id) ? (
                         <div style={{ padding: "14px 0", fontSize: 12, color: "var(--tx3)", fontStyle: "italic", textAlign: "center" }}>
-                          Histórico oculto — clique em "Ver histórico" para revelar linha do tempo, checklist, confirmações, agendamentos e avaliações
+                          Histórico oculto — clique em "Ver histórico" para revelar a linha do tempo
                         </div>
                       ) : (
                       <>
@@ -10022,6 +10022,8 @@ export default function CRM() {
                           </div>
                         ))}
                       </div>
+                      </>
+                      )}
                 <div>
                   <div className="stit">Detalhes Operacionais</div>
                 {/* CHECKLIST DE SESSÃO */}
@@ -10341,8 +10343,6 @@ export default function CRM() {
                     return <AuraChatLog />;
                   })()}
                 </div>
-                      </>
-                      )}
                     </div>
                   );
                 })()}
