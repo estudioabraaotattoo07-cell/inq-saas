@@ -8120,7 +8120,11 @@ export default function CRM() {
                     {grupo.itens.map((item, idx) => {
                       const cnt = clients.filter(item.f).length;
                       const isOpen = segSel === item.id;
-                      const msg = MSGS[item.id] || "";
+                      const labelSemAcento = item.label.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+                      const msg = MSGS[item.id]
+                        || (labelSemAcento.includes("camilla") ? MSGS.camilla : "")
+                        || (labelSemAcento.includes("abraao") ? MSGS.abraao : "")
+                        || "";
                       return (
                         <div key={item.id} style={{ borderBottom: idx < grupo.itens.length - 1 ? "1px solid var(--br)" : "none" }}>
                           <div onClick={() => { setSegSel(isOpen ? null : item.id); setDateSel(null); setSent(false); setEditing(false); setMsgEdit(""); }}
