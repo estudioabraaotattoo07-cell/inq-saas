@@ -1204,7 +1204,7 @@ export default function CRM() {
   const [finFiltroArtista, setFinFiltroArtista] = useState("todos");
   const [finFiltroTipo, setFinFiltroTipo] = useState("todos");
   const [finAbaAtiva, setFinAbaAtiva] = useState<"livrocaixa"|"dre"|"equipamentos"|"metas">("livrocaixa");
-  const [pvSubTab, setPvSubTab] = useState<"relacionamento"|"disparos"|"campanhas">("relacionamento");
+  const [pvSubTab, setPvSubTab] = useState<"relacionamento"|"disparos"|"campanhas"|"origens">("relacionamento");
   const [clients, setClients] = useState<any[]>([]);
   const [artists, setArtists] = useState<any[]>([]);
   const [newLeadsBadge, setNewLeadsBadge] = useState(0);
@@ -1824,7 +1824,7 @@ export default function CRM() {
 
   // ─── POLLING EVENTOS DE TRÁFEGO (aba Origens) ────────────────────────────
   useEffect(() => {
-    if (!logado || !userId || tab !== "origens") return;
+    if (!logado || !userId || tab !== "posvenda" || pvSubTab !== "origens") return;
     const recarregar = async () => {
       try {
         const { data } = await sb.from("eventos_trafego").select("*").eq("user_id", userId).order("criado_em", { ascending: false });
@@ -1834,7 +1834,7 @@ export default function CRM() {
     recarregar();
     const interval = setInterval(recarregar, 60000);
     return () => clearInterval(interval);
-  }, [logado, userId, tab]);
+  }, [logado, userId, tab, pvSubTab]);
 
   // ─── RÉGUA PÓS-VENDA ─────────────────────────────────────────────────────
   const decidirAgendamentoPendente = async (id: string, acao: "aprovar" | "recusar") => {
@@ -5099,7 +5099,6 @@ export default function CRM() {
             { id: "financeiro", l: "Financeiro", i: "💰", roles: ["admin"] },
             { id: "dashboard", l: "Visão Geral", i: "📊", roles: ["admin","profissional"] },
             { id: "posvenda", l: "Relacionamento", i: "💬", roles: ["admin","profissional"] },
-            { id: "origens", l: "Origens", i: "🔗", roles: ["admin"] },
             { id: "licencas", l: "Licenças", i: "🔑", roles: ["owner"] },
           ] as {id:string;l:string;i:string;roles:string[]}[]).filter(t => {
             if (t.id === "licencas") return authEmail === OWNER_EMAIL;
@@ -7398,213 +7397,6 @@ export default function CRM() {
           </div>
         )}
 
-        {/* ── ORIGENS ── */}
-        {tab === "origens" && (() => {
-          const siteBase = (studioSite || "https://seusite.com.br").replace(/\/$/, "");
-          const salvarOrigem = async (nome: string, idx: number | null, pago?: boolean, pagina?: string) => {
-            const sl = slugify(nome);
-            if (!sl) return;
-            const pg = pago ?? false;
-            const pag = (pagina || "").trim().replace(/^([^/])/, "/$1"); // garante barra inicial
-            try {
-              if (idx === null) {
-                const { data: nova } = await sb.from("origens").insert({ nome, slug: sl, pago: pg, pagina: pag, user_id: userId, criado_em: new Date().toISOString() }).select("*").single();
-                if (nova) setOrigens(prev => [...prev, nova]);
-              } else {
-                await sb.from("origens").update({ nome, slug: sl, pago: pg, pagina: pag }).eq("id", origens[idx].id);
-                setOrigens(prev => prev.map((o, i) => i === idx ? { ...o, nome, slug: sl, pago: pg, pagina: pag } : o));
-              }
-            } catch {}
-            setOrigenEditIdx(null);
-            setOrigenEditNome("");
-            setOrigenEditPago(false);
-            setOrigenEditPagina("");
-          };
-          const excluirOrigem = async (idx: number) => {
-            try {
-              await sb.from("origens").delete().eq("id", origens[idx].id);
-              setOrigens(prev => prev.filter((_, i) => i !== idx));
-            } catch {}
-            setOrigenConfirmDel(null);
-          };
-          const totalFrio = eventosTrafego.filter(e => e.tipo_evento === "LeadFrio").length;
-          const totalQuente = eventosTrafego.filter(e => e.tipo_evento === "LeadQuente").length;
-          const convGeral = totalFrio > 0 ? Math.round((totalQuente / totalFrio) * 100) : 0;
-          const tempoRelativo = (iso: string) => {
-            const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-            if (diff < 60) return "agora";
-            if (diff < 3600) return "há " + Math.floor(diff / 60) + "min";
-            if (diff < 86400) return "há " + Math.floor(diff / 3600) + "h";
-            return "há " + Math.floor(diff / 86400) + "d";
-          };
-          const origensComMetrica = origens.map(o => {
-            const frio = eventosTrafego.filter(e => e.tipo_evento === "LeadFrio" && e.origem === o.slug).length;
-            const quente = eventosTrafego.filter(e => e.tipo_evento === "LeadQuente" && e.origem === o.slug).length;
-            const conv = frio > 0 ? Math.round((quente / frio) * 100) : 0;
-            const ultimo = eventosTrafego.find(e => e.origem === o.slug);
-            return { ...o, frio, quente, conv, ultimo };
-          }).sort((a, b) => b.conv - a.conv);
-          return (
-              <div style={{ padding: "24px 16px", maxWidth: 740, margin: "0 auto" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🔗 Gerenciador de Origens</div>
-                  <button className="btn-s" onClick={() => { setOrigenEditIdx(-1); setOrigenEditNome(""); setOrigenEditPago(false); }}>+ Nova origem</button>
-                </div>
-
-                {/* Cards de resumo geral */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 20 }}>
-                  {[
-                    { label: "Origens", val: origens.length, icon: "🔗", color: "var(--tx2)" },
-                    { label: "Lead Frio", val: totalFrio, icon: "🧊", color: "#4A9EBF" },
-                    { label: "Lead Quente", val: totalQuente, icon: "🔥", color: "#C0392B" },
-                    { label: "Conversão", val: convGeral + "%", icon: "📈", color: "var(--gold)" },
-                  ].map((c, i) => (
-                    <div key={i} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 9, padding: "12px 14px" }}>
-                      <div style={{ fontSize: 16 }}>{c.icon}</div>
-                      <div style={{ fontSize: 20, fontWeight: 700, color: c.color, fontFamily: "'Cormorant Garamond',serif", marginTop: 4 }}>{c.val}</div>
-                      <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em", marginTop: 2 }}>{c.label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Funil consolidado */}
-                {(totalFrio > 0 || totalQuente > 0) && (
-                  <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 18px", marginBottom: 20 }}>
-                    <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12 }}>Funil consolidado</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-                      {[
-                        { label: "Lead Frio", val: totalFrio, icon: "🧊", color: "#4A9EBF", w: 100 },
-                        { label: "Lead Quente", val: totalQuente, icon: "🔥", color: "#C0392B", w: totalFrio > 0 ? Math.max(20, Math.round((totalQuente / totalFrio) * 100)) : 0 },
-                      ].map((f, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-                          {i > 0 && <div style={{ color: "var(--tx3)", fontSize: 14, flexShrink: 0 }}>→</div>}
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                              <span style={{ fontSize: 11, color: "var(--tx2)" }}>{f.icon} {f.label}</span>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: f.color }}>{f.val}</span>
-                            </div>
-                            <div style={{ height: 6, background: "var(--dk4)", borderRadius: 3, overflow: "hidden" }}>
-                              <div style={{ height: "100%", width: f.w + "%", background: f.color, borderRadius: 3, transition: "width .4s" }} />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {!studioSite && (
-                  <div style={{ background: "rgba(212,130,10,.12)", border: "1px solid rgba(212,130,10,.3)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--gold)", marginBottom: 16 }}>
-                    ⚠ Configure o URL do site em <strong>Configurações → Estúdio → Site</strong> para gerar os links corretamente.
-                  </div>
-                )}
-
-                {/* Modal confirmação exclusão */}
-                {origenConfirmDel !== null && (
-                  <div className="ov" style={{ zIndex: 9999 }} onClick={() => setOrigenConfirmDel(null)}>
-                    <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(360px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>Remover origem?</div>
-                      <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>Esta ação não pode ser desfeita. Deseja remover esta origem?</div>
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <button className="btn-c" onClick={() => setOrigenConfirmDel(null)}>Cancelar</button>
-                        <button className="btn-s" style={{ background: "rgba(192,57,43,.18)", color: "#C0392B", border: "1px solid rgba(192,57,43,.4)" }} onClick={() => excluirOrigem(origenConfirmDel!)}>Remover</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Form nova origem */}
-                {origenEditIdx === -1 && (
-                  <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "16px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-                    <div style={{ fontSize: 12, color: "var(--tx3)", fontWeight: 600 }}>Nova origem</div>
-                    <input className="ef" placeholder="Ex: Instagram Abraão, Google Maps, Campanha de Verão..." value={origenEditNome} autoFocus onChange={e => setOrigenEditNome(e.target.value)} onKeyDown={e => { if (e.key === "Enter") salvarOrigem(origenEditNome.trim(), null, origenEditPago, origenEditPagina); if (e.key === "Escape") { setOrigenEditIdx(null); setOrigenEditNome(""); setOrigenEditPago(false); setOrigenEditPagina(""); } }} />
-                    <input className="ef" placeholder="Página destino (opcional) — ex: /abraao ou /camilla" value={origenEditPagina} onChange={e => setOrigenEditPagina(e.target.value)} />
-                    {origenEditNome.trim() && (
-                      <div style={{ fontSize: 11, color: "var(--tx3)" }}>Link: <span style={{ color: "var(--gold)", fontFamily: "monospace" }}>{siteBase + (origenEditPagina.trim() ? (origenEditPagina.trim().startsWith("/") ? origenEditPagina.trim() : "/" + origenEditPagina.trim()) : "") + "?origem=" + slugify(origenEditNome.trim())}</span></div>
-                    )}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <button onClick={() => setOrigenEditPago(p => !p)} style={{ background: origenEditPago ? "rgba(201,168,76,.15)" : "var(--dk3)", border: "1px solid " + (origenEditPago ? "var(--gold)" : "var(--br)"), borderRadius: 6, padding: "5px 12px", fontSize: 11, color: origenEditPago ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: origenEditPago ? 600 : 400 }}>
-                        {origenEditPago ? "💰 Pago" : "🌱 Orgânico"}
-                      </button>
-                      <div style={{ flex: 1 }} />
-                      <button className="btn-c" onClick={() => { setOrigenEditIdx(null); setOrigenEditNome(""); setOrigenEditPago(false); setOrigenEditPagina(""); }}>Cancelar</button>
-                      <button className="btn-s" onClick={() => salvarOrigem(origenEditNome.trim(), null, origenEditPago, origenEditPagina)}>Salvar</button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Lista de origens com métricas */}
-                {origensComMetrica.length === 0 && origenEditIdx !== -1 && (
-                  <div style={{ textAlign: "center", color: "var(--tx3)", fontSize: 13, padding: "40px 0" }}>Nenhuma origem cadastrada ainda. Clique em "+ Nova origem" para começar.</div>
-                )}
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {origensComMetrica.map((o, idx) => {
-                    const link = siteBase + (o.pagina ? (o.pagina.startsWith("/") ? o.pagina : "/" + o.pagina) : "") + "?origem=" + o.slug;
-                    const realIdx = origens.findIndex(x => x.id === o.id);
-                    const isEditing = origenEditIdx === realIdx;
-                    return (
-                      <div key={o.id} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px" }}>
-                        {isEditing ? (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            <input className="ef" value={origenEditNome} autoFocus onChange={e => setOrigenEditNome(e.target.value)} onKeyDown={e => { if (e.key === "Enter") salvarOrigem(origenEditNome.trim(), realIdx, origenEditPago, origenEditPagina); if (e.key === "Escape") { setOrigenEditIdx(null); setOrigenEditNome(""); setOrigenEditPago(false); setOrigenEditPagina(""); } }} />
-                            <input className="ef" placeholder="Página destino (opcional) — ex: /abraao ou /camilla" value={origenEditPagina} onChange={e => setOrigenEditPagina(e.target.value)} />
-                            {origenEditNome.trim() && (
-                              <div style={{ fontSize: 11, color: "var(--tx3)" }}>Link: <span style={{ color: "var(--gold)", fontFamily: "monospace" }}>{siteBase + (origenEditPagina.trim() ? (origenEditPagina.trim().startsWith("/") ? origenEditPagina.trim() : "/" + origenEditPagina.trim()) : "") + "?origem=" + slugify(origenEditNome.trim())}</span></div>
-                            )}
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <button onClick={() => setOrigenEditPago(p => !p)} style={{ background: origenEditPago ? "rgba(201,168,76,.15)" : "var(--dk3)", border: "1px solid " + (origenEditPago ? "var(--gold)" : "var(--br)"), borderRadius: 6, padding: "5px 12px", fontSize: 11, color: origenEditPago ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: origenEditPago ? 600 : 400 }}>
-                                {origenEditPago ? "💰 Pago" : "🌱 Orgânico"}
-                              </button>
-                              <div style={{ flex: 1 }} />
-                              <button className="btn-c" onClick={() => { setOrigenEditIdx(null); setOrigenEditNome(""); setOrigenEditPago(false); setOrigenEditPagina(""); }}>Cancelar</button>
-                              <button className="btn-s" onClick={() => salvarOrigem(origenEditNome.trim(), realIdx, origenEditPago, origenEditPagina)}>Salvar</button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                                  <span style={{ fontWeight: 600, fontSize: 14, color: "var(--tx)" }}>{o.nome}</span>
-                                  <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 10, background: o.pago ? "rgba(192,57,43,.15)" : "rgba(39,174,96,.15)", color: o.pago ? "#C0392B" : "#27AE60", border: "1px solid " + (o.pago ? "rgba(192,57,43,.3)" : "rgba(39,174,96,.3)") }}>
-                                    {o.pago ? "💰 Pago" : "🌱 Orgânico"}
-                                  </span>
-                                </div>
-                                <div style={{ fontSize: 11, color: "var(--tx3)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link}</div>
-                              </div>
-                              <button title="Copiar link" onClick={() => { try { navigator.clipboard.writeText(link); } catch {} }} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "var(--tx2)", flexShrink: 0 }}>📋</button>
-                              <button title="Editar" onClick={() => { setOrigenEditIdx(realIdx); setOrigenEditNome(o.nome); setOrigenEditPago(o.pago || false); setOrigenEditPagina(o.pagina || ""); }} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "var(--tx2)", flexShrink: 0 }}>✏️</button>
-                              <button title="Remover" onClick={() => setOrigenConfirmDel(realIdx)} style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "#C0392B", flexShrink: 0 }}>✕</button>
-                            </div>
-                            {/* Métricas da origem */}
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
-                              {[
-                                { label: "Lead Frio", val: o.frio, color: "#4A9EBF", icon: "🧊" },
-                                { label: "Lead Quente", val: o.quente, color: "#C0392B", icon: "🔥" },
-                                { label: "Conversão", val: o.conv + "%", color: "var(--gold)", icon: "📈" },
-                                { label: "Último evento", val: o.ultimo ? tempoRelativo(o.ultimo.criado_em) : "—", color: "var(--tx3)", icon: "⏱" },
-                              ].map((m, mi) => (
-                                <div key={mi} style={{ background: "var(--dk3)", borderRadius: 7, padding: "7px 9px" }}>
-                                  <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{m.icon} {m.label}</div>
-                                  <div style={{ fontSize: 14, fontWeight: 700, color: m.color, fontFamily: "'Cormorant Garamond',serif" }}>{m.val}</div>
-                                </div>
-                              ))}
-                            </div>
-                            {/* Barra de conversão */}
-                            {o.frio > 0 && (
-                              <div style={{ marginTop: 8, height: 4, background: "var(--dk4)", borderRadius: 2, overflow: "hidden" }}>
-                                <div style={{ height: "100%", width: Math.min(o.conv, 100) + "%", background: "linear-gradient(to right, #4A9EBF, #C0392B)", borderRadius: 2, transition: "width .4s" }} />
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
 
 
         {/* ── PRÉ/PÓS-VENDA ── */}
@@ -7639,14 +7431,11 @@ export default function CRM() {
 
           return (
             <div className="pvw">
-              {/* ── SUB-ABAS: Relacionamento / Disparos / Campanhas ── */}
-              <div style={{ display: "flex", gap: 3, padding: "0 0 2px", borderBottom: "1px solid var(--br)", marginBottom: 12 }}>
-                {([["relacionamento","💬 Relacionamento"],["disparos","📣 Disparos"],["campanhas","🎯 Campanhas"]] as [any,string][]).map(([id, lbl]) => (
+              {/* ── SUB-ABAS: Relacionamento / Disparos / Campanhas / Origens ── */}
+              <div style={{ display: "flex", borderBottom: "1px solid var(--br)", marginBottom: 12, overflowX: "auto", flexShrink: 0, WebkitOverflowScrolling: "touch" as any }}>
+                {([["relacionamento","💬 Relacionamento"],["disparos","📣 Disparos"],["campanhas","🎯 Campanhas"],["origens","🔗 Origens"]] as [any,string][]).map(([id, lbl]) => (
                   <button key={id} onClick={() => setPvSubTab(id)}
-                    style={{ padding: "7px 16px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", borderRadius: "6px 6px 0 0", fontFamily: "'DM Sans',sans-serif",
-                      background: pvSubTab === id ? "var(--gold-d)" : "var(--dk3)",
-                      color: pvSubTab === id ? "var(--gold)" : "var(--tx2)",
-                      borderBottom: pvSubTab === id ? "2px solid var(--gold)" : "2px solid transparent" }}>
+                    style={{ padding: "9px 14px", fontSize: 12, fontWeight: 500, color: pvSubTab === id ? "var(--gold)" : "var(--tx2)", background: "none", border: "none", borderBottom: pvSubTab === id ? "2px solid var(--gold)" : "2px solid transparent", cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'DM Sans',sans-serif" }}>
                     {lbl}
                   </button>
                 ))}
@@ -8197,6 +7986,213 @@ export default function CRM() {
             </div>
           );
         })()}
+        {/* ── ORIGENS ── */}
+        {tab === "posvenda" && pvSubTab === "origens" && (() => {
+          const siteBase = (studioSite || "https://seusite.com.br").replace(/\/$/, "");
+          const salvarOrigem = async (nome: string, idx: number | null, pago?: boolean, pagina?: string) => {
+            const sl = slugify(nome);
+            if (!sl) return;
+            const pg = pago ?? false;
+            const pag = (pagina || "").trim().replace(/^([^/])/, "/$1"); // garante barra inicial
+            try {
+              if (idx === null) {
+                const { data: nova } = await sb.from("origens").insert({ nome, slug: sl, pago: pg, pagina: pag, user_id: userId, criado_em: new Date().toISOString() }).select("*").single();
+                if (nova) setOrigens(prev => [...prev, nova]);
+              } else {
+                await sb.from("origens").update({ nome, slug: sl, pago: pg, pagina: pag }).eq("id", origens[idx].id);
+                setOrigens(prev => prev.map((o, i) => i === idx ? { ...o, nome, slug: sl, pago: pg, pagina: pag } : o));
+              }
+            } catch {}
+            setOrigenEditIdx(null);
+            setOrigenEditNome("");
+            setOrigenEditPago(false);
+            setOrigenEditPagina("");
+          };
+          const excluirOrigem = async (idx: number) => {
+            try {
+              await sb.from("origens").delete().eq("id", origens[idx].id);
+              setOrigens(prev => prev.filter((_, i) => i !== idx));
+            } catch {}
+            setOrigenConfirmDel(null);
+          };
+          const totalFrio = eventosTrafego.filter(e => e.tipo_evento === "LeadFrio").length;
+          const totalQuente = eventosTrafego.filter(e => e.tipo_evento === "LeadQuente").length;
+          const convGeral = totalFrio > 0 ? Math.round((totalQuente / totalFrio) * 100) : 0;
+          const tempoRelativo = (iso: string) => {
+            const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+            if (diff < 60) return "agora";
+            if (diff < 3600) return "há " + Math.floor(diff / 60) + "min";
+            if (diff < 86400) return "há " + Math.floor(diff / 3600) + "h";
+            return "há " + Math.floor(diff / 86400) + "d";
+          };
+          const origensComMetrica = origens.map(o => {
+            const frio = eventosTrafego.filter(e => e.tipo_evento === "LeadFrio" && e.origem === o.slug).length;
+            const quente = eventosTrafego.filter(e => e.tipo_evento === "LeadQuente" && e.origem === o.slug).length;
+            const conv = frio > 0 ? Math.round((quente / frio) * 100) : 0;
+            const ultimo = eventosTrafego.find(e => e.origem === o.slug);
+            return { ...o, frio, quente, conv, ultimo };
+          }).sort((a, b) => b.conv - a.conv);
+          return (
+              <div style={{ padding: "24px 16px", maxWidth: 740, margin: "0 auto" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🔗 Gerenciador de Origens</div>
+                  <button className="btn-s" onClick={() => { setOrigenEditIdx(-1); setOrigenEditNome(""); setOrigenEditPago(false); }}>+ Nova origem</button>
+                </div>
+
+                {/* Cards de resumo geral */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 20 }}>
+                  {[
+                    { label: "Origens", val: origens.length, icon: "🔗", color: "var(--tx2)" },
+                    { label: "Lead Frio", val: totalFrio, icon: "🧊", color: "#4A9EBF" },
+                    { label: "Lead Quente", val: totalQuente, icon: "🔥", color: "#C0392B" },
+                    { label: "Conversão", val: convGeral + "%", icon: "📈", color: "var(--gold)" },
+                  ].map((c, i) => (
+                    <div key={i} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 9, padding: "12px 14px" }}>
+                      <div style={{ fontSize: 16 }}>{c.icon}</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: c.color, fontFamily: "'Cormorant Garamond',serif", marginTop: 4 }}>{c.val}</div>
+                      <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em", marginTop: 2 }}>{c.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Funil consolidado */}
+                {(totalFrio > 0 || totalQuente > 0) && (
+                  <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 18px", marginBottom: 20 }}>
+                    <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12 }}>Funil consolidado</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                      {[
+                        { label: "Lead Frio", val: totalFrio, icon: "🧊", color: "#4A9EBF", w: 100 },
+                        { label: "Lead Quente", val: totalQuente, icon: "🔥", color: "#C0392B", w: totalFrio > 0 ? Math.max(20, Math.round((totalQuente / totalFrio) * 100)) : 0 },
+                      ].map((f, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+                          {i > 0 && <div style={{ color: "var(--tx3)", fontSize: 14, flexShrink: 0 }}>→</div>}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                              <span style={{ fontSize: 11, color: "var(--tx2)" }}>{f.icon} {f.label}</span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: f.color }}>{f.val}</span>
+                            </div>
+                            <div style={{ height: 6, background: "var(--dk4)", borderRadius: 3, overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: f.w + "%", background: f.color, borderRadius: 3, transition: "width .4s" }} />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!studioSite && (
+                  <div style={{ background: "rgba(212,130,10,.12)", border: "1px solid rgba(212,130,10,.3)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--gold)", marginBottom: 16 }}>
+                    ⚠ Configure o URL do site em <strong>Configurações → Estúdio → Site</strong> para gerar os links corretamente.
+                  </div>
+                )}
+
+                {/* Modal confirmação exclusão */}
+                {origenConfirmDel !== null && (
+                  <div className="ov" style={{ zIndex: 9999 }} onClick={() => setOrigenConfirmDel(null)}>
+                    <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(360px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>Remover origem?</div>
+                      <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>Esta ação não pode ser desfeita. Deseja remover esta origem?</div>
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                        <button className="btn-c" onClick={() => setOrigenConfirmDel(null)}>Cancelar</button>
+                        <button className="btn-s" style={{ background: "rgba(192,57,43,.18)", color: "#C0392B", border: "1px solid rgba(192,57,43,.4)" }} onClick={() => excluirOrigem(origenConfirmDel!)}>Remover</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Form nova origem */}
+                {origenEditIdx === -1 && (
+                  <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "16px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ fontSize: 12, color: "var(--tx3)", fontWeight: 600 }}>Nova origem</div>
+                    <input className="ef" placeholder="Ex: Instagram Abraão, Google Maps, Campanha de Verão..." value={origenEditNome} autoFocus onChange={e => setOrigenEditNome(e.target.value)} onKeyDown={e => { if (e.key === "Enter") salvarOrigem(origenEditNome.trim(), null, origenEditPago, origenEditPagina); if (e.key === "Escape") { setOrigenEditIdx(null); setOrigenEditNome(""); setOrigenEditPago(false); setOrigenEditPagina(""); } }} />
+                    <input className="ef" placeholder="Página destino (opcional) — ex: /abraao ou /camilla" value={origenEditPagina} onChange={e => setOrigenEditPagina(e.target.value)} />
+                    {origenEditNome.trim() && (
+                      <div style={{ fontSize: 11, color: "var(--tx3)" }}>Link: <span style={{ color: "var(--gold)", fontFamily: "monospace" }}>{siteBase + (origenEditPagina.trim() ? (origenEditPagina.trim().startsWith("/") ? origenEditPagina.trim() : "/" + origenEditPagina.trim()) : "") + "?origem=" + slugify(origenEditNome.trim())}</span></div>
+                    )}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button onClick={() => setOrigenEditPago(p => !p)} style={{ background: origenEditPago ? "rgba(201,168,76,.15)" : "var(--dk3)", border: "1px solid " + (origenEditPago ? "var(--gold)" : "var(--br)"), borderRadius: 6, padding: "5px 12px", fontSize: 11, color: origenEditPago ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: origenEditPago ? 600 : 400 }}>
+                        {origenEditPago ? "💰 Pago" : "🌱 Orgânico"}
+                      </button>
+                      <div style={{ flex: 1 }} />
+                      <button className="btn-c" onClick={() => { setOrigenEditIdx(null); setOrigenEditNome(""); setOrigenEditPago(false); setOrigenEditPagina(""); }}>Cancelar</button>
+                      <button className="btn-s" onClick={() => salvarOrigem(origenEditNome.trim(), null, origenEditPago, origenEditPagina)}>Salvar</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista de origens com métricas */}
+                {origensComMetrica.length === 0 && origenEditIdx !== -1 && (
+                  <div style={{ textAlign: "center", color: "var(--tx3)", fontSize: 13, padding: "40px 0" }}>Nenhuma origem cadastrada ainda. Clique em "+ Nova origem" para começar.</div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {origensComMetrica.map((o, idx) => {
+                    const link = siteBase + (o.pagina ? (o.pagina.startsWith("/") ? o.pagina : "/" + o.pagina) : "") + "?origem=" + o.slug;
+                    const realIdx = origens.findIndex(x => x.id === o.id);
+                    const isEditing = origenEditIdx === realIdx;
+                    return (
+                      <div key={o.id} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px" }}>
+                        {isEditing ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            <input className="ef" value={origenEditNome} autoFocus onChange={e => setOrigenEditNome(e.target.value)} onKeyDown={e => { if (e.key === "Enter") salvarOrigem(origenEditNome.trim(), realIdx, origenEditPago, origenEditPagina); if (e.key === "Escape") { setOrigenEditIdx(null); setOrigenEditNome(""); setOrigenEditPago(false); setOrigenEditPagina(""); } }} />
+                            <input className="ef" placeholder="Página destino (opcional) — ex: /abraao ou /camilla" value={origenEditPagina} onChange={e => setOrigenEditPagina(e.target.value)} />
+                            {origenEditNome.trim() && (
+                              <div style={{ fontSize: 11, color: "var(--tx3)" }}>Link: <span style={{ color: "var(--gold)", fontFamily: "monospace" }}>{siteBase + (origenEditPagina.trim() ? (origenEditPagina.trim().startsWith("/") ? origenEditPagina.trim() : "/" + origenEditPagina.trim()) : "") + "?origem=" + slugify(origenEditNome.trim())}</span></div>
+                            )}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <button onClick={() => setOrigenEditPago(p => !p)} style={{ background: origenEditPago ? "rgba(201,168,76,.15)" : "var(--dk3)", border: "1px solid " + (origenEditPago ? "var(--gold)" : "var(--br)"), borderRadius: 6, padding: "5px 12px", fontSize: 11, color: origenEditPago ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: origenEditPago ? 600 : 400 }}>
+                                {origenEditPago ? "💰 Pago" : "🌱 Orgânico"}
+                              </button>
+                              <div style={{ flex: 1 }} />
+                              <button className="btn-c" onClick={() => { setOrigenEditIdx(null); setOrigenEditNome(""); setOrigenEditPago(false); setOrigenEditPagina(""); }}>Cancelar</button>
+                              <button className="btn-s" onClick={() => salvarOrigem(origenEditNome.trim(), realIdx, origenEditPago, origenEditPagina)}>Salvar</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                                  <span style={{ fontWeight: 600, fontSize: 14, color: "var(--tx)" }}>{o.nome}</span>
+                                  <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 10, background: o.pago ? "rgba(192,57,43,.15)" : "rgba(39,174,96,.15)", color: o.pago ? "#C0392B" : "#27AE60", border: "1px solid " + (o.pago ? "rgba(192,57,43,.3)" : "rgba(39,174,96,.3)") }}>
+                                    {o.pago ? "💰 Pago" : "🌱 Orgânico"}
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: 11, color: "var(--tx3)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link}</div>
+                              </div>
+                              <button title="Copiar link" onClick={() => { try { navigator.clipboard.writeText(link); } catch {} }} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "var(--tx2)", flexShrink: 0 }}>📋</button>
+                              <button title="Editar" onClick={() => { setOrigenEditIdx(realIdx); setOrigenEditNome(o.nome); setOrigenEditPago(o.pago || false); setOrigenEditPagina(o.pagina || ""); }} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "var(--tx2)", flexShrink: 0 }}>✏️</button>
+                              <button title="Remover" onClick={() => setOrigenConfirmDel(realIdx)} style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "#C0392B", flexShrink: 0 }}>✕</button>
+                            </div>
+                            {/* Métricas da origem */}
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+                              {[
+                                { label: "Lead Frio", val: o.frio, color: "#4A9EBF", icon: "🧊" },
+                                { label: "Lead Quente", val: o.quente, color: "#C0392B", icon: "🔥" },
+                                { label: "Conversão", val: o.conv + "%", color: "var(--gold)", icon: "📈" },
+                                { label: "Último evento", val: o.ultimo ? tempoRelativo(o.ultimo.criado_em) : "—", color: "var(--tx3)", icon: "⏱" },
+                              ].map((m, mi) => (
+                                <div key={mi} style={{ background: "var(--dk3)", borderRadius: 7, padding: "7px 9px" }}>
+                                  <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{m.icon} {m.label}</div>
+                                  <div style={{ fontSize: 14, fontWeight: 700, color: m.color, fontFamily: "'Cormorant Garamond',serif" }}>{m.val}</div>
+                                </div>
+                              ))}
+                            </div>
+                            {/* Barra de conversão */}
+                            {o.frio > 0 && (
+                              <div style={{ marginTop: 8, height: 4, background: "var(--dk4)", borderRadius: 2, overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: Math.min(o.conv, 100) + "%", background: "linear-gradient(to right, #4A9EBF, #C0392B)", borderRadius: 2, transition: "width .4s" }} />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         {/* ── DISPAROS ── */}
         {tab === "posvenda" && pvSubTab === "disparos" && (
           <div style={{ flex: 1, padding: "16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, maxWidth: 780, width: "100%", animation: "fadeIn .15s ease" }}>
