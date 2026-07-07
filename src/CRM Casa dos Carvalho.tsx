@@ -10010,6 +10010,339 @@ export default function CRM() {
                           </div>
                         ))}
                       </div>
+                <div>
+                  <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>Detalhes Operacionais</span>
+                    <button onClick={() => setFichaRevelada(p => { const n = new Set(p); n.has(sc.id) ? n.delete(sc.id) : n.add(sc.id); return n; })}
+                      style={{ fontSize: 11, background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "3px 9px", color: fichaRevelada.has(sc.id) ? "var(--gold)" : "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                      {fichaRevelada.has(sc.id) ? "👁 Ocultar detalhes" : "👁 Ver detalhes"}
+                    </button>
+                  </div>
+                  {!fichaRevelada.has(sc.id) ? (
+                    <div style={{ padding: "14px 0", fontSize: 12, color: "var(--tx3)", fontStyle: "italic", textAlign: "center" }}>
+                      Detalhes ocultos — clique em "Ver detalhes" para revelar checklist, confirmações, agendamentos e avaliações
+                    </div>
+                  ) : (
+                  <>
+                {/* CHECKLIST DE SESSÃO */}
+                {["sessao_agend","tatuado"].includes(sc.etapa) && (() => {
+                  const temSinal = fin.some((f: any) => f.cliente_id === sc.id && f.pgto === "Sinal");
+                  const temValor = (sc.projetos || []).some((p: any) => p.valorTotal > 0);
+                  const checks = [
+                    { l: "Contrato enviado e confirmado", ok: !!sc.contrato },
+                    { l: "Sinal recebido", ok: temSinal },
+                    { l: "Valor do projeto registrado", ok: temValor },
+                  ];
+                  const okCount = checks.filter(c => c.ok).length;
+                  const allOk = okCount === checks.length;
+                  return (
+                    <div>
+                      <div className="stit">✅ Checklist de Sessão</div>
+                      <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px" }}>
+                        <div style={{ fontSize: 11, color: allOk ? "#27AE60" : "var(--tx2)", marginBottom: 8, fontWeight: 600 }}>{okCount}/{checks.length} itens concluídos{allOk ? " ✅" : ""}</div>
+                        {checks.map((c, i) => (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, marginBottom: 6 }}>
+                            <span style={{ fontSize: 14, flexShrink: 0 }}>{c.ok ? "✅" : "⬜"}</span>
+                            <span style={{ color: c.ok ? "var(--tx2)" : "var(--tx)", textDecoration: c.ok ? "line-through" : "none" }}>{c.l}</span>
+                          </div>
+                        ))}
+                        {!allOk && <div style={{ marginTop: 6, fontSize: 11, color: "var(--q2)", background: "rgba(212,130,10,.08)", borderRadius: 6, padding: "6px 10px" }}>⚠️ Faltam: {checks.filter(c => !c.ok).map(c => c.l).join(", ")}</div>}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* LINK DE CONFIRMAÇÃO DE PRESENÇA */}
+                {sc.etapa === "sessao_agend" && (() => {
+                  const cp = (sc as any).confirmacao_presenca;
+                  const evFuturo = agEvents.find(e => e.cliente_id === sc.id && e.status !== "concluido" && e.date && new Date(e.date + "T23:59:00") >= new Date());
+                  const gerarLink = async () => {
+                    const token = crypto.randomUUID();
+                    const dataBase = evFuturo?.date ? new Date(evFuturo.date + "T23:59:00") : new Date();
+                    dataBase.setDate(dataBase.getDate() + 1);
+                    const exp = dataBase.toISOString();
+                    await sb.from("clientes").update({ confirmacao_token: token, confirmacao_token_exp: exp, confirmacao_evento_id: evFuturo?.id || null, confirmacao_presenca: null }).eq("id", sc.id);
+                    upCFicha(sc.id, "confirmacao_token", token);
+                    upCFicha(sc.id, "confirmacao_token_exp", exp);
+                    upCFicha(sc.id, "confirmacao_presenca", null);
+                    const link = `${window.location.origin}/confirmar.html?token=${token}`;
+                    try { await navigator.clipboard.writeText(link); } catch {}
+                    const telCliente = ((sc as any).tel || "").replace(/\D/g, "");
+                    const telWa = telCliente.startsWith("55") ? telCliente : "55" + telCliente;
+                    const msg = `Olá! Confirme sua presença na sua sessão${evFuturo?.date ? " do dia " + new Date(evFuturo.date + "T12:00:00").toLocaleDateString("pt-BR") : ""}: ${link}`;
+                    if (telCliente.length >= 10) window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(msg)}`, "_blank");
+                    else { alert("Link copiado!\n" + link); }
+                  };
+                  return (
+                    <div>
+                      <div className="stit">🔗 Confirmação de Presença</div>
+                      <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                        {cp === "confirmado" && <div style={{ fontSize: 12, color: "#27AE60", fontWeight: 600 }}>✅ Cliente confirmou presença</div>}
+                        {cp === "precisa_remarcar" && <div style={{ fontSize: 12, color: "#E74C3C", fontWeight: 600 }}>❌ Cliente sinalizou que precisa remarcar</div>}
+                        {!cp && <div style={{ fontSize: 11, color: "var(--tx3)" }}>Nenhuma confirmação recebida ainda.</div>}
+                        <button onClick={gerarLink} style={{ fontSize: 12, background: "rgba(74,158,191,.12)", border: "1px solid rgba(74,158,191,.4)", borderRadius: 7, padding: "8px 14px", color: "#4A9EBF", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", textAlign: "left" }}>
+                          🔗 Gerar novo link de confirmação{(sc as any).tel ? " e enviar no WhatsApp" : " (copiar)"}
+                        </button>
+                        <div style={{ fontSize: 10, color: "var(--tx3)" }}>
+                          {evFuturo ? `Expira em: ${new Date(evFuturo.date + "T23:59:00").toLocaleDateString("pt-BR")} (dia seguinte ao evento)` : "Expira em 2 dias (sem evento futuro encontrado)"}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* MENSAGENS AUTOMÁTICAS ENVIADAS */}
+                {(() => {
+                  const disparos = (sc as any).disparos_enviados || {};
+                  const LABELS: [string, string][] = [
+                    ["__confirmacao_d1__", "Lembrete D-1 de sessão/consulta"],
+                    ["__sms_d0__", "SMS do dia da sessão/consulta"],
+                    ["__avaliacao_google__", "Avaliação Google"],
+                    ["__aguard_prox_sessao_d60__", "Recontato D+60 (aguardando próxima sessão)"],
+                    ["__precisa_remarcar_email__", "E-mail — Precisa Remarcar"],
+                    ["__aguard_1a_sessao_bv__", "Boas-vindas — Aguardando 1ª Sessão"],
+                    ["__aguard_1a_sessao_d30__", "Recontato D+30 (aguardando 1ª sessão)"],
+                  ];
+                  const itens = Object.entries(disparos)
+                    .map(([chave, ts]) => {
+                      const encontrado = LABELS.find(([prefixo]) => chave.startsWith(prefixo));
+                      const label = encontrado ? encontrado[1] : (chave.startsWith("fluxo__") ? "Fluxo personalizado" : chave);
+                      return { chave, label, ts: ts as string };
+                    })
+                    .sort((a, b) => (a.ts > b.ts ? -1 : 1));
+                  return (
+                    <div>
+                      <div className="stit">📨 Mensagens Automáticas</div>
+                      <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                        {itens.length === 0 && <div style={{ fontSize: 11, color: "var(--tx3)" }}>Nenhuma mensagem automática enviada ainda.</div>}
+                        {itens.map(item => (
+                          <div key={item.chave} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 11 }}>
+                            <span style={{ color: "var(--tx)" }}>✓ {item.label}</span>
+                            <span style={{ color: "var(--tx3)", fontSize: 10, whiteSpace: "nowrap" }}>
+                              {new Date(item.ts).toLocaleDateString("pt-BR")} {new Date(item.ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* AGENDAMENTOS DO CLIENTE */}
+                {(() => {
+                  const evsCli = agEvents.filter(e => e.cliente_id === sc.id);
+                  if (evsCli.length === 0) return null;
+                  return (
+                    <div>
+                      <div className="stit">📅 Agendamentos</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {[...evsCli].sort((a, b) => a.date > b.date ? -1 : 1).map(e => (
+                          <div key={e.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>{(() => { try { const [y,m,d] = e.date.split("-"); return `${["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][new Date(e.date).getDay()]}, ${d} de ${["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][parseInt(m)-1]}`; } catch { return e.date; } })()}</div>
+                              <div style={{ fontSize: 11, color: "var(--tx2)" }}>{String(e.start).padStart(2,"0")}h — {getEventLabel(e.tipo, artists)}{e.artista && !e.tipo?.startsWith("bloq") ? " · " + aName(e.artista).split(" ")[0] : ""}</div>
+                            </div>
+                            <div style={{ width: 10, height: 10, borderRadius: "50%", background: getEventColor(e.tipo, artists, e.artista), flexShrink: 0 }} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {(() => {
+                  const hoje0m = new Date(); hoje0m.setHours(0,0,0,0);
+                  const sessCli2 = agEvents.filter((e: any) => e.cliente_id === sc.id && !e.tipo?.startsWith("bloq") && !e.tipo?.startsWith("cons"));
+                  const totalSess = sessCli2.length;
+                  if (totalSess < 1) return null;
+                  const concl = sessCli2.filter((e: any) => e.status === "concluido").length;
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--tx2)", margin: "6px 0" }}>
+                      {sessCli2.slice(0, 5).map((e: any, i: number) => {
+                        const dEv2 = e.date ? new Date(e.date + "T12:00:00") : null;
+                        const isConc = e.status === "concluido";
+                        const isFut = dEv2 && dEv2 >= hoje0m;
+                        return (
+                          <div key={e.id || i} style={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
+                            background: isConc ? "#27AE60" : isFut ? "var(--gold)" : "var(--dk5)",
+                            border: isConc || isFut ? "none" : "1px solid var(--br)" }} />
+                        );
+                      })}
+                      {totalSess > 5 && <span>...</span>}
+                      <span>{concl} de {totalSess} sess{totalSess !== 1 ? "ões" : "ão"}</span>
+                    </div>
+                  );
+                })()}
+                  {/* Sua avaliação sobre o cliente */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>Sua avaliação sobre o cliente</div>
+                    <div className="fi2">
+                      <div className="fil">Nota do profissional (1 a 5 estrelas)</div>
+                      <div className="stars" style={{ marginTop: 4 }}>
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <span key={n} className="star" style={{ opacity: n <= (sc.stars || 0) ? 1 : .25 }} onClick={() => setStars(sc.id, n)}>⭐</span>
+                        ))}
+                      </div>
+                      {sc.starReason && <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 3, fontStyle: "italic" }}>{sc.starReason}</div>}
+                    </div>
+                  </div>
+                  {/* Avaliação do cliente sobre o estúdio */}
+                  <div style={{ borderTop: "1px solid var(--br)", paddingTop: 10, marginBottom: 7 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>Avaliação do cliente sobre nós</div>
+                    <div className="fi2">
+                      <div className="fil">Nota (0 a 10) — preenchida pelo próprio cliente via e-mail</div>
+                      {sc.nps != null
+                        ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                            <div style={{ fontSize: 22, fontWeight: 700, color: sc.nps >= 7 ? "var(--q3)" : sc.nps >= 5 ? "var(--gold)" : "var(--q1)", fontFamily: "'Cormorant Garamond',serif" }}>
+                              {sc.nps}<span style={{ fontSize: 13, color: "var(--tx3)", fontWeight: 400 }}>/10</span>
+                            </div>
+                            <div style={{ display: "flex", gap: 3 }}>
+                              {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
+                                <div key={n} style={{ width: 18, height: 18, borderRadius: 3, fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
+                                  background: n === sc.nps ? (sc.nps >= 7 ? "rgba(39,174,96,.3)" : sc.nps >= 5 ? "rgba(201,168,76,.3)" : "rgba(192,57,43,.3)") : "var(--dk4)",
+                                  color: n === sc.nps ? (sc.nps >= 7 ? "var(--q3)" : sc.nps >= 5 ? "var(--gold)" : "var(--q1)") : "var(--tx3)",
+                                  border: n === sc.nps ? "1px solid currentColor" : "1px solid var(--br)"
+                                }}>{n}</div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                        : <div style={{ marginTop: 5, fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>Aguardando resposta do cliente via e-mail</div>
+                      }
+                    </div>
+                  </div>
+                  <div className="fi2" style={{ marginTop: 7 }}>
+                    <div className="fil">Consentimento de Uso de Imagem</div>
+                    <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
+                      <button className={"cb" + (sc.consent === true ? " yes" : "")} onClick={() => upC(sc.id, "consent", true)}>✓ Autorizado</button>
+                      <button className={"cb" + (sc.consent === false ? " no" : "")} onClick={() => upC(sc.id, "consent", false)}>✕ Nao autorizado</button>
+                      {sc.consent === null && <span style={{ fontSize: 11, color: "var(--tx3)", alignSelf: "center" }}>Nao informado</span>}
+                    </div>
+                  </div>
+                  {(() => {
+                    const st = (sc as any).avaliacao_fluxo_status;
+                    const comentario = (sc as any).avaliacao_comentario;
+                    const negativa = st === "negativa";
+                    const stLabel: Record<string, string> = {
+                      aguardando: "Aguardando resposta do cliente",
+                      negativa:   "🔴 Avaliação negativa — requer contato",
+                      positiva:   "💚 Avaliação positiva — aguardando convite Google",
+                      google_sim: "💚 Convidado para Google — respondeu Sim",
+                      google_nao: "Convidado para Google — respondeu Não",
+                    };
+                    const stColor: Record<string, string> = {
+                      aguardando: "var(--q2)",
+                      negativa:   "var(--q1)",
+                      positiva:   "var(--q3)",
+                      google_sim: "var(--q3)",
+                      google_nao: "var(--tx3)",
+                    };
+                    return (
+                      <div className="fi2" style={{ marginTop: 7 }}>
+                        <div className="fil">Fluxo de Avaliação NPS</div>
+                        {st ? (
+                          <div style={{ marginTop: 4, fontSize: 12, fontWeight: 600, color: stColor[st] || "var(--tx2)" }}>
+                            {stLabel[st] || st}
+                          </div>
+                        ) : (
+                          <div style={{ marginTop: 4, fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>
+                            Fluxo ainda não iniciado — será disparado D+1 após entrada em Pós-venda
+                          </div>
+                        )}
+                        {comentario && (
+                          <>
+                            {negativa && (
+                              <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.4)", borderRadius: 6, fontSize: 11, color: "var(--q1)", fontWeight: 600 }}>
+                                Avaliação negativa — considere ligar para entender o que aconteceu
+                              </div>
+                            )}
+                            <div style={{
+                              marginTop: 6, fontSize: 11, color: "var(--tx2)",
+                              background: negativa ? "rgba(192,57,43,.07)" : "var(--dk4)",
+                              border: "1px solid " + (negativa ? "rgba(192,57,43,.3)" : "var(--br)"),
+                              borderRadius: 5, padding: "7px 10px", lineHeight: 1.6, fontStyle: "italic"
+                            }}>
+                              "{comentario}"
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {(sc.faltas || 0) > 0 && (
+                    <div className="fi2" style={{ marginTop: 7 }}>
+                      <div className="fil">Faltas registradas</div>
+                      <div style={{
+                        marginTop: 5, display: "inline-flex", alignItems: "center", gap: 6,
+                        padding: "5px 12px", borderRadius: 6, fontSize: 13, fontWeight: 700,
+                        background: (sc.faltas||0) >= 3 ? "rgba(192,57,43,.15)" : (sc.faltas||0) === 2 ? "rgba(230,126,34,.12)" : "rgba(201,168,76,.1)",
+                        border: "1px solid " + ((sc.faltas||0) >= 3 ? "rgba(192,57,43,.4)" : (sc.faltas||0) === 2 ? "rgba(230,126,34,.35)" : "rgba(201,168,76,.35)"),
+                        color: (sc.faltas||0) >= 3 ? "var(--q1)" : (sc.faltas||0) === 2 ? "#E67E22" : "var(--gold)"
+                      }}>
+                        ⊘ {sc.faltas} {sc.faltas === 1 ? "falta" : "faltas"}
+                      </div>
+                    </div>
+                  )}
+                  <div className="fi2" style={{ marginTop: 7 }}>
+                    <div className="fil">Observações Internas</div>
+                    <textarea value={sc.obs} onChange={e => upCLocal(sc.id, "obs", e.target.value)}
+                      onBlur={e => upC(sc.id, "obs", e.target.value)}
+                      style={{ width: "100%", minHeight: 50, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "6px 8px", fontSize: 11, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", outline: "none", resize: "vertical", marginTop: 3 }}
+                      placeholder="Anotações privadas..." />
+                  </div>
+                  {/* HISTÓRICO DE CONVERSA COM A AURA */}
+                  {(() => {
+                    const chatLog: any[] = (sc as any).aura_chat_log || [];
+                    if (chatLog.length === 0) return null;
+                    const AuraChatLog = () => {
+                      const [sessaoAberta, setSessaoAberta] = useState<number | null>(chatLog.length - 1);
+                      return (
+                        <div className="fi2" style={{ marginTop: 7 }}>
+                          <div className="fil">✦ Conversa com a Aura</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+                            {chatLog.map((sessao: any, si: number) => {
+                              const dataLabel = sessao.data ? new Date(sessao.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Sessão " + (si + 1);
+                              const aberta = sessaoAberta === si;
+                              const msgs: any[] = (sessao.mensagens || []).filter((m: any) => m.role === "user" || m.role === "assistant");
+                              return (
+                                <div key={si} style={{ border: "1px solid var(--br)", borderRadius: 8, overflow: "hidden" }}>
+                                  <div onClick={() => setSessaoAberta(aberta ? null : si)}
+                                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", cursor: "pointer", background: aberta ? "var(--dk3)" : "transparent", userSelect: "none" }}>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)" }}>{dataLabel}</span>
+                                    <span style={{ fontSize: 10, color: "var(--tx3)" }}>{msgs.length} msgs {aberta ? "▲" : "▼"}</span>
+                                  </div>
+                                  {aberta && (
+                                    <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8, maxHeight: 400, overflowY: "auto" }}>
+                                      {msgs.map((m: any, mi: number) => {
+                                        const isUser = m.role === "user";
+                                        const texto = Array.isArray(m.content)
+                                          ? m.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join(" ")
+                                          : (typeof m.content === "string" ? m.content : "");
+                                        if (!texto.trim()) return null;
+                                        return (
+                                          <div key={mi} style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start" }}>
+                                            <div style={{ maxWidth: "82%", background: isUser ? "rgba(201,168,76,.15)" : "var(--dk3)", border: "1px solid " + (isUser ? "rgba(201,168,76,.3)" : "var(--br)"), borderRadius: isUser ? "12px 12px 2px 12px" : "12px 12px 12px 2px", padding: "7px 11px", fontSize: 12, color: "var(--tx)", lineHeight: 1.5 }}>
+                                              {!isUser && <div style={{ fontSize: 10, color: "var(--gold)", fontWeight: 700, marginBottom: 3 }}>✦ Aura</div>}
+                                              {texto}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    };
+                    return <AuraChatLog />;
+                  })()}
+                  </>
+                  )}
+                </div>
                     </div>
                   );
                 })()}
@@ -10675,155 +11008,6 @@ export default function CRM() {
                   );
                 })()}
 
-                {/* CHECKLIST DE SESSÃO */}
-                {["sessao_agend","tatuado"].includes(sc.etapa) && (() => {
-                  const temSinal = fin.some((f: any) => f.cliente_id === sc.id && f.pgto === "Sinal");
-                  const temValor = (sc.projetos || []).some((p: any) => p.valorTotal > 0);
-                  const checks = [
-                    { l: "Contrato enviado e confirmado", ok: !!sc.contrato },
-                    { l: "Sinal recebido", ok: temSinal },
-                    { l: "Valor do projeto registrado", ok: temValor },
-                  ];
-                  const okCount = checks.filter(c => c.ok).length;
-                  const allOk = okCount === checks.length;
-                  return (
-                    <div>
-                      <div className="stit">✅ Checklist de Sessão</div>
-                      <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px" }}>
-                        <div style={{ fontSize: 11, color: allOk ? "#27AE60" : "var(--tx2)", marginBottom: 8, fontWeight: 600 }}>{okCount}/{checks.length} itens concluídos{allOk ? " ✅" : ""}</div>
-                        {checks.map((c, i) => (
-                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, marginBottom: 6 }}>
-                            <span style={{ fontSize: 14, flexShrink: 0 }}>{c.ok ? "✅" : "⬜"}</span>
-                            <span style={{ color: c.ok ? "var(--tx2)" : "var(--tx)", textDecoration: c.ok ? "line-through" : "none" }}>{c.l}</span>
-                          </div>
-                        ))}
-                        {!allOk && <div style={{ marginTop: 6, fontSize: 11, color: "var(--q2)", background: "rgba(212,130,10,.08)", borderRadius: 6, padding: "6px 10px" }}>⚠️ Faltam: {checks.filter(c => !c.ok).map(c => c.l).join(", ")}</div>}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* LINK DE CONFIRMAÇÃO DE PRESENÇA */}
-                {sc.etapa === "sessao_agend" && (() => {
-                  const cp = (sc as any).confirmacao_presenca;
-                  const evFuturo = agEvents.find(e => e.cliente_id === sc.id && e.status !== "concluido" && e.date && new Date(e.date + "T23:59:00") >= new Date());
-                  const gerarLink = async () => {
-                    const token = crypto.randomUUID();
-                    const dataBase = evFuturo?.date ? new Date(evFuturo.date + "T23:59:00") : new Date();
-                    dataBase.setDate(dataBase.getDate() + 1);
-                    const exp = dataBase.toISOString();
-                    await sb.from("clientes").update({ confirmacao_token: token, confirmacao_token_exp: exp, confirmacao_evento_id: evFuturo?.id || null, confirmacao_presenca: null }).eq("id", sc.id);
-                    upCFicha(sc.id, "confirmacao_token", token);
-                    upCFicha(sc.id, "confirmacao_token_exp", exp);
-                    upCFicha(sc.id, "confirmacao_presenca", null);
-                    const link = `${window.location.origin}/confirmar.html?token=${token}`;
-                    try { await navigator.clipboard.writeText(link); } catch {}
-                    const telCliente = ((sc as any).tel || "").replace(/\D/g, "");
-                    const telWa = telCliente.startsWith("55") ? telCliente : "55" + telCliente;
-                    const msg = `Olá! Confirme sua presença na sua sessão${evFuturo?.date ? " do dia " + new Date(evFuturo.date + "T12:00:00").toLocaleDateString("pt-BR") : ""}: ${link}`;
-                    if (telCliente.length >= 10) window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(msg)}`, "_blank");
-                    else { alert("Link copiado!\n" + link); }
-                  };
-                  return (
-                    <div>
-                      <div className="stit">🔗 Confirmação de Presença</div>
-                      <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-                        {cp === "confirmado" && <div style={{ fontSize: 12, color: "#27AE60", fontWeight: 600 }}>✅ Cliente confirmou presença</div>}
-                        {cp === "precisa_remarcar" && <div style={{ fontSize: 12, color: "#E74C3C", fontWeight: 600 }}>❌ Cliente sinalizou que precisa remarcar</div>}
-                        {!cp && <div style={{ fontSize: 11, color: "var(--tx3)" }}>Nenhuma confirmação recebida ainda.</div>}
-                        <button onClick={gerarLink} style={{ fontSize: 12, background: "rgba(74,158,191,.12)", border: "1px solid rgba(74,158,191,.4)", borderRadius: 7, padding: "8px 14px", color: "#4A9EBF", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", textAlign: "left" }}>
-                          🔗 Gerar novo link de confirmação{(sc as any).tel ? " e enviar no WhatsApp" : " (copiar)"}
-                        </button>
-                        <div style={{ fontSize: 10, color: "var(--tx3)" }}>
-                          {evFuturo ? `Expira em: ${new Date(evFuturo.date + "T23:59:00").toLocaleDateString("pt-BR")} (dia seguinte ao evento)` : "Expira em 2 dias (sem evento futuro encontrado)"}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* MENSAGENS AUTOMÁTICAS ENVIADAS */}
-                {(() => {
-                  const disparos = (sc as any).disparos_enviados || {};
-                  const LABELS: [string, string][] = [
-                    ["__confirmacao_d1__", "Lembrete D-1 de sessão/consulta"],
-                    ["__sms_d0__", "SMS do dia da sessão/consulta"],
-                    ["__avaliacao_google__", "Avaliação Google"],
-                    ["__aguard_prox_sessao_d60__", "Recontato D+60 (aguardando próxima sessão)"],
-                    ["__precisa_remarcar_email__", "E-mail — Precisa Remarcar"],
-                    ["__aguard_1a_sessao_bv__", "Boas-vindas — Aguardando 1ª Sessão"],
-                    ["__aguard_1a_sessao_d30__", "Recontato D+30 (aguardando 1ª sessão)"],
-                  ];
-                  const itens = Object.entries(disparos)
-                    .map(([chave, ts]) => {
-                      const encontrado = LABELS.find(([prefixo]) => chave.startsWith(prefixo));
-                      const label = encontrado ? encontrado[1] : (chave.startsWith("fluxo__") ? "Fluxo personalizado" : chave);
-                      return { chave, label, ts: ts as string };
-                    })
-                    .sort((a, b) => (a.ts > b.ts ? -1 : 1));
-                  return (
-                    <div>
-                      <div className="stit">📨 Mensagens Automáticas</div>
-                      <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-                        {itens.length === 0 && <div style={{ fontSize: 11, color: "var(--tx3)" }}>Nenhuma mensagem automática enviada ainda.</div>}
-                        {itens.map(item => (
-                          <div key={item.chave} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 11 }}>
-                            <span style={{ color: "var(--tx)" }}>✓ {item.label}</span>
-                            <span style={{ color: "var(--tx3)", fontSize: 10, whiteSpace: "nowrap" }}>
-                              {new Date(item.ts).toLocaleDateString("pt-BR")} {new Date(item.ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* AGENDAMENTOS DO CLIENTE */}
-                {(() => {
-                  const evsCli = agEvents.filter(e => e.cliente_id === sc.id);
-                  if (evsCli.length === 0) return null;
-                  return (
-                    <div>
-                      <div className="stit">📅 Agendamentos</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                        {[...evsCli].sort((a, b) => a.date > b.date ? -1 : 1).map(e => (
-                          <div key={e.id} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)" }}>{(() => { try { const [y,m,d] = e.date.split("-"); return `${["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][new Date(e.date).getDay()]}, ${d} de ${["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][parseInt(m)-1]}`; } catch { return e.date; } })()}</div>
-                              <div style={{ fontSize: 11, color: "var(--tx2)" }}>{String(e.start).padStart(2,"0")}h — {getEventLabel(e.tipo, artists)}{e.artista && !e.tipo?.startsWith("bloq") ? " · " + aName(e.artista).split(" ")[0] : ""}</div>
-                            </div>
-                            <div style={{ width: 10, height: 10, borderRadius: "50%", background: getEventColor(e.tipo, artists, e.artista), flexShrink: 0 }} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {(() => {
-                  const hoje0m = new Date(); hoje0m.setHours(0,0,0,0);
-                  const sessCli2 = agEvents.filter((e: any) => e.cliente_id === sc.id && !e.tipo?.startsWith("bloq") && !e.tipo?.startsWith("cons"));
-                  const totalSess = sessCli2.length;
-                  if (totalSess < 1) return null;
-                  const concl = sessCli2.filter((e: any) => e.status === "concluido").length;
-                  return (
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--tx2)", margin: "6px 0" }}>
-                      {sessCli2.slice(0, 5).map((e: any, i: number) => {
-                        const dEv2 = e.date ? new Date(e.date + "T12:00:00") : null;
-                        const isConc = e.status === "concluido";
-                        const isFut = dEv2 && dEv2 >= hoje0m;
-                        return (
-                          <div key={e.id || i} style={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
-                            background: isConc ? "#27AE60" : isFut ? "var(--gold)" : "var(--dk5)",
-                            border: isConc || isFut ? "none" : "1px solid var(--br)" }} />
-                        );
-                      })}
-                      {totalSess > 5 && <span>...</span>}
-                      <span>{concl} de {totalSess} sess{totalSess !== 1 ? "ões" : "ão"}</span>
-                    </div>
-                  );
-                })()}
 
                 <div>
                   <div className="stit">Mover no Pipeline</div>
@@ -10864,190 +11048,6 @@ export default function CRM() {
                   </div>
                 )}
 
-                <div>
-                  <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>Avaliações Internas</span>
-                    <button onClick={() => setFichaRevelada(p => { const n = new Set(p); n.has(sc.id) ? n.delete(sc.id) : n.add(sc.id); return n; })}
-                      style={{ fontSize: 11, background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "3px 9px", color: fichaRevelada.has(sc.id) ? "var(--gold)" : "var(--tx3)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                      {fichaRevelada.has(sc.id) ? "👁 Ocultar dados internos" : "👁 Ver dados internos"}
-                    </button>
-                  </div>
-                  {!fichaRevelada.has(sc.id) ? (
-                    <div style={{ padding: "14px 0", fontSize: 12, color: "var(--tx3)", fontStyle: "italic", textAlign: "center" }}>
-                      Dados internos ocultos — clique em "Ver dados internos" para revelar
-                    </div>
-                  ) : (
-                  <>
-                  {/* Sua avaliação sobre o cliente */}
-                  <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>Sua avaliação sobre o cliente</div>
-                    <div className="fi2">
-                      <div className="fil">Nota do profissional (1 a 5 estrelas)</div>
-                      <div className="stars" style={{ marginTop: 4 }}>
-                        {[1, 2, 3, 4, 5].map(n => (
-                          <span key={n} className="star" style={{ opacity: n <= (sc.stars || 0) ? 1 : .25 }} onClick={() => setStars(sc.id, n)}>⭐</span>
-                        ))}
-                      </div>
-                      {sc.starReason && <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 3, fontStyle: "italic" }}>{sc.starReason}</div>}
-                    </div>
-                  </div>
-                  {/* Avaliação do cliente sobre o estúdio */}
-                  <div style={{ borderTop: "1px solid var(--br)", paddingTop: 10, marginBottom: 7 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>Avaliação do cliente sobre nós</div>
-                    <div className="fi2">
-                      <div className="fil">Nota (0 a 10) — preenchida pelo próprio cliente via e-mail</div>
-                      {sc.nps != null
-                        ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
-                            <div style={{ fontSize: 22, fontWeight: 700, color: sc.nps >= 7 ? "var(--q3)" : sc.nps >= 5 ? "var(--gold)" : "var(--q1)", fontFamily: "'Cormorant Garamond',serif" }}>
-                              {sc.nps}<span style={{ fontSize: 13, color: "var(--tx3)", fontWeight: 400 }}>/10</span>
-                            </div>
-                            <div style={{ display: "flex", gap: 3 }}>
-                              {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
-                                <div key={n} style={{ width: 18, height: 18, borderRadius: 3, fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
-                                  background: n === sc.nps ? (sc.nps >= 7 ? "rgba(39,174,96,.3)" : sc.nps >= 5 ? "rgba(201,168,76,.3)" : "rgba(192,57,43,.3)") : "var(--dk4)",
-                                  color: n === sc.nps ? (sc.nps >= 7 ? "var(--q3)" : sc.nps >= 5 ? "var(--gold)" : "var(--q1)") : "var(--tx3)",
-                                  border: n === sc.nps ? "1px solid currentColor" : "1px solid var(--br)"
-                                }}>{n}</div>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                        : <div style={{ marginTop: 5, fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>Aguardando resposta do cliente via e-mail</div>
-                      }
-                    </div>
-                  </div>
-                  <div className="fi2" style={{ marginTop: 7 }}>
-                    <div className="fil">Consentimento de Uso de Imagem</div>
-                    <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
-                      <button className={"cb" + (sc.consent === true ? " yes" : "")} onClick={() => upC(sc.id, "consent", true)}>✓ Autorizado</button>
-                      <button className={"cb" + (sc.consent === false ? " no" : "")} onClick={() => upC(sc.id, "consent", false)}>✕ Nao autorizado</button>
-                      {sc.consent === null && <span style={{ fontSize: 11, color: "var(--tx3)", alignSelf: "center" }}>Nao informado</span>}
-                    </div>
-                  </div>
-                  {(() => {
-                    const st = (sc as any).avaliacao_fluxo_status;
-                    const comentario = (sc as any).avaliacao_comentario;
-                    const negativa = st === "negativa";
-                    const stLabel: Record<string, string> = {
-                      aguardando: "Aguardando resposta do cliente",
-                      negativa:   "🔴 Avaliação negativa — requer contato",
-                      positiva:   "💚 Avaliação positiva — aguardando convite Google",
-                      google_sim: "💚 Convidado para Google — respondeu Sim",
-                      google_nao: "Convidado para Google — respondeu Não",
-                    };
-                    const stColor: Record<string, string> = {
-                      aguardando: "var(--q2)",
-                      negativa:   "var(--q1)",
-                      positiva:   "var(--q3)",
-                      google_sim: "var(--q3)",
-                      google_nao: "var(--tx3)",
-                    };
-                    return (
-                      <div className="fi2" style={{ marginTop: 7 }}>
-                        <div className="fil">Fluxo de Avaliação NPS</div>
-                        {st ? (
-                          <div style={{ marginTop: 4, fontSize: 12, fontWeight: 600, color: stColor[st] || "var(--tx2)" }}>
-                            {stLabel[st] || st}
-                          </div>
-                        ) : (
-                          <div style={{ marginTop: 4, fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>
-                            Fluxo ainda não iniciado — será disparado D+1 após entrada em Pós-venda
-                          </div>
-                        )}
-                        {comentario && (
-                          <>
-                            {negativa && (
-                              <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.4)", borderRadius: 6, fontSize: 11, color: "var(--q1)", fontWeight: 600 }}>
-                                Avaliação negativa — considere ligar para entender o que aconteceu
-                              </div>
-                            )}
-                            <div style={{
-                              marginTop: 6, fontSize: 11, color: "var(--tx2)",
-                              background: negativa ? "rgba(192,57,43,.07)" : "var(--dk4)",
-                              border: "1px solid " + (negativa ? "rgba(192,57,43,.3)" : "var(--br)"),
-                              borderRadius: 5, padding: "7px 10px", lineHeight: 1.6, fontStyle: "italic"
-                            }}>
-                              "{comentario}"
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {(sc.faltas || 0) > 0 && (
-                    <div className="fi2" style={{ marginTop: 7 }}>
-                      <div className="fil">Faltas registradas</div>
-                      <div style={{
-                        marginTop: 5, display: "inline-flex", alignItems: "center", gap: 6,
-                        padding: "5px 12px", borderRadius: 6, fontSize: 13, fontWeight: 700,
-                        background: (sc.faltas||0) >= 3 ? "rgba(192,57,43,.15)" : (sc.faltas||0) === 2 ? "rgba(230,126,34,.12)" : "rgba(201,168,76,.1)",
-                        border: "1px solid " + ((sc.faltas||0) >= 3 ? "rgba(192,57,43,.4)" : (sc.faltas||0) === 2 ? "rgba(230,126,34,.35)" : "rgba(201,168,76,.35)"),
-                        color: (sc.faltas||0) >= 3 ? "var(--q1)" : (sc.faltas||0) === 2 ? "#E67E22" : "var(--gold)"
-                      }}>
-                        ⊘ {sc.faltas} {sc.faltas === 1 ? "falta" : "faltas"}
-                      </div>
-                    </div>
-                  )}
-                  <div className="fi2" style={{ marginTop: 7 }}>
-                    <div className="fil">Observações Internas</div>
-                    <textarea value={sc.obs} onChange={e => upCLocal(sc.id, "obs", e.target.value)}
-                      onBlur={e => upC(sc.id, "obs", e.target.value)}
-                      style={{ width: "100%", minHeight: 50, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "6px 8px", fontSize: 11, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", outline: "none", resize: "vertical", marginTop: 3 }}
-                      placeholder="Anotações privadas..." />
-                  </div>
-                  {/* HISTÓRICO DE CONVERSA COM A AURA */}
-                  {(() => {
-                    const chatLog: any[] = (sc as any).aura_chat_log || [];
-                    if (chatLog.length === 0) return null;
-                    const AuraChatLog = () => {
-                      const [sessaoAberta, setSessaoAberta] = useState<number | null>(chatLog.length - 1);
-                      return (
-                        <div className="fi2" style={{ marginTop: 7 }}>
-                          <div className="fil">✦ Conversa com a Aura</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
-                            {chatLog.map((sessao: any, si: number) => {
-                              const dataLabel = sessao.data ? new Date(sessao.data).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Sessão " + (si + 1);
-                              const aberta = sessaoAberta === si;
-                              const msgs: any[] = (sessao.mensagens || []).filter((m: any) => m.role === "user" || m.role === "assistant");
-                              return (
-                                <div key={si} style={{ border: "1px solid var(--br)", borderRadius: 8, overflow: "hidden" }}>
-                                  <div onClick={() => setSessaoAberta(aberta ? null : si)}
-                                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", cursor: "pointer", background: aberta ? "var(--dk3)" : "transparent", userSelect: "none" }}>
-                                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--tx2)" }}>{dataLabel}</span>
-                                    <span style={{ fontSize: 10, color: "var(--tx3)" }}>{msgs.length} msgs {aberta ? "▲" : "▼"}</span>
-                                  </div>
-                                  {aberta && (
-                                    <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8, maxHeight: 400, overflowY: "auto" }}>
-                                      {msgs.map((m: any, mi: number) => {
-                                        const isUser = m.role === "user";
-                                        const texto = Array.isArray(m.content)
-                                          ? m.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join(" ")
-                                          : (typeof m.content === "string" ? m.content : "");
-                                        if (!texto.trim()) return null;
-                                        return (
-                                          <div key={mi} style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start" }}>
-                                            <div style={{ maxWidth: "82%", background: isUser ? "rgba(201,168,76,.15)" : "var(--dk3)", border: "1px solid " + (isUser ? "rgba(201,168,76,.3)" : "var(--br)"), borderRadius: isUser ? "12px 12px 2px 12px" : "12px 12px 12px 2px", padding: "7px 11px", fontSize: 12, color: "var(--tx)", lineHeight: 1.5 }}>
-                                              {!isUser && <div style={{ fontSize: 10, color: "var(--gold)", fontWeight: 700, marginBottom: 3 }}>✦ Aura</div>}
-                                              {texto}
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    };
-                    return <AuraChatLog />;
-                  })()}
-                  </>
-                  )}
-                </div>
 
                 </>}
 
