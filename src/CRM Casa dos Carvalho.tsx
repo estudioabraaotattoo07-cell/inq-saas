@@ -257,7 +257,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .ctbl tr:hover td{background:var(--dk3);cursor:pointer;}
 .tdn{font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:600;line-height:1.4;padding-top:1px;}
 .tdd{color:var(--tx2);font-size:11px;}
-.eb{font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;text-transform:uppercase;}
+.eb{font-size:10px;font-weight:600;padding:3px 9px;border-radius:999px;text-transform:uppercase;display:inline-block;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;}
 .pvw{flex:1;padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;}
 .pvc{background:var(--dk2);border:1px solid var(--br);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.22);}
 .pvh{padding:11px 15px;background:var(--dk3);border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;}
@@ -5554,7 +5554,7 @@ export default function CRM() {
                           <td><span className={("at " + aClass(c.artista)) || ""} style={aStyle(c.artista)}>{aName(c.artista).split(" ")[0]}</span></td>
                           <td><span className={"qb " + QC[c.qual]}>{c.qual}</span></td>
                           <td>
-                            <span className="eb" style={{ background: "var(--gold-d)", color: "var(--gold)", border: "1px solid var(--brh)" }}>
+                            <span className="eb" title={stages.find(s => s.id === c.etapa)?.label} style={{ background: "var(--gold-d)", color: "var(--gold)", border: "1px solid var(--brh)" }}>
                               {stages.find(s => s.id === c.etapa)?.emoji} {stages.find(s => s.id === c.etapa)?.label}
                             </span>
                           </td>
