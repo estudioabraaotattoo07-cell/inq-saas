@@ -340,14 +340,14 @@ table.ft tr:nth-child(even) td{background:var(--dk3);}
 .ag-week{flex:1;overflow:auto;padding:12px;}
 .wg{display:grid;grid-template-columns:48px repeat(7,1fr);border:1px solid var(--br);border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.22);}
 .wh{background:var(--dk3);padding:7px 5px;text-align:center;font-size:11px;font-weight:600;color:var(--tx2);border-bottom:1px solid var(--br);border-right:1px solid var(--br);position:sticky;top:0;z-index:5;}
-.wt{background:var(--dk3);padding:3px 5px;text-align:right;font-size:10px;color:var(--tx3);border-bottom:1px solid var(--br);border-right:1px solid var(--br);height:34px;display:flex;align-items:center;justify-content:flex-end;}
-.wc{background:var(--dk2);border-bottom:1px solid var(--br);border-right:1px solid var(--br);height:34px;cursor:pointer;position:relative;padding:2px;}
+.wt{background:var(--dk3);padding:3px 5px 0 0;text-align:right;font-size:10px;color:var(--tx3);border-right:1px solid var(--br);height:34px;display:flex;align-items:flex-start;justify-content:flex-end;}
+.wc{background:var(--dk2);border-right:1px solid var(--br);height:34px;cursor:pointer;position:relative;padding:2px;}
 .wc:hover{background:var(--dk3);}
-.we{font-size:10px;font-weight:600;padding:2px 4px;border-radius:2px;color:#fff;position:absolute;left:2px;right:2px;top:2px;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none;}
+.we{font-size:10px;font-weight:600;padding:2px 4px;position:absolute;left:2px;right:2px;top:2px;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none;}
 .ag-day{flex:1;overflow-y:auto;padding:12px;}
 .dg{max-width:680px;}
-.dr{display:flex;border-bottom:1px solid var(--br);}
-.dtime{width:55px;flex-shrink:0;padding:9px 7px;font-size:10px;color:var(--tx3);text-align:right;background:var(--dk3);}
+.dr{display:flex;}
+.dtime{width:55px;flex-shrink:0;padding:2px 7px 0 0;font-size:10px;color:var(--tx3);text-align:right;background:var(--dk3);}
 .dslot{flex:1;min-height:50px;padding:3px 7px;cursor:pointer;}
 .dslot:hover{background:var(--dk3);}
 .dev{font-size:12px;font-weight:600;padding:4px 9px;border-radius:4px;color:#fff;margin-bottom:2px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none;}
@@ -4103,6 +4103,21 @@ export default function CRM() {
   const maxE = estilos[0]?.[1] || 1;
   const wDates = useMemo(() => getWeekDates(agDate, agSegStart), [agDate, agSegStart]);
   const mDates = useMemo(() => getMonthDates(agDate, agSegStart), [agDate, agSegStart]);
+  // Faixa de horas exibida na semana/dia: comeca compacta (7h-21h) mas se
+  // estica automaticamente se existir algum evento fora desse intervalo,
+  // pra nunca esconder um agendamento real.
+  const visibleHours = useMemo(() => {
+    const AG_START = 7, AG_END = 21;
+    let start = AG_START, end = AG_END;
+    agEvents.forEach((e: any) => {
+      const s = Number(e.start), en = Number(e.end);
+      if (!isNaN(s)) start = Math.min(start, Math.floor(s));
+      if (!isNaN(en)) end = Math.max(end, Math.ceil(en));
+    });
+    start = Math.max(0, start);
+    end = Math.min(24, end);
+    return Array.from({ length: end - start }, (_, i) => i + start);
+  }, [agEvents]);
   const todayStr = fmtDate(new Date());
   const evOn = (d: string) => agEvents.filter(e => e.date === d);
   const agNav = (dir: number) => {
@@ -5693,7 +5708,7 @@ export default function CRM() {
                       {WEEKDAYS[d.getDay()]} {d.getDate()}
                     </div>
                   ))}
-                  {HOURS.map(h => [
+                  {visibleHours.map(h => [
                     <div key={"t" + h} className="wt" data-hora={h}>{h}:00</div>,
                     ...wDates.map((d, di) => {
                       const ds = fmtDate(d);
@@ -5763,7 +5778,7 @@ export default function CRM() {
                   {["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"][agDate.getDay()]}, {agDate.getDate()} de {MONTHS[agDate.getMonth()]} de {agDate.getFullYear()}
                 </div>
                 <div className="dg">
-                  {HOURS.map(h => {
+                  {visibleHours.map(h => {
                     const ds = fmtDate(agDate);
                     const evs = agEvents.filter(e => e.date === ds && e.start === h);
                     const occupied = agEvents.some(e => e.date === ds && e.start < h && e.end > h);
