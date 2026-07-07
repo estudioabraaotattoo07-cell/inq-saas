@@ -9721,6 +9721,244 @@ export default function CRM() {
                           </div>
                         );
                       })}
+                {/* ── FINANCEIRO DO CLIENTE ── */}
+                <div>
+                  <div className="stit">Financeiro</div>
+                  {(() => {
+                    const pagCliente = fin.filter((f: any) =>
+                      f.cliente_id === sc.id ||
+                      f.cliente_id === String(sc.id) ||
+                      f.cliente_nome === sc.nome ||
+                      (sc.nome && f.cliente_nome?.toLowerCase().trim() === sc.nome.toLowerCase().trim())
+                    );
+                    const totalPago = pagCliente.reduce((s: number, f: any) => s + (Number(f.val_a)||0), 0);
+                    const credito = sc.credito || 0;
+                    const projs = (sc.projetos || []).filter((p: any) => p.status === "ativo");
+                    const totalDevedor = projs.reduce((s: number, p: any) => {
+                      const pago = (p.pagamentos || []).reduce((ss: number, pg: any) => ss + (Number(pg.valor)||0), 0);
+                      return s + Math.max((Number(p.valorTotal)||0) - pago, 0);
+                    }, 0);
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                          <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", textAlign: "center" }}>
+                            <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Total Pago</div>
+                            <div style={{ fontSize: 16, fontWeight: 700, color: "#27AE60", fontFamily: "'Cormorant Garamond',serif" }}>R$ {totalPago.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
+                          </div>
+                          <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", textAlign: "center" }}>
+                            <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Saldo Devedor</div>
+                            <div style={{ fontSize: 16, fontWeight: 700, color: totalDevedor > 0 ? "var(--gold)" : "#27AE60", fontFamily: "'Cormorant Garamond',serif" }}>{totalDevedor > 0 ? "R$ " + totalDevedor.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "Quitado"}</div>
+                          </div>
+                          <div style={{ background: "var(--dk3)", border: credito > 0 ? "1px solid rgba(201,168,76,.4)" : "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", textAlign: "center" }}>
+                            <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Crédito</div>
+                            <div style={{ fontSize: 16, fontWeight: 700, color: credito > 0 ? "var(--gold)" : "var(--tx3)", fontFamily: "'Cormorant Garamond',serif" }}>{credito > 0 ? "R$ " + credito.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "—"}</div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            // Se há só 1 projeto ativo, já usa o profissional dele. Com 2+, deixa em
+                            // branco/ficha por enquanto — a pessoa escolhe a solicitação no modal.
+                            const artistaPadrao = projs.length === 1 ? artistaDoProjeto(projs[0], sc) : (sc.artista || "");
+                            setPgAvulso({ clienteId: sc.id, clienteNome: sc.nome, artistaId: artistaPadrao, projetos: projs, projetoId: projs.length === 1 ? projs[0].id : "", fase: "form", valor: "", forma: "Pix", obs: "" });
+                          }}
+                          style={{ alignSelf: "flex-start", background: "rgba(201,168,76,.12)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 7, padding: "8px 14px", fontSize: 12, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                          + Registrar pagamento
+                        </button>
+                        {pagCliente.length > 0 && (
+                          <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 13px" }}>
+                            <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Histórico de Pagamentos</div>
+                            {pagCliente.slice(-5).reverse().map((f: any, i: number) => (
+                              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,.04)", fontSize: 11 }}>
+                                <span style={{ color: "var(--tx2)" }}>{f.data ? (f.data.includes("-") ? f.data.split("-").reverse().join("/") : f.data) : "—"} — {f.pgto || f.forma_pgto || "—"}</span>
+                                <span style={{ color: "#27AE60", fontWeight: 600 }}>R$ {Number(f.val_a).toLocaleString("pt-BR",{minimumFractionDigits:2})}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div>
+                  <div className="stit">Fotos de Referência</div>
+                  <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px" }}>
+                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>
+                      {"Fotos enviadas pelo cliente via " + (auraName || "chat do site") + " ou adicionadas manualmente."}
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {((sc as any).referencias || []).map((url: string, i: number) => (
+                        <div key={i} style={{ position: "relative" }}>
+                          <img src={url} alt={`ref-${i}`}
+                            style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid var(--br)", cursor: "pointer" }}
+                            onClick={() => window.open(url, "_blank")} />
+                          <button
+                            onClick={async () => {
+                              if (!window.confirm("Remover esta foto de referência? Essa ação não pode ser desfeita.")) return;
+                              const refs: string[] = ((sc as any).referencias || []).filter((_: string, j: number) => j !== i);
+                              upC(sc.id, "referencias", refs);
+                              await sb.from("clientes").update({ referencias: refs }).eq("id", sc.id);
+                            }}
+                            style={{ position: "absolute", top: -6, right: -6, background: "#c0392b", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
+                            title="Remover">✕</button>
+                        </div>
+                      ))}
+                      <label style={{ width: 90, height: 90, border: "1px dashed var(--br)", borderRadius: 6, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--tx3)", gap: 4, flexShrink: 0 }} title="Adicionar referência">
+                        <span style={{ fontSize: 22 }}>+</span>
+                        <span style={{ fontSize: 9 }}>Adicionar</span>
+                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const compress = (f: File, maxPx: number, q: number): Promise<{base64: string}> => new Promise((res) => {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              const img = new Image();
+                              img.onload = () => {
+                                let w = img.width, h = img.height;
+                                if (w > maxPx || h > maxPx) { if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; } else { w = Math.round(w * maxPx / h); h = maxPx; } }
+                                const canvas = document.createElement("canvas");
+                                canvas.width = w; canvas.height = h;
+                                canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+                                res({ base64: canvas.toDataURL("image/jpeg", q).split(",")[1] });
+                              };
+                              img.src = ev.target?.result as string;
+                            };
+                            reader.readAsDataURL(f);
+                          });
+                          const { base64 } = await compress(file, 800, 0.75);
+                          const resp = await fetch("https://inq-saas.vercel.app/api/upload", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ base64, mimeType: "image/jpeg", clienteId: sc.id })
+                          });
+                          const d = await resp.json();
+                          if (d.url) {
+                            const refs = [...((sc as any).referencias || []), d.url];
+                            upC(sc.id, "referencias", refs);
+                          }
+                          e.target.value = "";
+                        }} />
+                      </label>
+                    </div>
+                    {(!(sc as any).referencias || (sc as any).referencias.length === 0) && (
+                      <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic", marginTop: 8 }}>Nenhuma referência ainda.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="stit">Acompanhamento de Cicatrização</div>
+                  <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px" }}>
+                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>
+                      Fotos que o cliente envia pelo WhatsApp durante o pós-venda de piercing (dia 7, retorno de 30 dias, ou qualquer intercorrência). Salve aqui manualmente com data e observação.
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                      {((sc as any).cicatrizacao_fotos || []).map((foto: any, i: number) => (
+                        <div key={i} style={{ position: "relative", width: 130, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 8, padding: 6, flexShrink: 0 }}>
+                          <img src={foto.url} alt={`cicatrizacao-${i}`}
+                            style={{ width: "100%", height: 100, objectFit: "cover", borderRadius: 6, cursor: "pointer" }}
+                            onClick={() => window.open(foto.url, "_blank")} />
+                          <input type="date" value={foto.data || ""}
+                            onChange={async e => {
+                              const atual = [...(((sc as any).cicatrizacao_fotos) || [])];
+                              atual[i] = { ...atual[i], data: e.target.value };
+                              await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
+                              upCFicha(sc.id, "cicatrizacao_fotos", atual);
+                            }}
+                            style={{ width: "100%", marginTop: 5, fontSize: 11, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--tx)", padding: "2px 4px" }} />
+                          <input type="text" placeholder="Observação (ex.: leve vermelhidão)" defaultValue={foto.obs || ""}
+                            onBlur={async e => {
+                              const atual = [...(((sc as any).cicatrizacao_fotos) || [])];
+                              atual[i] = { ...atual[i], obs: e.target.value };
+                              await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
+                              upCFicha(sc.id, "cicatrizacao_fotos", atual);
+                            }}
+                            style={{ width: "100%", marginTop: 4, fontSize: 10, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--tx)", padding: "2px 4px" }} />
+                          <button
+                            onClick={async () => {
+                              if (!window.confirm("Remover esta foto de acompanhamento? Essa ação não pode ser desfeita.")) return;
+                              const atual = (((sc as any).cicatrizacao_fotos) || []).filter((_: any, j: number) => j !== i);
+                              await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
+                              upCFicha(sc.id, "cicatrizacao_fotos", atual);
+                            }}
+                            style={{ position: "absolute", top: -6, right: -6, background: "#c0392b", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
+                            title="Remover">✕</button>
+                        </div>
+                      ))}
+                      <label style={{ width: 130, height: 154, border: "1px dashed var(--br)", borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--tx3)", gap: 4, flexShrink: 0 }} title="Adicionar foto de cicatrização">
+                        <span style={{ fontSize: 22 }}>+</span>
+                        <span style={{ fontSize: 9, textAlign: "center", padding: "0 6px" }}>Adicionar foto</span>
+                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const fname = `cicatrizacao-${sc.id}-${Date.now()}-${file.name.replace(/\s/g,"_")}`;
+                          await sb.storage.from("referencias").upload(fname, file, { contentType: file.type, upsert: true });
+                          const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
+                          const atual = [...(((sc as any).cicatrizacao_fotos) || []), { url: pub.publicUrl, data: new Date().toISOString().slice(0, 10), obs: "" }];
+                          await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
+                          upCFicha(sc.id, "cicatrizacao_fotos", atual);
+                          e.target.value = "";
+                        }} />
+                      </label>
+                    </div>
+                    {(!(sc as any).cicatrizacao_fotos || (sc as any).cicatrizacao_fotos.length === 0) && (
+                      <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic", marginTop: 8 }}>Nenhuma foto de acompanhamento ainda.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>Documentos Salvos</span>
+                    <label style={{ fontSize: 11, fontWeight: 600, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "3px 10px", color: "var(--gold)", cursor: "pointer" }}>
+                      + Anexar
+                      <input type="file" accept="image/*,application/pdf" multiple style={{ display: "none" }} onChange={async e => {
+                        const files = Array.from(e.target.files || []);
+                        for (const file of files) {
+                          const fname = `doc-${sc.id}-${Date.now()}-${file.name.replace(/\s/g,"_")}`;
+                          await sb.storage.from("referencias").upload(fname, file, { contentType: file.type, upsert: true });
+                          const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
+                          const arquivosAtuais: any[] = (sc as any).docs_arquivos || [];
+                          const novos = [...arquivosAtuais, { nome: file.name, url: pub.publicUrl, tipo: file.type.includes("pdf") ? "pdf" : "imagem", criado_em: new Date().toISOString() }];
+                          await sb.from("clientes").update({ docs_arquivos: novos }).eq("id", sc.id);
+                          upCFicha(sc.id, "docs_arquivos", novos);
+                          setFichaEditada(false);
+                        }
+                        e.target.value = "";
+                      }} />
+                    </label>
+                  </div>
+                  {((sc as any).docs_arquivos || []).length === 0 ? (
+                    <div style={{ background: "var(--dk3)", border: "1px dashed var(--br)", borderRadius: 7, padding: "16px", textAlign: "center", fontSize: 11, color: "var(--tx3)" }}>
+                      Nenhum documento salvo ainda. PDFs gerados e anexos aparecem aqui.
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+                      {((sc as any).docs_arquivos || []).map((arq: any, i: number) => (
+                        <div key={i} style={{ position: "relative", width: 90, flexShrink: 0 }}>
+                          <div onClick={() => window.open(arq.url, "_blank")} style={{ width: 90, height: 90, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", overflow: "hidden", transition: "border-color .15s" }}
+                            onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--gold)")}
+                            onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--br)")}>
+                            {arq.tipo === "imagem"
+                              ? <img src={arq.url} alt={arq.nome} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 7 }} />
+                              : <span style={{ fontSize: 32 }}>📄</span>
+                            }
+                          </div>
+                          <div style={{ fontSize: 9, color: "var(--tx3)", marginTop: 3, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }} title={arq.nome}>{arq.nome}</div>
+                          <div style={{ fontSize: 9, color: "var(--tx3)", textAlign: "center" }}>{arq.criado_em ? new Date(arq.criado_em).toLocaleDateString("pt-BR") : ""}</div>
+                          <button onClick={async e => {
+                            e.stopPropagation();
+                            if (!window.confirm(`Excluir "${arq.nome}"? Essa ação não pode ser desfeita — se for um documento assinado ou de autorização, ele será perdido.`)) return;
+                            const novos = ((sc as any).docs_arquivos || []).filter((_: any, idx: number) => idx !== i);
+                            await sb.from("clientes").update({ docs_arquivos: novos }).eq("id", sc.id);
+                            upCFicha(sc.id, "docs_arquivos", novos);
+                            setFichaEditada(false);
+                          }} style={{ position: "absolute", top: 3, right: 3, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", cursor: "pointer", fontSize: 10, width: 16, height: 16, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                     </div>
                   );
                 })()}
@@ -10348,244 +10586,6 @@ export default function CRM() {
                   })()}
                 </div>
 
-                {/* ── FINANCEIRO DO CLIENTE ── */}
-                <div>
-                  <div className="stit">Financeiro</div>
-                  {(() => {
-                    const pagCliente = fin.filter((f: any) =>
-                      f.cliente_id === sc.id ||
-                      f.cliente_id === String(sc.id) ||
-                      f.cliente_nome === sc.nome ||
-                      (sc.nome && f.cliente_nome?.toLowerCase().trim() === sc.nome.toLowerCase().trim())
-                    );
-                    const totalPago = pagCliente.reduce((s: number, f: any) => s + (Number(f.val_a)||0), 0);
-                    const credito = sc.credito || 0;
-                    const projs = (sc.projetos || []).filter((p: any) => p.status === "ativo");
-                    const totalDevedor = projs.reduce((s: number, p: any) => {
-                      const pago = (p.pagamentos || []).reduce((ss: number, pg: any) => ss + (Number(pg.valor)||0), 0);
-                      return s + Math.max((Number(p.valorTotal)||0) - pago, 0);
-                    }, 0);
-                    return (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                          <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", textAlign: "center" }}>
-                            <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Total Pago</div>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: "#27AE60", fontFamily: "'Cormorant Garamond',serif" }}>R$ {totalPago.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
-                          </div>
-                          <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", textAlign: "center" }}>
-                            <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Saldo Devedor</div>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: totalDevedor > 0 ? "var(--gold)" : "#27AE60", fontFamily: "'Cormorant Garamond',serif" }}>{totalDevedor > 0 ? "R$ " + totalDevedor.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "Quitado"}</div>
-                          </div>
-                          <div style={{ background: "var(--dk3)", border: credito > 0 ? "1px solid rgba(201,168,76,.4)" : "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", textAlign: "center" }}>
-                            <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Crédito</div>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: credito > 0 ? "var(--gold)" : "var(--tx3)", fontFamily: "'Cormorant Garamond',serif" }}>{credito > 0 ? "R$ " + credito.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "—"}</div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            // Se há só 1 projeto ativo, já usa o profissional dele. Com 2+, deixa em
-                            // branco/ficha por enquanto — a pessoa escolhe a solicitação no modal.
-                            const artistaPadrao = projs.length === 1 ? artistaDoProjeto(projs[0], sc) : (sc.artista || "");
-                            setPgAvulso({ clienteId: sc.id, clienteNome: sc.nome, artistaId: artistaPadrao, projetos: projs, projetoId: projs.length === 1 ? projs[0].id : "", fase: "form", valor: "", forma: "Pix", obs: "" });
-                          }}
-                          style={{ alignSelf: "flex-start", background: "rgba(201,168,76,.12)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 7, padding: "8px 14px", fontSize: 12, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                          + Registrar pagamento
-                        </button>
-                        {pagCliente.length > 0 && (
-                          <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 13px" }}>
-                            <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>Histórico de Pagamentos</div>
-                            {pagCliente.slice(-5).reverse().map((f: any, i: number) => (
-                              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,.04)", fontSize: 11 }}>
-                                <span style={{ color: "var(--tx2)" }}>{f.data ? (f.data.includes("-") ? f.data.split("-").reverse().join("/") : f.data) : "—"} — {f.pgto || f.forma_pgto || "—"}</span>
-                                <span style={{ color: "#27AE60", fontWeight: 600 }}>R$ {Number(f.val_a).toLocaleString("pt-BR",{minimumFractionDigits:2})}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                <div>
-                  <div className="stit">Fotos de Referência</div>
-                  <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px" }}>
-                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>
-                      {"Fotos enviadas pelo cliente via " + (auraName || "chat do site") + " ou adicionadas manualmente."}
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {((sc as any).referencias || []).map((url: string, i: number) => (
-                        <div key={i} style={{ position: "relative" }}>
-                          <img src={url} alt={`ref-${i}`}
-                            style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid var(--br)", cursor: "pointer" }}
-                            onClick={() => window.open(url, "_blank")} />
-                          <button
-                            onClick={async () => {
-                              if (!window.confirm("Remover esta foto de referência? Essa ação não pode ser desfeita.")) return;
-                              const refs: string[] = ((sc as any).referencias || []).filter((_: string, j: number) => j !== i);
-                              upC(sc.id, "referencias", refs);
-                              await sb.from("clientes").update({ referencias: refs }).eq("id", sc.id);
-                            }}
-                            style={{ position: "absolute", top: -6, right: -6, background: "#c0392b", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
-                            title="Remover">✕</button>
-                        </div>
-                      ))}
-                      <label style={{ width: 90, height: 90, border: "1px dashed var(--br)", borderRadius: 6, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--tx3)", gap: 4, flexShrink: 0 }} title="Adicionar referência">
-                        <span style={{ fontSize: 22 }}>+</span>
-                        <span style={{ fontSize: 9 }}>Adicionar</span>
-                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const compress = (f: File, maxPx: number, q: number): Promise<{base64: string}> => new Promise((res) => {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                              const img = new Image();
-                              img.onload = () => {
-                                let w = img.width, h = img.height;
-                                if (w > maxPx || h > maxPx) { if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; } else { w = Math.round(w * maxPx / h); h = maxPx; } }
-                                const canvas = document.createElement("canvas");
-                                canvas.width = w; canvas.height = h;
-                                canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-                                res({ base64: canvas.toDataURL("image/jpeg", q).split(",")[1] });
-                              };
-                              img.src = ev.target?.result as string;
-                            };
-                            reader.readAsDataURL(f);
-                          });
-                          const { base64 } = await compress(file, 800, 0.75);
-                          const resp = await fetch("https://inq-saas.vercel.app/api/upload", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ base64, mimeType: "image/jpeg", clienteId: sc.id })
-                          });
-                          const d = await resp.json();
-                          if (d.url) {
-                            const refs = [...((sc as any).referencias || []), d.url];
-                            upC(sc.id, "referencias", refs);
-                          }
-                          e.target.value = "";
-                        }} />
-                      </label>
-                    </div>
-                    {(!(sc as any).referencias || (sc as any).referencias.length === 0) && (
-                      <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic", marginTop: 8 }}>Nenhuma referência ainda.</div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="stit">Acompanhamento de Cicatrização</div>
-                  <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "12px 14px" }}>
-                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>
-                      Fotos que o cliente envia pelo WhatsApp durante o pós-venda de piercing (dia 7, retorno de 30 dias, ou qualquer intercorrência). Salve aqui manualmente com data e observação.
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                      {((sc as any).cicatrizacao_fotos || []).map((foto: any, i: number) => (
-                        <div key={i} style={{ position: "relative", width: 130, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 8, padding: 6, flexShrink: 0 }}>
-                          <img src={foto.url} alt={`cicatrizacao-${i}`}
-                            style={{ width: "100%", height: 100, objectFit: "cover", borderRadius: 6, cursor: "pointer" }}
-                            onClick={() => window.open(foto.url, "_blank")} />
-                          <input type="date" value={foto.data || ""}
-                            onChange={async e => {
-                              const atual = [...(((sc as any).cicatrizacao_fotos) || [])];
-                              atual[i] = { ...atual[i], data: e.target.value };
-                              await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
-                              upCFicha(sc.id, "cicatrizacao_fotos", atual);
-                            }}
-                            style={{ width: "100%", marginTop: 5, fontSize: 11, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--tx)", padding: "2px 4px" }} />
-                          <input type="text" placeholder="Observação (ex.: leve vermelhidão)" defaultValue={foto.obs || ""}
-                            onBlur={async e => {
-                              const atual = [...(((sc as any).cicatrizacao_fotos) || [])];
-                              atual[i] = { ...atual[i], obs: e.target.value };
-                              await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
-                              upCFicha(sc.id, "cicatrizacao_fotos", atual);
-                            }}
-                            style={{ width: "100%", marginTop: 4, fontSize: 10, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--tx)", padding: "2px 4px" }} />
-                          <button
-                            onClick={async () => {
-                              if (!window.confirm("Remover esta foto de acompanhamento? Essa ação não pode ser desfeita.")) return;
-                              const atual = (((sc as any).cicatrizacao_fotos) || []).filter((_: any, j: number) => j !== i);
-                              await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
-                              upCFicha(sc.id, "cicatrizacao_fotos", atual);
-                            }}
-                            style={{ position: "absolute", top: -6, right: -6, background: "#c0392b", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
-                            title="Remover">✕</button>
-                        </div>
-                      ))}
-                      <label style={{ width: 130, height: 154, border: "1px dashed var(--br)", borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--tx3)", gap: 4, flexShrink: 0 }} title="Adicionar foto de cicatrização">
-                        <span style={{ fontSize: 22 }}>+</span>
-                        <span style={{ fontSize: 9, textAlign: "center", padding: "0 6px" }}>Adicionar foto</span>
-                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const fname = `cicatrizacao-${sc.id}-${Date.now()}-${file.name.replace(/\s/g,"_")}`;
-                          await sb.storage.from("referencias").upload(fname, file, { contentType: file.type, upsert: true });
-                          const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
-                          const atual = [...(((sc as any).cicatrizacao_fotos) || []), { url: pub.publicUrl, data: new Date().toISOString().slice(0, 10), obs: "" }];
-                          await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
-                          upCFicha(sc.id, "cicatrizacao_fotos", atual);
-                          e.target.value = "";
-                        }} />
-                      </label>
-                    </div>
-                    {(!(sc as any).cicatrizacao_fotos || (sc as any).cicatrizacao_fotos.length === 0) && (
-                      <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic", marginTop: 8 }}>Nenhuma foto de acompanhamento ainda.</div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="stit" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>Documentos Salvos</span>
-                    <label style={{ fontSize: 11, fontWeight: 600, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "3px 10px", color: "var(--gold)", cursor: "pointer" }}>
-                      + Anexar
-                      <input type="file" accept="image/*,application/pdf" multiple style={{ display: "none" }} onChange={async e => {
-                        const files = Array.from(e.target.files || []);
-                        for (const file of files) {
-                          const fname = `doc-${sc.id}-${Date.now()}-${file.name.replace(/\s/g,"_")}`;
-                          await sb.storage.from("referencias").upload(fname, file, { contentType: file.type, upsert: true });
-                          const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
-                          const arquivosAtuais: any[] = (sc as any).docs_arquivos || [];
-                          const novos = [...arquivosAtuais, { nome: file.name, url: pub.publicUrl, tipo: file.type.includes("pdf") ? "pdf" : "imagem", criado_em: new Date().toISOString() }];
-                          await sb.from("clientes").update({ docs_arquivos: novos }).eq("id", sc.id);
-                          upCFicha(sc.id, "docs_arquivos", novos);
-                          setFichaEditada(false);
-                        }
-                        e.target.value = "";
-                      }} />
-                    </label>
-                  </div>
-                  {((sc as any).docs_arquivos || []).length === 0 ? (
-                    <div style={{ background: "var(--dk3)", border: "1px dashed var(--br)", borderRadius: 7, padding: "16px", textAlign: "center", fontSize: 11, color: "var(--tx3)" }}>
-                      Nenhum documento salvo ainda. PDFs gerados e anexos aparecem aqui.
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
-                      {((sc as any).docs_arquivos || []).map((arq: any, i: number) => (
-                        <div key={i} style={{ position: "relative", width: 90, flexShrink: 0 }}>
-                          <div onClick={() => window.open(arq.url, "_blank")} style={{ width: 90, height: 90, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", overflow: "hidden", transition: "border-color .15s" }}
-                            onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--gold)")}
-                            onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--br)")}>
-                            {arq.tipo === "imagem"
-                              ? <img src={arq.url} alt={arq.nome} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 7 }} />
-                              : <span style={{ fontSize: 32 }}>📄</span>
-                            }
-                          </div>
-                          <div style={{ fontSize: 9, color: "var(--tx3)", marginTop: 3, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }} title={arq.nome}>{arq.nome}</div>
-                          <div style={{ fontSize: 9, color: "var(--tx3)", textAlign: "center" }}>{arq.criado_em ? new Date(arq.criado_em).toLocaleDateString("pt-BR") : ""}</div>
-                          <button onClick={async e => {
-                            e.stopPropagation();
-                            if (!window.confirm(`Excluir "${arq.nome}"? Essa ação não pode ser desfeita — se for um documento assinado ou de autorização, ele será perdido.`)) return;
-                            const novos = ((sc as any).docs_arquivos || []).filter((_: any, idx: number) => idx !== i);
-                            await sb.from("clientes").update({ docs_arquivos: novos }).eq("id", sc.id);
-                            upCFicha(sc.id, "docs_arquivos", novos);
-                            setFichaEditada(false);
-                          }} style={{ position: "absolute", top: 3, right: 3, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", cursor: "pointer", fontSize: 10, width: 16, height: 16, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
 
                 {sc.val_a > 0 && (
                   <div>
