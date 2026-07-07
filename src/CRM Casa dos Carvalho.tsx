@@ -570,11 +570,6 @@ const getEventLabel = (tipo: string, artistsList?: any[]) => {
 const SEGS = [
   { id: "todos", label: "Todos", desc: "Toda a base", icon: "👥", f: () => true },
   { id: "q0", label: "Q0 - Presencial", desc: "Estiveram no atelier", icon: "🟣", f: (c: any) => c.qual === "Q0" },
-  { id: "q1", label: "Q1 - Frios", desc: "Nutricao e educacao", icon: "🔴", f: (c: any) => c.qual === "Q1" },
-  { id: "q2", label: "Q2 - Quentes", desc: "Prontos para avancar", icon: "🟡", f: (c: any) => c.qual === "Q2" },
-  { id: "tatuados", label: "Tatuados", desc: "Ja fizeram sessao", icon: "🖤", f: (c: any) => c.etapa === "tatuado" || c.etapa === "aguard_agend" || c.etapa === "pos_venda" },
-  { id: "primeira", label: "Primeira Tattoo", desc: "Primeira vez", icon: "✨", f: (c: any) => c.primeira },
-  { id: "google", label: "Avaliacao Google", desc: "Tatuados sem avaliacao", icon: "⭐", f: (c: any) => (c.etapa === "tatuado" || c.etapa === "aguard_agend" || c.etapa === "pos_venda") && !c.googleReview },
 ];
 
 const DATAS = [
@@ -8087,21 +8082,6 @@ export default function CRM() {
             {/* BLOCO: Segmentos por perfil */}
             {(() => {
               const grupos = [
-                {
-                  titulo: "🔥 Reativação", subtitulo: "Clientes que sumiram mas podem voltar",
-                  itens: [
-                    { id: "q2", icon: "🟡", label: "Q2 — Prontos para avançar", desc: "Manifestaram interesse mas ainda não agendaram", f: (c: any) => c.qual === "Q2" },
-                    { id: "q1", icon: "🔴", label: "Q1 — Em nutrição", desc: "Ainda não estão prontos — mensagem de valor", f: (c: any) => c.qual === "Q1" },
-                  ]
-                },
-                {
-                  titulo: "🖤 Relacionamento", subtitulo: "Para quem já faz parte da história",
-                  itens: [
-                    { id: "tatuados", icon: "🖤", label: "Tatuados", desc: "Já fizeram sessão — maior chance de retorno", f: (c: any) => c.etapa === "tatuado" || c.etapa === "pos_venda" },
-                    { id: "primeira", icon: "✨", label: "Primeira Tattoo", desc: "Primeira vez — experiência especial", f: (c: any) => c.primeira },
-                    { id: "google", icon: "⭐", label: "Avaliação Google", desc: "Tatuados que ainda não deixaram avaliação", f: (c: any) => (c.etapa === "tatuado" || c.etapa === "pos_venda") && !c.googleReview },
-                  ]
-                },
                 {
                   titulo: "🎨 Por Profissional", subtitulo: "Comunicação personalizada de cada profissional",
                   itens: artists.map((a: any) => ({ id: a.id, icon: "🎨", label: "Clientes de " + a.nome, desc: "Mensagem com a voz de " + a.nome.split(" ")[0], f: (c: any) => c.artista === a.id }))
