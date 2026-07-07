@@ -216,10 +216,10 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .sv{font-size:19px;font-weight:600;color:var(--tx);font-family:'Cormorant Garamond',serif;line-height:1;animation:countUp .35s ease;}
 .sl{font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
 .ctrl{padding:11px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--dk2);border-bottom:1px solid var(--br);}
-.srch{background:var(--dk3);border:1px solid var(--br);border-radius:6px;color:var(--tx);padding:7px 11px;font-size:12px;font-family:'DM Sans',sans-serif;width:190px;outline:none;}
+.srch{background:var(--dk3);border:1px solid var(--br);border-radius:9px;color:var(--tx);padding:7px 12px;font-size:12px;font-family:'DM Sans',sans-serif;width:190px;outline:none;transition:border-color .15s;}
 .srch:focus{border-color:var(--gold);}
 .srch::placeholder{color:var(--tx3);}
-.fb{background:var(--dk3);border:1px solid var(--br);border-radius:6px;color:var(--tx2);padding:6px 11px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.fb{background:var(--dk3);border:1px solid var(--br);border-radius:9px;color:var(--tx2);padding:6px 12px;font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
 .fb.on{background:var(--gold-d);border-color:var(--gold);color:var(--gold);}
 .kw{flex:1;overflow-x:auto;padding:24px 16px 16px;display:flex;gap:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:var(--dk);}.kw::-webkit-scrollbar{display:none;}.kw-scroll-mirror::-webkit-scrollbar{height:4px;}.kw-scroll-mirror::-webkit-scrollbar-track{background:var(--dk3);}.kw-scroll-mirror::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}.kc{min-width:188px;max-width:188px;display:flex;flex-direction:column;gap:0;position:relative;}.kc::before{content:"";position:absolute;top:-14px;left:8px;right:8px;height:56px;background:var(--gold);filter:blur(28px);opacity:.32;z-index:-1;border-radius:50%;pointer-events:none;}@media(max-width:600px){.kc{min-width:134px;max-width:134px;}.kw{padding:20px 6px 8px;gap:8px;}.cname{font-size:11px;}.card{padding:8px 9px;}.kh{min-height:94px;padding:10px 11px;}.kt{font-size:9px;}}
 
@@ -252,11 +252,11 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .cw{flex:1;padding:14px;overflow-y:auto;}
 .ctbl{width:100%;border-collapse:collapse;}
 .ctbl th{background:var(--dk3);border:1px solid var(--br);padding:8px 11px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:600;text-align:left;}
-.ctbl td{background:var(--dk2);border:1px solid var(--br);padding:11px;font-size:12px;color:var(--tx);vertical-align:middle;line-height:1.4;}
+.ctbl td{background:var(--dk2);border:1px solid var(--br);padding:11px;font-size:12px;color:var(--tx);vertical-align:middle;line-height:1.4;transition:background .15s;}
 .ctbl tr:hover td{background:var(--dk3);cursor:pointer;}
 .tdn{font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:600;line-height:1.4;padding-top:1px;}
 .tdd{color:var(--tx2);font-size:11px;}
-.eb{font-size:10px;font-weight:600;padding:2px 7px;border-radius:9px;text-transform:uppercase;}
+.eb{font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;text-transform:uppercase;}
 .pvw{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:11px;}
 .pvc{background:var(--dk2);border:1px solid var(--br);border-radius:9px;overflow:hidden;}
 .pvh{padding:11px 15px;background:var(--dk3);border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;}
@@ -4452,19 +4452,6 @@ export default function CRM() {
     return { background: "rgba("+r+","+g+","+b+",.15)", color: hex, border: "1px solid rgba("+r+","+g+","+b+",.3)", borderRadius: 9, padding: "2px 6px", fontSize: 10, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase" as const };
   };
 
-  const EBS: Record<string, any> = {
-    lead: { bg: "rgba(91,141,239,.15)", color: "#5B8DEF", b: "rgba(91,141,239,.3)" },
-    qualificacao: { bg: "rgba(201,168,76,.15)", color: "#C9A84C", b: "rgba(201,168,76,.3)" },
-    cons_agendada: { bg: "rgba(155,107,181,.15)", color: "#9B6BB5", b: "rgba(155,107,181,.3)" },
-    sessao_agend: { bg: "rgba(74,158,191,.15)", color: "#4A9EBF", b: "rgba(74,158,191,.3)" },
-    tatuado: { bg: "rgba(39,174,96,.15)", color: "#27AE60", b: "rgba(39,174,96,.3)" },
-    aguard_agend: { bg: "rgba(243,156,18,.15)", color: "#F39C12", b: "rgba(243,156,18,.3)" },
-    pos_venda: { bg: "rgba(230,126,34,.15)", color: "#E67E22", b: "rgba(230,126,34,.3)" },
-    lista_espera: { bg: "rgba(52,152,219,.15)", color: "#3498DB", b: "rgba(52,152,219,.3)" },
-    hibernacao: { bg: "rgba(102,102,102,.15)", color: "#888", b: "rgba(102,102,102,.3)" },
-    blacklist: { bg: "rgba(192,57,43,.15)", color: "#C0392B", b: "rgba(192,57,43,.3)" }
-  };
-
   // ── LOGIN ──
   if (!logado) {
     const handleAuth = async () => {
@@ -5507,6 +5494,7 @@ export default function CRM() {
             {sorted.length === 0
               ? <div className="empty">Nenhum cliente encontrado.</div>
               : (
+                <div style={{ border: "1px solid var(--br)", borderRadius: 12, overflow: "hidden" }}>
                 <table className="ctbl" id="client-table">
                   <thead>
                     <tr>
@@ -5518,7 +5506,6 @@ export default function CRM() {
                   </thead>
                   <tbody>
                     {sorted.map(c => {
-                      const es = EBS[c.etapa] || EBS.lead;
                       const m = miss(c); const ch = churn(c);
                       const evAtualRow = (c.etapa === "sessao_agend" || c.etapa === "cons_agendada")
                         ? agEvents.find(e => e.cliente_id === c.id && e.status !== "concluido" && e.date && new Date(e.date + "T23:59:00") >= new Date())
@@ -5559,7 +5546,7 @@ export default function CRM() {
                           <td><span className={("at " + aClass(c.artista)) || ""} style={aStyle(c.artista)}>{aName(c.artista).split(" ")[0]}</span></td>
                           <td><span className={"qb " + QC[c.qual]}>{c.qual}</span></td>
                           <td>
-                            <span className="eb" style={{ background: es.bg, color: es.color, border: "1px solid " + es.b }}>
+                            <span className="eb" style={{ background: "var(--gold-d)", color: "var(--gold)", border: "1px solid var(--brh)" }}>
                               {stages.find(s => s.id === c.etapa)?.emoji} {stages.find(s => s.id === c.etapa)?.label}
                             </span>
                           </td>
@@ -5581,6 +5568,7 @@ export default function CRM() {
                     })}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
             {/* Índice alfabético lateral */}
