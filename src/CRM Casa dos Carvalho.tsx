@@ -52,12 +52,12 @@ type ThemeId = "carvalho" | "sangue" | "cobalto" | "mono";
 const THEMES: Record<ThemeId, { nome: string; emoji: string; dark: Record<string,string>; light: Record<string,string>; }> = {
   carvalho: {
     nome: "Original", emoji: "⚜️",
-    dark: { "--dk":"#000000","--dk2":"#050505","--dk3":"#0E0E0E","--dk4":"#161616","--dk5":"#1E1E1E","--tx":"#E8E2D9","--tx2":"#A09585","--tx3":"#706860","--br":"rgba(201,168,76,0.18)","--brh":"rgba(201,168,76,0.45)","--gold":"#C9A84C","--gold-l":"#E8C97A","--gold-d":"rgba(201,168,76,0.13)","--gold-glow":"rgba(201,168,76,0.29)" },
+    dark: { "--dk":"#000000","--dk2":"#050505","--dk3":"#0B0B0B","--dk4":"#111111","--dk5":"#171717","--tx":"#E8E2D9","--tx2":"#A09585","--tx3":"#706860","--br":"rgba(201,168,76,0.18)","--brh":"rgba(201,168,76,0.45)","--gold":"#C9A84C","--gold-l":"#E8C97A","--gold-d":"rgba(201,168,76,0.13)","--gold-glow":"rgba(201,168,76,0.29)" },
     light: { "--dk":"#F2EDE6","--dk2":"#EAE3DA","--dk3":"#E0D8CE","--dk4":"#D4C9BC","--dk5":"#C8BAA9","--tx":"#141210","--tx2":"#3A302A","--tx3":"#6B5E54","--br":"rgba(80,55,30,0.22)","--brh":"rgba(80,55,30,0.5)","--gold":"#9A7428","--gold-l":"#C49A30","--gold-d":"rgba(154,116,40,0.13)","--gold-glow":"rgba(154,116,40,0.23)" },
   },
   sangue: {
     nome: "Sangue & Cinza", emoji: "🩸",
-    dark: { "--dk":"#000000","--dk2":"#050505","--dk3":"#0A0A0A","--dk4":"#141414","--dk5":"#1C1C1C","--tx":"#EDE0DE","--tx2":"#A08880","--tx3":"#706058","--br":"rgba(192,57,43,0.18)","--brh":"rgba(192,57,43,0.45)","--gold":"#C0392B","--gold-l":"#E04030","--gold-d":"rgba(192,57,43,0.13)","--gold-glow":"rgba(192,57,43,0.29)" },
+    dark: { "--dk":"#000000","--dk2":"#050505","--dk3":"#0A0A0A","--dk4":"#141414","--dk5":"#1C1C1C","--tx":"#EDE0DE","--tx2":"#A08880","--tx3":"#706058","--br":"rgba(229,72,77,0.18)","--brh":"rgba(229,72,77,0.45)","--gold":"#E5484D","--gold-l":"#FF6B70","--gold-d":"rgba(229,72,77,0.13)","--gold-glow":"rgba(229,72,77,0.29)" },
     light: { "--dk":"#F5EFEE","--dk2":"#EDE3E1","--dk3":"#E3D5D3","--dk4":"#D7C5C2","--dk5":"#CBB3B0","--tx":"#1A0B0A","--tx2":"#3D2420","--tx3":"#6B3B36","--br":"rgba(120,30,20,0.2)","--brh":"rgba(120,30,20,0.45)","--gold":"#A0200F","--gold-l":"#C0392B","--gold-d":"rgba(160,32,15,0.13)","--gold-glow":"rgba(160,32,15,0.23)" },
   },
   cobalto: {
@@ -67,7 +67,7 @@ const THEMES: Record<ThemeId, { nome: string; emoji: string; dark: Record<string
   },
   mono: {
     nome: "Monocromático", emoji: "◻️",
-    dark: { "--dk":"#000000","--dk2":"#050505","--dk3":"#0A0A0A","--dk4":"#141414","--dk5":"#1E1E1E","--tx":"#F0F0F0","--tx2":"#A0A0A0","--tx3":"#686868","--br":"rgba(200,200,200,0.12)","--brh":"rgba(200,200,200,0.3)","--gold":"#C8C8C8","--gold-l":"#E0E0E0","--gold-d":"rgba(200,200,200,0.1)","--gold-glow":"rgba(200,200,200,0.21)" },
+    dark: { "--dk":"#000000","--dk2":"#050505","--dk3":"#0A0A0A","--dk4":"#141414","--dk5":"#1E1E1E","--tx":"#F0F0F0","--tx2":"#A0A0A0","--tx3":"#686868","--br":"rgba(150,150,150,0.12)","--brh":"rgba(150,150,150,0.3)","--gold":"#969696","--gold-l":"#A8A8A8","--gold-d":"rgba(150,150,150,0.1)","--gold-glow":"rgba(150,150,150,0.21)" },
     light: { "--dk":"#F8F8F8","--dk2":"#EEEEEE","--dk3":"#E4E4E4","--dk4":"#D8D8D8","--dk5":"#CCCCCC","--tx":"#0A0A0A","--tx2":"#404040","--tx3":"#707070","--br":"rgba(80,80,80,0.18)","--brh":"rgba(80,80,80,0.4)","--gold":"#444444","--gold-l":"#666666","--gold-d":"rgba(68,68,68,0.13)","--gold-glow":"rgba(68,68,68,0.18)" },
   },
 };
@@ -1714,7 +1714,7 @@ export default function CRM() {
             const { data: fluxoData } = await sb.from("fluxo_etapas").select("*").eq("user_id", userId).order("etapa_slug").order("ordem");
             if (fluxoData) setFluxoEtapas(fluxoData);
           } catch {}
-          setDark(cfg.dark_mode !== false);
+          setDark(true);
           if (cfg.tema) setTema(cfg.tema as ThemeId);
           // [X2] onboarding_done from Supabase (source of truth); localStorage as cache
           if (cfg.onboarding_done) {
@@ -14530,13 +14530,7 @@ export default function CRM() {
                 {settingsTab === "sistema" && <>
                   <div>
                     <div className="stit">Aparência</div>
-                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 12 }}>Escolha o tema visual e o modo de exibição do sistema.</div>
-                    {/* Modo claro/escuro */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                      <span style={{ fontSize: 12, color: "var(--tx2)" }}>Modo:</span>
-                      <button onClick={async () => { setDark(false); if (userId) await sb.from("configuracoes").update({ dark_mode: false }).eq("user_id", userId); }} style={{ background: !dark ? "var(--gold-d)" : "var(--dk3)", border: `1px solid ${!dark ? "var(--gold)" : "var(--br)"}`, borderRadius: 6, padding: "5px 12px", fontSize: 12, color: !dark ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: !dark ? 600 : 400 }}>☀️ Claro</button>
-                      <button onClick={async () => { setDark(true); if (userId) await sb.from("configuracoes").update({ dark_mode: true }).eq("user_id", userId); }} style={{ background: dark ? "var(--gold-d)" : "var(--dk3)", border: `1px solid ${dark ? "var(--gold)" : "var(--br)"}`, borderRadius: 6, padding: "5px 12px", fontSize: 12, color: dark ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: dark ? 600 : 400 }}>🌙 Escuro</button>
-                    </div>
+                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 12 }}>Escolha o tema visual do sistema.</div>
                     {/* Carrossel de temas */}
                     <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, scrollbarWidth: "none" }}>
                       {(Object.entries(THEMES) as [ThemeId, typeof THEMES[ThemeId]][]).map(([id, t]) => {
