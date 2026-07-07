@@ -1082,6 +1082,16 @@ function isAniversarioPromoAtivo(nasc: string): boolean {
   }
   return false;
 }
+function stripHtmlPreview(texto: string): string {
+  if (!texto) return "";
+  return texto
+    .replace(/<a[^>]*>/gi, "")
+    .replace(/<\/a>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 function isMenor(nasc: string): boolean {
   if (!nasc) return false;
   const d = parseNascimento(nasc);
@@ -7748,6 +7758,12 @@ export default function CRM() {
                                     <div>
                                       <div className="fil" style={{ marginBottom: 3 }}>Mensagem <span style={{ color: "var(--tx3)", fontWeight: 400 }}>(use {"{nome}"} e {"{estudio}"})</span></div>
                                       <textarea className="ef" rows={4} value={fluxoEditLocal?.mensagem || ""} onChange={e => setFluxoEditLocal((p: any) => ({ ...p, mensagem: e.target.value }))} style={{ resize: "vertical", width: "100%" }} />
+                                      {fluxoEditLocal?.mensagem && /<[a-z][\s\S]*>/i.test(fluxoEditLocal.mensagem) && (
+                                        <div style={{ marginTop: 6 }}>
+                                          <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3, textTransform: "uppercase", letterSpacing: ".06em" }}>Pré-visualização de como o cliente vai ver</div>
+                                          <div style={{ background: "#fff", borderRadius: 7, padding: "14px 16px", maxHeight: 260, overflowY: "auto" }} dangerouslySetInnerHTML={{ __html: fluxoEditLocal.mensagem }} />
+                                        </div>
+                                      )}
                                     </div>
                                     {stage.id === "reengajamento" && (
                                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -7770,7 +7786,7 @@ export default function CRM() {
                                         <span style={{ fontSize: 10, color: "var(--tx3)" }}>D+{fe.dias} · {CANAIS_OPT.find(o => o.v === fe.canal)?.l || fe.canal}</span>
                                         {fe.repetir && <span style={{ fontSize: 10, color: "var(--gold)" }}>↺ {fe.repetir_intervalo_dias}d</span>}
                                       </div>
-                                      <div style={{ fontSize: 11, color: "var(--tx3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{fe.mensagem}</div>
+                                      <div style={{ fontSize: 11, color: "var(--tx3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{stripHtmlPreview(fe.mensagem)}</div>
                                     </div>
                                     <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                                       <button onClick={() => { setFluxoEditandoId(fe.id); setFluxoEditLocal({ ...fe }); }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: "pointer" }}>Editar</button>
@@ -8356,6 +8372,12 @@ export default function CRM() {
                                     <div>
                                       <div className="fil" style={{ marginBottom: 3 }}>Mensagem <span style={{ color: "var(--tx3)", fontWeight: 400 }}>(use {"{nome}"} e {"{estudio}"})</span></div>
                                       <textarea className="ef" rows={4} value={campSazEditLocal?.mensagem || ""} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, mensagem: e.target.value }))} style={{ resize: "vertical", width: "100%" }} />
+                                    {campSazEditLocal?.mensagem && /<[a-z][\s\S]*>/i.test(campSazEditLocal.mensagem) && (
+                                      <div style={{ marginTop: 6 }}>
+                                        <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3, textTransform: "uppercase", letterSpacing: ".06em" }}>Pré-visualização de como o cliente vai ver</div>
+                                        <div style={{ background: "#fff", borderRadius: 7, padding: "14px 16px", maxHeight: 260, overflowY: "auto" }} dangerouslySetInnerHTML={{ __html: campSazEditLocal.mensagem }} />
+                                      </div>
+                                    )}
                                     </div>
                                     <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                                       <button className="btn-c" onClick={() => { setCampSazEditandoId(null); setCampSazEditLocal(null); }}>Cancelar</button>
@@ -8369,7 +8391,7 @@ export default function CRM() {
                                         <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx)" }}>{fe.label}</span>
                                         <span style={{ fontSize: 10, color: "var(--tx3)" }}>{(fe.dias_offset > 0 ? "+" : "") + fe.dias_offset + "d"} · {CANAIS_OPT_SAZ.find(o => o.v === fe.canal)?.l || fe.canal}</span>
                                       </div>
-                                      <div style={{ fontSize: 11, color: "var(--tx3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{fe.mensagem}</div>
+                                      <div style={{ fontSize: 11, color: "var(--tx3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{stripHtmlPreview(fe.mensagem)}</div>
                                     </div>
                                     <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                                       <button onClick={() => { setCampSazEditandoId(fe.id); setCampSazEditLocal({ ...fe }); }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: "pointer" }}>Editar</button>
@@ -8399,6 +8421,12 @@ export default function CRM() {
                                   <div>
                                     <div className="fil" style={{ marginBottom: 3 }}>Mensagem <span style={{ color: "var(--tx3)", fontWeight: 400 }}>(use {"{nome}"} e {"{estudio}"})</span></div>
                                     <textarea className="ef" rows={4} value={campSazEditLocal?.mensagem || ""} onChange={e => setCampSazEditLocal((p: any) => ({ ...p, mensagem: e.target.value }))} style={{ resize: "vertical", width: "100%" }} />
+                                    {campSazEditLocal?.mensagem && /<[a-z][\s\S]*>/i.test(campSazEditLocal.mensagem) && (
+                                      <div style={{ marginTop: 6 }}>
+                                        <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3, textTransform: "uppercase", letterSpacing: ".06em" }}>Pré-visualização de como o cliente vai ver</div>
+                                        <div style={{ background: "#fff", borderRadius: 7, padding: "14px 16px", maxHeight: 260, overflowY: "auto" }} dangerouslySetInnerHTML={{ __html: campSazEditLocal.mensagem }} />
+                                      </div>
+                                    )}
                                   </div>
                                   <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                                     <button className="btn-c" onClick={() => { setCampSazEditandoId(null); setCampSazEditLocal(null); }}>Cancelar</button>
