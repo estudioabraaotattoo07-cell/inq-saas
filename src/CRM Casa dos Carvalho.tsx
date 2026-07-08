@@ -7903,7 +7903,7 @@ export default function CRM() {
                 </div>
 
                 {/* Cards de resumo geral */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 20 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8, marginBottom: 20 }}>
                   {[
                     { label: "Origens", val: origens.length, icon: "🔗", color: "var(--tx2)" },
                     { label: "Lead Frio", val: totalFrio, icon: "🧊", color: "#4A9EBF" },
@@ -8028,7 +8028,7 @@ export default function CRM() {
                               <button title="Remover" onClick={() => setOrigenConfirmDel(realIdx)} style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "#C0392B", flexShrink: 0 }}>✕</button>
                             </div>
                             {/* Métricas da origem */}
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 6 }}>
                               {[
                                 { label: "Lead Frio", val: o.frio, color: "#4A9EBF", icon: "🧊" },
                                 { label: "Lead Quente", val: o.quente, color: "#C0392B", icon: "🔥" },
