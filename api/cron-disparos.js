@@ -778,7 +778,7 @@ export default async function handler(req, res) {
           if (diasEtapa >= 0) {
             for (const fe of etapasDoFluxo) {
               try {
-                const feId = "fluxo__" + fe.id;
+                const feId = "fluxo__" + fe.id + "__" + cliente.etapa_desde;
                 const jaEnviou = disparosEnviados && disparosEnviados[feId];
 
                 // repetir: reengajamento envia a cada repetir_intervalo_dias dias
