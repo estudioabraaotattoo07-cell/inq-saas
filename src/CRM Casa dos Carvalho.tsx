@@ -175,6 +175,9 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .fmb{padding:12px 14px!important;gap:9px!important;}
   .fmf{padding:10px 14px!important;}
 }
+@media(max-width:768px) and (orientation:portrait){
+  .origem-portrait-scale{zoom:0.5;}
+}
 @media(max-width:480px){
   .kc{min-width:42vw!important;max-width:42vw!important;}
   .fg3{grid-template-columns:1fr!important;}
@@ -7899,7 +7902,7 @@ export default function CRM() {
             return { ...o, frio, quente, conv, ultimo };
           }).sort((a, b) => b.conv - a.conv);
           return (
-              <div style={{ padding: "24px 16px", maxWidth: 740, margin: "0 auto", overflowX: "auto", WebkitOverflowScrolling: "touch" as any }}>
+              <div className="origem-portrait-scale" style={{ padding: "24px 16px", maxWidth: 740, margin: "0 auto", overflowX: "auto", WebkitOverflowScrolling: "touch" as any }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🔗 Gerenciador de Origens</div>
                   <button className="btn-s" onClick={() => { setOrigenEditIdx(-1); setOrigenEditNome(""); setOrigenEditPago(false); }}>+ Nova origem</button>
