@@ -7899,7 +7899,7 @@ export default function CRM() {
             return { ...o, frio, quente, conv, ultimo };
           }).sort((a, b) => b.conv - a.conv);
           return (
-              <div style={{ padding: "24px 16px", maxWidth: 740, margin: "0 auto" }}>
+              <div style={{ padding: "24px 16px", maxWidth: 740, margin: "0 auto", overflowX: "auto", WebkitOverflowScrolling: "touch" as any }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🔗 Gerenciador de Origens</div>
                   <button className="btn-s" onClick={() => { setOrigenEditIdx(-1); setOrigenEditNome(""); setOrigenEditPago(false); }}>+ Nova origem</button>
