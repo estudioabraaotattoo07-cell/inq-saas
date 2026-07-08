@@ -149,6 +149,9 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   /* Dashboard */
   .fsum{grid-template-columns:1fr 1fr!important;}
   .dgrid{grid-template-columns:1fr!important;}
+  /* Origens */
+  .origem-sum-grid{grid-template-columns:1fr 1fr!important;}
+  .origem-metric-grid{grid-template-columns:1fr 1fr!important;}
   /* Agenda */
   .ag-ctrl{flex-direction:column!important;align-items:stretch!important;}
   .ag-nav{justify-content:center!important;flex-wrap:wrap!important;row-gap:5px!important;}
@@ -7903,7 +7906,7 @@ export default function CRM() {
                 </div>
 
                 {/* Cards de resumo geral */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8, marginBottom: 20 }}>
+                <div className="origem-sum-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8, marginBottom: 20 }}>
                   {[
                     { label: "Origens", val: origens.length, icon: "🔗", color: "var(--tx2)" },
                     { label: "Lead Frio", val: totalFrio, icon: "🧊", color: "#4A9EBF" },
@@ -8028,7 +8031,7 @@ export default function CRM() {
                               <button title="Remover" onClick={() => setOrigenConfirmDel(realIdx)} style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "#C0392B", flexShrink: 0 }}>✕</button>
                             </div>
                             {/* Métricas da origem */}
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 6 }}>
+                            <div className="origem-metric-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 6 }}>
                               {[
                                 { label: "Lead Frio", val: o.frio, color: "#4A9EBF", icon: "🧊" },
                                 { label: "Lead Quente", val: o.quente, color: "#C0392B", icon: "🔥" },
