@@ -421,10 +421,10 @@ table.ft tr:nth-child(even) td{background:var(--dk4);}
 .cb.no{border-color:var(--q1);color:var(--q1);background:rgba(192,57,43,.1);}
 .ba{background:rgba(212,130,10,.12);border:1px solid rgba(212,130,10,.3);border-radius:7px;padding:10px 13px;display:flex;align-items:center;gap:9px;margin-bottom:6px;}
 .fov{position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;padding:14px;}
-.fmod{background:var(--dk2);border:1px solid var(--br);border-radius:16px;width:100%;max-width:510px;max-height:88vh;overflow-y:auto;}
-.fmh{padding:17px 21px;border-bottom:1px solid var(--br);background:var(--dk3);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;}
+.fmod{background:var(--dk2);border:1px solid var(--br);border-radius:16px;width:100%;max-width:510px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;}
+.fmh{padding:17px 21px;border-bottom:1px solid var(--br);background:var(--dk3);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .fmt{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;color:var(--tx);}
-.fmb{padding:20px 23px;display:flex;flex-direction:column;gap:14px;}
+.fmb{padding:20px 23px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;flex:1;}
 .fr{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .fr-time{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .ff{display:flex;flex-direction:column;gap:5px;}
@@ -434,7 +434,7 @@ table.ft tr:nth-child(even) td{background:var(--dk4);}
 .fi::placeholder{color:var(--tx3);}
 .fs option{background:var(--dk3);}
 .fta{resize:vertical;min-height:65px;}
-.fmf{padding:13px 21px;border-top:1px solid var(--br);display:flex;gap:7px;justify-content:flex-end;}
+.fmf{padding:13px 21px;border-top:1px solid var(--br);display:flex;gap:7px;justify-content:flex-end;flex-shrink:0;}
 .btn-c{background:var(--dk3);border:1px solid var(--br);border-radius:8px;color:var(--tx2);padding:7px 15px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
 .btn-s{background:var(--gold);color:#000;border:none;border-radius:8px;padding:7px 17px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;}
 .settings-modal{background:var(--dk2);border:1px solid var(--br);border-radius:16px;width:100%;max-width:560px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;}
