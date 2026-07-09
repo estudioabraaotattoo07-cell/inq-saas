@@ -653,19 +653,22 @@ export default async function handler(req, res) {
                   });
 
                   if (req.query.debugNome && cliente.nome && cliente.nome.toLowerCase().includes(req.query.debugNome.toLowerCase())) {
-                    let respostaResendDireta = null;
+                    let respostaProxy = null;
                     try {
-                      const rTest = await fetch("https://api.resend.com/emails", {
+                      const baseUrlTest = process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "http://localhost:3000";
+                      const rTest = await fetch(baseUrlTest + "/api/resend", {
                         method: "POST",
-                        headers: { "Authorization": "Bearer " + cfg.resend_api_key, "Content-Type": "application/json" },
-                        body: JSON.stringify({ from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br", to: cliente.email, subject: "teste-diagnostico-apagar", html: "<p>teste</p>" })
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ apiKey: cfg.resend_api_key, from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br", to: cliente.email, subject: "teste-diagnostico-apagar-2", html: "<p>teste</p>" }),
+                        redirect: "manual"
                       });
-                      respostaResendDireta = { status: rTest.status, body: await rTest.json() };
-                    } catch (eTest) { respostaResendDireta = { erro: String(eTest) }; }
+                      let corpoTexto = null;
+                      try { corpoTexto = await rTest.text(); } catch {}
+                      respostaProxy = { baseUrlTest, status: rTest.status, type: rTest.type, redirected: rTest.redirected, location: rTest.headers.get("location"), corpoTexto };
+                    } catch (eTest) { respostaProxy = { erro: String(eTest) }; }
                     (global.__debugConfirma = global.__debugConfirma || []).push({
                       etapaSend: "okConfirma=" + okConfirma,
-                      from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
-                      respostaResendDireta
+                      respostaProxy
                     });
                   }
 
