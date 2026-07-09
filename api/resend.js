@@ -26,9 +26,9 @@ export default async function handler(req, res) {
   // com config incompleta), usa as credenciais do servidor. A chave real do
   // estúdio fica em variável de ambiente e nunca é exposta ao navegador.
   const finalKey = apiKey || process.env.RESEND_API_KEY;
-  const envRemetente = process.env.EMAIL_REMETENTE || "contato@acasadoscarvalhotattoo.com.br";
+  const envRemetente = process.env.EMAIL_REMETENTE || "";
   const fromValido = from && from.includes("@") && !from.includes("<>");
-  const finalFrom = fromValido ? from : ("A Casa dos Carvalho <" + envRemetente + ">");
+  const finalFrom = fromValido ? from : envRemetente;
 
   if (!finalKey) {
     return res.status(400).json({ error: "Nenhuma chave Resend disponível (nem no cliente nem no servidor)" });

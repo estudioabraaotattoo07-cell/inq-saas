@@ -39,7 +39,7 @@ function paginaConfirmacao(estado, cli, evento) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Confirmação de Presença — Casa dos Carvalho</title>
+<title>Confirmação de Presença</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -54,9 +54,9 @@ function paginaConfirmacao(estado, cli, evento) {
 </head>
 <body>
 <div class="card">
-  <div class="logo">Casa dos Carvalho Tattoo</div>
+  <div class="logo">INK SYSTEM</div>
   ${conteudo}
-  <div class="footer">Vitória, ES • acasadoscarvalhotattoo.com.br</div>
+  <div class="footer">Powered by INK SYSTEM</div>
 </div>
 </body>
 </html>`;
@@ -68,7 +68,7 @@ function paginaAvaliacao(token, mensagem, mostrarFeedback) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Avaliação — Casa dos Carvalho</title>
+<title>Avaliação</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -88,10 +88,10 @@ function paginaAvaliacao(token, mensagem, mostrarFeedback) {
 </head>
 <body>
 <div class="card">
-  <div class="logo">Casa dos Carvalho Tattoo</div>
+  <div class="logo">INK SYSTEM</div>
   ${mensagem}
   ${mostrarFeedback ? `<form method="POST" action="/api/lead?acao=feedback&token=${token}"><textarea name="feedback" placeholder="Conta pra gente o que aconteceu..."></textarea><button type="submit">Enviar feedback</button></form>` : ""}
-  <div class="footer">Vitória, ES • acasadoscarvalhotattoo.com.br</div>
+  <div class="footer">Powered by INK SYSTEM</div>
 </div>
 </body>
 </html>`;
@@ -111,7 +111,7 @@ function paginaAvaliacaoNps(estado, cli, nota) {
     obrigado_negativo: `<div class="icon">🙏</div><h1>Obrigado pela honestidade, ${nome}</h1><p class="sub">Cada retorno nos ajuda a melhorar. Vamos levar sua experiência muito a sério.</p>`,
   };
 
-  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avaliação — Casa dos Carvalho</title><style>${estiloBase}</style></head><body><div class="card"><div class="logo">Casa dos Carvalho Tattoo</div>${conteudos[estado] || ""}<div class="footer">Vitória, ES · acasadoscarvalhotattoo.com.br</div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avaliação</title><style>${estiloBase}</style></head><body><div class="card"><div class="logo">INK SYSTEM</div>${conteudos[estado] || ""}<div class="footer">Powered by INK SYSTEM</div></div></body></html>`;
 }
 
 function paginaGoogleResposta(estado, cli, googleLink) {
@@ -125,7 +125,7 @@ function paginaGoogleResposta(estado, cli, googleLink) {
     nao: `<div class="icon">🖤</div><h1>Tudo bem, ${nome}!</h1><p class="sub">Obrigado por ter avaliado sua experiência conosco — isso já nos ajuda muito. Até a próxima sessão!</p>`,
   };
 
-  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avaliação Google — Casa dos Carvalho</title><style>${estiloBase}</style></head><body><div class="card"><div class="logo">Casa dos Carvalho Tattoo</div>${conteudos[estado] || ""}<div class="footer">Vitória, ES · acasadoscarvalhotattoo.com.br</div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avaliação Google</title><style>${estiloBase}</style></head><body><div class="card"><div class="logo">INK SYSTEM</div>${conteudos[estado] || ""}<div class="footer">Powered by INK SYSTEM</div></div></body></html>`;
 }
 
 export default async function handler(req, res) {
@@ -281,7 +281,7 @@ export default async function handler(req, res) {
       const botoes = [1,2,3,4,5,6,7,8,9,10].map(n =>
         `<a href="/api/lead?token=${token}&nota=${n}" class="${n >= 8 ? "nota-alta" : "nota-baixa"}">${n}</a>`
       ).join("");
-      const msg = "<h1>Como foi sua experiência<br>na Casa dos Carvalho?</h1><p class='sub'>De 1 a 10 — sua avaliação nos ajuda a continuar fazendo o que amamos. 🖤</p><div class='notas'>" + botoes + "</div>";
+      const msg = "<h1>Como foi sua experiência<br>conosco?</h1><p class='sub'>De 1 a 10 — sua avaliação nos ajuda a continuar fazendo o que amamos. 🖤</p><div class='notas'>" + botoes + "</div>";
       return res.status(200).send(paginaAvaliacao(token, msg, false));
     }
   }
@@ -303,7 +303,7 @@ export default async function handler(req, res) {
         acao: "Ainda não — recontato em 30 dias agendado — " + cli.nome,
         user_id: cli.user_id,
       });
-      return res.status(200).send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Casa dos Carvalho</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.card{background:#1a1a1a;border:1px solid #333;border-radius:12px;max-width:420px;width:100%;padding:40px 32px;text-align:center}.logo{font-size:12px;letter-spacing:3px;color:#d4a84b;text-transform:uppercase;margin-bottom:24px}h1{font-size:20px;font-weight:normal;color:#f0ede8;line-height:1.5;margin-bottom:12px}.sub{font-size:14px;color:#888;line-height:1.7}</style></head><body><div class="card"><div class="logo">Casa dos Carvalho Tattoo</div><div style="font-size:40px;margin-bottom:16px">🖤</div><h1>Tudo bem, ${(cli.nome || "").split(" ")[0]}!</h1><p class="sub">Seu projeto continua guardado com carinho. Entraremos em contato novamente em 30 dias.</p></div></body></html>`);
+      return res.status(200).send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Confirmação</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.card{background:#1a1a1a;border:1px solid #333;border-radius:12px;max-width:420px;width:100%;padding:40px 32px;text-align:center}.logo{font-size:12px;letter-spacing:3px;color:#d4a84b;text-transform:uppercase;margin-bottom:24px}h1{font-size:20px;font-weight:normal;color:#f0ede8;line-height:1.5;margin-bottom:12px}.sub{font-size:14px;color:#888;line-height:1.7}</style></head><body><div class="card"><div class="logo">INK SYSTEM</div><div style="font-size:40px;margin-bottom:16px">🖤</div><h1>Tudo bem, ${(cli.nome || "").split(" ")[0]}!</h1><p class="sub">Seu projeto continua guardado com carinho. Entraremos em contato novamente em 30 dias.</p></div></body></html>`);
     } catch (e) {
       return res.status(500).send("<p style='font-family:Georgia,serif;padding:40px;text-align:center;color:#888'>Erro interno.</p>");
     }
@@ -659,10 +659,11 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, clienteId });
   }
 
-  // Buscar toggles de automação
+  // Buscar toggles de automação + dados do estúdio
   const { data: cfgDisparos } = await sb.from("configuracoes")
-    .select("fluxo_boas_vindas_email_ativa, fluxo_boas_vindas_sms_ativa, fluxo_notificacao_artista_ativa")
+    .select("fluxo_boas_vindas_email_ativa, fluxo_boas_vindas_sms_ativa, fluxo_notificacao_artista_ativa, studio_name, studio_email, studio_tel, studio_city, studio_estado")
     .eq("user_id", row.user_id).single();
+  const nomeEstudioLead = cfgDisparos?.studio_name || "seu estúdio";
 
   const zenviaKey = process.env.ZENVIA_API_KEY;
   const fn = (nome || "").trim().split(" ")[0] || "Cliente";
@@ -672,10 +673,15 @@ export default async function handler(req, res) {
 
   // E-mail de alerta interno ao profissional responsável
   if (cfgDisparos?.fluxo_notificacao_artista_ativa !== false && resendKey) {
-    const emailArtista = artista && artista.toLowerCase().includes("camilla")
-      ? "camilla-acampos@hotmail.com"
-      : "estudioabraaotattoo07@gmail.com";
-    const emailFrom2 = process.env.EMAIL_REMETENTE || "contato@acasadoscarvalhotattoo.com.br";
+    let emailArtista = cfgDisparos?.studio_email || null;
+    if (artista) {
+      try {
+        const { data: artRow } = await sb.from("artistas").select("email").ilike("nome", "%" + artista.split(" ")[0] + "%").eq("user_id", row.user_id).limit(1).single();
+        if (artRow?.email) emailArtista = artRow.email;
+      } catch {}
+    }
+    const emailFrom2 = process.env.EMAIL_REMETENTE || "";
+    if (emailArtista) {
     const htmlAlerta =
       "<div style='font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#222;padding:28px'>" +
       "<p style='font-size:18px;font-weight:700;color:#c9a84c;margin-bottom:4px'>✦ Novo lead — " + nome + "</p>" +
@@ -695,12 +701,14 @@ export default async function handler(req, res) {
       headers: { "Authorization": "Bearer " + resendKey, "Content-Type": "application/json" },
       body: JSON.stringify({ from: emailFrom2, to: [emailArtista], subject: "✦ Novo lead — " + nome, html: htmlAlerta })
     }).catch(e => console.warn("Email artista error:", e));
+    }
   }
   if (cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {
-    const emailFrom = process.env.EMAIL_REMETENTE || "contato@acasadoscarvalhotattoo.com.br";
-    const artistaNome = artista && artista.toLowerCase().includes("camilla") ? "a Camilla" : artista ? "o Abraão" : null;
-    const waNumero = artista && artista.toLowerCase().includes("camilla") ? "5527996941787" : "5527996929665";
-    const waLink = "https://wa.me/" + waNumero;
+    const emailFrom = process.env.EMAIL_REMETENTE || "";
+    const artistaNome = artista || null;
+    const waNumero = cfgDisparos?.studio_tel ? "55" + cfgDisparos.studio_tel.replace(/\D/g, "") : "";
+    const waLink = waNumero ? "https://wa.me/" + waNumero : "";
+    const cidadeLead = [cfgDisparos?.studio_city, cfgDisparos?.studio_estado].filter(Boolean).join(", ");
     const ni = "Não informado";
     const nascFormatado = nascimentoISO
       ? nascimentoISO.split("-").reverse().join("/")
@@ -719,19 +727,18 @@ export default async function handler(req, res) {
       "</table>";
     const htmlBoasVindas =
       "<div style='font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px'>" +
-      "<p style='font-size:22px;font-weight:bold;color:#1a1a1a;margin-bottom:4px'>Casa dos Carvalho Tattoo</p>" +
+      "<p style='font-size:22px;font-weight:bold;color:#1a1a1a;margin-bottom:4px'>" + nomeEstudioLead + "</p>" +
       "<hr style='border:none;border-top:1px solid #d4a84b;margin-bottom:24px'>" +
       "<p style='font-size:16px'>Olá, <strong>" + fn + "</strong>!</p>" +
-      "<p style='line-height:1.8;color:#333'>Que alegria receber sua ideia aqui na Casa dos Carvalho. Já registramos tudo com cuidado" +
+      "<p style='line-height:1.8;color:#333'>Que alegria receber sua ideia aqui na " + nomeEstudioLead + ". Já registramos tudo com cuidado" +
       (artistaNome ? " — e vimos que você tem interesse em tatuar com <strong>" + artistaNome + "</strong>!" : "!") + "</p>" +
       "<p style='line-height:1.8;color:#333'>Em até 24h, alguém da nossa equipe vai te ligar pessoalmente para conversar sobre os detalhes do seu projeto. Sem formulário, sem robô — conversa de gente pra gente.</p>" +
-      "<p style='line-height:1.8;color:#333'>Se preferir adiantar por WhatsApp, é só chamar a gente aqui:</p>" +
-      "<p><a href='" + waLink + "' style='display:inline-block;background:#d4a84b;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:bold'>💬 Chamar no WhatsApp</a></p>" +
+      (waLink ? "<p style='line-height:1.8;color:#333'>Se preferir adiantar por WhatsApp, é só chamar a gente aqui:</p><p><a href='" + waLink + "' style='display:inline-block;background:#d4a84b;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:bold'>💬 Chamar no WhatsApp</a></p>" : "") +
       "<p style='line-height:1.8;color:#333;margin-top:20px'>Trabalhamos só com hora marcada, então cada projeto recebe atenção total — do primeiro traço ao último detalhe.</p>" +
       "<p style='margin-top:8px;line-height:1.8;color:#333'><strong>Resumo do que registramos:</strong></p>" +
       resumoDados +
-      "<p style='line-height:1.8;color:#333;margin-top:16px'>Obrigado por escolher fazer parte da família Carvalho. Já estamos ansiosos para te conhecer. 🖤</p>" +
-      "<p style='margin-top:32px;font-size:12px;color:#999'>Com carinho,<br><strong>Casa dos Carvalho Tattoo</strong> — Vitória, ES</p>" +
+      "<p style='line-height:1.8;color:#333;margin-top:16px'>Obrigado por escolher fazer parte da nossa família. Já estamos ansiosos para te conhecer. 🖤</p>" +
+      "<p style='margin-top:32px;font-size:12px;color:#999'>Com carinho,<br><strong>" + nomeEstudioLead + "</strong>" + (cidadeLead ? " — " + cidadeLead : "") + "</p>" +
       "</div>";
     fetch("https://api.resend.com/emails", {
       method: "POST",

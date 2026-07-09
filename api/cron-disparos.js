@@ -35,7 +35,7 @@ function anchorDateForCampanha(slug, year, nascimento) {
   if (slug === "dia_namorados") return new Date(year, 5, 12); // 12 de junho
   if (slug === "natal") return new Date(year, 11, 25);
   if (slug === "ano_novo") return new Date(year, 0, 1);
-  if (slug === "aniversario") {
+  if (slug === "aniversario" || slug === "aniversario_artista") {
     if (!nascimento) return null;
     const d = new Date(nascimento);
     if (isNaN(d.getTime())) return null;
@@ -79,9 +79,10 @@ async function dispararEmail({ apiKey, from, nome_remetente, to, subject, html }
   try {
     const finalKey = apiKey || process.env.RESEND_API_KEY;
     if (!finalKey || !to) return false;
-    const envRemetente = process.env.EMAIL_REMETENTE || "contato@acasadoscarvalhotattoo.com.br";
+    const envRemetente = process.env.EMAIL_REMETENTE || "";
     const fromValido = from && from.includes("@") && !from.includes("<>");
-    const finalFrom = fromValido ? from : ("A Casa dos Carvalho <" + envRemetente + ">");
+    const finalFrom = fromValido ? from : envRemetente;
+    if (!finalFrom) return false;
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -179,7 +180,7 @@ async function processarEtapa({
       msg.replace(/\n/g, "<br>") + "</div>";
     ok = await dispararEmail({
       apiKey: cfg.resend_api_key,
-      from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+      from: cfg.email_remetente,
       nome_remetente: cfg.nome_remetente || studioName || "INK SYSTEM",
       to: cliente.email,
       subject: etapa.label + " — " + studioName,
@@ -318,6 +319,25 @@ export default async function handler(req, res) {
         }
       } catch {}
 
+      // 3c. Artistas com aniversário hoje (para a campanha "aniversario_artista")
+      let artistasAniversarioHoje = [];
+      if (campSazEtapas["aniversario_artista"]) {
+        try {
+          const { data: artistasData } = await sb
+            .from("artistas")
+            .select("id, nome, nascimento")
+            .eq("user_id", userId)
+            .eq("ativo", true);
+          if (artistasData) {
+            artistasAniversarioHoje = artistasData.filter(a => {
+              if (!a.nascimento) return false;
+              const anchor = anchorDateForCampanha("aniversario_artista", hoje.getFullYear(), a.nascimento);
+              return anchor && mesmoDia(anchor, hoje);
+            });
+          }
+        } catch {}
+      }
+
       for (const cliente of clientes) {
         let disparosEnviados = {};
         try {
@@ -331,23 +351,24 @@ export default async function handler(req, res) {
           if (diasPv >= 1 && !jaEnviouAvaliacao) {
             const fn = (cliente.nome || "").trim().split(" ")[0];
             const linkAvaliacao = "https://inq-saas.vercel.app/api/lead?token=" + cliente.id;
+            const enderecoCidadeAv = [cfg.studio_city, cfg.studio_estado].filter(Boolean).join(", ");
             const htmlAvaliacao =
               "<div style='font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px'>" +
-              "<p style='font-size:22px;font-weight:bold;color:#1a1a1a;margin-bottom:4px'>Casa dos Carvalho Tattoo</p>" +
+              "<p style='font-size:22px;font-weight:bold;color:#1a1a1a;margin-bottom:4px'>" + studioName + "</p>" +
               "<hr style='border:none;border-top:1px solid #d4a84b;margin-bottom:24px'>" +
               "<p style='font-size:16px'>Olá, <strong>" + fn + "</strong>! 🖤</p>" +
               "<p style='line-height:1.8;color:#333'>Foi um prazer enorme ter você aqui. A sua tatuagem foi feita com muito cuidado e carinho — e adoraríamos saber o que você achou.</p>" +
-              "<p style='line-height:1.8;color:#333'><strong>De 1 a 10, como foi sua experiência na Casa dos Carvalho?</strong></p>" +
+              "<p style='line-height:1.8;color:#333'><strong>De 1 a 10, como foi sua experiência na " + studioName + "?</strong></p>" +
               "<p style='margin:24px 0;text-align:center'>" +
               [1,2,3,4,5,6,7,8,9,10].map(n =>
                 "<a href='" + linkAvaliacao + "&nota=" + n + "' style='display:inline-block;margin:4px;width:40px;height:40px;line-height:40px;text-align:center;background:" + (n >= 8 ? "#d4a84b" : "#eee") + ";color:" + (n >= 8 ? "#fff" : "#555") + ";text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px'>" + n + "</a>"
               ).join("") +
               "</p>" +
-              "<p style='font-size:12px;color:#aaa;margin-top:32px'>Com carinho, Casa dos Carvalho Tattoo — Vitória, ES</p>" +
+              "<p style='font-size:12px;color:#aaa;margin-top:32px'>Com carinho, " + studioName + (enderecoCidadeAv ? " — " + enderecoCidadeAv : "") + "</p>" +
               "</div>";
             const okAv = await dispararEmail({
               apiKey: cfg.resend_api_key,
-              from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+              from: cfg.email_remetente,
               nome_remetente: studioName,
               to: cliente.email,
               subject: "Como foi sua experiência, " + fn + "? 🖤",
@@ -390,10 +411,10 @@ export default async function handler(req, res) {
               const botoesNota = [0,1,2,3,4,5,6,7,8,9,10].map(n =>
                 `<a href="https://inq-saas.vercel.app/api/lead?acao=avaliar_nps&token=${token}&nota=${n}" style="display:inline-block;margin:3px;width:42px;height:42px;line-height:42px;text-align:center;background:${n>=7?"#d4a84b":"#2a2a2a"};color:${n>=7?"#111":"#aaa"};text-decoration:none;border-radius:7px;font-weight:bold;font-size:14px;border:1px solid ${n>=7?"#d4a84b":"#333"}">${n}</a>`
               ).join("");
-              const html = `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px"><p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">Casa dos Carvalho Tattoo</p><hr style="border:none;border-top:1px solid #d4a84b;margin-bottom:24px"><p style="font-size:16px">Olá, <strong>${fn}</strong>!</p><p style="line-height:1.8;color:#444;margin:16px 0">Foi uma alegria ter você aqui no estúdio. Sua opinião é muito importante para nós — ela nos ajuda a continuar evoluindo e a receber cada cliente com ainda mais cuidado.</p><p style="font-size:15px;color:#222;font-weight:bold;margin-bottom:16px">Como você avalia sua experiência conosco?</p><div style="text-align:center;margin-bottom:8px">${botoesNota}</div><p style="font-size:11px;color:#aaa;text-align:center;margin-bottom:28px">0 = extremamente insatisfeito · 10 = extremamente satisfeito</p><p style="font-size:12px;color:#bbb;margin-top:24px">Com carinho, ${nomeArtista}</p></div>`;
+              const html = `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px"><p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">${studioName}</p><hr style="border:none;border-top:1px solid #d4a84b;margin-bottom:24px"><p style="font-size:16px">Olá, <strong>${fn}</strong>!</p><p style="line-height:1.8;color:#444;margin:16px 0">Foi uma alegria ter você aqui no estúdio. Sua opinião é muito importante para nós — ela nos ajuda a continuar evoluindo e a receber cada cliente com ainda mais cuidado.</p><p style="font-size:15px;color:#222;font-weight:bold;margin-bottom:16px">Como você avalia sua experiência conosco?</p><div style="text-align:center;margin-bottom:8px">${botoesNota}</div><p style="font-size:11px;color:#aaa;text-align:center;margin-bottom:28px">0 = extremamente insatisfeito · 10 = extremamente satisfeito</p><p style="font-size:12px;color:#bbb;margin-top:24px">Com carinho, ${nomeArtista}</p></div>`;
               const ok = await dispararEmail({
                 apiKey: cfg.resend_api_key,
-                from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                from: cfg.email_remetente,
                 nome_remetente: nomeArtista,
                 to: cliente.email,
                 subject: "Como foi sua sessão, " + fn + "?",
@@ -415,10 +436,10 @@ export default async function handler(req, res) {
           if (cfg.fluxo_google_convite_ativa !== false && status === "positiva" && cliente.google_convite_em && new Date(cliente.google_convite_em) <= hoje) {
             const linkSim = "https://inq-saas.vercel.app/api/lead?acao=google_sim&token=" + cliente.id;
             const linkNao = "https://inq-saas.vercel.app/api/lead?acao=google_nao&token=" + cliente.id;
-            const html = `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px"><p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">Casa dos Carvalho Tattoo</p><hr style="border:none;border-top:1px solid #d4a84b;margin-bottom:24px"><p style="font-size:16px">Olá, <strong>${fn}</strong>!</p><p style="line-height:1.8;color:#444;margin:16px 0">Muito obrigado pela sua avaliação — fico feliz que sua experiência no estúdio tenha sido boa.</p><p style="line-height:1.8;color:#444;margin-bottom:24px">Se você topar, sua opinião no Google faz uma diferença enorme para nós. Quando as pessoas pesquisam um estúdio, são as avaliações reais de clientes como você que ajudam a decidir.</p><div style="text-align:center;margin-bottom:24px"><a href="${linkSim}" style="display:inline-block;background:#d4a84b;color:#111;text-decoration:none;border-radius:8px;padding:13px 28px;font-size:14px;font-weight:bold;margin:6px">Sim, quero avaliar no Google</a><br><a href="${linkNao}" style="display:inline-block;background:#f5f5f5;color:#555;text-decoration:none;border-radius:8px;padding:13px 28px;font-size:14px;margin:6px">Não, obrigado</a></div><p style="font-size:12px;color:#bbb;text-align:center">Sem pressão — qualquer resposta é válida para nós.</p><p style="font-size:12px;color:#bbb;margin-top:24px">Com carinho, ${nomeArtista}</p></div>`;
+            const html = `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px"><p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">${studioName}</p><hr style="border:none;border-top:1px solid #d4a84b;margin-bottom:24px"><p style="font-size:16px">Olá, <strong>${fn}</strong>!</p><p style="line-height:1.8;color:#444;margin:16px 0">Muito obrigado pela sua avaliação — fico feliz que sua experiência no estúdio tenha sido boa.</p><p style="line-height:1.8;color:#444;margin-bottom:24px">Se você topar, sua opinião no Google faz uma diferença enorme para nós. Quando as pessoas pesquisam um estúdio, são as avaliações reais de clientes como você que ajudam a decidir.</p><div style="text-align:center;margin-bottom:24px"><a href="${linkSim}" style="display:inline-block;background:#d4a84b;color:#111;text-decoration:none;border-radius:8px;padding:13px 28px;font-size:14px;font-weight:bold;margin:6px">Sim, quero avaliar no Google</a><br><a href="${linkNao}" style="display:inline-block;background:#f5f5f5;color:#555;text-decoration:none;border-radius:8px;padding:13px 28px;font-size:14px;margin:6px">Não, obrigado</a></div><p style="font-size:12px;color:#bbb;text-align:center">Sem pressão — qualquer resposta é válida para nós.</p><p style="font-size:12px;color:#bbb;margin-top:24px">Com carinho, ${nomeArtista}</p></div>`;
             const ok = await dispararEmail({
               apiKey: cfg.resend_api_key,
-              from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+              from: cfg.email_remetente,
               nome_remetente: nomeArtista,
               to: cliente.email,
               subject: "Uma última coisa, " + fn + " — leva 1 minuto",
@@ -446,12 +467,13 @@ export default async function handler(req, res) {
             // D+60: e-mail de recontato (uma única vez)
             const jaEnviouD60 = disparosEnviados && disparosEnviados["__aguard_prox_sessao_d60__"];
             if (!jaEnviouD60) {
-              const linkWpp = "https://wa.me/5527999598230?text=" + encodeURIComponent("Olá! Sou " + cliente.nome + " e já tenho uma nova ideia para tatuar na Casa dos Carvalho. Gostaria de agendar uma consulta para conversarmos sobre o projeto!");
+              const waNumeroEstudio = "55" + (cfg.studio_tel || "").replace(/\D/g, "");
+              const linkWpp = "https://wa.me/" + waNumeroEstudio + "?text=" + encodeURIComponent("Olá! Sou " + cliente.nome + " e já tenho uma nova ideia para tatuar na " + studioName + ". Gostaria de agendar uma consulta para conversarmos sobre o projeto!");
               const htmlD60 = `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px">
-<p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">Casa dos Carvalho Tattoo</p>
+<p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">${studioName}</p>
 <hr style="border:none;border-top:1px solid #d4a84b;margin-bottom:24px">
 <p style="font-size:16px">Olá, <strong>${fn}</strong>!</p>
-<p style="line-height:1.8;color:#444;margin:16px 0">Faz um tempo desde a sua última sessão aqui na Casa dos Carvalho — e esperamos que sua arte esteja linda e bem cicatrizada.</p>
+<p style="line-height:1.8;color:#444;margin:16px 0">Faz um tempo desde a sua última sessão aqui na ${studioName} — e esperamos que sua arte esteja linda e bem cicatrizada.</p>
 <p style="line-height:1.8;color:#444;margin-bottom:24px">Sabemos que uma boa ideia não tem pressa para nascer. Mas quando ela chegar, queremos ser os primeiros a saber.</p>
 <p style="line-height:1.8;color:#444;margin-bottom:28px">Se já está pensando no próximo projeto, é só chamar a gente.</p>
 <div style="text-align:center;margin-bottom:28px">
@@ -461,7 +483,7 @@ export default async function handler(req, res) {
 </div>`;
               const ok = await dispararEmail({
                 apiKey: cfg.resend_api_key,
-                from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                from: cfg.email_remetente,
                 nome_remetente: studioName,
                 to: cliente.email,
                 subject: "A próxima ideia já nasceu, " + fn + "?",
@@ -485,9 +507,10 @@ export default async function handler(req, res) {
           if (!jaEnviouRemarcar && cliente.etapa_desde) {
             const diasEtapa = diasEntre(cliente.etapa_desde, hoje);
             if (diasEtapa >= 0) {
-              const linkWpp = "https://wa.me/5527999598230?text=" + encodeURIComponent("Olá! Sou " + cliente.nome + " e preciso remarcar minha sessão/consulta na Casa dos Carvalho. Podemos verificar uma nova data?");
+              const waNumeroEstudio2 = "55" + (cfg.studio_tel || "").replace(/\D/g, "");
+              const linkWpp = "https://wa.me/" + waNumeroEstudio2 + "?text=" + encodeURIComponent("Olá! Sou " + cliente.nome + " e preciso remarcar minha sessão/consulta na " + studioName + ". Podemos verificar uma nova data?");
               const htmlRemarcar = `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px">
-<p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">Casa dos Carvalho Tattoo</p>
+<p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">${studioName}</p>
 <hr style="border:none;border-top:1px solid #d4a84b;margin-bottom:24px">
 <p style="font-size:16px">Olá, <strong>${fn}</strong>.</p>
 <p style="line-height:1.8;color:#444;margin:16px 0">Sua sessão foi desmarcada e o horário já foi disponibilizado para outros clientes.</p>
@@ -496,11 +519,11 @@ export default async function handler(req, res) {
 <div style="text-align:center;margin-bottom:28px">
   <a href="${linkWpp}" style="display:inline-block;background:#d4a84b;color:#111;text-decoration:none;border-radius:8px;padding:14px 32px;font-size:14px;font-weight:bold">Remarcar pelo WhatsApp</a>
 </div>
-<p style="font-size:12px;color:#bbb;margin-top:24px">Casa dos Carvalho Tattoo</p>
+<p style="font-size:12px;color:#bbb;margin-top:24px">${studioName}</p>
 </div>`;
               const ok = await dispararEmail({
                 apiKey: cfg.resend_api_key,
-                from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                from: cfg.email_remetente,
                 nome_remetente: studioName,
                 to: cliente.email,
                 subject: "Sua vaga foi liberada, " + fn,
@@ -535,7 +558,7 @@ export default async function handler(req, res) {
             const diasEtapa = diasEntre(cliente.etapa_desde, hoje);
             if (diasEtapa >= 0) {
               const htmlBV = `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px">
-<p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">Casa dos Carvalho Tattoo</p>
+<p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">${studioName}</p>
 <hr style="border:none;border-top:1px solid #d4a84b;margin-bottom:24px">
 <p style="font-size:16px">Olá, <strong>${fn}</strong>!</p>
 <p style="line-height:1.8;color:#444;margin:16px 0">Queremos te agradecer por ter vindo até a gente. Sua pontualidade e compromisso dizem muito sobre quem você é — e é exatamente o tipo de cliente que a gente adora receber.</p>
@@ -545,7 +568,7 @@ export default async function handler(req, res) {
 </div>`;
               const ok = await dispararEmail({
                 apiKey: cfg.resend_api_key,
-                from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                from: cfg.email_remetente,
                 nome_remetente: studioName,
                 to: cliente.email,
                 subject: "Obrigado pela sua visita, " + fn,
@@ -567,14 +590,15 @@ export default async function handler(req, res) {
             const diasEtapa = diasEntre(cliente.etapa_desde, hoje);
             if (diasEtapa >= 30) {
               const baseUrl = process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "http://localhost:3000";
-              const linkSim = "https://wa.me/5527999598230?text=" + encodeURIComponent("Olá! Sou " + cliente.nome + " e gostaria de solicitar o agendamento para a execução do meu projeto" + (nomeArtista ? " criado pelo(a) " + nomeArtista : "") + " na Casa dos Carvalho. Estou pronto(a) para dar o próximo passo!");
+              const waNumeroEstudio3 = "55" + (cfg.studio_tel || "").replace(/\D/g, "");
+              const linkSim = "https://wa.me/" + waNumeroEstudio3 + "?text=" + encodeURIComponent("Olá! Sou " + cliente.nome + " e gostaria de solicitar o agendamento para a execução do meu projeto" + (nomeArtista ? " criado pelo(a) " + nomeArtista : "") + " na " + studioName + ". Estou pronto(a) para dar o próximo passo!");
               const linkNao = baseUrl + "/api/lead?acao=adiar_sessao&token=" + cliente.id;
               const artistaTexto = nomeArtista ? `pelo(a) <strong>${nomeArtista}</strong>` : "pelo nosso artista";
               const htmlD30 = `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px">
-<p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">Casa dos Carvalho Tattoo</p>
+<p style="font-size:11px;letter-spacing:2px;color:#d4a84b;text-transform:uppercase;margin-bottom:4px">${studioName}</p>
 <hr style="border:none;border-top:1px solid #d4a84b;margin-bottom:24px">
 <p style="font-size:16px">Olá, <strong>${fn}</strong>!</p>
-<p style="line-height:1.8;color:#444;margin:16px 0">Faz 30 dias desde a sua consulta aqui na Casa dos Carvalho — e o seu projeto continua guardado com o mesmo cuidado de sempre.</p>
+<p style="line-height:1.8;color:#444;margin:16px 0">Faz 30 dias desde a sua consulta aqui na ${studioName} — e o seu projeto continua guardado com o mesmo cuidado de sempre.</p>
 <p style="line-height:1.8;color:#444;margin-bottom:24px">${artistaTexto} criou algo pensado exclusivamente para você, nos mínimos detalhes, para ser eternizado na sua pele. Estamos prontos quando você estiver.</p>
 <p style="font-size:15px;color:#222;font-weight:bold;text-align:center;margin-bottom:20px">Já chegou a sua hora de eternizarmos esse projeto?</p>
 <div style="text-align:center;margin-bottom:28px">
@@ -587,7 +611,7 @@ export default async function handler(req, res) {
 </div>`;
               const ok = await dispararEmail({
                 apiKey: cfg.resend_api_key,
-                from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                from: cfg.email_remetente,
                 nome_remetente: studioName,
                 to: cliente.email,
                 subject: "Já chegou a sua hora, " + fn + "?",
@@ -634,7 +658,7 @@ export default async function handler(req, res) {
                   }
                   const dataFormatadaConfirma = new Date(evProximo.data + "T12:00:00")
                     .toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
-                  const enderecoStudio = "Rua Aristides Navarro 165, Centro de Vitória - ES";
+                  const enderecoStudio = [cfg.studio_rua, cfg.studio_numero, cfg.studio_bairro, cfg.studio_city].filter(Boolean).join(", ") || "nosso estúdio";
                   const tipoLabel = ehConsultaImediata ? "consulta" : "sessão";
 
                   const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" +
@@ -648,7 +672,7 @@ export default async function handler(req, res) {
 
                   const okConfirma = await dispararEmail({
                     apiKey: cfg.resend_api_key,
-                    from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                    from: cfg.email_remetente,
                     nome_remetente: cfg.nome_remetente || studioName,
                     to: cliente.email,
                     subject: "Sua " + tipoLabel + " está confirmada, " + (cliente.nome || "") + " ✦",
@@ -696,7 +720,7 @@ export default async function handler(req, res) {
 
               if (!jaEnviouD0) {
                 const horaEv = evHoje.hora || "";
-                const enderecoStudio = "Rua Aristides Navarro 165, Centro de Vitoria - ES";
+                const enderecoStudio = [cfg.studio_rua, cfg.studio_numero, cfg.studio_bairro, cfg.studio_city].filter(Boolean).join(", ") || "nosso estúdio";
                 const solicitacao = cliente.descricao || "";
                 let enviouD0 = false;
 
@@ -704,8 +728,8 @@ export default async function handler(req, res) {
                 if (cliente.tel) {
                   const telCliente = formatarTelBR(cliente.tel);
                   const msgCliente = ehConsulta
-                    ? `Ola, ${cliente.nome}! Hoje e o dia da sua consulta na Casa dos Carvalho. Estamos ansiosos para ouvir a sua ideia e apresentar o projeto da sua nova arte que sera eternizada na sua pele. Te esperamos as ${horaEv} em: ${enderecoStudio}. Ate logo! - ${studioName}`
-                    : `Ola, ${cliente.nome}! Hoje e o dia da sua sessao de tatuagem na Casa dos Carvalho. A arte esta pronta e o artista esta animado para tatuar voce! Te esperamos as ${horaEv} em: ${enderecoStudio}. Pontualidade e muito importante para nos. Ate logo! - ${studioName}`;
+                    ? `Ola, ${cliente.nome}! Hoje e o dia da sua consulta na ${studioName}. Estamos ansiosos para ouvir a sua ideia e apresentar o projeto da sua nova arte que sera eternizada na sua pele. Te esperamos as ${horaEv} em: ${enderecoStudio}. Ate logo! - ${studioName}`
+                    : `Ola, ${cliente.nome}! Hoje e o dia da sua sessao de tatuagem na ${studioName}. A arte esta pronta e o artista esta animado para tatuar voce! Te esperamos as ${horaEv} em: ${enderecoStudio}. Pontualidade e muito importante para nos. Ate logo! - ${studioName}`;
                   const okCliente = await dispararZenvia({ apiKey: cfg.zenvia_api_key, from: cfg.zenvia_numero, to: telCliente, text: msgCliente, canal: "sms" });
                   if (okCliente) enviouD0 = true;
                 }
@@ -816,7 +840,7 @@ export default async function handler(req, res) {
                       msgFinal.replace(/\n/g, "<br>") + "</div>";
                     const ok = await dispararEmail({
                       apiKey: cfg.resend_api_key,
-                      from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                      from: cfg.email_remetente,
                       nome_remetente: cfg.nome_remetente || studioName,
                       to: cliente.email,
                       subject: (ehConsulta ? "Sua consulta é amanhã" : "Sua sessão é amanhã") + " — " + studioName,
@@ -882,7 +906,7 @@ export default async function handler(req, res) {
                       msg.replace(/\n/g, "<br>") + "</div>";
                     ok = await dispararEmail({
                       apiKey: cfg.resend_api_key,
-                      from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                      from: cfg.email_remetente,
                       nome_remetente: cfg.nome_remetente || studioName,
                       to: cliente.email,
                       subject: (fe.label || etapaSlug) + " — " + studioName,
@@ -921,6 +945,7 @@ export default async function handler(req, res) {
         // ── CAMPANHAS SAZONAIS (Mães/Pais/Namorados/Aniversário/Natal/Ano Novo) ──
         if (cliente.etapa !== "blacklist") {
           for (const slug of Object.keys(campSazEtapas)) {
+            if (slug === "aniversario_artista") continue; // tratado à parte, abaixo — não é por data do cliente
             for (const fe of campSazEtapas[slug]) {
               try {
                 for (const ano of [hoje.getFullYear() - 1, hoje.getFullYear(), hoje.getFullYear() + 1]) {
@@ -946,7 +971,7 @@ export default async function handler(req, res) {
                       msg.replace(/\n/g, "<br>") + "</div>";
                     ok = await dispararEmail({
                       apiKey: cfg.resend_api_key,
-                      from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                      from: cfg.email_remetente,
                       nome_remetente: cfg.nome_remetente || studioName,
                       to: cliente.email,
                       subject: (fe.label || slug) + " — " + studioName,
@@ -975,6 +1000,63 @@ export default async function handler(req, res) {
                     totalDisparos++;
                   }
                   break; // ano-âncora certo já processado, não precisa checar os outros
+                }
+              } catch {
+                totalErros++;
+              }
+            }
+          }
+        }
+
+        // ── ANIVERSÁRIO DO ARTISTA (promoção divulgada pra base de clientes) ──
+        if (cliente.etapa !== "blacklist" && artistasAniversarioHoje.length > 0 && campSazEtapas["aniversario_artista"]) {
+          for (const artistaAniv of artistasAniversarioHoje) {
+            for (const fe of campSazEtapas["aniversario_artista"]) {
+              try {
+                const ano = hoje.getFullYear();
+                const feId = "sazonal_artista__" + fe.id + "_" + artistaAniv.id + "_" + ano;
+                if (disparosEnviados && disparosEnviados[feId]) continue;
+
+                const canalAtual = fe.canal || "email";
+                const canalOk = canaisHabilitados ? (canaisHabilitados[canalAtual] !== false) : (canalAtual === "email");
+                if (!canalOk) continue;
+
+                const msg = substituirVars(fe.mensagem, cliente, studioName).replace(/\{artista\}/gi, artistaAniv.nome);
+                let ok = false;
+
+                if (canalAtual === "email") {
+                  if (!cfg.resend_api_key || !cliente.email) continue;
+                  const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" +
+                    msg.replace(/\n/g, "<br>") + "</div>";
+                  ok = await dispararEmail({
+                    apiKey: cfg.resend_api_key,
+                    from: cfg.email_remetente,
+                    nome_remetente: cfg.nome_remetente || studioName,
+                    to: cliente.email,
+                    subject: (fe.label || "Aniversário do Artista") + " — " + studioName,
+                    html
+                  });
+                } else if (canalAtual === "sms" || canalAtual === "whatsapp") {
+                  if (!cfg.zenvia_api_key || !cfg.zenvia_numero || !cliente.tel) continue;
+                  const tel = formatarTelBR(cliente.tel);
+                  ok = await dispararZenvia({
+                    apiKey: cfg.zenvia_api_key,
+                    from: cfg.zenvia_numero,
+                    to: tel,
+                    text: msg,
+                    canal: canalAtual
+                  });
+                }
+
+                if (ok) {
+                  let disparosAtuais = {};
+                  try {
+                    const { data: cliAtual } = await sb.from("clientes").select("disparos_enviados").eq("id", cliente.id).single();
+                    disparosAtuais = cliAtual?.disparos_enviados || {};
+                  } catch {}
+                  await marcarEnviado(cliente.id, feId, disparosAtuais);
+                  await registrarHistorico(userId, "Campanha aniversário do artista [" + artistaAniv.nome + "] — " + (fe.label || feId) + " — " + cliente.nome + " (" + canalAtual + ")");
+                  totalDisparos++;
                 }
               } catch {
                 totalErros++;

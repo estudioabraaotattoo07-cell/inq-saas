@@ -585,8 +585,6 @@ const DATAS = [
   { id: "natal", label: "Natal", data: "25 Dez", icon: "🎄" },
   { id: "anoNovo", label: "Ano Novo", data: "01 Jan", icon: "🎆" },
   { id: "aniversario", label: "Aniversarios", data: "Mensal", icon: "🎂" },
-  { id: "aniAbraao", label: "Aniv. do Responsável", data: "—", icon: "🎉" },
-  { id: "aniCamilla", label: "Aniv. Camilla (26/Jun)", data: "26 Jun", icon: "🎉" },
   { id: "diaTatuador", label: "Dia do Tatuador", data: "10 Dez", icon: "🖋️" },
 ];
 
@@ -598,15 +596,13 @@ const MSGS: Record<string, string> = {
   tatuados: "Olá, [Nome]\n\nEspero que sua arte esteja linda e bem cuidada. Se a proxima ideia ja esta nascendo, você sabe onde nos encontrar.",
   homenagem: "Olá, [Nome]\n\nNessa época especial, lembramos de voce e da arte que escolheu eternizar na sua pele.",
   primeira: "Olá, [Nome]\n\nTodo começo é especial - e o seu ficou guardado com muito carinho.\n\nSe a segunda ideia está surgindo, será uma honra.",
-  abraao: "Olá, [Nome]\n\nAqui e o Abraão. Você faz parte da família Casa dos Carvalho, e já está na hora de reservarmos aquele cafezinho com arte.\n\nSepara uma tarde pra gente colocar o papo em dia e planejar o seu próximo projeto — você e sempre prioridade aqui.",
+  abraao: "Olá, [Nome]\n\nAqui e o Abraão. Você faz parte da família [ESTUDIO], e já está na hora de reservarmos aquele cafezinho com arte.\n\nSepara uma tarde pra gente colocar o papo em dia e planejar o seu próximo projeto — você e sempre prioridade aqui.",
   camilla: "Olá, [Nome]\n\nAqui e a Camilla 💛 Você faz parte da nossa família, e chegou a hora de reservarmos aquele cafezinho com arte.\n\nVem colocar a conversa em dia comigo e sonhar junto no seu próximo projeto — você e sempre prioridade por aqui.",
   maes: "Olá, [Nome]\n\nFeliz Dia das Mães.\n\nAlgumas memorias merecem ser eternas. O [ESTUDIO] esta aqui para transformar esse sentimento em arte.",
   namorados: "Olá, [Nome]\n\nFeliz Dia dos Namorados.\n\nO [ESTUDIO] transforma amor em arte.",
   pais: "Olá, [Nome]\n\nFeliz Dia dos Pais.\n\nSe existe uma homenagem guardada no coracao - talvez esse seja o momento certo.",
   natal: "Olá, [Nome]\n\nQue esse Natal seja cheio de momentos que voce vai querer guardar para sempre.",
   anoNovo: "Olá, [Nome]\n\nUm novo ano carrega novas histórias. O [ESTUDIO] esta pronto para fazer acontecer.",
-  aniAbraao: "Olá, [Nome]\n\nHoje e aniversário do Abraão — e aqui na Casa dos Carvalho, quem ganha o presente e você!\n\nPra comemorar, sua sessão em andamento ou seu novo projeto saem com 15% de desconto. A condicao e válida por 15 dias a partir de hoje.\n\nChama a gente no WhatsApp pra aproveitar.",
-  aniCamilla: "Olá, [Nome]\n\nHoje e aniversário da Camilla — e aqui na Casa dos Carvalho, quem ganha o presente e você!\n\nPra comemorar, sua sessão em andamento ou seu novo projeto saem com 15% de desconto. A condicao e válida por 15 dias a partir de hoje.\n\nChama a gente no WhatsApp pra aproveitar.",
   aniversario: "Olá, [Nome]\n\nHoje é um dia muito especial - e o [ESTUDIO] quer fazer parte dele.\n\nComo presente: 50% de desconto na sua próxima tatuagem, válido por 15 dias.\n\nQuando quiser saber mais, e so chamar.",
   google: "Olá, [Nome]\n\nEspero que sua tatuagem esteja linda e bem cuidada.\n\nSe sua experiencia no [ESTUDIO] foi especial, sua avaliação no Google faz toda a diferença para nós crescermos juntos.\n\nLeva só 1 minutinho: [LINK_GOOGLE]\n\nObrigado de coração.",
   diaTatuador: "Olá, [Nome]\n\nHoje é o Dia do Tatuador - e o [ESTUDIO] tem muito a celebrar.\n\nObrigado por fazer parte dessa historia. Cada arte que criamos juntos e uma memoria que voce carrega para sempre.",
@@ -1298,7 +1294,7 @@ export default function CRM() {
   const [novoClientePiercing, setNovoClientePiercing] = useState({ piercingItens: [] as { id: string; joiaId: string; nome: string; tamanho?: string; valorJoia: number; valorAplicacao: number }[], joiaId: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "" });
   const [artForm, setArtForm] = useState({
     nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "", email: "", tel: "",
-    funcao: "", atendeCliente: true,
+    funcao: "", atendeCliente: true, nascimento: "",
     piercingComissaoTipo: "" as "" | "percentual" | "fixo", piercingComissaoValor: "",
     remuneracaoTipo: "" as "" | "salario_fixo" | "por_hora" | "outro", remuneracaoValor: "",
     formaRecebimento: ""
@@ -1959,7 +1955,7 @@ export default function CRM() {
           await fetch("/api/resend", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ apiKey: resendApiKey, from: emailRemetente || "noreply@acasadoscarvalhotattoo.com.br", to: cliente.email, subject: etapa.label + " — " + (studioName || "INK SYSTEM"), html })
+            body: JSON.stringify({ apiKey: resendApiKey, from: emailRemetente, to: cliente.email, subject: etapa.label + " — " + (studioName || "INK SYSTEM"), html })
           });
           enviados++;
         } else if ((canal === "whatsapp" || canal === "sms") && zenviaApiKey && zenviaNumero && cliente.tel) {
@@ -2027,7 +2023,7 @@ export default function CRM() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           apiKey: resendApiKey,
-          from: "aura@acasadoscarvalhotattoo.com.br",
+          from: emailRemetente,
           to: studioEmail,
           subject: "📊 Relatório Financeiro — " + nomeMes + "/" + ano + " · " + (studioName || "INK SYSTEM"),
           html
@@ -2849,6 +2845,7 @@ export default function CRM() {
       tel: artForm.tel || "",
       funcao: artForm.funcao || "",
       atende_cliente: artForm.atendeCliente,
+      nascimento: artForm.nascimento || null,
       piercing_comissao_tipo: artForm.piercingComissaoTipo || null,
       piercing_comissao_valor: artForm.piercingComissaoValor ? Number(artForm.piercingComissaoValor) : null,
       remuneracao_tipo: artForm.remuneracaoTipo || null,
@@ -2863,7 +2860,7 @@ export default function CRM() {
     }
     setArtists(p => [...p, { ...row, id: artData.id }]);
     setShowArtForm(false);
-    setArtForm({ nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "@", email: "", tel: "", funcao: "", atendeCliente: true, piercingComissaoTipo: "", piercingComissaoValor: "", remuneracaoTipo: "", remuneracaoValor: "", formaRecebimento: "" });
+    setArtForm({ nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "@", email: "", tel: "", funcao: "", atendeCliente: true, nascimento: "", piercingComissaoTipo: "", piercingComissaoValor: "", remuneracaoTipo: "", remuneracaoValor: "", formaRecebimento: "" });
     addLog(`Profissional "${artForm.nome}" cadastrado`);
     if (!onboardingDone) { setOnbStep(s => s + 1); }
   };
@@ -2873,7 +2870,7 @@ export default function CRM() {
   const enviarEmailPosVendaPiercingDia0 = async (cid: number) => {
     const cliente = clients.find(c => c.id === cid);
     if (!resendApiKey || !emailRemetente || !cliente?.email) return;
-    const studioNomeF = (studioName || "A Casa dos Carvalho").replace(/_/g, " ");
+    const studioNomeF = (studioName || "seu estúdio").replace(/_/g, " ");
     const whatsappFmt = studioTel ? maskTel(studioTel) : "";
     const waNumero = (studioTel || "").replace(/\D/g, "");
     const waLink = "https://wa.me/55" + waNumero + "?text=" + encodeURIComponent("Olá! Acabei de fazer meu piercing hoje e tenho uma dúvida sobre os cuidados.");
@@ -2926,7 +2923,7 @@ export default function CRM() {
   const enviarEmailBoasVindas = async (cliente: any, artistaNome: string) => {
     if (!resendApiKey || !emailRemetente || !cliente?.email) return;
     if (!fluxoToggles.boas_vindas_email) return;
-    const studioNomeF = (studioName || "A Casa dos Carvalho").replace(/_/g, " ");
+    const studioNomeF = (studioName || "seu estúdio").replace(/_/g, " ");
     const whatsappFmt = studioTel ? maskTel(studioTel) : "nosso WhatsApp";
     const html = `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;">
@@ -2957,7 +2954,7 @@ export default function CRM() {
     const ehConsulta = tipo === "cons";
     if (ehConsulta && !fluxoToggles.confirma_consulta) return;
     if (!ehConsulta && !fluxoToggles.confirma_sessao) return;
-    const studioNomeF = (studioName || "A Casa dos Carvalho").replace(/_/g, " ");
+    const studioNomeF = (studioName || "seu estúdio").replace(/_/g, " ");
     const dataFmt = data ? data.split("-").reverse().join("/") : "—";
     const horaFmt = String(horaInicio).padStart(2,"0") + ":00";
     const enderecoFmt = [studioRua, studioNumero, studioBairro, studioCity].filter(Boolean).join(", ") || "nosso estúdio";
@@ -2991,8 +2988,8 @@ export default function CRM() {
         <div style="padding:32px;">
           <p style="font-size:15px;">Olá, <strong>${cliente.nome}</strong>!</p>
           <p style="font-size:14px;color:#333;">${ehConsulta
-            ? "Que bom ter você aqui. Sua <strong>consulta</strong> na Casa dos Carvalho foi agendada com sucesso — esse é o primeiro passo do seu projeto de tatuagem."
-            : "Sua sessão na <strong>Casa dos Carvalho</strong> está marcada e a gente já está animado com o que vem por aí."
+            ? `Que bom ter você aqui. Sua <strong>consulta</strong> na ${studioNomeF} foi agendada com sucesso — esse é o primeiro passo do seu projeto de tatuagem.`
+            : `Sua sessão na <strong>${studioNomeF}</strong> está marcada e a gente já está animado com o que vem por aí.`
           }</p>
           <div style="background:#f9f6f0;border-left:3px solid #c9a84c;border-radius:4px;padding:16px 20px;margin:20px 0;font-size:13px;line-height:2.2;">
             <div><strong>📅 Data:</strong> ${dataFmt}</div>
@@ -3429,7 +3426,7 @@ export default function CRM() {
       input_schema: {
         type: "object",
         properties: {
-          filtro: { type: "string", description: "Critério de filtragem em texto livre (ex: 'etapa=hibernacao', 'artista=Camilla', 'sem sessão há 60 dias')" },
+          filtro: { type: "string", description: "Critério de filtragem em texto livre (ex: 'etapa=hibernacao', 'artista=Nome do Artista', 'sem sessão há 60 dias')" },
           campo: { type: "string", description: "Campo a ser alterado em todos os clientes encontrados (ex: etapa, artista, obs)" },
           valor: { type: "string", description: "Novo valor a ser aplicado no campo informado" },
           ids: { type: "array", items: { type: "string" }, description: "Lista de IDs dos clientes que serão alterados. A Aura monta essa lista após filtrar." }
@@ -3745,7 +3742,7 @@ export default function CRM() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               apiKey: resendApiKey,
-              from: emailRemetente || "aura@acasadoscarvalhotattoo.com.br",
+              from: emailRemetente,
               to: params.destinatario_email,
               subject: params.assunto,
               html: "<p>" + params.mensagem.replace(/\n/g, "<br>") + "</p><p style='font-size:12px;color:#999'>Enviado via INK SYSTEM</p>"
@@ -4912,6 +4909,7 @@ export default function CRM() {
                 <div className="ff"><label className="fl">E-mail de acesso ao sistema</label><input className="fi" type="email" placeholder="email@exemplo.com" value={artForm.email} onChange={e => setArtForm({ ...artForm, email: e.target.value.toLowerCase() })} /></div>
                 <div className="ff"><label className="fl">Telefone / WhatsApp (recebe SMS de lembrete de sessão)</label><input className="fi" placeholder="(99) 99999-9999" value={artForm.tel} onChange={e => setArtForm({ ...artForm, tel: e.target.value })} /></div>
                 <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => { const v = e.target.value; setArtForm({ ...artForm, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
+                <div className="ff"><label className="fl">Aniversário</label><input className="fi" type="date" value={artForm.nascimento} onChange={e => setArtForm({ ...artForm, nascimento: e.target.value })} /></div>
                 <div className="ff"><label className="fl">Cor</label><ColorPicker value={artForm.cor} onChange={cor => setArtForm({ ...artForm, cor })} /></div>
               </div>
               <div className="fmf"><button className="btn-c" onClick={() => setShowArtForm(false)}>Cancelar</button><button className="btn-s" onClick={saveArtist} disabled={!artForm.nome}>Salvar</button></div>
@@ -7142,6 +7140,10 @@ export default function CRM() {
                   <input className="fi" placeholder="(99) 99999-9999" value={editingArtist.tel || ""} onChange={e => setEditingArtist({ ...editingArtist, tel: e.target.value })} />
                 </div>
                 <div className="ff">
+                  <label className="fl">Aniversário</label>
+                  <input className="fi" type="date" value={editingArtist.nascimento || ""} onChange={e => setEditingArtist({ ...editingArtist, nascimento: e.target.value })} />
+                </div>
+                <div className="ff">
                   <label className="fl">Cor</label>
                   <ColorPicker value={editingArtist.cor} onChange={cor => setEditingArtist({ ...editingArtist, cor })} />
                 </div>
@@ -7161,6 +7163,7 @@ export default function CRM() {
                     ativo: editingArtist.ativo,
                     funcao: editingArtist.funcao || "",
                     atende_cliente: editingArtist.atende_cliente !== false,
+                    nascimento: editingArtist.nascimento || null,
                     piercing_comissao_tipo: editingArtist.piercing_comissao_tipo || null,
                     piercing_comissao_valor: editingArtist.piercing_comissao_valor ? Number(String(editingArtist.piercing_comissao_valor).replace(",", ".")) : null,
                     remuneracao_tipo: editingArtist.remuneracao_tipo || null,
@@ -7707,21 +7710,21 @@ export default function CRM() {
                                 );
                                 const sid = stage.id;
                                 const boasVindasCards = (<>
-                                  <CardSistema ativo={fluxoToggles.boas_vindas_email} toggleKey="boas_vindas_email" label="E-mail de boas-vindas ao cliente" gatilho="Imediato — ao entrar no sistema (Aura Chat ou cadastro manual)" preview={"Assunto: Recebemos sua mensagem, {nome}!\n\nOlá, {nome}! Que alegria receber sua ideia aqui na Casa dos Carvalho. Já registramos tudo com cuidado — em até 24h, alguém da nossa equipe vai te ligar pessoalmente. Sem formulário, sem robô — conversa de gente pra gente.\n\n+ Resumo dos dados registrados (nome, telefone, ideia, região, artista...)"} />
+                                  <CardSistema ativo={fluxoToggles.boas_vindas_email} toggleKey="boas_vindas_email" label="E-mail de boas-vindas ao cliente" gatilho="Imediato — ao entrar no sistema (Aura Chat ou cadastro manual)" preview={"Assunto: Recebemos sua mensagem, {nome}!\n\nOlá, {nome}! Que alegria receber sua ideia aqui na {estudio}. Já registramos tudo com cuidado — em até 24h, alguém da nossa equipe vai te ligar pessoalmente. Sem formulário, sem robô — conversa de gente pra gente.\n\n+ Resumo dos dados registrados (nome, telefone, ideia, região, artista...)"} />
                                   <CardSistema ativo={fluxoToggles.notificacao_artista} toggleKey="notificacao_artista" label="E-mail de alerta interno ao artista" gatilho="Imediato — notifica o profissional responsável" preview={"Assunto: Novo lead — {nome}\n\nUm novo cliente entrou em contato solicitando atendimento com você.\n\nNome: {nome} · Tel: {tel} · Ideia: {estilo} · Região: {regiao}\n\nAcesse o sistema para dar andamento."} />
                                 </>);
                                 if (sid === "lead") return boasVindasCards;
                                 if (sid === "lead_morno") return boasVindasCards;
                                 if (sid === "aura_agend") return boasVindasCards;
                                 if (sid === "cons_agendada") return (<>
-                                  <CardSistema ativo={fluxoToggles.confirma_consulta} toggleKey="confirma_consulta" label="E-mail de confirmação de consulta" gatilho="Imediato — ao agendar a consulta" preview={"Assunto: Sua consulta está agendada, {nome} ✦\n\nOlá, {nome}! Que bom ter você aqui. Sua consulta na Casa dos Carvalho foi agendada com sucesso — esse é o primeiro passo do seu projeto de tatuagem.\n\n📅 Data · 🕐 Horário · ✦ Profissional · 📍 Local\n\nNa consulta vamos: entender sua ideia, definir estilo/tamanho/posicionamento, tirar dúvidas e apresentar orçamento personalizado."} />
+                                  <CardSistema ativo={fluxoToggles.confirma_consulta} toggleKey="confirma_consulta" label="E-mail de confirmação de consulta" gatilho="Imediato — ao agendar a consulta" preview={"Assunto: Sua consulta está agendada, {nome} ✦\n\nOlá, {nome}! Que bom ter você aqui. Sua consulta na {estudio} foi agendada com sucesso — esse é o primeiro passo do seu projeto de tatuagem.\n\n📅 Data · 🕐 Horário · ✦ Profissional · 📍 Local\n\nNa consulta vamos: entender sua ideia, definir estilo/tamanho/posicionamento, tirar dúvidas e apresentar orçamento personalizado."} />
                                   <CardSistema ativo={fluxoToggles.confirmacao_presenca} toggleKey="confirmacao_presenca" label="Lembrete D-1 de consulta" gatilho="Um dia antes — evento na agenda amanhã" preview={"Assunto: Sua consulta é amanhã — {estudio}\n\nOlá, {nome}! Sua consulta está marcada para amanhã.\n\nEstamos ansiosos para conhecer a sua ideia — mal podemos esperar!\n\nConfirme sua presença aqui: [link]\n\nLembrete carinhoso: faltas sem aviso podem resultar em restrições futuras de agendamento."} />
-                                  <CardSistema ativo={fluxoToggles.sms_consulta} toggleKey="sms_consulta" label="SMS no dia da consulta — cliente e artista" gatilho="No dia — manhã cedo (cliente + artista vinculado)" preview={"Cliente: Olá, {nome}! Hoje é o dia da sua consulta na Casa dos Carvalho. Estamos ansiosos para ouvir a sua ideia e apresentar o projeto da sua nova arte que será eternizada na sua pele. Te esperamos às {hora} em: Rua Aristides Navarro 165, Centro de Vitória - ES. Até logo! — {estudio}\n\nArtista: INK SYSTEM: Você tem uma consulta hoje com {nome} às {hora}. Projeto solicitado: {solicitacao}. Confira sua agenda e prepare-se."} />
+                                  <CardSistema ativo={fluxoToggles.sms_consulta} toggleKey="sms_consulta" label="SMS no dia da consulta — cliente e artista" gatilho="No dia — manhã cedo (cliente + artista vinculado)" preview={"Cliente: Olá, {nome}! Hoje é o dia da sua consulta na {estudio}. Estamos ansiosos para ouvir a sua ideia e apresentar o projeto da sua nova arte que será eternizada na sua pele. Te esperamos às {hora} em: {endereco}. Até logo! — {estudio}\n\nArtista: INK SYSTEM: Você tem uma consulta hoje com {nome} às {hora}. Projeto solicitado: {solicitacao}. Confira sua agenda e prepare-se."} />
                                 </>);
                                 if (sid === "sessao_agend") return (<>
-                                  <CardSistema ativo={fluxoToggles.confirma_sessao} toggleKey="confirma_sessao" label="E-mail de confirmação de sessão" gatilho="Imediato — ao agendar a sessão" preview={"Assunto: Sua sessão está confirmada, {nome} ✦\n\nOlá, {nome}! Sua sessão na Casa dos Carvalho está marcada e a gente já está animado com o que vem por aí.\n\n📅 Data · 🕐 Horário · ✦ Profissional · 📍 Local\n\nAntes da sua sessão: alimente-se bem, evite álcool 24h antes, durma bem, hidrate a pele da região."} />
+                                  <CardSistema ativo={fluxoToggles.confirma_sessao} toggleKey="confirma_sessao" label="E-mail de confirmação de sessão" gatilho="Imediato — ao agendar a sessão" preview={"Assunto: Sua sessão está confirmada, {nome} ✦\n\nOlá, {nome}! Sua sessão na {estudio} está marcada e a gente já está animado com o que vem por aí.\n\n📅 Data · 🕐 Horário · ✦ Profissional · 📍 Local\n\nAntes da sua sessão: alimente-se bem, evite álcool 24h antes, durma bem, hidrate a pele da região."} />
                                   <CardSistema ativo={fluxoToggles.confirmacao_presenca} toggleKey="confirmacao_presenca" label="Lembrete D-1 de sessão" gatilho="Um dia antes — evento na agenda amanhã" preview={"Assunto: Sua sessão é amanhã — {estudio}\n\nOlá, {nome}! A arte está pronta, o artista está animado — mal podemos esperar para tatuar você!\n\nConfirme sua presença: [link]\n\nLembrete carinhoso: faltas sem aviso são registradas e podem resultar em restrições futuras."} />
-                                  <CardSistema ativo={fluxoToggles.sms_sessao} toggleKey="sms_sessao" label="SMS no dia da sessão — cliente e artista" gatilho="No dia — manhã cedo (cliente + artista vinculado)" preview={"Cliente: Olá, {nome}! Hoje é o dia da sua sessão de tatuagem na Casa dos Carvalho. A arte está pronta e o artista está animado para tatuar você! Te esperamos às {hora} em: Rua Aristides Navarro 165, Centro de Vitória - ES. Pontualidade é muito importante para nós. Até logo! — {estudio}\n\nArtista: INK SYSTEM: Você tem uma sessão de tatuagem hoje com {nome} às {hora}. Projeto solicitado: {solicitacao}. Prepare tudo para a arte de hoje."} />
+                                  <CardSistema ativo={fluxoToggles.sms_sessao} toggleKey="sms_sessao" label="SMS no dia da sessão — cliente e artista" gatilho="No dia — manhã cedo (cliente + artista vinculado)" preview={"Cliente: Olá, {nome}! Hoje é o dia da sua sessão de tatuagem na {estudio}. A arte está pronta e o artista está animado para tatuar você! Te esperamos às {hora} em: {endereco}. Pontualidade é muito importante para nós. Até logo! — {estudio}\n\nArtista: INK SYSTEM: Você tem uma sessão de tatuagem hoje com {nome} às {hora}. Projeto solicitado: {solicitacao}. Prepare tudo para a arte de hoje."} />
                                 </>);
                                 if (sid === "pos_venda" || sid === "tatuado") return (<>
                                   <CardSistema ativo={fluxoToggles.nps} toggleKey="nps" label="Avaliação NPS pós-sessão" gatilho="D+1 — após entrada no Pós-venda" preview={"Assunto: Como foi sua sessão, {nome}?\n\nFoi uma alegria ter você no estúdio. Como você avalia sua experiência? [escala 0–10]\n\nNota e comentário salvos na ficha automaticamente."} />
@@ -7731,7 +7734,7 @@ export default function CRM() {
                                   <CardSistema ativo={fluxoToggles.recontato_prox_sessao} toggleKey="recontato_prox_sessao" label="E-mail de recontato + link WhatsApp" gatilho="D+60 — sem nova solicitação. Move para Hibernação em D+90 se não houver retorno" preview={"Assunto: A próxima ideia já nasceu, {nome}?\n\nOlá, {nome}! Faz um tempo desde a sua última sessão. Esperamos que sua arte esteja linda e bem cicatrizada.\n\nSabemos que uma boa ideia não tem pressa para nascer. Mas quando ela chegar, queremos ser os primeiros a saber.\n\n[ Tenho uma nova ideia ] → abre WhatsApp\n\nRespeitoso abraço, {estudio}"} />
                                 );
                                 if (sid === "precisa_remarcar") return (
-                                  <CardSistema ativo={fluxoToggles.remarcar} toggleKey="remarcar" label="E-mail de remarcação com link WhatsApp" gatilho="Imediato — ao entrar em Precisa Remarcar" preview={"Assunto: Sua vaga foi liberada, {nome}\n\nSua sessão foi desmarcada e o horário já foi disponibilizado para outros clientes.\n\nTrabalhamos com agenda limitada por uma razão: cada projeto merece atenção total. Quando um horário é agendado, a nossa atenção é plena para você — não terá a surpresa de ter o seu artista dividindo atenção com outros clientes.\n\nAssim que estiver pronto(a) para retomar, guardamos seu projeto com cuidado. Ele é seu.\n\n[ Remarcar pelo WhatsApp ]\n\nCasa dos Carvalho Tattoo"} />
+                                  <CardSistema ativo={fluxoToggles.remarcar} toggleKey="remarcar" label="E-mail de remarcação com link WhatsApp" gatilho="Imediato — ao entrar em Precisa Remarcar" preview={"Assunto: Sua vaga foi liberada, {nome}\n\nSua sessão foi desmarcada e o horário já foi disponibilizado para outros clientes.\n\nTrabalhamos com agenda limitada por uma razão: cada projeto merece atenção total. Quando um horário é agendado, a nossa atenção é plena para você — não terá a surpresa de ter o seu artista dividindo atenção com outros clientes.\n\nAssim que estiver pronto(a) para retomar, guardamos seu projeto com cuidado. Ele é seu.\n\n[ Remarcar pelo WhatsApp ]\n\n{estudio}"} />
                                 );
                                 if (sid === "aguard_1a_sessao") return (<>
                                   <CardSistema ativo={fluxoToggles.agradecimento_1asessao} toggleKey="agradecimento_1asessao" label="E-mail de agradecimento pela consulta" gatilho="Imediato — ao entrar em Aguardando 1ª Sessão" preview={"Assunto: Obrigado pela sua visita, {nome}\n\nOlá, {nome}! Queremos te agradecer por ter vindo até a gente. Sua pontualidade e compromisso dizem muito sobre quem você é.\n\nSeu projeto está registrado com carinho. Daqui a 30 dias vamos entrar em contato para saber se já chegou a sua hora!\n\nRespeitoso abraço, {estudio}"} />
@@ -7974,7 +7977,7 @@ export default function CRM() {
                 {origenEditIdx === -1 && (
                   <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "16px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
                     <div style={{ fontSize: 12, color: "var(--tx3)", fontWeight: 600 }}>Nova origem</div>
-                    <input className="ef" placeholder="Ex: Instagram Abraão, Google Maps, Campanha de Verão..." value={origenEditNome} autoFocus onChange={e => setOrigenEditNome(e.target.value)} onKeyDown={e => { if (e.key === "Enter") salvarOrigem(origenEditNome.trim(), null, origenEditPago, origenEditPagina); if (e.key === "Escape") { setOrigenEditIdx(null); setOrigenEditNome(""); setOrigenEditPago(false); setOrigenEditPagina(""); } }} />
+                    <input className="ef" placeholder="Ex: Instagram, Google Maps, Campanha de Verão..." value={origenEditNome} autoFocus onChange={e => setOrigenEditNome(e.target.value)} onKeyDown={e => { if (e.key === "Enter") salvarOrigem(origenEditNome.trim(), null, origenEditPago, origenEditPagina); if (e.key === "Escape") { setOrigenEditIdx(null); setOrigenEditNome(""); setOrigenEditPago(false); setOrigenEditPagina(""); } }} />
                     <input className="ef" placeholder="Página destino (opcional) — ex: /abraao ou /camilla" value={origenEditPagina} onChange={e => setOrigenEditPagina(e.target.value)} />
                     {origenEditNome.trim() && (
                       <div style={{ fontSize: 11, color: "var(--tx3)" }}>Link: <span style={{ color: "var(--gold)", fontFamily: "monospace" }}>{siteBase + (origenEditPagina.trim() ? (origenEditPagina.trim().startsWith("/") ? origenEditPagina.trim() : "/" + origenEditPagina.trim()) : "") + "?origem=" + slugify(origenEditNome.trim())}</span></div>
@@ -8965,7 +8968,7 @@ export default function CRM() {
                             y2+=2;
                           };
                           // Cabeçalho
-                          ln2((studioName||"A Casa dos Carvalho").replace(/_/g," "),13,true,[180,140,50]);
+                          ln2((studioName||"seu estúdio").replace(/_/g," "),13,true,[180,140,50]);
                           ln2(studioCity ? studioCity + (studioRua ? " — " + studioRua + (studioNumero ? ", " + studioNumero : "") : "") : "",9,false,[120,120,120]);
                           y2+=4;
                           d2.setDrawColor(180,140,50); d2.setLineWidth(0.4); d2.line(20,y2,W2-20,y2); y2+=5;
@@ -8981,7 +8984,7 @@ export default function CRM() {
                           // Declaração completa
                           ln2("DECLARACAO",11,true,[50,50,50]);
                           y2+=1;
-                          ln2(`Eu, abaixo identificado(a), na qualidade de responsavel legal pelo(a) menor ${sc.nome}, portador(a) de ${idade} anos de idade, AUTORIZO expressamente a realizacao do procedimento de ${srvAut} na regiao ${areaAut}, a ser executado pelo(a) profissional ${artists.find(a=>a.id===sc.artista)?.nome||"—"}, no estabelecimento ${(studioName||"A Casa dos Carvalho").replace(/_/g," ")}.`,10,false,[60,60,60]);
+                          ln2(`Eu, abaixo identificado(a), na qualidade de responsavel legal pelo(a) menor ${sc.nome}, portador(a) de ${idade} anos de idade, AUTORIZO expressamente a realizacao do procedimento de ${srvAut} na regiao ${areaAut}, a ser executado pelo(a) profissional ${artists.find(a=>a.id===sc.artista)?.nome||"—"}, no estabelecimento ${(studioName||"seu estúdio").replace(/_/g," ")}.`,10,false,[60,60,60]);
                           y2+=3;
                           ln2("Declaro ainda que:",10,false,[60,60,60]);
                           ln2("— Li e estou ciente de todos os termos do contrato de execucao de projeto artistico;",10,false,[60,60,60]);
@@ -9078,7 +9081,7 @@ export default function CRM() {
                       menor: "Autorizacao de Responsavel Legal",
                     };
                     const titulo = titulos[docId] || "Documento";
-                    const studioNomeFormatado = (studioName || "A Casa dos Carvalho").replace(/_/g, " ");
+                    const studioNomeFormatado = (studioName || "seu estúdio").replace(/_/g, " ");
                     const campoAssin = docId === "anamnese" ? "anamnese_assinatura" : docId === "contrato" ? "contrato_assinatura" : "menor_assinatura";
                     const assinBase64 = (sc as any)[campoAssin] || "";
 
@@ -9201,7 +9204,7 @@ export default function CRM() {
                       if (erroLink) { console.error("Erro update assinar_link:", erroLink); return; }
                       setClients(p => p.map(c => c.id !== sc.id ? c : { ...c, assinar_link: novosLinks }));
 
-                      const studioNomeFormatado = (studioName || "A Casa dos Carvalho").replace(/_/g, " ");
+                      const studioNomeFormatado = (studioName || "seu estúdio").replace(/_/g, " ");
                       const titulos: Record<string,string> = {
                         anamnese: "Ficha de Anamnese",
                         contrato: "Contrato de Execucao de Projeto Artistico",
@@ -13766,7 +13769,7 @@ export default function CRM() {
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <div style={{ fontSize: 11, color: "var(--tx3)", width: 140, flexShrink: 0 }}>Nome Remetente</div>
-                        <input className="ef" placeholder="A Casa dos Carvalho" value={nomeRemetente} onChange={e => setNomeRemetente(e.target.value)} style={{ flex: 1 }} />
+                        <input className="ef" placeholder="Ex: Nome do seu Estúdio" value={nomeRemetente} onChange={e => setNomeRemetente(e.target.value)} style={{ flex: 1 }} />
                       </div>
                       <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                         <button type="button" disabled={testandoCanal === "email"} onClick={() => testarCanal("email")} style={{ background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 12, color: "var(--gold)", cursor: testandoCanal === "email" ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>

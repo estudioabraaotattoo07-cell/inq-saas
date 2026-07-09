@@ -36,13 +36,14 @@ export default async function handler(req, res) {
     artista
       ? sb.from("artistas").select("nome,email,tel").ilike("nome", "%" + artista.split(" ")[0] + "%").eq("user_id", STUDIO_USER_ID).limit(1).single().then(r => r.data)
       : Promise.resolve(null),
-    sb.from("configuracoes").select("studio_email,studio_name,fluxo_notificacao_artista_ativa").eq("user_id", STUDIO_USER_ID).limit(1).single().then(r => r.data)
+    sb.from("configuracoes").select("studio_email,studio_name,studio_city,studio_estado,studio_tel,fluxo_notificacao_artista_ativa").eq("user_id", STUDIO_USER_ID).limit(1).single().then(r => r.data)
   ]);
 
   const emailArtista = artistaRow?.email || null;
   const telArtista = artistaRow?.tel ? "55" + (artistaRow.tel).replace(/\D/g, "").replace(/^55/, "") : null;
-  const emailEstudio = cfgRow?.studio_email || "estudioabraaotattoo07@gmail.com";
-  const nomeEstudio = cfgRow?.studio_name || "Casa dos Carvalho Tattoo";
+  const emailEstudio = cfgRow?.studio_email || null;
+  const nomeEstudio = cfgRow?.studio_name || "seu estúdio";
+  const cidadeEstudio = [cfgRow?.studio_city, cfgRow?.studio_estado].filter(Boolean).join("-");
 
   let finalClienteId = cliente_id || null;
   if (!finalClienteId) {
@@ -89,7 +90,7 @@ export default async function handler(req, res) {
   }
 
   const resendKey = process.env.RESEND_API_KEY;
-  const emailRem = process.env.EMAIL_REMETENTE || "contato@acasadoscarvalhotattoo.com.br";
+  const emailRem = process.env.EMAIL_REMETENTE || "";
   const tipoLabel = tipo === "sessao" ? "Sessão" : "Consulta";
   const dataFmt = data_solicitada ? data_solicitada.split("-").reverse().join("/") : "A confirmar";
 
@@ -141,7 +142,7 @@ export default async function handler(req, res) {
         "<p>Sua solicitação de <strong>" + tipoLabel.toLowerCase() + "</strong> com <strong>" + artista + "</strong> foi recebida com sucesso.</p>" +
         "<p><strong>Data solicitada:</strong> " + dataFmt + (hora_solicitada ? " às " + hora_solicitada : "") + "</p>" +
         "<p>Nossa equipe vai entrar em contato pelo seu WhatsApp em breve para confirmar o horário.</p>" +
-        "<p style='margin-top:24px;font-size:12px;color:#999'>" + nomeEstudio + " · Vitória-ES</p>" +
+        "<p style='margin-top:24px;font-size:12px;color:#999'>" + nomeEstudio + (cidadeEstudio ? " · " + cidadeEstudio : "") + "</p>" +
         "</div>";
       fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -157,8 +158,8 @@ export default async function handler(req, res) {
   }
 
   const zenviaKey = process.env.ZENVIA_API_KEY;
-  if (zenviaKey) {
-    const smsTo = telArtista || (artista && artista.toLowerCase().includes("camilla") ? "5527996941787" : "5527996929665");
+  const smsTo = telArtista || (cfgRow?.studio_tel ? "55" + cfgRow.studio_tel.replace(/\D/g, "") : null);
+  if (zenviaKey && smsTo) {
     const smsText = [
       "✦ " + tipoLabel,
       cliente_nome,
