@@ -652,6 +652,15 @@ export default async function handler(req, res) {
                     html
                   });
 
+                  if (req.query.debugNome && cliente.nome && cliente.nome.toLowerCase().includes(req.query.debugNome.toLowerCase())) {
+                    (global.__debugConfirma = global.__debugConfirma || []).push({
+                      etapaSend: "okConfirma=" + okConfirma,
+                      from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                      resendApiKeyPresente: !!cfg.resend_api_key,
+                      resendApiKeyPrefixo: (cfg.resend_api_key || "").slice(0, 6)
+                    });
+                  }
+
                   if (okConfirma) {
                     let disparosAtuais = {};
                     try {
@@ -664,7 +673,11 @@ export default async function handler(req, res) {
                   }
                 }
               }
-            } catch {}
+            } catch (errConfirma) {
+              if (req.query.debugNome && cliente.nome && cliente.nome.toLowerCase().includes(req.query.debugNome.toLowerCase())) {
+                (global.__debugConfirma = global.__debugConfirma || []).push({ excecao: String(errConfirma && errConfirma.message || errConfirma) });
+              }
+            }
           }
         }
 
