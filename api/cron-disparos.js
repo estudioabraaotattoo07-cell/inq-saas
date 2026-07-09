@@ -222,8 +222,6 @@ export default async function handler(req, res) {
   const hoje = new Date();
   let totalDisparos = 0;
   let totalErros = 0;
-  const DEBUG_NOME = (req.query.debugNome || "").toLowerCase();
-  const debugInfo = [];
 
   try {
     // 1. Buscar todas as configurações (todos os user_id)
@@ -597,6 +595,73 @@ export default async function handler(req, res) {
           }
         }
 
+        // ── E-MAIL DE CONFIRMAÇÃO IMEDIATA (sessão ou consulta agendada) ────────
+        if ((cliente.etapa === "sessao_agend" || cliente.etapa === "cons_agendada") && cliente.etapa_desde && cfg.resend_api_key && cliente.email) {
+          const ehConsultaImediata = cliente.etapa === "cons_agendada";
+          const flagAtivoImediata = ehConsultaImediata ? (cfg.fluxo_confirma_consulta_ativa !== false) : (cfg.fluxo_confirma_sessao_ativa !== false);
+          if (flagAtivoImediata) {
+            try {
+              const dedupKeyConfirma = (ehConsultaImediata ? "__confirma_consulta__" : "__confirma_sessao__") + cliente.etapa_desde;
+              const jaEnviouConfirma = disparosEnviados && disparosEnviados[dedupKeyConfirma];
+              if (!jaEnviouConfirma) {
+                const hojeStrConfirma = hoje.toISOString().split("T")[0];
+                const { data: evProximo } = await sb
+                  .from("agenda")
+                  .select("id, data, hora")
+                  .eq("cliente_id", cliente.id)
+                  .neq("status", "concluido")
+                  .gte("data", hojeStrConfirma)
+                  .order("data", { ascending: true })
+                  .limit(1)
+                  .single();
+
+                if (evProximo) {
+                  let profissionalNome = "";
+                  if (cliente.artista) {
+                    try {
+                      const { data: art } = await sb.from("artistas").select("nome").eq("id", cliente.artista).single();
+                      profissionalNome = art?.nome || "";
+                    } catch {}
+                  }
+                  const dataFormatadaConfirma = new Date(evProximo.data + "T12:00:00")
+                    .toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+                  const enderecoStudio = "Rua Aristides Navarro 165, Centro de Vitória - ES";
+                  const tipoLabel = ehConsultaImediata ? "consulta" : "sessão";
+
+                  const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" +
+                    "<p>Olá, <strong>" + (cliente.nome || "") + "</strong>!</p>" +
+                    "<p>Sua " + tipoLabel + " na " + studioName + " está marcada e a gente já está animado com o que vem por aí.</p>" +
+                    "<p>📅 " + dataFormatadaConfirma + (evProximo.hora ? " · 🕐 " + evProximo.hora : "") + (profissionalNome ? " · ✦ " + profissionalNome : "") + " · 📍 " + enderecoStudio + "</p>" +
+                    (ehConsultaImediata
+                      ? "<p>Na consulta vamos: entender sua ideia, definir estilo/tamanho/posicionamento, tirar dúvidas e apresentar orçamento personalizado.</p>"
+                      : "<p>Antes da sua sessão: alimente-se bem, evite álcool 24h antes, durma bem, hidrate a pele da região.</p>") +
+                    "</div>";
+
+                  const okConfirma = await dispararEmail({
+                    apiKey: cfg.resend_api_key,
+                    from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br",
+                    nome_remetente: cfg.nome_remetente || studioName,
+                    to: cliente.email,
+                    subject: "Sua " + tipoLabel + " está confirmada, " + (cliente.nome || "") + " ✦",
+                    html
+                  });
+
+                  if (okConfirma) {
+                    let disparosAtuais = {};
+                    try {
+                      const { data: cliAtual } = await sb.from("clientes").select("disparos_enviados").eq("id", cliente.id).single();
+                      disparosAtuais = cliAtual?.disparos_enviados || {};
+                    } catch {}
+                    await marcarEnviado(cliente.id, dedupKeyConfirma, disparosAtuais);
+                    await registrarHistorico(userId, (ehConsultaImediata ? "E-mail de confirmação de consulta enviado" : "E-mail de confirmação de sessão enviado") + " — " + cliente.nome);
+                    totalDisparos++;
+                  }
+                }
+              }
+            } catch {}
+          }
+        }
+
         // ── SMS D-0 (dia da sessão ou consulta — cliente + artista) ────────────
         if (cfg.zenvia_api_key && cfg.zenvia_numero && (cliente.etapa === "sessao_agend" || cliente.etapa === "cons_agendada")) {
           const ehConsulta = cliente.etapa === "cons_agendada";
@@ -775,24 +840,6 @@ export default async function handler(req, res) {
         const etapaSlug = cliente.etapa || "";
         const etapasDoFluxo = fluxoEtapas[etapaSlug] || [];
 
-        if (DEBUG_NOME && cliente.nome && cliente.nome.toLowerCase().includes(DEBUG_NOME)) {
-          debugInfo.push({
-            nome: cliente.nome,
-            etapa: cliente.etapa,
-            etapa_desde: cliente.etapa_desde,
-            diasEtapa: cliente.etapa_desde ? diasEntre(cliente.etapa_desde, hoje) : null,
-            email: cliente.email || null,
-            etapasDoFluxo: etapasDoFluxo.map(fe => ({
-              id: fe.id, label: fe.label, dias: fe.dias, canal: fe.canal, ativo: fe.ativo,
-              jaEnviouChaveNova: !!(disparosEnviados && disparosEnviados["fluxo__" + fe.id + "__" + cliente.etapa_desde]),
-              jaEnviouChaveAntiga: !!(disparosEnviados && disparosEnviados["fluxo__" + fe.id]),
-            })),
-            disparosEnviadosKeys: Object.keys(disparosEnviados || {}),
-            canaisHabilitados,
-            resendConfigurado: !!cfg.resend_api_key,
-          });
-        }
-
         if (etapasDoFluxo.length > 0 && cliente.etapa_desde) {
           const diasEtapa = diasEntre(cliente.etapa_desde, hoje);
           if (diasEtapa >= 0) {
@@ -933,8 +980,7 @@ export default async function handler(req, res) {
       ok: true,
       disparos: totalDisparos,
       erros: totalErros,
-      executado_em: hoje.toISOString(),
-      ...(DEBUG_NOME ? { debugInfo } : {})
+      executado_em: hoje.toISOString()
     });
   } catch (err) {
     return res.status(500).json({ error: "Erro interno", detail: String(err.message || err) });
