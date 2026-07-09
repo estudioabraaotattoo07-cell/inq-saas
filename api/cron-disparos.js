@@ -222,6 +222,8 @@ export default async function handler(req, res) {
   const hoje = new Date();
   let totalDisparos = 0;
   let totalErros = 0;
+  const DEBUG_NOME = (req.query.debugNome || "").toLowerCase();
+  const debugInfo = [];
 
   try {
     // 1. Buscar todas as configurações (todos os user_id)
@@ -773,6 +775,24 @@ export default async function handler(req, res) {
         const etapaSlug = cliente.etapa || "";
         const etapasDoFluxo = fluxoEtapas[etapaSlug] || [];
 
+        if (DEBUG_NOME && cliente.nome && cliente.nome.toLowerCase().includes(DEBUG_NOME)) {
+          debugInfo.push({
+            nome: cliente.nome,
+            etapa: cliente.etapa,
+            etapa_desde: cliente.etapa_desde,
+            diasEtapa: cliente.etapa_desde ? diasEntre(cliente.etapa_desde, hoje) : null,
+            email: cliente.email || null,
+            etapasDoFluxo: etapasDoFluxo.map(fe => ({
+              id: fe.id, label: fe.label, dias: fe.dias, canal: fe.canal, ativo: fe.ativo,
+              jaEnviouChaveNova: !!(disparosEnviados && disparosEnviados["fluxo__" + fe.id + "__" + cliente.etapa_desde]),
+              jaEnviouChaveAntiga: !!(disparosEnviados && disparosEnviados["fluxo__" + fe.id]),
+            })),
+            disparosEnviadosKeys: Object.keys(disparosEnviados || {}),
+            canaisHabilitados,
+            resendConfigurado: !!cfg.resend_api_key,
+          });
+        }
+
         if (etapasDoFluxo.length > 0 && cliente.etapa_desde) {
           const diasEtapa = diasEntre(cliente.etapa_desde, hoje);
           if (diasEtapa >= 0) {
@@ -913,7 +933,8 @@ export default async function handler(req, res) {
       ok: true,
       disparos: totalDisparos,
       erros: totalErros,
-      executado_em: hoje.toISOString()
+      executado_em: hoje.toISOString(),
+      ...(DEBUG_NOME ? { debugInfo } : {})
     });
   } catch (err) {
     return res.status(500).json({ error: "Erro interno", detail: String(err.message || err) });
