@@ -69,17 +69,26 @@ function substituirVars(msg, cliente, studioName, extra) {
   return r;
 }
 
-// ─── DISPARAR EMAIL via /api/resend (proxy interno) ──────────────────────────
+// ─── DISPARAR EMAIL direto via API da Resend ─────────────────────────────────
+// Chamado server-to-server (cron), por isso vai direto na Resend em vez de
+// passar pelo proxy /api/resend — chamar o proprio dominio via VERCEL_URL
+// caía numa URL de deploy protegida por autenticacao da Vercel (401), o que
+// fazia todo email do cron falhar silenciosamente.
 
 async function dispararEmail({ apiKey, from, nome_remetente, to, subject, html }) {
   try {
-    const baseUrl = process.env.VERCEL_URL
-      ? "https://" + process.env.VERCEL_URL
-      : "http://localhost:3000";
-    const res = await fetch(baseUrl + "/api/resend", {
+    const finalKey = apiKey || process.env.RESEND_API_KEY;
+    if (!finalKey || !to) return false;
+    const envRemetente = process.env.EMAIL_REMETENTE || "contato@acasadoscarvalhotattoo.com.br";
+    const fromValido = from && from.includes("@") && !from.includes("<>");
+    const finalFrom = fromValido ? from : ("A Casa dos Carvalho <" + envRemetente + ">");
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apiKey, from, to, subject, html })
+      headers: {
+        "Authorization": "Bearer " + finalKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ from: finalFrom, to, subject, html })
     });
     return res.ok;
   } catch {
@@ -605,7 +614,7 @@ export default async function handler(req, res) {
               const jaEnviouConfirma = disparosEnviados && disparosEnviados[dedupKeyConfirma];
               if (!jaEnviouConfirma) {
                 const hojeStrConfirma = hoje.toISOString().split("T")[0];
-                const { data: evProximo, error: erroEvProximo } = await sb
+                const { data: evProximo } = await sb
                   .from("agenda")
                   .select("id, data, hora, status")
                   .eq("cliente_id", cliente.id)
@@ -614,12 +623,6 @@ export default async function handler(req, res) {
                   .order("data", { ascending: true })
                   .limit(1)
                   .single();
-
-                if (req.query.debugNome && cliente.nome && cliente.nome.toLowerCase().includes(req.query.debugNome.toLowerCase())) {
-                  (global.__debugConfirma = global.__debugConfirma || []).push({
-                    nome: cliente.nome, flagAtivoImediata, jaEnviouConfirma, hojeStrConfirma, evProximo, erroEvProximo
-                  });
-                }
 
                 if (evProximo) {
                   let profissionalNome = "";
@@ -652,26 +655,6 @@ export default async function handler(req, res) {
                     html
                   });
 
-                  if (req.query.debugNome && cliente.nome && cliente.nome.toLowerCase().includes(req.query.debugNome.toLowerCase())) {
-                    let respostaProxy = null;
-                    try {
-                      const baseUrlTest = process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "http://localhost:3000";
-                      const rTest = await fetch(baseUrlTest + "/api/resend", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ apiKey: cfg.resend_api_key, from: cfg.email_remetente || "noreply@acasadoscarvalhotattoo.com.br", to: cliente.email, subject: "teste-diagnostico-apagar-2", html: "<p>teste</p>" }),
-                        redirect: "manual"
-                      });
-                      let corpoTexto = null;
-                      try { corpoTexto = await rTest.text(); } catch {}
-                      respostaProxy = { baseUrlTest, status: rTest.status, type: rTest.type, redirected: rTest.redirected, location: rTest.headers.get("location"), corpoTexto };
-                    } catch (eTest) { respostaProxy = { erro: String(eTest) }; }
-                    (global.__debugConfirma = global.__debugConfirma || []).push({
-                      etapaSend: "okConfirma=" + okConfirma,
-                      respostaProxy
-                    });
-                  }
-
                   if (okConfirma) {
                     let disparosAtuais = {};
                     try {
@@ -684,11 +667,7 @@ export default async function handler(req, res) {
                   }
                 }
               }
-            } catch (errConfirma) {
-              if (req.query.debugNome && cliente.nome && cliente.nome.toLowerCase().includes(req.query.debugNome.toLowerCase())) {
-                (global.__debugConfirma = global.__debugConfirma || []).push({ excecao: String(errConfirma && errConfirma.message || errConfirma) });
-              }
-            }
+            } catch {}
           }
         }
 
@@ -1010,8 +989,7 @@ export default async function handler(req, res) {
       ok: true,
       disparos: totalDisparos,
       erros: totalErros,
-      executado_em: hoje.toISOString(),
-      ...(req.query.debugNome ? { debugConfirma: global.__debugConfirma || [] } : {})
+      executado_em: hoje.toISOString()
     });
   } catch (err) {
     return res.status(500).json({ error: "Erro interno", detail: String(err.message || err) });
