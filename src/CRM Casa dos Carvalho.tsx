@@ -8307,6 +8307,7 @@ export default function CRM() {
                   { slug: "dia_pais", label: "Dia dos Pais", emoji: "👨‍👦", desc: "2º domingo de agosto · tatuagem pai + filho(a) até 15cm cada — filho(a) paga a dele, pai ganha a dele" },
                   { slug: "dia_namorados", label: "Dia dos Namorados", emoji: "💝", desc: "12 de junho · tatuagem-presente até 15cm com 30% de desconto" },
                   { slug: "aniversario", label: "Aniversário do Cliente", emoji: "🎂", desc: "Data de nascimento de cada cliente · 50% de desconto em piercing, até 3 joias com aplicação" },
+                  { slug: "aniversario_artista", label: "Aniversário do Artista", emoji: "🎉", desc: "Data de nascimento de cada artista (cadastrada na ficha dele) · promoção divulgada pra toda a base de clientes" },
                   { slug: "natal", label: "Natal", emoji: "🎄", desc: "25 de dezembro · só felicitações do casal, sem venda" },
                   { slug: "ano_novo", label: "Ano Novo", emoji: "🎆", desc: "1º de janeiro · só felicitações do casal, sem venda" },
                 ];
