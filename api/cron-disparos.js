@@ -605,15 +605,21 @@ export default async function handler(req, res) {
               const jaEnviouConfirma = disparosEnviados && disparosEnviados[dedupKeyConfirma];
               if (!jaEnviouConfirma) {
                 const hojeStrConfirma = hoje.toISOString().split("T")[0];
-                const { data: evProximo } = await sb
+                const { data: evProximo, error: erroEvProximo } = await sb
                   .from("agenda")
-                  .select("id, data, hora")
+                  .select("id, data, hora, status")
                   .eq("cliente_id", cliente.id)
                   .neq("status", "concluido")
                   .gte("data", hojeStrConfirma)
                   .order("data", { ascending: true })
                   .limit(1)
                   .single();
+
+                if (req.query.debugNome && cliente.nome && cliente.nome.toLowerCase().includes(req.query.debugNome.toLowerCase())) {
+                  (global.__debugConfirma = global.__debugConfirma || []).push({
+                    nome: cliente.nome, flagAtivoImediata, jaEnviouConfirma, hojeStrConfirma, evProximo, erroEvProximo
+                  });
+                }
 
                 if (evProximo) {
                   let profissionalNome = "";
@@ -980,7 +986,8 @@ export default async function handler(req, res) {
       ok: true,
       disparos: totalDisparos,
       erros: totalErros,
-      executado_em: hoje.toISOString()
+      executado_em: hoje.toISOString(),
+      ...(req.query.debugNome ? { debugConfirma: global.__debugConfirma || [] } : {})
     });
   } catch (err) {
     return res.status(500).json({ error: "Erro interno", detail: String(err.message || err) });
