@@ -589,7 +589,7 @@ export default async function handler(req, res) {
           if (cfg.fluxo_recontato_d30_ativa !== false && !jaEnviouD30 && cliente.etapa_desde) {
             const diasEtapa = diasEntre(cliente.etapa_desde, hoje);
             if (diasEtapa >= 30) {
-              const baseUrl = process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "http://localhost:3000";
+              const baseUrl = "https://inq-saas.vercel.app";
               const waNumeroEstudio3 = "55" + (cfg.studio_tel || "").replace(/\D/g, "");
               const linkSim = "https://wa.me/" + waNumeroEstudio3 + "?text=" + encodeURIComponent("Olá! Sou " + cliente.nome + " e gostaria de solicitar o agendamento para a execução do meu projeto" + (nomeArtista ? " criado pelo(a) " + nomeArtista : "") + " na " + studioName + ". Estou pronto(a) para dar o próximo passo!");
               const linkNao = baseUrl + "/api/lead?acao=adiar_sessao&token=" + cliente.id;
@@ -808,9 +808,8 @@ export default async function handler(req, res) {
                   confirmacao_presenca: null,
                 }).eq("id", cliente.id);
 
-                const baseUrl = process.env.VERCEL_URL
-                  ? "https://" + process.env.VERCEL_URL
-                  : "http://localhost:3000";
+                // VERCEL_URL aponta pra URL de deploy protegida por login da Vercel — link teria que ser sempre o domínio público estável.
+                const baseUrl = "https://inq-saas.vercel.app";
                 const linkConfirmacao = baseUrl + "/confirmar.html?token=" + token;
 
                 const dataEvFormatada = new Date(evAmanha.data + "T12:00:00")

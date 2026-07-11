@@ -111,7 +111,7 @@ const S = `
   --ab:#4A9EBF;--ca:#9B6BB5;
 }
 body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
-.root{min-height:100vh;background:var(--dk);display:flex;flex-direction:column;}
+.root{min-height:100vh;background:radial-gradient(700px 700px at -10% -10%, rgba(139,92,222,0.24), transparent 60%) fixed,radial-gradient(700px 700px at 110% 110%, rgba(139,92,222,0.2), transparent 60%) fixed,var(--dk);display:flex;flex-direction:column;}
 @media(max-width:768px){
   body,html{overflow-x:hidden;max-width:100vw;}
   .kc{min-width:42vw!important;max-width:42vw!important;}
@@ -540,7 +540,7 @@ const getBloqColor = (tipo: string, artistsList: any[]) => {
 };
 const buildEventTitle = (e: any, allEvents: any[]) => {
   if (!e) return "";
-  if (e.tipo === "piercing") return "Piercing";
+  if (e.tipo === "piercing") return e.title ? e.title + " — Piercing" : "Piercing";
   if (e.tipo?.startsWith("bloq_")) return e.title || "";
   const title = e.title || "";
   if (e.tipo?.startsWith("cons_")) return title + " — Consulta";
@@ -802,21 +802,31 @@ function TimeScroller({ value, onChange, label }: { value: number; onChange: (h:
   const [selM, setSelM] = useState(0);
   const HOURS = Array.from({ length: 24 }, (_, i) => i);
   const MINS = [0, 15, 30, 45];
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
   useEffect(() => {
     const sv = (isNaN(value) || value == null) ? 9 : value;
     setSelH(Math.floor(sv));
   }, [value]);
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    const panelH = 210;
+    const openUp = r.bottom + panelH > window.innerHeight && r.top > panelH;
+    setPos({ top: openUp ? r.top - panelH - 4 : r.bottom + 4, left: r.left });
+  }, [open]);
   const confirm = (h: number, m: number) => { onChange(h, m); setOpen(false); };
   return (
     <div style={{ position: "relative", flex: 1 }}>
       <label className="fl">{label}</label>
-      <div onClick={() => setOpen(v => !v)} className="fi"
+      <div ref={triggerRef} onClick={() => setOpen(v => !v)} className="fi"
         style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", userSelect: "none" }}>
         <span>{String(selH).padStart(2,"0")}:{String(selM).padStart(2,"0")}</span>
         <span style={{ fontSize: 10, color: "var(--tx3)" }}>▾</span>
       </div>
-      {open && (
-        <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, zIndex: 9999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 8, boxShadow: "0 8px 32px rgba(0,0,0,.6)", marginTop: 4, padding: "8px 4px", width: 140 }}>
+      {open && createPortal(
+        <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 2147483646 }}>
+        <div onClick={e => e.stopPropagation()} style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 2147483647, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 8, boxShadow: "0 8px 32px rgba(0,0,0,.6)", padding: "8px 4px", width: 140 }}>
           <div style={{ display: "flex", gap: 4 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 9, color: "var(--tx3)", textAlign: "center", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 4 }}>Hora</div>
@@ -847,6 +857,8 @@ function TimeScroller({ value, onChange, label }: { value: number; onChange: (h:
             OK
           </button>
         </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -866,10 +878,19 @@ function DateScroller({ value, onChange, label }: { value: string; onChange: (v:
   const [selD, setSelD] = useState(pv.d);
   const [selM, setSelM] = useState(pv.m);
   const [selY, setSelY] = useState(pv.y);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
   useEffect(() => {
     const pv2 = parseVal(value);
     setSelD(pv2.d); setSelM(pv2.m); setSelY(pv2.y);
   }, [value]);
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    const panelH = 210;
+    const openUp = r.bottom + panelH > window.innerHeight && r.top > panelH;
+    setPos({ top: openUp ? r.top - panelH - 4 : r.bottom + 4, left: r.left });
+  }, [open]);
   const daysInMonth = (m: number, y: number) => new Date(y, m, 0).getDate();
   const maxD = daysInMonth(selM, selY);
   const DAYS = Array.from({ length: maxD }, (_, i) => i + 1);
@@ -886,13 +907,14 @@ function DateScroller({ value, onChange, label }: { value: string; onChange: (v:
   return (
     <div style={{ position: "relative", flex: 1 }}>
       {label && <label className="fl">{label}</label>}
-      <div onClick={() => setOpen(v => !v)} className="fi"
+      <div ref={triggerRef} onClick={() => setOpen(v => !v)} className="fi"
         style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", userSelect: "none" }}>
         <span style={{ color: value ? "var(--tx)" : "var(--tx3)" }}>{display}</span>
         <span style={{ fontSize: 10, color: "var(--tx3)" }}>▾</span>
       </div>
-      {open && (
-        <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", left: 0, zIndex: 9999, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 8, boxShadow: "0 8px 32px rgba(0,0,0,.6)", marginTop: 4, padding: "8px 4px", width: 210 }}>
+      {open && createPortal(
+        <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 2147483646 }}>
+        <div onClick={e => e.stopPropagation()} style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 2147483647, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 8, boxShadow: "0 8px 32px rgba(0,0,0,.6)", padding: "8px 4px", width: 210 }}>
           <div style={{ display: "flex", gap: 4 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 9, color: "var(--tx3)", textAlign: "center", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 4 }}>Dia</div>
@@ -935,6 +957,8 @@ function DateScroller({ value, onChange, label }: { value: string; onChange: (v:
             OK
           </button>
         </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -1151,7 +1175,6 @@ export default function CRM() {
   // Data de corte pro cálculo de comissão pendente — só conta lançamentos a partir daqui,
   // pra não misturar com comissões antigas possivelmente já pagas por fora do sistema.
   const [comissaoSaldoInicio, setComissaoSaldoInicio] = useState<string>(new Date().toISOString().split("T")[0]);
-  const [studioLogo, setStudioLogo] = useState<string>(() => localStorage.getItem("inq_logo") || "");
   const [studioTel, setStudioTel] = useState("");
   const [studioOwner, setStudioOwner] = useState("");
   const [studioEmail, setStudioEmail] = useState("");
@@ -1373,11 +1396,6 @@ export default function CRM() {
   const [showRecorrenteModal, setShowRecorrenteModal] = useState<{cid: any} | null>(null);
   const [recorrenteForm, setRecorrenteForm] = useState({ dataInicio: new Date().toISOString().split("T")[0], intervalo: 7, total: 4, hora: 9, duracao: 2, artista: "" });
   const [fichaRevelada, setFichaRevelada] = useState<Set<any>>(new Set());
-  const [showLogoCrop, setShowLogoCrop] = useState(false);
-  const [logoCropSrc, setLogoCropSrc] = useState("");
-  const [logoCropPos, setLogoCropPos] = useState({ x: 0, y: 0 });
-  const [logoCropScale, setLogoCropScale] = useState(1);
-  const logoCropRef = useRef<any>(null);
   const [pagFormas, setPagFormas] = useState<{forma: string; valor: string; parcelas: string}[]>([{ forma: "Pix", valor: "", parcelas: "1" }]);
   const [sinalPgtoModal, setSinalPgtoModal] = useState<{forma: string; parcelas: string} | null>(null);
   const [selSessaoModal, setSelSessaoModal] = useState<{cid: any; sessoes: any[]} | null>(null);
@@ -1776,11 +1794,6 @@ export default function CRM() {
             setOnboardingDone(true);
             setShowSplash(true);
             localStorage.setItem("inq_onb", "1");
-          }
-          // [X3] studio_logo from Supabase
-          if (cfg.studio_logo) {
-            setStudioLogo(cfg.studio_logo);
-            localStorage.setItem("inq_logo", cfg.studio_logo);
           }
         }
       } catch(e) { console.error("Load error", e); }
@@ -2255,35 +2268,21 @@ export default function CRM() {
       return;
     }
 
-    // Consulta Marcada — abre agendamento tipo Consulta
-    if (ns === "cons_agendada") {
-      executarMove(cid, ns);
-      if (evs.length === 0) {
-        setTimeout(() => {
-          setEditingEvent(null);
-          setAgClientVinc(cli || null);
-          setAgClientSearch("");
-          setSessoesExtras([]);
-          setAgForm({ title: cli?.nome || "", desc: "", tipo: "cons_" + (cli?.artista || artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11, sinal: "", sinalPago: false } as any);
-          setShowAgForm(true);
-        }, 200);
-      }
+    // Etapas só-automáticas: não aceitam arraste manual, só avisam o motivo
+    if (ns === "lead_morno") {
+      setShowAviso("Essa etapa é preenchida automaticamente quando o cliente pede uma consulta pelo chat do site — não é possível mover um cliente pra cá manualmente.");
       return;
     }
-
-    // Sessão Marcada — abre agendamento tipo Sessão
+    if (ns === "aura_agend") {
+      setShowAviso("Essa etapa é preenchida automaticamente quando o cliente pede uma sessão de tatuagem pelo chat do site — não é possível mover um cliente pra cá manualmente.");
+      return;
+    }
+    if (ns === "cons_agendada") {
+      setShowAviso("Essa etapa só é preenchida quando existe um agendamento de consulta de verdade na Agenda. Marque a consulta primeiro — o cliente é movido pra cá automaticamente quando isso acontece.");
+      return;
+    }
     if (ns === "sessao_agend") {
-      executarMove(cid, ns);
-      if (evs.length === 0) {
-        setTimeout(() => {
-          setEditingEvent(null);
-          setAgClientVinc(cli || null);
-          setAgClientSearch("");
-          setSessoesExtras([]);
-          setAgForm({ title: cli?.nome || "", desc: "", tipo: "sess_" + (cli?.artista || artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11, sinal: "", sinalPago: false } as any);
-          setShowAgForm(true);
-        }, 200);
-      }
+      setShowAviso("Essa etapa só é preenchida quando existe um agendamento de sessão de verdade na Agenda. Marque a sessão primeiro — o cliente é movido pra cá automaticamente quando isso acontece.");
       return;
     }
 
@@ -4052,13 +4051,16 @@ export default function CRM() {
     // Deleta imediatamente no banco
     dbDelete("agenda", e.id);
     addLog(`Agenda: evento "${e.title}" excluído`);
-    // Guarda para desfazer por 8s
+    // Reverte o pipeline na hora — não pode depender só do timer de 8s do "Desfazer" abaixo,
+    // porque um F5 dentro desses 8s mata o timer (setTimeout some) e o cliente fica preso
+    // na etapa de agendado pra sempre, mesmo com o evento já excluído no banco.
+    reverterPipelineAoExcluirEvento(e);
+    // Guarda para desfazer por 8s (só a exclusão do evento em si)
     setUndoEvento(e);
     if (undoTimer) clearTimeout(undoTimer);
     const t = setTimeout(() => {
       setUndoEvento(null);
       setUndoTimer(null);
-      reverterPipelineAoExcluirEvento(e);
     }, 8000);
     setUndoTimer(t);
   };
@@ -4078,11 +4080,20 @@ export default function CRM() {
         cliente_nome: undoEvento.cliente_nome || null
       };
       try {
-        const { data } = await sb.from("agenda").insert(row).select().single();
-        setAgEvents(p => [...p, { ...undoEvento, id: data?.id || undoEvento.id }]);
-        addLog(`Agenda: evento "${undoEvento.title}" restaurado`);
-      } catch(err) {
-        setAgEvents(p => [...p, undoEvento]);
+        const { data, error } = await sb.from("agenda").insert(row).select().single();
+        if (error) { setShowAviso("❌ Erro ao restaurar evento: " + error.message); }
+        else {
+          setAgEvents(p => [...p, { ...undoEvento, id: data.id }]);
+          addLog(`Agenda: evento "${undoEvento.title}" restaurado`);
+          // O evento voltou — se o pipeline já tinha sido revertido, empurra o cliente de volta pra agendado.
+          if (undoEvento.cliente_id && undoEvento.tipo && !undoEvento.tipo.startsWith("bloq")) {
+            const tipoKeyUndo = undoEvento.tipo.split("_")[0];
+            if (tipoKeyUndo === "cons") executarMove(undoEvento.cliente_id, "cons_agendada");
+            else if (tipoKeyUndo === "sess" || tipoKeyUndo === "piercing") executarMove(undoEvento.cliente_id, "sessao_agend");
+          }
+        }
+      } catch(err: any) {
+        setShowAviso("❌ Erro ao restaurar evento: " + (err?.message || "verifique sua conexão."));
       }
     }
     setUndoEvento(null);
@@ -4549,12 +4560,9 @@ export default function CRM() {
         <div style={{ width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
           {/* Logo/Avatar */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-            {studioLogo
-              ? <img src={studioLogo} alt="logo" style={{ width: 88, height: 88, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(201,168,76,0.4)", boxShadow: "0 0 32px rgba(201,168,76,0.15)" }} />
-              : <div style={{ width: 88, height: 88, borderRadius: "50%", background: "linear-gradient(135deg, #C9A84C, #a07830)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 700, color: "#1a1a1a", boxShadow: "0 0 32px rgba(201,168,76,0.2)", fontFamily: "'Cormorant Garamond',serif" }}>
-                  {studioName ? studioName[0].toUpperCase() : "S"}
-                </div>
-            }
+            <div style={{ width: 88, height: 88, borderRadius: "50%", background: "linear-gradient(135deg, #C9A84C, #a07830)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 700, color: "#1a1a1a", boxShadow: "0 0 32px rgba(201,168,76,0.2)", fontFamily: "'Cormorant Garamond',serif" }}>
+              {studioName ? studioName[0].toUpperCase() : "S"}
+            </div>
             <div style={{ textAlign: "center" }}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 700, color: "#C9A84C", letterSpacing: ".04em" }}>{studioName || "INK SYSTEM"}</div>
               <div style={{ fontSize: 10, color: "#4a4235", letterSpacing: ".18em", textTransform: "uppercase", marginTop: 3 }}>Sistema de Gestão</div>
@@ -4660,19 +4668,11 @@ export default function CRM() {
   // ── SPLASH (já cadastrado, aguarda clique para entrar) ──
   if (onboardingDone && showSplash) {
     return (
-      <div style={{ minHeight: "100vh", background: "#0E0E0E", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 32, fontFamily: "'DM Sans',sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse 900px 500px at 50% -10%, rgba(139,92,222,0.28), transparent 65%), #0E0E0E", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 32, fontFamily: "'DM Sans',sans-serif" }}>
         <style>{S}</style>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
-          {studioLogo
-            ? <img src={studioLogo} alt="logo" style={{ width: 100, height: 100, borderRadius: "50%", objectFit: "cover", border: "3px solid #C9A84C", boxShadow: "0 0 40px rgba(201,168,76,.25)" }} />
-            : <div style={{ width: 100, height: 100, borderRadius: "50%", background: "#C9A84C", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond',serif", fontSize: 44, fontWeight: 700, color: "#000", boxShadow: "0 0 40px rgba(201,168,76,.25)" }}>
-                {studioName ? studioName[0].toUpperCase() : "S"}
-              </div>
-          }
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 700, color: "#C9A84C", letterSpacing: ".08em" }}>{studioName}</div>
-            <div style={{ fontSize: 10, color: "#555045", letterSpacing: ".18em", textTransform: "uppercase", marginTop: 5 }}>INK SYSTEM</div>
-          </div>
+          <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ width: "min(320px, 80vw)", height: "auto" }} />
+          <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 700, color: "#C9A84C", letterSpacing: ".08em" }}>{studioName}</div>
         </div>
         <button onClick={() => setShowSplash(false)}
           style={{ background: "#C9A84C", color: "#000", border: "none", borderRadius: 8, padding: "13px 40px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", letterSpacing: ".04em", boxShadow: "0 4px 20px rgba(201,168,76,.3)" }}>
@@ -4742,41 +4742,6 @@ export default function CRM() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>CNPJ</label>
                   <input className="fi" value={cnpj} onChange={e => setCnpj(maskCNPJ(e.target.value))} placeholder="00.000.000/0001-00" />
-                </div>
-              </div>
-              {/* Logo upload */}
-              <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 0 4px", borderTop: "1px solid rgba(201,168,76,0.12)", marginTop: 4 }}>
-                <div style={{ flexShrink: 0 }}>
-                  {studioLogo
-                    ? <img src={studioLogo} alt="logo" style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", border: "3px solid #C9A84C" }} />
-                    : <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#C9A84C", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond',serif", fontSize: 26, fontWeight: 700, color: "#000" }}>
-                        {studioName ? studioName[0].toUpperCase() : "S"}
-                      </div>
-                  }
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                  <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Logo do Estúdio (opcional)</label>
-                  <label style={{ background: "#1E1E1E", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "#8A8070", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600, display: "inline-block", width: "fit-content" }}>
-                    📁 Escolher imagem
-                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = ev => {
-                        setLogoCropSrc(ev.target?.result as string);
-                        setLogoCropPos({ x: 0, y: 0 });
-                        setLogoCropScale(1);
-                        setShowLogoCrop(true);
-                      };
-                      reader.readAsDataURL(file);
-                    }} />
-                  </label>
-                  {studioLogo && (
-                    <button onClick={() => { setStudioLogo(""); localStorage.removeItem("inq_logo"); }}
-                      style={{ background: "none", border: "none", fontSize: 11, color: "#C0392B", cursor: "pointer", textAlign: "left", padding: 0 }}>
-                      ✕ Remover logo
-                    </button>
-                  )}
                 </div>
               </div>
               <div style={{ fontSize: 11, color: "#555045", marginTop: 2 }}>
@@ -4882,7 +4847,7 @@ export default function CRM() {
                   {onbStep === 3 ? "Concluir" : "Continuar"}
                 </button>
               )}
-              {onbStep === 4 && <button className="btn-s" onClick={async () => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); try { const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single(); if (cfgEx?.id) { await sb.from("configuracoes").update({ onboarding_done: true }).eq("id", cfgEx.id); } else { await sb.from("configuracoes").insert({ onboarding_done: true, user_id: userId }); } } catch(e) { console.warn("onboarding save", e); } if (!localStorage.getItem("inq_tour")) { setTimeout(() => { if (!showLogoCrop) { setTourStep(0); setTourAtivo(true); } }, 800); } }}>Entrar no Sistema →</button>}
+              {onbStep === 4 && <button className="btn-s" onClick={async () => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); try { const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single(); if (cfgEx?.id) { await sb.from("configuracoes").update({ onboarding_done: true }).eq("id", cfgEx.id); } else { await sb.from("configuracoes").insert({ onboarding_done: true, user_id: userId }); } } catch(e) { console.warn("onboarding save", e); } if (!localStorage.getItem("inq_tour")) { setTimeout(() => { setTourStep(0); setTourAtivo(true); }, 800); } }}>Entrar no Sistema →</button>}
             </div>
           </div>
         </div>
@@ -4927,15 +4892,12 @@ export default function CRM() {
       <div className="root">
         {/* TOPBAR */}
         <div className="topbar">
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {studioLogo
-              ? <img src={studioLogo} alt="logo" style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--gold)" }} />
-              : <div className="bmark">C</div>
-            }
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ height: 26, width: "auto" }} />
+            <div style={{ width: 1, height: 26, background: "linear-gradient(to bottom, transparent, var(--gold), transparent)", boxShadow: "0 0 6px var(--gold-glow)" }} />
             <div style={{ cursor: userRole === "admin" ? "pointer" : "default" }} onClick={() => { if (userRole === "admin") setShowSettings(true); }}>
               <div className="bname">{studioName}</div>
-              <div className="bsub">{userRole === "profissional" ? "Acesso Profissional" : "INK SYSTEM"}</div>
-              {(() => { const cnpjDigits = (cnpj || "").replace(/[^0-9]/g,""); return cnpjDigits.length === 14 ? <div style={{ fontSize: 9, color: "var(--tx3)", letterSpacing: ".08em" }}>CNPJ: {cnpj}</div> : null; })()}
+              {userRole === "profissional" && <div className="bsub">Acesso Profissional</div>}
             </div>
           </div>
           <div className="tbr">
@@ -5934,7 +5896,7 @@ export default function CRM() {
           const projecao = diaAtual > 0 ? Math.round((totalEntradas / diaAtual) * 30) : 0;
 
           // ── depreciação mensal total ──
-          const deprMensal = equipamentos.filter(e => e.ativo !== false).reduce((s, e) => s + (Number(e.valor_aquisicao) || 0) / (Number(e.vida_util_meses) || 48), 0);
+          const deprMensal = equipamentos.reduce((s, e) => s + (Number(e.valor) || 0) / (Number(e.vida_util_meses) || 48), 0);
 
           // ── DRE ──
           const receitaBruta = totalEntradas;
@@ -6642,16 +6604,16 @@ export default function CRM() {
                     <thead><tr><th>Equipamento</th><th>Categoria</th><th>Profissional</th><th>Valor Aquisição</th><th>Data Compra</th><th>Vida Útil</th><th>Depr. Mensal</th><th>Depr. Acumulada</th><th></th></tr></thead>
                     <tbody>
                       {equipamentos.map(e => {
-                        const deprMes = (Number(e.valor_aquisicao)||0) / (Number(e.vida_util_meses)||48);
+                        const deprMes = (Number(e.valor)||0) / (Number(e.vida_util_meses)||48);
                         const mesesUso = (() => { if (!e.data_compra) return 0; const compra = new Date(e.data_compra); const hoje = new Date(); return Math.max(0, (hoje.getFullYear() - compra.getFullYear())*12 + hoje.getMonth() - compra.getMonth()); })();
-                        const deprAcum = Math.min(deprMes * mesesUso, Number(e.valor_aquisicao)||0);
-                        const valorResidual = Math.max((Number(e.valor_aquisicao)||0) - deprAcum, 0);
+                        const deprAcum = Math.min(deprMes * mesesUso, Number(e.valor)||0);
+                        const valorResidual = Math.max((Number(e.valor)||0) - deprAcum, 0);
                         return (
-                          <tr key={e.id} style={{ opacity: e.ativo ? 1 : 0.5 }}>
+                          <tr key={e.id}>
                             <td style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontWeight: 600 }}>{e.nome}</td>
                             <td><span style={{ fontSize: 10, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 3, padding: "2px 6px", color: "var(--tx2)" }}>{e.categoria}</span></td>
                             <td>{e.artista_id ? <span style={aStyle(e.artista_id)}>{aName(e.artista_id).split(" ")[0]}</span> : <span style={{ color: "var(--tx3)", fontSize: 11 }}>Geral</span>}</td>
-                            <td style={{ fontWeight: 600, color: "var(--tx)" }}>{fmtR(Number(e.valor_aquisicao)||0)}</td>
+                            <td style={{ fontWeight: 600, color: "var(--tx)" }}>{fmtR(Number(e.valor)||0)}</td>
                             <td style={{ fontSize: 11, color: "var(--tx2)" }}>{e.data_compra ? new Date(e.data_compra+"T12:00:00").toLocaleDateString("pt-BR") : "—"}</td>
                             <td style={{ fontSize: 11, color: "var(--tx2)" }}>{e.vida_util_meses} meses</td>
                             <td style={{ color: "var(--q2)", fontWeight: 600 }}>{fmtR(deprMes)}</td>
@@ -6660,7 +6622,7 @@ export default function CRM() {
                                 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--q1)" }}>{fmtR(deprAcum)}</div>
                                 <div style={{ fontSize: 10, color: "var(--tx3)" }}>Residual: {fmtR(valorResidual)}</div>
                                 <div style={{ width: "100%", background: "var(--dk4)", borderRadius: 2, height: 4, marginTop: 3, overflow: "hidden" }}>
-                                  <div style={{ height: "100%", background: deprAcum >= Number(e.valor_aquisicao) ? "var(--q1)" : "var(--q2)", width: Math.min(deprAcum / Math.max(Number(e.valor_aquisicao),1) * 100, 100) + "%" }} />
+                                  <div style={{ height: "100%", background: deprAcum >= Number(e.valor) ? "var(--q1)" : "var(--q2)", width: Math.min(deprAcum / Math.max(Number(e.valor),1) * 100, 100) + "%" }} />
                                 </div>
                               </div>
                             </td>
@@ -6843,8 +6805,9 @@ export default function CRM() {
                         user_id: userId
                       };
                       const mesLancamento = entradaForm.data.slice(0, 7);
-                      const saved = await dbInsert("financeiro", row);
-                      if (saved) setFin(p => [...p, { ...saved, cliente: saved.cliente_nome }]);
+                      const saved = await dbInsert("financeiro", row, msg => setShowAviso("❌ Erro ao registrar lançamento: " + msg));
+                      if (!saved) return;
+                      setFin(p => [...p, { ...saved, cliente: saved.cliente_nome }]);
                       setFinFiltroMes(mesLancamento);
                       setShowEntradaForm(false);
                       setEntradaClientSearch("");
@@ -6892,9 +6855,10 @@ export default function CRM() {
                     <button className="btn-c" onClick={() => setShowEquipForm(false)}>Cancelar</button>
                     <button className="btn-s" disabled={!equipForm.nome || !equipForm.valor_aquisicao || !equipForm.data_compra} onClick={async () => {
                       const val = parseFloat(String(equipForm.valor_aquisicao).replace(/\./g,"").replace(",",".")) || 0;
-                      const row = { nome: equipForm.nome, valor_aquisicao: val, data_compra: equipForm.data_compra, vida_util_meses: equipForm.vida_util_meses, categoria: equipForm.categoria, artista_id: equipForm.artista_id, ativo: true, user_id: userId };
-                      const saved = await dbInsert("equipamentos", row);
-                      if (saved) setEquipamentos(p => [...p, saved]);
+                      const row = { nome: equipForm.nome, valor: val, data_compra: equipForm.data_compra, vida_util_meses: equipForm.vida_util_meses, categoria: equipForm.categoria, artista_id: equipForm.artista_id || null, user_id: userId };
+                      const saved = await dbInsert("equipamentos", row, msg => alert("Erro ao salvar equipamento: " + msg));
+                      if (!saved) return;
+                      setEquipamentos(p => [...p, saved]);
                       setShowEquipForm(false);
                       setEquipForm({ nome: "", valor_aquisicao: "", data_compra: "", vida_util_meses: 48, categoria: "maquina", artista_id: "" });
                     }}>Salvar</button>
@@ -6912,7 +6876,7 @@ export default function CRM() {
                     <div className="ff"><label className="fl">Descrição *</label><input className="fi" placeholder="Ex: Agulhas e tintas" value={saidaForm.desc} onChange={e => setSaidaForm({ ...saidaForm, desc: e.target.value })} /></div>
                     <div className="fr">
                       <div className="ff"><label className="fl">Categoria</label><select className="fs" value={saidaForm.categoria} onChange={e => setSaidaForm({ ...saidaForm, categoria: e.target.value })}>{categorias.map(c => <option key={c}>{c}</option>)}</select></div>
-                      <div className="ff"><label className="fl">Valor (R$)</label><input className="fi" type="number" min={0} value={saidaForm.valor} onChange={e => setSaidaForm({ ...saidaForm, valor: Number(e.target.value) })} /></div>
+                      <div className="ff"><label className="fl">Valor (R$)</label><input className="fi" type="number" min={0} value={saidaForm.valor || ""} onChange={e => setSaidaForm({ ...saidaForm, valor: Number(e.target.value) })} /></div>
                     </div>
                     <div className="ff"><DateScroller label="Data" value={saidaForm.data ? saidaForm.data.split("/").reverse().join("-") : ""} onChange={val => { const p = val.split("-"); setSaidaForm({ ...saidaForm, data: p[2]+"/"+p[1]+"/"+p[0] }); }} /></div>
                   </div>
@@ -6920,9 +6884,9 @@ export default function CRM() {
                     <button className="btn-c" onClick={() => setShowSaidaForm(false)}>Cancelar</button>
                     <button className="btn-s" disabled={!saidaForm.desc || saidaForm.valor <= 0} onClick={async () => {
                       const row = { descricao: saidaForm.desc, categoria: saidaForm.categoria, valor: saidaForm.valor, data: saidaForm.data, user_id: userId };
-                      const saved = await dbInsert("saidas", row);
-                      if (saved) setSaidas(p => [...p, { ...saved, desc: saved.descricao }]);
-                      else setSaidas(p => [...p, { id: Date.now(), ...saidaForm }]);
+                      const saved = await dbInsert("saidas", row, msg => alert("Erro ao salvar saída: " + msg));
+                      if (!saved) return;
+                      setSaidas(p => [...p, { ...saved, desc: saved.descricao }]);
                       setShowSaidaForm(false);
                       setSaidaForm({ desc: "", categoria: "Material", valor: 0, data: new Date().toLocaleDateString("pt-BR") });
                     }}>Salvar</button>
@@ -12507,8 +12471,9 @@ export default function CRM() {
                     const artSinal2 = agForm.tipo === "piercing" ? ((agForm as any).artista_exec || "") : ((agForm.tipo || "").split("_").slice(1).join("_") || agClientVinc?.artista || "");
                     const pgtoSinal2 = formaSinal === "Crédito" ? "Cartão " + parcelasSinal + "x" : formaSinal;
                     const finRowSinal2 = { cliente_id: agClientVinc.id, cliente_nome: agClientVinc.nome, artista: artSinal2, data: agForm.date, val_a: sinalValNum2, val_c: sinalValNum2, pgto: pgtoSinal2, com_base: 0, com_sess: 0, categoria: "sinal", tipo: "entrada", user_id: userId };
-                  const { data: fdSinal2 } = await sb.from("financeiro").insert(finRowSinal2).select().single();
-                  if (fdSinal2) setFin(p => [...p, { ...finRowSinal2, id: fdSinal2.id, cliente: agClientVinc.nome }]);
+                  const { data: fdSinal2, error: errFdSinal2 } = await sb.from("financeiro").insert(finRowSinal2).select().single();
+                  if (errFdSinal2) { setShowAviso("⚠️ Agendamento salvo, mas o sinal não foi registrado no Financeiro: " + errFdSinal2.message + ". Lance manualmente em Financeiro."); }
+                  else if (fdSinal2) setFin(p => [...p, { ...finRowSinal2, id: fdSinal2.id, cliente: agClientVinc.nome }]);
                   }
                   addLog("Agenda: evento com sinal criado — " + agForm.title);
                   // Registrar no histórico do cliente
@@ -12561,16 +12526,18 @@ export default function CRM() {
                   if (!cli) return;
                   const tipo = "sess_" + recorrenteForm.artista;
                   let dataBase = new Date(recorrenteForm.dataInicio + "T12:00:00");
+                  let criadas = 0;
                   for (let i = 0; i < recorrenteForm.total; i++) {
                     const dateStr = dataBase.toISOString().split("T")[0];
                     const horaStr = String(recorrenteForm.hora).padStart(2,"0") + ":00";
                     const row: any = { titulo: cli.nome, cliente_id: cli.id, cliente_nome: cli.nome, artista: recorrenteForm.artista, data: dateStr, hora: horaStr, hora_fim: String(recorrenteForm.hora + recorrenteForm.duracao).padStart(2,"0") + ":00", tipo };
                     const { data } = await sb.from("agenda").insert(row).select().single();
-                    if (data) setAgEvents(p => [...p, { ...data, id: data.id, title: cli.nome, start: recorrenteForm.hora, end: recorrenteForm.hora + recorrenteForm.duracao, date: dateStr, tipo }]);
+                    if (data) { setAgEvents(p => [...p, { ...data, id: data.id, title: cli.nome, start: recorrenteForm.hora, end: recorrenteForm.hora + recorrenteForm.duracao, date: dateStr, tipo }]); criadas++; }
                     dataBase = new Date(dataBase.getTime() + recorrenteForm.intervalo * 86400000);
                   }
                   executarMove(cli.id, "sessao_agend");
-                  addLog(`Agenda: ${recorrenteForm.total} sessões recorrentes criadas para ${cli.nome}`);
+                  if (criadas < recorrenteForm.total) setShowAviso(`⚠️ Só ${criadas} de ${recorrenteForm.total} sessões foram criadas — verifique a agenda antes de avisar o cliente.`);
+                  addLog(`Agenda: ${criadas} sessões recorrentes criadas para ${cli.nome}`);
                   setShowRecorrenteModal(null);
                 }}>Criar {recorrenteForm.total} Sessões</button>
               </div>
@@ -13128,95 +13095,6 @@ export default function CRM() {
             </div>
           );
         })()}
-
-        {/* ── MODAL CROP LOGO ── */}
-        {showLogoCrop && (
-          <div className="ov" onClick={() => setShowLogoCrop(false)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 14, width: "min(420px, 94vw)", padding: "24px", display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 700, color: "var(--gold)" }}>Ajustar Logo</div>
-              <div style={{ fontSize: 12, color: "var(--tx2)" }}>Arraste a imagem para centralizar dentro do círculo.</div>
-              <div style={{ position: "relative", width: 260, height: 260, margin: "0 auto", overflow: "hidden", borderRadius: 8, cursor: "grab", userSelect: "none", touchAction: "none" }}
-                ref={logoCropRef}
-                onMouseDown={e => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const startX = e.clientX - logoCropPos.x;
-                  const startY = e.clientY - logoCropPos.y;
-                  const onMove = (ev: MouseEvent) => { ev.preventDefault(); setLogoCropPos({ x: ev.clientX - startX, y: ev.clientY - startY }); };
-                  const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
-                  document.addEventListener("mousemove", onMove);
-                  document.addEventListener("mouseup", onUp);
-                }}
-                onTouchStart={e => {
-                  e.stopPropagation();
-                  const t = e.touches[0];
-                  const startX = t.clientX - logoCropPos.x;
-                  const startY = t.clientY - logoCropPos.y;
-                  const onMove = (ev: TouchEvent) => { ev.preventDefault(); const tt = ev.touches[0]; setLogoCropPos({ x: tt.clientX - startX, y: tt.clientY - startY }); };
-                  const onUp = () => { document.removeEventListener("touchmove", onMove as any); document.removeEventListener("touchend", onUp); };
-                  document.addEventListener("touchmove", onMove as any, { passive: false });
-                  document.addEventListener("touchend", onUp);
-                }}>
-                {/* imagem arrastável */}
-                <img src={logoCropSrc} alt="crop"
-                  style={{ position: "absolute", top: logoCropPos.y, left: logoCropPos.x, width: 260 * logoCropScale, height: "auto", pointerEvents: "none", draggable: false } as any} />
-                {/* overlay escuro fora do círculo */}
-                <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-                  <svg width="260" height="260" style={{ position: "absolute", inset: 0 }}>
-                    <defs>
-                      <mask id="circleMask">
-                        <rect width="260" height="260" fill="white"/>
-                        <circle cx="130" cy="130" r="120" fill="black"/>
-                      </mask>
-                    </defs>
-                    <rect width="260" height="260" fill="rgba(0,0,0,0.72)" mask="url(#circleMask)"/>
-                    <circle cx="130" cy="130" r="120" fill="none" stroke="#C9A84C" strokeWidth="2"/>
-                  </svg>
-                </div>
-              </div>
-              {/* zoom */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 11, color: "var(--tx3)" }}>Zoom</span>
-                <input type="range" min={0.5} max={3} step={0.05} value={logoCropScale}
-                  onChange={e => setLogoCropScale(Number(e.target.value))}
-                  style={{ flex: 1, accentColor: "var(--gold)" }} />
-                <span style={{ fontSize: 11, color: "var(--tx2)", width: 36 }}>{Math.round(logoCropScale * 100)}%</span>
-              </div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button className="btn-c" onClick={() => { setShowLogoCrop(false); setLogoCropSrc(""); }}>Cancelar</button>
-                <button className="btn-s" onClick={() => {
-                  // Renderizar o recorte em canvas
-                  const canvas = document.createElement("canvas");
-                  canvas.width = 240; canvas.height = 240;
-                  const ctx = canvas.getContext("2d");
-                  if (!ctx) return;
-                  const img = new Image();
-                  img.onload = () => {
-                    ctx.beginPath();
-                    ctx.arc(120, 120, 120, 0, Math.PI * 2);
-                    ctx.clip();
-                    const scale = logoCropScale;
-                    const iw = 260 * scale;
-                    const ih = img.naturalHeight * (iw / img.naturalWidth);
-                    const sx = logoCropPos.x * (240 / 260);
-                    const sy = logoCropPos.y * (240 / 260);
-                    const sw = iw * (240 / 260);
-                    const sh = ih * (240 / 260);
-                    ctx.drawImage(img, sx, sy, sw, sh);
-                    const base64 = canvas.toDataURL("image/png");
-                    setStudioLogo(base64);
-                    localStorage.setItem("inq_logo", base64);
-                    setShowLogoCrop(false);
-                    setLogoCropSrc("");
-                    setLogoCropPos({ x: 0, y: 0 });
-                    setLogoCropScale(1);
-                  };
-                  img.src = logoCropSrc;
-                }}>✓ Confirmar Recorte</button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* ── TOUR GUIADO ── */}
         {tourAtivo && (() => {
@@ -13960,36 +13838,6 @@ export default function CRM() {
 
                 {/* ── ABA ESTÚDIO ── */}
                 {settingsTab === "estudio" && <>
-                  <div>
-                    <div className="stit">Logo do Estúdio</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "10px 0" }}>
-                      <div style={{ position: "relative", width: 72, height: 72, flexShrink: 0 }}>
-                        {studioLogo
-                          ? <img src={studioLogo} alt="logo" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: "3px solid var(--gold)" }} />
-                          : <div style={{ width: 72, height: 72, borderRadius: "50%", background: "var(--gold)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 700, color: "#000" }}>{studioName?.[0]?.toUpperCase() || "S"}</div>
-                        }
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        <label style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600, display: "inline-block" }}>
-                          📁 Escolher imagem
-                          <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = ev => { setLogoCropSrc(ev.target?.result as string); setLogoCropPos({ x: 0, y: 0 }); setLogoCropScale(1); setShowSettings(false); setShowLogoCrop(true); };
-                            reader.readAsDataURL(file);
-                          }} />
-                        </label>
-                        {studioLogo && (
-                          <button onClick={() => { setStudioLogo(""); localStorage.removeItem("inq_logo"); }}
-                            style={{ background: "none", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "5px 12px", fontSize: 11, color: "var(--q1)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                            🗑 Remover logo
-                          </button>
-                        )}
-                        <div style={{ fontSize: 10, color: "var(--tx3)", lineHeight: 1.5 }}>JPG, PNG ou SVG. Aparece na topbar e nos contratos.</div>
-                      </div>
-                    </div>
-                  </div>
                   <div>
                     <div className="stit">Identidade</div>
                     <div className="fg2">
@@ -14872,7 +14720,6 @@ export default function CRM() {
                     meta_sessoes: metaSessoes, meta_leads: metaLeads, meta_nps: metaNPS,
                     desconto_aniversario: descontoAniversario,
                     horarios, dark_mode: dark, tema,
-                    studio_logo: studioLogo,
                     alerta_config: alertaConfig,
                     entrada_cats: entradaCats,
                     saida_cats: saidaCats,
@@ -14900,11 +14747,10 @@ export default function CRM() {
                     updated_at: new Date().toISOString()
                   };
                   const { data: existing } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                  if (existing?.id) {
-                    await sb.from("configuracoes").update(cfg).eq("id", existing.id);
-                  } else {
-                    await sb.from("configuracoes").insert(cfg);
-                  }
+                  const { error: errCfg } = existing?.id
+                    ? await sb.from("configuracoes").update(cfg).eq("id", existing.id)
+                    : await sb.from("configuracoes").insert(cfg);
+                  if (errCfg) { setShowAviso("❌ Erro ao salvar configurações: " + errCfg.message); return; }
                   setShowSettings(false);
                   setShowAviso("Configurações salvas com sucesso.");
                 }}>Salvar e Continuar</button>
