@@ -1142,6 +1142,7 @@ export default function CRM() {
   const [logado, setLogado] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [showForgotPwd, setShowForgotPwd] = useState(false);
@@ -1795,7 +1796,17 @@ export default function CRM() {
             setOnboardingDone(true);
             setShowSplash(true);
             localStorage.setItem("inq_onb", "1");
+          } else {
+            // Conta sem onboarding_done salvo — não confiar no cache do navegador (pode ser de outra conta)
+            setOnboardingDone(false);
+            setShowSplash(false);
+            localStorage.removeItem("inq_onb");
           }
+        } else {
+          // Sem linha em configuracoes — conta nunca passou pelo onboarding
+          setOnboardingDone(false);
+          setShowSplash(false);
+          localStorage.removeItem("inq_onb");
         }
       } catch(e) { console.error("Load error", e); }
       setDbReady(true);
@@ -4556,22 +4567,14 @@ export default function CRM() {
       setAuthLoading(false);
     };
     return (
-      <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #0A0A0A 0%, #111008 50%, #0A0A0A 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", fontFamily: "'DM Sans',sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse 900px 600px at 50% -10%, rgba(139,92,222,0.3), transparent 65%), #0A0A0A", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", fontFamily: "'DM Sans',sans-serif" }}>
         <style>{S}</style>
         <div style={{ width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
-          {/* Logo/Avatar */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 88, height: 88, borderRadius: "50%", background: "linear-gradient(135deg, #C9A84C, #a07830)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 700, color: "#1a1a1a", boxShadow: "0 0 32px rgba(201,168,76,0.2)", fontFamily: "'Cormorant Garamond',serif" }}>
-              {studioName ? studioName[0].toUpperCase() : "S"}
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 700, color: "#C9A84C", letterSpacing: ".04em" }}>{studioName || "INK SYSTEM"}</div>
-              <div style={{ fontSize: 10, color: "#4a4235", letterSpacing: ".18em", textTransform: "uppercase", marginTop: 3 }}>Sistema de Gestão</div>
-            </div>
-          </div>
+          {/* Logo */}
+          <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ width: "min(280px, 74vw)", height: "auto" }} />
 
           {/* Card de login */}
-          <div style={{ width: "100%", background: "rgba(22,22,22,0.95)", border: "1px solid rgba(201,168,76,0.12)", borderRadius: 16, padding: "32px 28px", backdropFilter: "blur(10px)", boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}>
+          <div style={{ width: "100%", background: "radial-gradient(ellipse 400px 200px at 50% -20%, rgba(139,92,222,0.22), transparent 70%), #050505", border: "1px solid rgba(201,168,76,0.4)", borderRadius: 16, padding: "32px 28px", backdropFilter: "blur(10px)", boxShadow: "0 0 0 1px rgba(201,168,76,0.08), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 90px rgba(201,168,76,0.22), 0 0 34px rgba(201,168,76,0.16), 0 24px 64px rgba(0,0,0,0.6)" }}>
             {!showForgotPwd ? (
               <>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "#8A7A60", textAlign: "center", textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 24 }}>Acesso Restrito</div>
@@ -4581,22 +4584,28 @@ export default function CRM() {
                     <input className="fi" type="email" placeholder="seu@email.com" value={authEmail}
                       onChange={e => { setAuthEmail(e.target.value); setAuthError(""); }}
                       onKeyDown={e => { if (e.key === "Enter") handleAuth(); }}
-                      autoFocus style={{ fontSize: 14, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: "12px 14px", color: "#E8E2D9" }} />
+                      autoFocus style={{ fontSize: 14, background: "#0F0F0F", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: "12px 14px", color: "#E8E2D9", boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }} />
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     <label style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#6A6050" }}>Senha</label>
-                    <input className="fi" type="password" placeholder="••••••••" value={authPassword}
-                      onChange={e => { setAuthPassword(e.target.value); setAuthError(""); }}
-                      onKeyDown={e => { if (e.key === "Enter") handleAuth(); }}
-                      style={{ fontSize: 16, letterSpacing: ".1em", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: "12px 14px", color: "#E8E2D9" }} />
+                    <div style={{ position: "relative" }}>
+                      <input className="fi" type={showAuthPassword ? "text" : "password"} placeholder="••••••••" value={authPassword}
+                        onChange={e => { setAuthPassword(e.target.value); setAuthError(""); }}
+                        onKeyDown={e => { if (e.key === "Enter") handleAuth(); }}
+                        style={{ width: "100%", boxSizing: "border-box", fontSize: 16, letterSpacing: ".1em", background: "#0F0F0F", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: "12px 40px 12px 14px", color: "#E8E2D9", boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }} />
+                      <span onClick={() => setShowAuthPassword(v => !v)} title={showAuthPassword ? "Ocultar senha" : "Mostrar senha"}
+                        style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", cursor: "pointer", fontSize: 15, opacity: 0.6, userSelect: "none" }}>
+                        {showAuthPassword ? "🙈" : "👁"}
+                      </span>
+                    </div>
                   </div>
                   {authError && (
                     <div style={{ fontSize: 11, color: "#C0392B", background: "rgba(192,57,43,0.08)", padding: "8px 12px", borderRadius: 6, lineHeight: 1.5 }}>
                       {authError}
                     </div>
                   )}
-                  <button onClick={handleAuth} disabled={authLoading}
-                    style={{ background: authLoading ? "rgba(201,168,76,0.3)" : "linear-gradient(135deg, #C9A84C, #a07830)", color: authLoading ? "#888" : "#0A0A0A", border: "none", borderRadius: 8, padding: "13px 0", fontSize: 13, fontWeight: 700, cursor: authLoading ? "not-allowed" : "pointer", letterSpacing: ".06em", textTransform: "uppercase", marginTop: 4, transition: "all .2s", fontFamily: "inherit" }}>
+                  <button className="btn-premium" onClick={handleAuth} disabled={authLoading}
+                    style={{ width: "100%", textTransform: "uppercase", marginTop: 4, opacity: authLoading ? 0.5 : 1, cursor: authLoading ? "not-allowed" : "pointer" }}>
                     {authLoading ? "Aguarde..." : "Entrar →"}
                   </button>
                   <div style={{ textAlign: "center", marginTop: 4 }}>
