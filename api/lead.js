@@ -519,7 +519,7 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada } = req.body;
+  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, completo } = req.body;
   if (!nome && !tel && !email) return res.status(400).json({ error: "pelo menos um dado obrigatorio" });
 
   const ideaFinal = idea || ideia || "";
@@ -647,12 +647,11 @@ export default async function handler(req, res) {
     } catch (e) { console.warn("chat_log save error:", e); }
   }
 
-  // Dispara e-mail/SMS só no momento em que o profissional responsável é definido pela
-  // primeira vez — seja no cadastro novo (já veio com artista) ou numa atualização de
-  // cliente que ainda não tinha artista (ex: index.html salva nome+telefone cedo, sem
-  // saber ainda quem é o profissional, e só notifica na chamada seguinte, quando
-  // Camilla/Abraão é escolhido). Evita notificação prematura e incompleta.
-  const deveNotificar = isNewClient ? !!(artista || "").trim() : artistaDefinidoAgora;
+  // Dispara e-mail/SMS só quando o site sinaliza que a conversa chegou ao fim
+  // (campo "completo", enviado só no ultimo passo do roteiro) — evita notificar
+  // cedo demais, com a ficha quase vazia, só porque o profissional foi escolhido
+  // numa das primeiras perguntas.
+  const deveNotificar = !!completo && !!(artista || "").trim();
   if (!isNewClient) {
     if (!deveNotificar) return res.status(200).json({ ok: true, clienteId, updated: true, ...matchInfo });
   } else if (!deveNotificar) {
