@@ -1047,7 +1047,15 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
 
 // ─── MÁSCARA TELEFONE ────────────────────────────────────────────────────────
 function maskCNPJ(v: string) {
+  // Detecta CPF (11 dígitos) ou CNPJ (14) pela quantidade de caracteres
+  // digitados, já que profissional autônomo pode não ter CNPJ.
   v = v.replace(/\D/g,"").slice(0,14);
+  if (v.length <= 11) {
+    if (v.length <= 3) return v;
+    if (v.length <= 6) return v.slice(0,3)+"."+v.slice(3);
+    if (v.length <= 9) return v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6);
+    return v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6,9)+"-"+v.slice(9);
+  }
   if (v.length <= 2) return v;
   if (v.length <= 5) return v.slice(0,2)+"."+v.slice(2);
   if (v.length <= 8) return v.slice(0,2)+"."+v.slice(2,5)+"."+v.slice(5);
@@ -1210,6 +1218,7 @@ export default function CRM() {
   const [editingEstoqueId, setEditingEstoqueId] = useState<string | null>(null);
   const [editEstoqueForm, setEditEstoqueForm] = useState({ nome: "", grupo: "", subgrupo: "", tamanho: "", quantidade: "", unidade: "un", custo: "", precoVenda: "", estoqueMinimo: "" });
   const [googleLink, setGoogleLink] = useState("");
+  const [googleAvaliacaoLink, setGoogleAvaliacaoLink] = useState("");
   const [studioSite, setStudioSite] = useState("");
   // ── ORIGENS ──
   const [origens, setOrigens] = useState<{id: string; user_id: string; nome: string; slug: string; pago?: boolean; pagina?: string; criado_em: string}[]>([]);
@@ -1724,6 +1733,7 @@ export default function CRM() {
           if (cfg.dono_whats) setDonoWhats(cfg.dono_whats);
           if (cfg.dono_email) setDonoEmail(cfg.dono_email);
           if (cfg.google_link) setGoogleLink(cfg.google_link);
+          if (cfg.google_avaliacao_link) setGoogleAvaliacaoLink(cfg.google_avaliacao_link);
           if (cfg.cnpj) setCnpj(cfg.cnpj);
           if (cfg.meta_mensal) setMetaMensal(cfg.meta_mensal);
           if (cfg.meta_sessoes) setMetaSessoes(cfg.meta_sessoes);
@@ -4696,12 +4706,13 @@ export default function CRM() {
   if (!onboardingDone) {
     const onbSteps = ["Estúdio", "Horários", "Profissionais", "Concluído"];
     return (
-      <div style={{ minHeight: "100vh", background: "#0E0E0E", display: "flex", alignItems: "center", justifyContent: "center", padding: 18, fontFamily: "'DM Sans',sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse 700px 420px at 50% -5%, rgba(139,92,222,0.35), transparent 65%), #0E0E0E", display: "flex", alignItems: "center", justifyContent: "center", padding: 18, fontFamily: "'DM Sans',sans-serif" }}>
         <style>{S}</style>
-        <div style={{ background: "#161616", border: "1px solid rgba(201,168,76,0.12)", borderRadius: 14, width: "100%", maxWidth: 540, overflow: "hidden" }}>
-          <div style={{ padding: "26px 30px 18px", background: "#1E1E1E", borderBottom: "1px solid rgba(201,168,76,0.12)", textAlign: "center" }}>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 30, fontWeight: 700, color: "#C9A84C", letterSpacing: ".1em" }}>IN-QUADRA</div>
-            <div style={{ fontSize: 11, color: "#8A8070", marginTop: 5, letterSpacing: ".1em", textTransform: "uppercase" }}>Ink System</div>
+        <div style={{ background: "#0C0C0C", border: "2px solid rgba(201,168,76,0.4)", borderRadius: 22, width: "100%", maxWidth: 540, overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.6), 0 0 10px rgba(201,168,76,0.35), 0 0 34px rgba(201,168,76,0.12)" }}>
+          <div style={{ padding: "30px 30px 18px", background: "radial-gradient(ellipse 300px 150px at 50% 40%, rgba(139,92,222,0.16), transparent 70%), linear-gradient(180deg, #131313, #0A0A0A)", borderBottom: "1px solid rgba(201,168,76,0.15)", textAlign: "center" }}>
+            <div style={{ width: "100%", maxWidth: 260, aspectRatio: "260/78", margin: "0 auto" }}>
+              <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+            </div>
           </div>
           <div style={{ display: "flex", borderBottom: "1px solid rgba(201,168,76,0.12)" }}>
             {onbSteps.map((s, i) => (
@@ -4741,12 +4752,18 @@ export default function CRM() {
                     onChange={e => { const v = e.target.value; setStudioInsta(v && !v.startsWith("@") ? "@" + v : v); }} />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Link Google Meu Negócio</label>
+                  <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Link do Google Maps</label>
                   <input className="fi" value={googleLink} onChange={e => setGoogleLink(e.target.value)} placeholder="https://g.page/..." />
+                  <div style={{ fontSize: 10, color: "#8A8070", lineHeight: 1.4 }}>Busque seu estúdio no Google Maps, clique em "Compartilhar" e copie o link. Usado pra indicar o endereço nos lembretes de sessão.</div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>CNPJ</label>
-                  <input className="fi" value={cnpj} onChange={e => setCnpj(maskCNPJ(e.target.value))} placeholder="00.000.000/0001-00" />
+                  <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Link de Avaliação do Google</label>
+                  <input className="fi" value={googleAvaliacaoLink} onChange={e => setGoogleAvaliacaoLink(e.target.value)} placeholder="https://g.page/r/.../review" />
+                  <div style={{ fontSize: 10, color: "#8A8070", lineHeight: 1.4 }}>No Google Meu Negócio, procure "Obter mais avaliações" e copie o link — leva o cliente direto pra tela de avaliar. Sem esse link, o convite automático de avaliação fica desligado.</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>CNPJ ou CPF</label>
+                  <input className="fi" value={cnpj} onChange={e => setCnpj(maskCNPJ(e.target.value))} placeholder="000.000.000-00 ou 00.000.000/0001-00" />
                 </div>
               </div>
             </div>
@@ -4815,7 +4832,13 @@ export default function CRM() {
               </div>
             </div>
           )}
-          <div style={{ padding: "14px 28px", borderTop: "1px solid rgba(201,168,76,0.12)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ padding: "14px 28px", borderTop: "1px solid rgba(201,168,76,0.12)", display: "flex", flexDirection: "column", gap: 10 }}>
+            {onbStep < 3 && (
+              <div style={{ fontSize: 11, color: "#8A8070", lineHeight: 1.5, textAlign: "center" }}>
+                Preencha os campos com atenção — informações pendentes podem ser ajustadas a qualquer momento em Configurações.
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ fontSize: 11, color: "#555045" }}>{onbStep + 1} de {onbSteps.length}</div>
             <div style={{ display: "flex", gap: 8 }}>
               {onbStep > 0 && <button className="btn-c" onClick={() => setOnbStep(s => s - 1)}>Voltar</button>}
@@ -4824,7 +4847,22 @@ export default function CRM() {
                   {onbStep === 2 ? "Concluir" : "Continuar"}
                 </button>
               )}
-              {onbStep === 3 && <button className="btn-s" onClick={async () => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); try { const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single(); if (cfgEx?.id) { await sb.from("configuracoes").update({ onboarding_done: true }).eq("id", cfgEx.id); } else { await sb.from("configuracoes").insert({ onboarding_done: true, user_id: userId }); } } catch(e) { console.warn("onboarding save", e); } if (!localStorage.getItem("inq_tour")) { setTimeout(() => { setTourStep(0); setTourAtivo(true); }, 800); } }}>Entrar no Sistema →</button>}
+              {onbStep === 3 && <button className="btn-s" onClick={async () => {
+                setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1");
+                try {
+                  const cfg: any = {
+                    studio_name: studioName, studio_tel: studioTel, studio_owner: studioOwner,
+                    studio_email: studioEmail, studio_city: studioCity, studio_insta: studioInsta,
+                    google_link: googleLink, google_avaliacao_link: googleAvaliacaoLink,
+                    cnpj, horarios, onboarding_done: true,
+                    user_id: userId, updated_at: new Date().toISOString()
+                  };
+                  const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
+                  if (cfgEx?.id) { await sb.from("configuracoes").update(cfg).eq("id", cfgEx.id); } else { await sb.from("configuracoes").insert(cfg); }
+                } catch(e) { console.warn("onboarding save", e); }
+                if (!localStorage.getItem("inq_tour")) { setTimeout(() => { setTourStep(0); setTourAtivo(true); }, 800); }
+              }}>Entrar no Sistema →</button>}
+            </div>
             </div>
           </div>
         </div>
@@ -14629,6 +14667,7 @@ export default function CRM() {
                     studio_redes: studioRedes,
                     dono_nome: donoNome, dono_whats: donoWhats, dono_email: donoEmail,
                     google_link: googleLink,
+                    google_avaliacao_link: googleAvaliacaoLink,
                     cnpj, meta_mensal: metaMensal,
                     meta_sessoes: metaSessoes, meta_leads: metaLeads, meta_nps: metaNPS,
                     desconto_aniversario: descontoAniversario,
