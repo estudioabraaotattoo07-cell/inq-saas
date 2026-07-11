@@ -111,6 +111,8 @@ const S = `
   --ab:#4A9EBF;--ca:#9B6BB5;
 }
 body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
+.btn-premium{background:linear-gradient(135deg,#E8C97A,#C9A84C 45%,#8a6a24);color:#17140A;font-weight:700;border-radius:999px;padding:16px 38px;font-size:14px;letter-spacing:.03em;box-shadow:0 6px 24px rgba(201,168,76,0.35),inset 0 1px 0 rgba(255,255,255,0.4);border:1px solid rgba(255,224,160,0.6);transition:transform .15s ease,box-shadow .15s ease;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.btn-premium:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(201,168,76,0.45),inset 0 1px 0 rgba(255,255,255,0.5);}
 .root{min-height:100vh;background:radial-gradient(700px 700px at -10% -10%, rgba(139,92,222,0.24), transparent 60%) fixed,radial-gradient(700px 700px at 110% 110%, rgba(139,92,222,0.2), transparent 60%) fixed,var(--dk);display:flex;flex-direction:column;}
 @media(max-width:768px){
   body,html{overflow-x:hidden;max-width:100vw;}
@@ -1191,7 +1193,7 @@ export default function CRM() {
   const [donoNome, setDonoNome] = useState("");
   const [donoWhats, setDonoWhats] = useState("");
   const [donoEmail, setDonoEmail] = useState("");
-  const [auraName, setAuraName] = useState("");
+  const auraName = "Aura"; // nome fixo — não é configurável pelo tenant
   const [auraInstrucoes, setAuraInstrucoes] = useState("Sou profissional da área de (ex: tatuagem / odontologia / estética / barbearia / nutrição / fotografia / fisioterapia / advocacia / educação / moda...).\nMinha especialidade principal é (ex: blackwork e realismo / clareamento dental e implantes / depilação a laser e skincare / cortes masculinos e barba / emagrecimento e reeducação alimentar / retratos e ensaios / pilates e reabilitação...).\nMeu negócio se chama (nome do negócio) e fica em (cidade e bairro ou endereço completo).\nAtendo (ex: somente presencialmente / online e presencialmente / apenas por videochamada / em domicílio).\n\nMe chamo (seu nome) e sou (ex: tatuador há 10 anos especializado em arte autoral / dentista com foco em estética do sorriso / esteticista com 8 anos de experiência em tratamentos faciais / nutricionista clínico e esportivo...).\nTrabalho (ex: sozinho em estúdio próprio / com uma equipe de 3 profissionais / com assistentes e recepcionista).\n\nMeu tom de comunicação é (ex: descontraído, próximo e sem formalidade — como um amigo especialista / profissional e preciso, sempre claro e objetivo / empático e acolhedor, especialmente com clientes ansiosos ou com dúvidas / artístico e criativo, refletindo a identidade do negócio / direto e eficiente, sem rodeios).\nUso de emojis nas respostas: (ex: nenhum — mantenho comunicação limpa e profissional / use com moderação apenas para reforçar pontos importantes / use livremente para deixar a conversa mais leve e expressiva).\nTrato os clientes por: (ex: 'você' com tom próximo / 'você' formalmente / 'tu' de forma informal / sempre pelo primeiro nome).\n\nMeus serviços e valores são: (ex: tatuagem pequena a partir de R$200, sessão de 3h por R$500, projetos grandes sob orçamento / consulta de avaliação gratuita, limpeza de pele R$150, botox a partir de R$800 / plano mensal de acompanhamento R$350, consulta avulsa R$180...).\nQuando um cliente perguntar sobre preço: (ex: explique que o valor depende do tamanho e complexidade do projeto e convide para uma consulta gratuita / informe a tabela de preços e ofereça condições de parcelamento / diga que enviará um orçamento personalizado após entender a necessidade).\nFormas de pagamento aceitas: (ex: Pix, cartão de crédito em até 3x sem juros e dinheiro / somente Pix e transferência / todos os meios, inclusive parcelamento em até 12x).\n\nPara confirmar um agendamento: (ex: cobramos sinal de 30% antecipado via Pix — sem sinal não há confirmação / exigimos apenas o preenchimento do cadastro / a consulta inicial é gratuita e sem compromisso, sem necessidade de sinal).\nCancelamentos e remarcações: (ex: aceitamos com até 48h de antecedência sem custo / cobramos taxa de R$50 para remarcar com menos de 24h / o sinal é descontado do valor final mas não é reembolsável em caso de desistência).\nClientes que faltaram sem avisar: (ex: cobramos taxa de R$100 para reagendar — é nossa política de respeito ao tempo de trabalho / damos uma segunda chance sem custo mas registramos no histórico / não reagendamos sem justificativa plausível).\n\nMeu horário de funcionamento: (ex: terça a sábado das 10h às 19h / segunda a sexta das 9h às 18h, sábados das 9h às 14h / atendo por agendamento sem horário fixo, conforme disponibilidade).\nNão atendo: (ex: às segundas-feiras / aos domingos e feriados / em horários fora do comercial, exceto em casos especiais).\n\nO processo de atendimento começa com: (ex: uma consulta presencial gratuita para entender o projeto e apresentar referências / um formulário de pré-avaliação que envio pelo WhatsApp / o envio de fotos de referência pelo cliente para eu avaliar a viabilidade).\nApós a consulta ou primeiro contato: (ex: enviamos o orçamento em até 48h por WhatsApp / já agendamos a sessão na hora se o cliente aprovar / o cliente tem 7 dias para confirmar com o sinal).\nNão realizamos: (ex: coberturas sem avaliação presencial prévia / procedimentos sem laudo médico quando necessário / trabalhos copiados de outros artistas — cada projeto é único / atendimentos de urgência sem agendamento).\n\nInformações importantes que a agente deve sempre ter em mente:\n- (ex: temos lista de espera — novos clientes podem aguardar até 2 meses para o primeiro atendimento)\n- (ex: não trabalhamos com convênio ou plano de saúde)\n- (ex: o valor da consulta inicial é descontado no serviço aprovado)\n- (ex: atendemos clientes a partir de 18 anos — menores somente com presença e autorização dos responsáveis)\n- (ex: disponibilizamos estacionamento gratuito no local)\n- (ex: o cliente deve evitar sol e bebida alcoólica 48h antes do procedimento)\n- (ex: emitimos nota fiscal para todos os serviços)\n\nComo a agente deve se comportar no atendimento:\n- Quando um cliente entrar em contato pela primeira vez: (ex: cumprimente com entusiasmo, pergunte o que está procurando e convide para uma consulta sem pressão)\n- Quando perguntarem sobre disponibilidade: (ex: informe que verificará a agenda e retornará em breve com opções de horário)\n- Quando o cliente estiver indeciso: (ex: seja paciente, apresente exemplos do portfólio, tire dúvidas e ofereça uma consulta sem compromisso)\n- Quando houver reclamação: (ex: ouça com atenção, peça desculpas pelo inconveniente e encaminhe para contato direto comigo)\n- Sempre finalize com: (ex: um convite para agendamento / uma pergunta aberta para manter a conversa ativa / o link do portfólio ou redes sociais)\n- Nunca: (ex: prometa datas sem confirmar comigo na agenda / informe preços exatos sem antes entender o projeto / tome decisões que dependam da minha aprovação)");
   const [metaSessoes, setMetaSessoes] = useState(0);
   const [metaLeads, setMetaLeads] = useState(0);
@@ -1720,7 +1722,6 @@ export default function CRM() {
           if (cfg.dono_nome) setDonoNome(cfg.dono_nome);
           if (cfg.dono_whats) setDonoWhats(cfg.dono_whats);
           if (cfg.dono_email) setDonoEmail(cfg.dono_email);
-          if (cfg.aura_name) setAuraName(cfg.aura_name);
           if (cfg.google_link) setGoogleLink(cfg.google_link);
           if (cfg.cnpj) setCnpj(cfg.cnpj);
           if (cfg.meta_mensal) setMetaMensal(cfg.meta_mensal);
@@ -4674,8 +4675,7 @@ export default function CRM() {
           <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ width: "min(320px, 80vw)", height: "auto" }} />
           <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 700, color: "#C9A84C", letterSpacing: ".08em" }}>{studioName}</div>
         </div>
-        <button onClick={() => setShowSplash(false)}
-          style={{ background: "#C9A84C", color: "#000", border: "none", borderRadius: 8, padding: "13px 40px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", letterSpacing: ".04em", boxShadow: "0 4px 20px rgba(201,168,76,.3)" }}>
+        <button className="btn-premium" onClick={() => setShowSplash(false)}>
           Entrar →
         </button>
         <div style={{ fontSize: 10, color: "#303030", letterSpacing: ".1em", textTransform: "uppercase" }}>© {new Date().getFullYear()} {studioName}</div>
@@ -4685,7 +4685,7 @@ export default function CRM() {
 
   // ── ONBOARDING ──
   if (!onboardingDone) {
-    const onbSteps = ["Estúdio", "Horários", "Profissionais", "IA", "Concluído"];
+    const onbSteps = ["Estúdio", "Horários", "Profissionais", "Concluído"];
     return (
       <div style={{ minHeight: "100vh", background: "#0E0E0E", display: "flex", alignItems: "center", justifyContent: "center", padding: 18, fontFamily: "'DM Sans',sans-serif" }}>
         <style>{S}</style>
@@ -4732,10 +4732,6 @@ export default function CRM() {
                     onChange={e => { const v = e.target.value; setStudioInsta(v && !v.startsWith("@") ? "@" + v : v); }} />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Nome da IA de Atendimento</label>
-                  <input className="fi" value={auraName} onChange={e => setAuraName(e.target.value)} placeholder="Escolha o nome da sua agente" />
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Link Google Meu Negócio</label>
                   <input className="fi" value={googleLink} onChange={e => setGoogleLink(e.target.value)} placeholder="https://g.page/..." />
                 </div>
@@ -4743,9 +4739,6 @@ export default function CRM() {
                   <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>CNPJ</label>
                   <input className="fi" value={cnpj} onChange={e => setCnpj(maskCNPJ(e.target.value))} placeholder="00.000.000/0001-00" />
                 </div>
-              </div>
-              <div style={{ fontSize: 11, color: "#555045", marginTop: 2 }}>
-                O WhatsApp sera vinculado a {auraName} para atendimento automatizado.
               </div>
             </div>
           )}
@@ -4806,31 +4799,6 @@ export default function CRM() {
             </div>
           )}
           {onbStep === 3 && (
-            <div style={{ padding: "22px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ fontSize: 14, color: "#E8E2D9", fontWeight: 600, marginBottom: 4 }}>Configure sua agente de atendimento</div>
-              <div style={{ fontSize: 11, color: "#555045", marginBottom: 4, lineHeight: 1.6 }}>Escolha um nome para a sua agente. Você poderá configurar a personalidade completa em Configurações → IA após concluir.</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Nome da agente</label>
-                <input className="fi" value={auraName} placeholder="Ex: Luna, Sofia, Iris..."
-                  onChange={e => setAuraName(e.target.value.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase()))} />
-                <div style={{ fontSize: 10, color: "#555045", marginTop: 4, lineHeight: 1.5 }}>
-                  Este nome aparece em todo o sistema e nas comunicações com seus clientes. Escolha algo que combine com a identidade da sua agente.
-                </div>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Primeiras instruções (opcional)</label>
-                <textarea className="fi" rows={3}
-                  placeholder={"Descreva brevemente seu estúdio e como " + (auraName || "a agente") + " deve se comunicar. Ex: Somos um estúdio de blackwork em SP. Tom descontraído e artístico."}
-                  value={auraInstrucoes}
-                  onChange={e => setAuraInstrucoes(e.target.value)}
-                  style={{ resize: "none", fontFamily: "'DM Sans',sans-serif", fontSize: 12, lineHeight: 1.6 }} />
-                <div style={{ fontSize: 10, color: "#555045", marginTop: 2, lineHeight: 1.5 }}>
-                  Você pode detalhar mais em Configurações → IA depois.
-                </div>
-              </div>
-            </div>
-          )}
-          {onbStep === 4 && (
             <div style={{ padding: "32px 28px", display: "flex", flexDirection: "column", alignItems: "center", gap: 14, textAlign: "center" }}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 600, color: "#C9A84C" }}>Tudo pronto!</div>
               <div style={{ fontSize: 13, color: "#8A8070", lineHeight: 1.7 }}>
@@ -4842,12 +4810,12 @@ export default function CRM() {
             <div style={{ fontSize: 11, color: "#555045" }}>{onbStep + 1} de {onbSteps.length}</div>
             <div style={{ display: "flex", gap: 8 }}>
               {onbStep > 0 && <button className="btn-c" onClick={() => setOnbStep(s => s - 1)}>Voltar</button>}
-              {onbStep < 4 && (
+              {onbStep < 3 && (
                 <button className="btn-s" disabled={onbStep === 0 && (!studioName || !studioOwner || !studioTel)} onClick={() => setOnbStep(s => s + 1)}>
-                  {onbStep === 3 ? "Concluir" : "Continuar"}
+                  {onbStep === 2 ? "Concluir" : "Continuar"}
                 </button>
               )}
-              {onbStep === 4 && <button className="btn-s" onClick={async () => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); try { const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single(); if (cfgEx?.id) { await sb.from("configuracoes").update({ onboarding_done: true }).eq("id", cfgEx.id); } else { await sb.from("configuracoes").insert({ onboarding_done: true, user_id: userId }); } } catch(e) { console.warn("onboarding save", e); } if (!localStorage.getItem("inq_tour")) { setTimeout(() => { setTourStep(0); setTourAtivo(true); }, 800); } }}>Entrar no Sistema →</button>}
+              {onbStep === 3 && <button className="btn-s" onClick={async () => { setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1"); try { const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single(); if (cfgEx?.id) { await sb.from("configuracoes").update({ onboarding_done: true }).eq("id", cfgEx.id); } else { await sb.from("configuracoes").insert({ onboarding_done: true, user_id: userId }); } } catch(e) { console.warn("onboarding save", e); } if (!localStorage.getItem("inq_tour")) { setTimeout(() => { setTourStep(0); setTourAtivo(true); }, 800); } }}>Entrar no Sistema →</button>}
             </div>
           </div>
         </div>
@@ -13823,7 +13791,7 @@ export default function CRM() {
               </div>
               {/* ABAS */}
               <div className="settings-tabs-bar" style={{ display: "flex", borderBottom: "1px solid var(--br)" }}>
-                {([["estudio","🏠 Estúdio"],["profissionais","💼 Colaboradores"],["estoque","📦 Estoque"],["ia","🤖 IA"],["sistema","⚙️ Sistema"]] as const).map(([id, label]) => (
+                {([["estudio","🏠 Estúdio"],["profissionais","💼 Colaboradores"],["estoque","📦 Estoque"],["sistema","⚙️ Sistema"]] as const).map(([id, label]) => (
                   <div key={id} onClick={() => setSettingsTab(id)}
                     style={{ flex: 1, padding: "10px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, cursor: "pointer", letterSpacing: ".04em",
                       color: settingsTab === id ? "var(--gold)" : "var(--tx3)",
@@ -14526,69 +14494,6 @@ export default function CRM() {
                   </div>
                 </>}
 
-                {/* ── ABA IA ── */}
-                {settingsTab === "ia" && <>
-                  <div style={{ background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.15)", borderRadius: 8, padding: "12px 14px", marginBottom: 4 }}>
-                    <div style={{ fontSize: 12, color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>🔒 Essência imutável</div>
-                    <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.6 }}>A assistente sempre será transparente sobre ser uma IA, nunca se passará por humano e manterá o padrão premium do estúdio. Estas configurações ajustam comportamentos secundários.</div>
-                  </div>
-                  <div>
-                    <div className="stit">Identidade</div>
-                    <div className="fi2">
-                      <div className="fil">Nome da IA</div>
-                      <input className="ef" value={(auraName && !auraName.includes("@")) ? auraName : ""} placeholder="Ex: Aura, Luna, Sofia..."
-                        onChange={e => setAuraName(e.target.value.replace(/(^|\s)(\S)/g, (_: string, sp: string, ch: string) => sp + ch.toUpperCase()))} />
-                    </div>
-                    <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 6, lineHeight: 1.5 }}>As chaves de API (Anthropic, Resend, Zenvia) estão centralizadas em <strong style={{ color: "var(--gold)" }}>Licenças → Chaves de Acesso</strong>.</div>
-                  </div>
-                  {/* ── SEÇÃO: INSTRUÇÕES DA AGENTE ── */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    <div>
-                      <div className="stit">{"Instruções para " + (auraName || "sua agente")}</div>
-                      <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.7, marginTop: 4 }}>
-                        {"Configure tudo que " + (auraName || "sua agente") + " precisa saber para atender com excelência. Preencha o campo abaixo substituindo os exemplos entre parênteses pelas informações do seu negócio. Quanto mais completo, melhor o atendimento."}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".06em" }}>
-                          {"📝 O que " + (auraName || "a agente") + " deve saber"}
-                        </div>
-                        {auraInstrucoes && (
-                          <button onClick={() => { if (window.confirm("Limpar e começar do zero?")) setAuraInstrucoes(""); }}
-                            style={{ fontSize: 10, color: "var(--tx3)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
-                            Limpar
-                          </button>
-                        )}
-                      </div>
-                                            <textarea
-                        className="ef"
-                        rows={12}
-                        placeholder={"Preencha com as informações do seu negócio substituindo os exemplos entre parênteses..."}
-                        value={auraInstrucoes}
-                        onChange={e => setAuraInstrucoes(e.target.value)}
-                        style={{ resize: "vertical", fontFamily: "'DM Sans',sans-serif", fontSize: 12, lineHeight: 1.8, minHeight: 220 }}
-                      />
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                        <div style={{ fontSize: 10, color: "var(--tx3)", lineHeight: 1.5, flex: 1 }}>
-                          {"💡 " + (auraName || "A agente") + " também aprende durante as conversas — quando você revelar algo importante, ela perguntará se deve salvar nas instruções permanentes."}
-                        </div>
-                        {auraInstrucoes && (
-                          <div style={{ fontSize: 10, color: "var(--tx3)", whiteSpace: "nowrap", flexShrink: 0 }}>
-                            {auraInstrucoes.length} caracteres
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ background: "rgba(201,168,76,.05)", border: "1px solid rgba(201,168,76,.1)", borderRadius: 7, padding: "10px 12px" }}>
-                        <div style={{ fontSize: 10, color: "var(--tx3)", lineHeight: 1.6 }}>
-                          🔒 <strong style={{ color: "var(--tx2)" }}>Suas instruções são privadas.</strong> Elas ficam armazenadas apenas no banco de dados do seu estúdio e nunca são compartilhadas com outros usuários do sistema.
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {/* ── FIM SEÇÃO INSTRUÇÕES ── */}
-                </>}
-
                 {/* ── ABA SISTEMA ── */}
                 {settingsTab === "sistema" && <>
                   <div>
@@ -14692,7 +14597,7 @@ export default function CRM() {
                   {settingsTab !== "sistema" && (
                     <button style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
                       onClick={() => {
-                        const order = ["estudio","profissionais","ia","sistema"];
+                        const order = ["estudio","profissionais","sistema"];
                         const idx = order.indexOf(settingsTab);
                         if (idx < order.length - 1) setSettingsTab(order[idx + 1] as any);
                       }}>
@@ -14714,7 +14619,6 @@ export default function CRM() {
                     studio_pais: studioPais,
                     studio_redes: studioRedes,
                     dono_nome: donoNome, dono_whats: donoWhats, dono_email: donoEmail,
-                    aura_name: auraName,
                     google_link: googleLink,
                     cnpj, meta_mensal: metaMensal,
                     meta_sessoes: metaSessoes, meta_leads: metaLeads, meta_nps: metaNPS,
