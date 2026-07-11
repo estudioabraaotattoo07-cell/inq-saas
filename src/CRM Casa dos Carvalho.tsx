@@ -1186,6 +1186,7 @@ export default function CRM() {
   const [showSplash, setShowSplash] = useState(() => !!localStorage.getItem("inq_onb"));
   const [userId, setUserId] = useState<string>("");
   const [onbStep, setOnbStep] = useState(0);
+  const [onbSalvando, setOnbSalvando] = useState(false);
   const [dark, setDark] = useState(true);
   const [tema, setTema] = useState<ThemeId>("carvalho");
   const [studioName, setStudioName] = useState("");
@@ -4856,21 +4857,34 @@ export default function CRM() {
                   {onbStep === 2 ? "Concluir" : "Continuar"}
                 </button>
               )}
-              {onbStep === 3 && <button className="btn-s" onClick={async () => {
-                setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1");
+              {onbStep === 3 && <button className="btn-s" disabled={onbSalvando} onClick={async () => {
+                setOnbSalvando(true);
                 try {
                   const cfg: any = {
                     studio_name: studioName, studio_tel: studioTel, studio_owner: studioOwner,
                     studio_email: studioEmail, studio_city: studioCity, studio_insta: studioInsta,
+                    studio_estado: studioEstado,
                     google_link: googleLink, google_avaliacao_link: googleAvaliacaoLink,
                     cnpj, horarios, onboarding_done: true,
                     user_id: userId, updated_at: new Date().toISOString()
                   };
                   const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                  if (cfgEx?.id) { await sb.from("configuracoes").update(cfg).eq("id", cfgEx.id); } else { await sb.from("configuracoes").insert(cfg); }
-                } catch(e) { console.warn("onboarding save", e); }
-                if (!localStorage.getItem("inq_tour")) { setTimeout(() => { setTourStep(0); setTourAtivo(true); }, 800); }
-              }}>Entrar no Sistema →</button>}
+                  const { error: errCfg } = cfgEx?.id
+                    ? await sb.from("configuracoes").update(cfg).eq("id", cfgEx.id)
+                    : await sb.from("configuracoes").insert(cfg);
+                  if (errCfg) {
+                    setShowAviso("❌ Erro ao salvar: " + errCfg.message);
+                    setOnbSalvando(false);
+                    return;
+                  }
+                  setOnboardingDone(true); setShowSplash(false); localStorage.setItem("inq_onb", "1");
+                  if (!localStorage.getItem("inq_tour")) { setTimeout(() => { setTourStep(0); setTourAtivo(true); }, 800); }
+                } catch(e: any) {
+                  setShowAviso("❌ Erro ao salvar: " + (e?.message || "verifique sua conexão."));
+                } finally {
+                  setOnbSalvando(false);
+                }
+              }}>{onbSalvando ? "Salvando..." : "Entrar no Sistema →"}</button>}
             </div>
             </div>
           </div>
