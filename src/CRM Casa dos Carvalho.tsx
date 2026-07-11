@@ -10648,11 +10648,17 @@ export default function CRM() {
                               const totalPagoReal = fin.filter((f: any) => f.cliente_id === sc.id && (!f.tipo || f.tipo === "entrada") && (f.projeto_id ? String(f.projeto_id) === String(proj.id) : true)).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
                               const saldo = valorTotal - totalPagoReal;
                               return valorTotal > 0 ? (
-                                <div style={{ display: "flex", gap: 12, padding: "6px 10px", background: "var(--dk4)", borderRadius: 6, fontSize: 12 }}>
+                                <div style={{ display: "flex", gap: 12, padding: "6px 10px", background: "var(--dk4)", borderRadius: 6, fontSize: 12, alignItems: "center", flexWrap: "wrap" }}>
                                   <span style={{ color: "var(--tx2)" }}>Total: <strong style={{ color: "var(--tx)" }}>R$ {valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
                                   <span style={{ color: "var(--tx2)" }}>Pago: <strong style={{ color: "#27AE60" }}>R$ {totalPagoReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
                                   {saldo > 0 && <span style={{ color: "#E74C3C", fontWeight: 700, fontSize: 13, background: "rgba(231,76,60,0.1)", padding: "2px 8px", borderRadius: 6 }}>Saldo: <strong>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
                                   {saldo <= 0 && totalPagoReal > 0 && <span style={{ color: "#27AE60", fontWeight: 700 }}>✓ Quitado</span>}
+                                  {saldo > 0 && (
+                                    <button onClick={() => setPgAvulso({ clienteId: sc.id, clienteNome: sc.nome, artistaId: artistaDoProjeto(draft, sc), projetos: [proj], projetoId: proj.id, fase: "form", valor: "", forma: "Pix", obs: "" })}
+                                      style={{ marginLeft: "auto", background: "rgba(201,168,76,.12)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 700, color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                                      + Adicionar Entrada
+                                    </button>
+                                  )}
                                 </div>
                               ) : null;
                             })()}
