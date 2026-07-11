@@ -867,13 +867,14 @@ function TimeScroller({ value, onChange, label }: { value: number; onChange: (h:
 }
 
 // ─── DATE SCROLLER ────────────────────────────────────────────────────────────
-function DateScroller({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+function DateScroller({ value, onChange, label, anos = "futuro" }: { value: string; onChange: (v: string) => void; label: string; anos?: "futuro" | "passado" }) {
   const curYear = new Date().getFullYear();
+  const anoPadrao = anos === "passado" ? curYear - 25 : curYear;
   const parseVal = (v: string) => {
-    if (!v) return { d: 1, m: 1, y: curYear };
+    if (!v) return { d: 1, m: 1, y: anoPadrao };
     const parts = v.split("-");
-    if (parts.length === 3) return { y: parseInt(parts[0]) || curYear, m: parseInt(parts[1]) || 1, d: parseInt(parts[2]) || 1 };
-    return { d: 1, m: 1, y: curYear };
+    if (parts.length === 3) return { y: parseInt(parts[0]) || anoPadrao, m: parseInt(parts[1]) || 1, d: parseInt(parts[2]) || 1 };
+    return { d: 1, m: 1, y: anoPadrao };
   };
   const pv = parseVal(value);
   const [open, setOpen] = useState(false);
@@ -897,7 +898,9 @@ function DateScroller({ value, onChange, label }: { value: string; onChange: (v:
   const maxD = daysInMonth(selM, selY);
   const DAYS = Array.from({ length: maxD }, (_, i) => i + 1);
   const MNAMES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-  const YEARS = [curYear, curYear+1, curYear+2, curYear+3, curYear+4];
+  const YEARS = anos === "passado"
+    ? Array.from({ length: 90 }, (_, i) => curYear - i)
+    : [curYear, curYear+1, curYear+2, curYear+3, curYear+4];
   const safeD = Math.min(selD, maxD);
   const confirm = (d: number, m: number, y: number) => {
     const safe = Math.min(d, daysInMonth(m, y));
@@ -1072,6 +1075,9 @@ function maskTel(v: string) {
   if (v.length <= 7) return "(" + v.slice(0,2) + ") " + v.slice(2);
   if (v.length <= 11) return "(" + v.slice(0,2) + ") " + v.slice(2,7) + "-" + v.slice(7);
   return v;
+}
+function toTitleCase(v: string): string {
+  return v.toLowerCase().replace(/(^|\s)(\S)/g, (_m, sp, c) => sp + c.toUpperCase());
 }
 function validarEmail(email: string): boolean {
   if (!email) return true;
@@ -4727,11 +4733,11 @@ export default function CRM() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Nome do Estúdio *</label>
-                  <input className="fi" value={studioName} onChange={e => setStudioName(e.target.value)} placeholder="Nome do seu estúdio" />
+                  <input className="fi" value={studioName} onChange={e => setStudioName(toTitleCase(e.target.value))} placeholder="Nome do seu estúdio" />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Nome do Responsável *</label>
-                  <input className="fi" value={studioOwner} onChange={e => setStudioOwner(e.target.value)} placeholder="Seu nome" />
+                  <input className="fi" value={studioOwner} onChange={e => setStudioOwner(toTitleCase(e.target.value))} placeholder="Seu nome" />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>WhatsApp da {auraName} *</label>
@@ -4743,7 +4749,10 @@ export default function CRM() {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Cidade e Estado</label>
-                  <input className="fi" value={studioCity} onChange={e => setStudioCity(e.target.value)} placeholder="Cidade - UF" />
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input className="fi" style={{ flex: 1 }} value={studioCity} onChange={e => setStudioCity(toTitleCase(e.target.value))} placeholder="Cidade" />
+                    <input className="fi" style={{ width: 54, textAlign: "center", textTransform: "uppercase" }} value={studioEstado} maxLength={2} onChange={e => setStudioEstado(e.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase())} placeholder="UF" />
+                  </div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 10, letterSpacing: ".07em", textTransform: "uppercase", color: "#8A8070" }}>Instagram do Estudio</label>
@@ -4871,7 +4880,7 @@ export default function CRM() {
             <div className="fmod" style={{ maxWidth: 420 }}>
               <div className="fmh"><div className="fmt">Adicionar Profissional</div><button className="mc" onClick={() => setShowArtForm(false)}>✕</button></div>
               <div className="fmb">
-                <div className="ff"><label className="fl">Nome Completo *</label><input className="fi" placeholder="Nome do artista" value={artForm.nome} onChange={e => setArtForm({ ...artForm, nome: e.target.value.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()) })} /></div>
+                <div className="ff"><label className="fl">Nome Completo *</label><input className="fi" placeholder="Nome do artista" value={artForm.nome} onChange={e => setArtForm({ ...artForm, nome: toTitleCase(e.target.value) })} /></div>
                 <div className="fr">
                   <div className="ff"><label className="fl">Tipo</label><select className="fs" value={artForm.role} onChange={e => setArtForm({ ...artForm, role: e.target.value })}><option value="residente">Residente</option><option value="guest">Temporário</option></select></div>
                   <div className="ff">
@@ -4887,9 +4896,9 @@ export default function CRM() {
                   </div>
                 </div>
                 <div className="ff"><label className="fl">E-mail de acesso ao sistema</label><input className="fi" type="email" placeholder="email@exemplo.com" value={artForm.email} onChange={e => setArtForm({ ...artForm, email: e.target.value.toLowerCase() })} /></div>
-                <div className="ff"><label className="fl">Telefone / WhatsApp (recebe SMS de lembrete de sessão)</label><input className="fi" placeholder="(99) 99999-9999" value={artForm.tel} onChange={e => setArtForm({ ...artForm, tel: e.target.value })} /></div>
+                <div className="ff"><label className="fl">Telefone / WhatsApp (recebe SMS de lembrete de sessão)</label><input className="fi" placeholder="(99) 99999-9999" value={artForm.tel} onChange={e => setArtForm({ ...artForm, tel: maskTel(e.target.value) })} /></div>
                 <div className="ff"><label className="fl">Instagram</label><input className="fi" placeholder="@perfil" value={artForm.insta} onChange={e => { const v = e.target.value; setArtForm({ ...artForm, insta: v && !v.startsWith("@") ? "@" + v : v }); }} /></div>
-                <div className="ff"><label className="fl">Aniversário</label><input className="fi" type="date" value={artForm.nascimento} onChange={e => setArtForm({ ...artForm, nascimento: e.target.value })} /></div>
+                <div className="ff"><DateScroller label="Aniversário" anos="passado" value={artForm.nascimento} onChange={val => setArtForm({ ...artForm, nascimento: val })} /></div>
                 <div className="ff"><label className="fl">Cor</label><ColorPicker value={artForm.cor} onChange={cor => setArtForm({ ...artForm, cor })} /></div>
               </div>
               <div className="fmf"><button className="btn-c" onClick={() => setShowArtForm(false)}>Cancelar</button><button className="btn-s" onClick={saveArtist} disabled={!artForm.nome}>Salvar</button></div>
@@ -7038,7 +7047,7 @@ export default function CRM() {
                 <button className="mc" onClick={() => setEditingArtist(null)}>✕</button>
               </div>
               <div className="fmb">
-                <div className="ff"><label className="fl">Nome Completo</label><input className="fi" value={editingArtist.nome} onChange={e => setEditingArtist({ ...editingArtist, nome: e.target.value.replace(/(^|\s)(\S)/g, (_: string, sp: string, c: string) => sp + c.toUpperCase()) })} /></div>
+                <div className="ff"><label className="fl">Nome Completo</label><input className="fi" value={editingArtist.nome} onChange={e => setEditingArtist({ ...editingArtist, nome: toTitleCase(e.target.value) })} /></div>
                 <div className="fr">
                   <div className="ff">
                     <label className="fl">Tipo</label>
@@ -7116,11 +7125,10 @@ export default function CRM() {
                 </div>
                 <div className="ff">
                   <label className="fl">Telefone (visivel apenas para o dono)</label>
-                  <input className="fi" placeholder="(99) 99999-9999" value={editingArtist.tel || ""} onChange={e => setEditingArtist({ ...editingArtist, tel: e.target.value })} />
+                  <input className="fi" placeholder="(99) 99999-9999" value={editingArtist.tel || ""} onChange={e => setEditingArtist({ ...editingArtist, tel: maskTel(e.target.value) })} />
                 </div>
                 <div className="ff">
-                  <label className="fl">Aniversário</label>
-                  <input className="fi" type="date" value={editingArtist.nascimento || ""} onChange={e => setEditingArtist({ ...editingArtist, nascimento: e.target.value })} />
+                  <DateScroller label="Aniversário" anos="passado" value={editingArtist.nascimento || ""} onChange={val => setEditingArtist({ ...editingArtist, nascimento: val })} />
                 </div>
                 <div className="ff">
                   <label className="fl">Cor</label>
@@ -11153,7 +11161,7 @@ export default function CRM() {
                 {formStep === 1 && (
                   <>
                     <div className="fr">
-                      <div className="ff"><label className="fl">Nome *</label><input className="fi" placeholder="Nome completo" value={form.nome} autoFocus onChange={e => { const v = e.target.value; setForm({ ...form, nome: v.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()) }); }} /></div>
+                      <div className="ff"><label className="fl">Nome *</label><input className="fi" placeholder="Nome completo" value={form.nome} autoFocus onChange={e => { const v = e.target.value; setForm({ ...form, nome: toTitleCase(v) }); }} /></div>
                       <div className="ff"><label className="fl">Telefone *</label><input className="fi" placeholder="(99) 9 9999-9999" value={form.tel} onChange={e => setForm({ ...form, tel: maskTel(e.target.value) })} /></div>
                     </div>
                     <div className="fr">
@@ -11419,7 +11427,7 @@ export default function CRM() {
                 <button className="mc" onClick={() => setShowArtForm(false)}>✕</button>
               </div>
               <div className="fmb">
-                <div className="ff"><label className="fl">Nome Completo *</label><input className="fi" placeholder="Nome do artista" value={artForm.nome} onChange={e => setArtForm({ ...artForm, nome: e.target.value.replace(/(^|\s)(\S)/g, (_, sp, c) => sp + c.toUpperCase()) })} /></div>
+                <div className="ff"><label className="fl">Nome Completo *</label><input className="fi" placeholder="Nome do artista" value={artForm.nome} onChange={e => setArtForm({ ...artForm, nome: toTitleCase(e.target.value) })} /></div>
                 <div className="fr">
                   <div className="ff">
                     <label className="fl">Tipo</label>
