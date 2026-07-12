@@ -519,7 +519,7 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, completo } = req.body;
+  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada } = req.body;
   if (!nome && !tel && !email) return res.status(400).json({ error: "pelo menos um dado obrigatorio" });
 
   const ideaFinal = idea || ideia || "";
@@ -579,7 +579,6 @@ export default async function handler(req, res) {
   let clienteId = null;
   let isNewClient = true;
   let matchInfo = null;
-  let artistaDefinidoAgora = false;
   {
     const telDigits = tel ? tel.replace(/[^0-9]/g, "").slice(-11) : null;
     const emailNorm = email ? email.trim().toLowerCase() : null;
@@ -614,7 +613,6 @@ export default async function handler(req, res) {
       await sb.from("clientes").update(updateFields).eq("id", match.id);
       clienteId = match.id;
       isNewClient = false;
-      artistaDefinidoAgora = !(match.artista || "").trim() && !!(artista || "").trim();
       matchInfo = {
         artista: updateFields.artista || match.artista || null,
         etapa: match.etapa || null,
@@ -647,11 +645,11 @@ export default async function handler(req, res) {
     } catch (e) { console.warn("chat_log save error:", e); }
   }
 
-  // Dispara e-mail/SMS só quando o site sinaliza que a conversa chegou ao fim
-  // (campo "completo", enviado só no ultimo passo do roteiro) — evita notificar
-  // cedo demais, com a ficha quase vazia, só porque o profissional foi escolhido
-  // numa das primeiras perguntas.
-  const deveNotificar = !!completo && !!(artista || "").trim();
+  // Dispara e-mail/SMS só quando o lead vira Solicitação de Consulta ou de Sessão
+  // (intenção real de agendar) -- lead frio/morno que só passou nome+telefone e
+  // sumiu não notifica, fica só visível no Pipeline quando o estúdio abrir o CRM.
+  // Pensado pro modelo SaaS: cliente vai ter cota limitada de e-mail/SMS por mês.
+  const deveNotificar = !!etapaSolicitada;
   if (!isNewClient) {
     if (!deveNotificar) return res.status(200).json({ ok: true, clienteId, updated: true, ...matchInfo });
   } else if (!deveNotificar) {
