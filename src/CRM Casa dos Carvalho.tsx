@@ -1243,6 +1243,11 @@ export default function CRM() {
   const [campEditIdx, setCampEditIdx] = useState<number | null>(null);
   const [campEditForm, setCampEditForm] = useState<{nome: string; palavra_chave: string; data_inicio: string; data_fim: string}>({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" });
   const [campConfirmDel, setCampConfirmDel] = useState<number | null>(null);
+  // ── SITE PÚBLICO (molde Premium) ──
+  const [siteConteudo, setSiteConteudo] = useState<any>(null);
+  const [siteLoaded, setSiteLoaded] = useState(false);
+  const [siteSaving, setSiteSaving] = useState(false);
+  const [siteSlug, setSiteSlug] = useState<string>("");
   // ── FILTRO EXTRA (campanha | origem) — mutuamente exclusivo com filtro de artista ──
   const [filtroExtra, setFiltroExtra] = useState<{tipo: "campanha"|"orig"; valor: string} | null>(null);
   const [dropdownAberto, setDropdownAberto] = useState<"campanhas"|"orig"|null>(null);
@@ -2125,6 +2130,72 @@ export default function CRM() {
     sb.from("historico").select("*").eq("user_id", userId).order("id", { ascending: false }).limit(500)
       .then(({ data }) => { if (data) setHistorico(data); });
   }, [userId]);
+
+  useEffect(() => {
+    if (tab !== "site" || siteLoaded || !userId) return;
+    (async () => {
+      const [{ data: site }, { data: tenant }] = await Promise.all([
+        sb.from("site_conteudo").select("*").eq("user_id", userId).single(),
+        sb.from("ink_clientes").select("slug").eq("auth_user_id", userId).single(),
+      ]);
+      setSiteConteudo(site || {
+        user_id: userId, molde: "premium", publicado: false,
+        hero_foto_url: "", hero_frase: "", manifesto_frase: "",
+        banner_foto_url: "", banner_titulo: "", banner_texto: "", depoimentos: [],
+      });
+      setSiteSlug(tenant?.slug || "");
+      setSiteLoaded(true);
+    })();
+  }, [tab, userId, siteLoaded]);
+
+  const salvarSite = async () => {
+    if (!siteConteudo || !userId) return;
+    setSiteSaving(true);
+    const payload = { ...siteConteudo, user_id: userId };
+    delete payload.id;
+    delete payload.created_at;
+    payload.updated_at = new Date().toISOString();
+    const { data, error } = await sb.from("site_conteudo").upsert(payload, { onConflict: "user_id" }).select().single();
+    if (!error) {
+      for (const a of artists) {
+        if (a._siteDirty) {
+          await sb.from("artistas").update({ foto_site_url: a.foto_site_url || null, bio_site: a.bio_site || null, portfolio_fotos: a.portfolio_fotos || [] }).eq("id", a.id);
+        }
+      }
+      setArtists(p => p.map(a => ({ ...a, _siteDirty: false })));
+    }
+    setSiteSaving(false);
+    if (error) { setShowAviso("❌ Erro ao salvar o site: " + error.message); return; }
+    setSiteConteudo(data);
+    setShowAviso("✅ Site salvo com sucesso!");
+  };
+
+  const uploadSiteImg = async (file: File): Promise<string> => {
+    const compress = (f: File, maxPx: number, q: number): Promise<string> => new Promise((res) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          if (w > maxPx || h > maxPx) { if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; } else { w = Math.round(w * maxPx / h); h = maxPx; } }
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+          res(canvas.toDataURL("image/jpeg", q).split(",")[1]);
+        };
+        img.src = ev.target?.result as string;
+      };
+      reader.readAsDataURL(f);
+    });
+    const base64 = await compress(file, 1600, 0.8);
+    const resp = await fetch("https://inq-saas.vercel.app/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ base64, mimeType: "image/jpeg" }),
+    });
+    const d = await resp.json();
+    return d.url || "";
+  };
 
   useEffect(() => {
     if (tab === "agenda") {
@@ -5137,6 +5208,7 @@ export default function CRM() {
             { id: "financeiro", l: "Financeiro", i: "💰", roles: ["admin"] },
             { id: "dashboard", l: "Visão Geral", i: "📊", roles: ["admin","profissional"] },
             { id: "posvenda", l: "Relacionamento", i: "💬", roles: ["admin","profissional"] },
+            { id: "site", l: "Meu Site", i: "🌐", roles: ["admin"] },
             { id: "licencas", l: "Licenças", i: "🔑", roles: ["owner"] },
           ] as {id:string;l:string;i:string;roles:string[]}[]).filter(t => {
             if (t.id === "licencas") return authEmail === OWNER_EMAIL;
@@ -13456,6 +13528,183 @@ export default function CRM() {
             </div>
           </div>
         )}
+
+        {/* ── MEU SITE (molde Premium editável) ── */}
+        {tab === "site" && (() => {
+          if (!siteLoaded || !siteConteudo) {
+            return <div style={{ padding: 60, textAlign: "center", color: "var(--tx3)" }}>Carregando...</div>;
+          }
+          const sc = siteConteudo;
+          const upd = (patch: any) => setSiteConteudo((p: any) => ({ ...p, ...patch }));
+          const updArtistSite = (artistId: string, patch: any) =>
+            setArtists(p => p.map((a: any) => a.id === artistId ? { ...a, ...patch, _siteDirty: true } : a));
+          const previewUrl = siteSlug ? `https://inq-saas.vercel.app/api/lead?acao=site&slug=${siteSlug}` : "";
+
+          const cardSt: React.CSSProperties = {
+            background: "radial-gradient(ellipse 420px 200px at 50% -10%, rgba(139,92,222,0.18), transparent 70%), linear-gradient(180deg, #1A1A1A, #0F0F0F)",
+            border: "1.5px solid rgba(201,168,76,0.3)", borderRadius: 14, padding: 20, marginBottom: 16,
+            boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
+          };
+
+          const Help = ({ children }: { children: React.ReactNode }) => (
+            <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 6, display: "flex", alignItems: "flex-start", gap: 6, lineHeight: 1.5 }}>
+              <span style={{ width: 15, height: 15, borderRadius: "50%", border: "1px solid rgba(201,168,76,0.4)", color: "var(--gold)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 9, flexShrink: 0, marginTop: 1 }}>?</span>
+              {children}
+            </div>
+          );
+
+          const ImageSlot = ({ label, hint, value, onChange }: { label: string; hint: string; value: string; onChange: (url: string) => void }) => (
+            <div style={{ marginBottom: 22 }}>
+              <Help>{hint}</Help>
+              <label className="fl">{label}</label>
+              <label style={{
+                display: "flex", alignItems: "center", justifyContent: "center", marginTop: 8, cursor: "pointer",
+                border: value ? "1.5px solid rgba(201,168,76,0.4)" : "1.5px dashed rgba(201,168,76,0.3)",
+                borderRadius: 10, overflow: "hidden", background: "#050505", position: "relative",
+                minHeight: value ? undefined : 110,
+              }}>
+                {value ? (
+                  <>
+                    <img src={value} style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }} />
+                    <div className="img-slot-ov" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.5)", opacity: 0, transition: "opacity .15s", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gold)", fontSize: 12, fontWeight: 700 }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = "1")} onMouseLeave={e => (e.currentTarget.style.opacity = "0")}>
+                      📷 Trocar foto
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color: "var(--tx3)", fontSize: 12, textAlign: "center", padding: 20, lineHeight: 1.8 }}>📷<br />Escolher foto</div>
+                )}
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
+                  const f = e.target.files?.[0]; if (!f) return;
+                  const url = await uploadSiteImg(f);
+                  if (url) onChange(url);
+                  e.target.value = "";
+                }} />
+              </label>
+            </div>
+          );
+
+          return (
+            <div className="pvw" style={{ maxWidth: 720 }}>
+              <div style={{ ...cardSt, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                <div>
+                  <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 600, color: "var(--gold)" }}>✦ Meu Site</h2>
+                  <div style={{ fontSize: 11, color: "var(--tx3)" }}>Edite o conteúdo do seu site público — ao salvar, já publica sozinho.</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div onClick={() => upd({ publicado: !sc.publicado })} title={sc.publicado ? "Site publicado — clique para despublicar" : "Site em rascunho — clique para publicar"}
+                    style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}>
+                    <div style={{ width: 34, height: 19, borderRadius: 10, background: sc.publicado ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", flexShrink: 0 }}>
+                      <div style={{ width: 15, height: 15, background: "#fff", borderRadius: "50%", position: "absolute", top: 2, left: sc.publicado ? 17 : 2, transition: "left .2s" }} />
+                    </div>
+                    <span style={{ fontSize: 11, color: sc.publicado ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{sc.publicado ? "Publicado" : "Rascunho"}</span>
+                  </div>
+                  {previewUrl && <a href={previewUrl} target="_blank" rel="noreferrer" className="btn-s" style={{ textDecoration: "none" }}>👁 Ver site</a>}
+                </div>
+              </div>
+              {!siteSlug && (
+                <div style={{ fontSize: 11, color: "var(--tx3)", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "10px 12px", marginBottom: 16 }}>
+                  Seu endereço público ainda não foi configurado — fale com o suporte pra definir o link do seu site.
+                </div>
+              )}
+
+              <div style={cardSt}>
+                <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 14 }}>Identidade</div>
+                <ImageSlot label="Foto de capa (Hero)" hint="Recomendado: 1600×900px, paisagem. É a primeira imagem que o visitante vê, em tela cheia."
+                  value={sc.hero_foto_url || ""} onChange={(url) => upd({ hero_foto_url: url })} />
+                <Help>A frase principal por cima da foto de capa. Até 2 linhas — use Enter pra quebrar.</Help>
+                <div className="ff" style={{ marginBottom: 20 }}>
+                  <label className="fl">Frase de efeito</label>
+                  <textarea className="fta" placeholder={"Arte na pele, criada\na partir da sua história."} value={sc.hero_frase || ""} onChange={e => upd({ hero_frase: e.target.value })} />
+                </div>
+                <Help>Uma frase curta e marcante — funciona como um lema do seu estúdio.</Help>
+                <div className="ff">
+                  <label className="fl">Frase do manifesto</label>
+                  <input className="fi" placeholder="Você merece a tattoo que escolheu portar." value={sc.manifesto_frase || ""} onChange={e => upd({ manifesto_frase: e.target.value })} />
+                </div>
+              </div>
+
+              <div style={cardSt}>
+                <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 14 }}>História do estúdio</div>
+                <ImageSlot label="Foto do banner" hint="Recomendado: 1600×900px, paisagem. Uma foto marcante do estúdio, da equipe ou de um trabalho autoral."
+                  value={sc.banner_foto_url || ""} onChange={(url) => upd({ banner_foto_url: url })} />
+                <Help>Conte a história do seu estúdio — o que te trouxe até aqui, o que te diferencia.</Help>
+                <div className="ff" style={{ marginBottom: 20 }}>
+                  <label className="fl">Título do banner</label>
+                  <input className="fi" placeholder="Duas visões. Uma mesma essência." value={sc.banner_titulo || ""} onChange={e => upd({ banner_titulo: e.target.value })} />
+                </div>
+                <div className="ff">
+                  <label className="fl">Texto do banner</label>
+                  <textarea className="fta" placeholder="Conte a história do seu estúdio, sua trajetória, o que te motiva..." value={sc.banner_texto || ""} onChange={e => upd({ banner_texto: e.target.value })} />
+                </div>
+              </div>
+
+              <div style={cardSt}>
+                <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Depoimentos</div>
+                <Help>Depoimentos reais de clientes — copie e cole de onde recebeu (WhatsApp, Instagram, Google).</Help>
+                {(sc.depoimentos || []).map((d: any, i: number) => (
+                  <div key={i} style={{ background: "#050505", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: 12, marginBottom: 8, boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}>
+                    <textarea className="fta" placeholder="Texto do depoimento..." value={d.texto || ""} style={{ marginBottom: 6 }}
+                      onChange={e => { const arr = [...sc.depoimentos]; arr[i] = { ...d, texto: e.target.value }; upd({ depoimentos: arr }); }} />
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <input className="fi" placeholder="Autor (ex: Cliente via Instagram)" value={d.autor || ""} style={{ flex: 1 }}
+                        onChange={e => { const arr = [...sc.depoimentos]; arr[i] = { ...d, autor: e.target.value }; upd({ depoimentos: arr }); }} />
+                      <select className="fi" value={d.estrelas || 5} style={{ width: 70 }}
+                        onChange={e => { const arr = [...sc.depoimentos]; arr[i] = { ...d, estrelas: Number(e.target.value) }; upd({ depoimentos: arr }); }}>
+                        {[5, 4, 3, 2, 1].map(n => <option key={n} value={n}>{"★".repeat(n)}</option>)}
+                      </select>
+                      <button className="btn-sm" onClick={() => upd({ depoimentos: sc.depoimentos.filter((_: any, idx: number) => idx !== i) })}>🗑</button>
+                    </div>
+                  </div>
+                ))}
+                <button className="btn-sm" onClick={() => upd({ depoimentos: [...(sc.depoimentos || []), { texto: "", autor: "", estrelas: 5 }] })}>+ Adicionar depoimento</button>
+              </div>
+
+              <div style={cardSt}>
+                <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Profissionais no site</div>
+                <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 14 }}>Cada profissional ativo em Colaboradores ganha automaticamente um bloco no site — só preencha foto, descrição e portfólio.</div>
+                {artists.filter((a: any) => a.ativo).map((a: any) => {
+                  const bioLen = (a.bio_site || "").length;
+                  const fotos: string[] = Array.isArray(a.portfolio_fotos) ? a.portfolio_fotos : [];
+                  return (
+                    <div key={a.id} style={{ background: "#050505", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 10, padding: 16, marginBottom: 12 }}>
+                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, fontWeight: 600, color: a.cor || "var(--gold)", marginBottom: 12 }}>{a.nome}</div>
+                      <ImageSlot label="Foto do artista" hint="Recomendado: 800×1000px, retrato."
+                        value={a.foto_site_url || ""} onChange={(url) => updArtistSite(a.id, { foto_site_url: url })} />
+                      <Help>Descrição curta que aparece ao lado da foto (máx. 200 caracteres).</Help>
+                      <textarea className="fta" maxLength={200} placeholder="Projetos autorais, direção artística e profundidade em cada traço."
+                        value={a.bio_site || ""} onChange={e => updArtistSite(a.id, { bio_site: e.target.value })} />
+                      <div style={{ fontSize: 10, color: "var(--tx3)", textAlign: "right", marginBottom: 12 }}>{bioLen}/200</div>
+                      <Help>Fotos do portfólio dele — aparecem numa esteira rolante embaixo do bloco.</Help>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                        {fotos.map((f, i) => (
+                          <div key={i} style={{ position: "relative", width: 80, height: 100 }}>
+                            <img src={f} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 6, border: "1px solid rgba(201,168,76,0.25)" }} />
+                            <button onClick={() => updArtistSite(a.id, { portfolio_fotos: fotos.filter((_, idx) => idx !== i) })}
+                              style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: "#C0392B", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11 }}>×</button>
+                          </div>
+                        ))}
+                        <label style={{ width: 80, height: 100, border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--gold)", fontSize: 22, background: "#0a0a0a" }}>
+                          +
+                          <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
+                            const f = e.target.files?.[0]; if (!f) return;
+                            const url = await uploadSiteImg(f);
+                            if (url) updArtistSite(a.id, { portfolio_fotos: [...fotos, url] });
+                            e.target.value = "";
+                          }} />
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button className="btn-s" onClick={salvarSite} disabled={siteSaving} style={{ marginTop: 4, marginBottom: 30, alignSelf: "flex-start" }}>
+                {siteSaving ? "Salvando..." : "💾 Salvar"}
+              </button>
+            </div>
+          );
+        })()}
 
         {/* ── LICENÇAS (dono do sistema) ── */}
         {tab === "licencas" && authEmail === OWNER_EMAIL && (() => {

@@ -121,6 +121,176 @@ function paginaGoogleResposta(estado, cli, googleLink) {
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avaliação Google</title><style>${PAGE_STYLE}</style></head><body><div class="card">${PAGE_LOGO}${conteudos[estado] || ""}<div class="footer">Powered by INK SYSTEM</div></div></body></html>`;
 }
 
+function paginaSiteIndisponivel() {
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Site indisponível</title><style>${PAGE_STYLE}</style></head><body><div class="card">${PAGE_LOGO}<div class="icon">🖤</div><h1>Este site não está disponível no momento.</h1><div class="footer">Powered by INK SYSTEM</div></div></body></html>`;
+}
+
+// Molde "Premium" — site publico do tenant, gerado a partir de site_conteudo +
+// configuracoes + artistas (colunas foto_site_url/bio_site/portfolio_fotos).
+// Publicacao automatica: nao ha build, o HTML e montado na hora a cada visita.
+function paginaSitePremium(site, cfg, artistas) {
+  const nomeEstudio = cfg?.studio_name || "Estúdio";
+  const local = [cfg?.studio_city, cfg?.studio_estado].filter(Boolean).join(" · ");
+  const tel = (cfg?.studio_tel || "").replace(/\D/g, "");
+  const waLink = tel ? `https://wa.me/55${tel}` : "#";
+  const heroFoto = site.hero_foto_url || "";
+  const linhas = (site.hero_frase || `Arte na pele, criada\na partir da sua história.`).split("\n");
+  const heroHeadline = linhas.map(l => esc(l)).join("<br>");
+
+  const artistasHtml = (artistas || []).map((a, i) => {
+    const fotos = Array.isArray(a.portfolio_fotos) ? a.portfolio_fotos : [];
+    const igHandle = (a.insta || "").replace(/^@/, "");
+    // Esteira roda sozinha: a lista de fotos é duplicada e anda -50% em loop,
+    // criando a ilusão de rolagem infinita sem salto no fim. Duração calculada
+    // por velocidade constante (~70px/s, mesmo ritmo do site real) em vez de um
+    // tempo fixo — senão poucas fotos ficam lentas e muitas fotos ficam rápidas.
+    const dir = i % 2 === 0 ? "go-right" : "go-left";
+    const largItem = 204; // 200px de foto + 4px de gap
+    const duracaoSeg = Math.max(12, Math.round((fotos.length * largItem) / 70));
+    const fotosStrip = fotos.length > 0
+      ? [...fotos, ...fotos].map(f => `<div class="strip-item"><img src="${esc(f)}" alt=""></div>`).join("")
+      : "";
+    return `
+    <div class="artist-row">
+      <img class="artist-photo" src="${esc(a.foto_site_url || "")}" alt="${esc(a.nome)}">
+      <div class="artist-info">
+        <div class="artist-eyebrow">Trabalhos de:</div>
+        <div class="artist-name">${esc(a.nome)}</div>
+        ${a.bio_site ? `<div class="artist-tagline">${esc(a.bio_site)}</div>` : ""}
+        ${igHandle ? `<a class="ig-link" href="https://instagram.com/${esc(igHandle)}" target="_blank">@${esc(igHandle)}</a>` : ""}
+        <a class="btn-gold" href="${waLink}" target="_blank" style="margin-top:18px">✦ Quero tatuar com ${esc((a.nome || "").split(" ")[0])}</a>
+      </div>
+    </div>
+    ${fotos.length > 0 ? `<div class="strip-outer"><div class="strip-track ${dir}" style="animation-duration:${duracaoSeg}s">${fotosStrip}</div></div>` : ""}`;
+  }).join("");
+
+  const depoimentos = Array.isArray(site.depoimentos) ? site.depoimentos : [];
+  const depoimentosHtml = depoimentos.map(d => `
+    <div class="depo-card">
+      <div class="depo-stars">${"★".repeat(Math.max(1, Math.min(5, d.estrelas || 5)))}</div>
+      <p class="depo-text">"${esc(d.texto || "")}"</p>
+      <span class="depo-author">— ${esc(d.autor || "")}</span>
+    </div>`).join("");
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(nomeEstudio)} – Estúdio de Tatuagem</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#C9A84C;--gold-dim:rgba(201,168,76,0.35);--bg:#080808;--off:#e8e4dc;--dim:rgba(255,255,255,0.38);--pad:52px}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflow-x:hidden}
+.nav{position:fixed;top:0;left:0;right:0;z-index:300;display:flex;align-items:center;justify-content:space-between;padding:14px var(--pad);background:rgba(8,8,8,0.93);backdrop-filter:blur(14px);border-bottom:0.5px solid rgba(255,255,255,0.05)}
+.nav-name{font-size:9px;font-weight:500;letter-spacing:3px;color:var(--off);text-transform:uppercase}
+.nav-cta{font-size:7.5px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold);padding:10px 22px;background:transparent;text-decoration:none;white-space:nowrap}
+.hero{position:relative;width:100%;height:100vh;min-height:500px;overflow:hidden}
+.hero-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(0.52)}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(8,8,8,0.1) 0%,rgba(8,8,8,0.05) 25%,rgba(8,8,8,0.35) 55%,rgba(8,8,8,0.78) 72%,rgba(8,8,8,0.96) 87%,#080808 100%)}
+.hero-text{position:absolute;bottom:0;left:0;right:0;z-index:3;text-align:center;padding:0 24px 36px}
+.hero-location{font-size:8px;font-weight:400;letter-spacing:5px;color:rgba(232,228,220,0.5);text-transform:uppercase;margin-bottom:14px}
+.hero-headline{font-family:"Cormorant Garamond",serif;font-size:clamp(28px,5vw,64px);font-weight:300;line-height:1.02;color:#fff;text-transform:uppercase}
+.cta-zone{background:var(--bg);padding:44px var(--pad);display:flex;justify-content:center}
+.btn-gold{display:inline-flex;align-items:center;gap:10px;font-size:8px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:#000;background:var(--gold);padding:16px 36px;text-decoration:none;white-space:nowrap}
+.manifesto{padding:56px var(--pad) 96px;text-align:center}
+.manifesto-quote{font-family:"Cormorant Garamond",serif;font-size:clamp(22px,3.8vw,48px);font-weight:300;font-style:italic;color:var(--off);line-height:1.25;max-width:820px;margin:0 auto}
+.portfolio-block{padding:64px 0 0}
+.artist-row{display:flex;align-items:flex-end;padding:0 var(--pad);margin-bottom:28px;gap:22px}
+.artist-photo{width:140px;height:185px;object-fit:cover;flex-shrink:0}
+.artist-eyebrow{font-size:7.5px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+.artist-name{font-family:"Cormorant Garamond",serif;font-size:clamp(22px,2.8vw,34px);font-weight:300;color:#fff;margin-bottom:6px}
+.artist-tagline{font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:12px;max-width:360px}
+.ig-link{display:inline-block;font-size:10px;font-weight:500;letter-spacing:2px;color:var(--gold);text-decoration:none}
+.strip-outer{overflow:hidden;position:relative;padding-bottom:40px}
+.strip-outer::before,.strip-outer::after{content:"";position:absolute;top:0;bottom:40px;width:80px;z-index:10;pointer-events:none}
+.strip-outer::before{left:0;background:linear-gradient(to right,var(--bg),transparent)}
+.strip-outer::after{right:0;background:linear-gradient(to left,var(--bg),transparent)}
+.strip-track{display:flex;gap:4px;width:max-content}
+.strip-track.go-right{animation:goRight 45s linear infinite}
+.strip-track.go-left{animation:goLeft 45s linear infinite}
+.strip-outer:hover .strip-track{animation-play-state:paused}
+@keyframes goRight{0%{transform:translateX(-50%)}100%{transform:translateX(0)}}
+@keyframes goLeft{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.strip-item{width:200px;height:255px;flex-shrink:0;overflow:hidden;background:#111}
+.strip-item img{width:100%;height:100%;object-fit:cover}
+.como{padding:88px var(--pad);border-top:0.5px solid rgba(255,255,255,0.04)}
+.como-title{font-family:"Cormorant Garamond",serif;font-size:clamp(26px,3.8vw,44px);font-weight:300;text-align:center;margin-bottom:56px}
+.como-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:40px}
+.como-step{text-align:center}
+.como-num{font-family:"Cormorant Garamond",serif;font-size:46px;font-weight:300;color:rgba(201,168,76,0.11);margin-bottom:14px}
+.como-name{font-size:8.5px;font-weight:600;letter-spacing:3px;text-transform:uppercase;margin-bottom:10px}
+.como-desc{font-size:11px;color:var(--dim);line-height:1.9}
+.depo{padding:72px var(--pad);background:#0a0a0a}
+.depo-title{font-family:"Cormorant Garamond",serif;font-size:clamp(24px,3vw,32px);font-weight:300;text-align:center;margin-bottom:40px}
+.depo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:960px;margin:0 auto}
+.depo-card{padding:24px 20px;border:0.5px solid rgba(255,255,255,0.06)}
+.depo-stars{color:var(--gold);font-size:10px;letter-spacing:3px;margin-bottom:12px}
+.depo-text{font-size:11px;color:var(--dim);line-height:1.85;font-style:italic;margin-bottom:16px}
+.depo-author{font-size:7.5px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.3)}
+.banner{position:relative;width:100%;overflow:hidden}
+.banner-img{display:block;width:100%;height:auto;min-height:400px;object-fit:cover;filter:brightness(0.42)}
+.banner-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,#080808 0%,rgba(8,8,8,0.08) 20%,rgba(8,8,8,0.08) 65%,rgba(8,8,8,0.75) 84%,#080808 100%)}
+.banner-bottom{position:absolute;bottom:0;left:0;right:0;z-index:2;padding:0 var(--pad) 56px;text-align:center}
+.banner-title{font-family:"Cormorant Garamond",serif;font-size:clamp(28px,5vw,58px);font-weight:300;line-height:1.05;color:#fff;margin-bottom:14px}
+.banner-body{font-size:11.5px;color:rgba(232,228,220,0.5);line-height:1.9;max-width:520px;margin:0 auto}
+footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28px;background:#050505;text-align:center}
+.footer-line{font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:6px}
+.footer-bottom{margin-top:20px;font-size:7.5px;color:rgba(255,255,255,0.18);letter-spacing:1.5px}
+.wa-float{position:fixed;bottom:26px;right:26px;z-index:200;width:52px;height:52px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 22px rgba(37,211,102,0.32);text-decoration:none;font-size:24px}
+@media(max-width:768px){:root{--pad:20px}.como-grid{grid-template-columns:repeat(2,1fr)}.depo-grid{grid-template-columns:1fr}.artist-row{flex-direction:column;align-items:flex-start;text-align:left}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <span class="nav-name">${esc(nomeEstudio)}</span>
+  <a class="nav-cta" href="${waLink}" target="_blank">✦ Marque seu horário</a>
+</nav>
+<section class="hero">
+  ${heroFoto ? `<img class="hero-img" src="${esc(heroFoto)}" alt="${esc(nomeEstudio)}">` : ""}
+  <div class="hero-overlay"></div>
+  <div class="hero-text">
+    ${local ? `<p class="hero-location">${esc(local)}</p>` : ""}
+    <h1 class="hero-headline">${heroHeadline}</h1>
+  </div>
+</section>
+<div class="cta-zone"><a class="btn-gold" href="${waLink}" target="_blank">✦ Quero tatuar com vocês!</a></div>
+${site.manifesto_frase ? `<section class="manifesto"><blockquote class="manifesto-quote">"${esc(site.manifesto_frase)}"</blockquote></section>` : ""}
+<section class="portfolio-block">${artistasHtml}</section>
+<section class="como">
+  <h2 class="como-title">No estúdio é assim:</h2>
+  <div class="como-grid">
+    <div class="como-step"><div class="como-num">01</div><div class="como-name">Conversa</div><div class="como-desc">Você conta a sua história, referências e intenção. Sem pressa.</div></div>
+    <div class="como-step"><div class="como-num">02</div><div class="como-name">Criação</div><div class="como-desc">Desenvolvemos, do zero, a melhor arte pra você.</div></div>
+    <div class="como-step"><div class="como-num">03</div><div class="como-name">Execução</div><div class="como-desc">Sessão focada, com técnica e atenção total ao seu conforto.</div></div>
+    <div class="como-step"><div class="como-num">04</div><div class="como-name">Cuidado</div><div class="como-desc">Acompanhamento da cicatrização e garantia de resultado.</div></div>
+  </div>
+</section>
+${depoimentosHtml ? `<section class="depo"><h2 class="depo-title">Nossos clientes dizem:</h2><div class="depo-grid">${depoimentosHtml}</div></section>` : ""}
+${site.banner_foto_url ? `<section class="banner">
+  <img class="banner-img" src="${esc(site.banner_foto_url)}" alt="${esc(nomeEstudio)}">
+  <div class="banner-overlay"></div>
+  <div class="banner-bottom">
+    ${site.banner_titulo ? `<div class="banner-title">${esc(site.banner_titulo)}</div>` : ""}
+    ${site.banner_texto ? `<p class="banner-body">${esc(site.banner_texto)}</p>` : ""}
+  </div>
+</section>` : ""}
+<footer>
+  ${local ? `<div class="footer-line">${esc(local)}</div>` : ""}
+  <div class="footer-line">© ${new Date().getFullYear()} ${esc(nomeEstudio)}</div>
+  <div class="footer-bottom">Powered by INK SYSTEM</div>
+</footer>
+${tel ? `<a class="wa-float" href="${waLink}" target="_blank">💬</a>` : ""}
+</body>
+</html>`;
+}
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -131,6 +301,22 @@ export default async function handler(req, res) {
   const acao = req.query && req.query.acao;
   const token = req.query && req.query.token;
   const nota = req.query && req.query.nota;
+
+  // ── SITE PÚBLICO DO TENANT (molde Premium) ──────────────────────────────────
+  if (acao === "site") {
+    const slug = (req.query?.slug || "").trim();
+    if (!slug) return res.status(400).send(paginaSiteIndisponivel());
+    const { data: tenant } = await sb.from("ink_clientes").select("auth_user_id, status").eq("slug", slug).single();
+    if (!tenant || tenant.status !== "ativo") return res.status(404).send(paginaSiteIndisponivel());
+    const uid = tenant.auth_user_id;
+    const [{ data: site }, { data: cfg }, { data: artistas }] = await Promise.all([
+      sb.from("site_conteudo").select("*").eq("user_id", uid).single(),
+      sb.from("configuracoes").select("studio_name, studio_tel, studio_city, studio_estado").eq("user_id", uid).single(),
+      sb.from("artistas").select("nome, insta, foto_site_url, bio_site, portfolio_fotos").eq("user_id", uid).eq("ativo", true).order("nome"),
+    ]);
+    if (!site || !site.publicado) return res.status(404).send(paginaSiteIndisponivel());
+    return res.status(200).send(paginaSitePremium(site, cfg, artistas || []));
+  }
 
   // ── AVALIAÇÃO NPS + CONVITE GOOGLE (novo fluxo pós-sessão) ──────────────────
 
