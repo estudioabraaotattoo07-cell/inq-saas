@@ -4529,7 +4529,7 @@ export default function CRM() {
     const { data: cfgEx } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
     if (cfgEx?.id) await sb.from("configuracoes").update({ estoque_itens: updated }).eq("id", cfgEx.id);
   };
-  const aName = (id: string) => artists.find(a => a.id === id)?.nome || id || "";
+  const aName = (id: string) => artists.find(a => a.id === id || a.nome === id)?.nome || id || "";
   const aColor = (id: string) => artists.find(a => a.id === id)?.cor || "#C9A84C";
   // Profissional responsável por UMA solicitação/projeto específico — cai pro
   // profissional da ficha só quando a solicitação não tiver o seu próprio definido.
@@ -4632,7 +4632,7 @@ export default function CRM() {
   };
   const aClass = (id: string) => "";
   const aStyle = (id: string) => {
-    const a = artists.find(x => x.id === id);
+    const a = artists.find(x => x.id === id || x.nome === id);
     const hex = a?.cor || "#C9A84C";
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
     return { background: "rgba("+r+","+g+","+b+",.15)", color: hex, border: "1px solid rgba("+r+","+g+","+b+",.3)", borderRadius: 9, padding: "2px 6px", fontSize: 10, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase" as const };
@@ -4662,8 +4662,10 @@ export default function CRM() {
       <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse 900px 600px at 50% -10%, rgba(139,92,222,0.3), transparent 65%), #0A0A0A", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", fontFamily: "'DM Sans',sans-serif" }}>
         <style>{S}</style>
         <div style={{ width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
-          {/* Logo */}
-          <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ width: "min(280px, 74vw)", height: "auto" }} />
+          {/* Logo — recortado pra remover a margem transparente do PNG original (senão sobra um vão grande até o card) */}
+          <div style={{ width: "min(280px, 74vw)", aspectRatio: "522/148", overflow: "hidden" }}>
+            <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 43%", display: "block" }} />
+          </div>
 
           {/* Card de login */}
           <div style={{ width: "100%", background: "radial-gradient(ellipse 400px 200px at 50% -20%, rgba(139,92,222,0.22), transparent 70%), #050505", border: "1px solid rgba(201,168,76,0.4)", borderRadius: 16, padding: "32px 28px", backdropFilter: "blur(10px)", boxShadow: "0 0 0 1px rgba(201,168,76,0.08), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 90px rgba(201,168,76,0.22), 0 0 34px rgba(201,168,76,0.16), 0 24px 64px rgba(0,0,0,0.6)" }}>
