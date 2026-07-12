@@ -208,8 +208,8 @@ export default async function handler(req, res) {
       acao: "Aceitou convite de avaliação Google — " + cli.nome,
       user_id: cli.user_id,
     });
-    const { data: cfg } = await sb.from("configuracoes").select("google_link").eq("user_id", cli.user_id).single();
-    return res.status(200).send(paginaGoogleResposta("sim", cli, cfg?.google_link));
+    const { data: cfg } = await sb.from("configuracoes").select("google_link, google_avaliacao_link").eq("user_id", cli.user_id).single();
+    return res.status(200).send(paginaGoogleResposta("sim", cli, cfg?.google_avaliacao_link || cfg?.google_link));
   }
 
   if (acao === "google_nao") {

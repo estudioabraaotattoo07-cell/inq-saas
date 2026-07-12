@@ -2254,7 +2254,8 @@ export default function CRM() {
       const garantia = c.etapa === "tatuado" && c.dias >= 30 && c.dias <= 37;
       const inativo = !["blacklist","tatuado","aguard_agend","pos_venda","hibernacao"].includes(c.etapa) && c.dias >= 40;
       const avaliacaoNegativa = (c as any).avaliacao_fluxo_status === "negativa";
-      return miss(c).length > 0 || churn(c) || projSemValor || aniversario || garantia || inativo || avaliacaoNegativa;
+      const precisaRemarcar = (c as any).confirmacao_presenca === "precisa_remarcar";
+      return miss(c).length > 0 || churn(c) || projSemValor || aniversario || garantia || inativo || avaliacaoNegativa || precisaRemarcar;
     });
   }, [clients]);
   const reativacao = useMemo(() =>
@@ -5076,6 +5077,22 @@ export default function CRM() {
                   </div>
                 );
               })()}
+              {/* 📞 Precisa Remarcar */}
+              {(() => {
+                const remarcar = alertas.filter(c => (c as any).confirmacao_presenca === "precisa_remarcar");
+                if (remarcar.length === 0) return null;
+                return (
+                  <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, color: "var(--q1)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>📞 Precisa remarcar — cliente sinalizou pelo link de confirmação</div>
+                    {remarcar.map(c => (
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>
+                        <div className="ad-name">{c.nome}</div>
+                        <div className="ad-tags"><span className="atag" style={{ color: "var(--q1)" }}>Precisa remarcar</span></div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
               {/* ⚠ Demais alertas */}
               {alertas.filter(c => {
                 const m = miss(c); const ch = churn(c);
@@ -5381,8 +5398,14 @@ export default function CRM() {
                               {(c as any).avaliacao_fluxo_status === "negativa" && (
                                 <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(192,57,43,.15)", color: "#E74C3C", border: "1px solid rgba(192,57,43,.3)" }}>🔴 Av. negativa</span>
                               )}
-                              {["positiva","google_sim","google_nao"].includes((c as any).avaliacao_fluxo_status) && (
+                              {(c as any).avaliacao_fluxo_status === "positiva" && (
                                 <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(39,174,96,.15)", color: "#27AE60", border: "1px solid rgba(39,174,96,.3)" }}>💚 Av. positiva</span>
+                              )}
+                              {(c as any).avaliacao_fluxo_status === "google_sim" && (
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "rgba(39,174,96,.15)", color: "#27AE60", border: "1px solid rgba(39,174,96,.3)" }}>⭐ Foi avaliar no Google</span>
+                              )}
+                              {(c as any).avaliacao_fluxo_status === "google_nao" && (
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 3, background: "var(--dk4)", color: "var(--tx3)", border: "1px solid var(--br)" }}>Não quis avaliar</span>
                               )}
                               {c.orcamento && <span className="atag">💰</span>}
                               {c.etapa === "blacklist" && <span className="tag-bl">🚫</span>}
