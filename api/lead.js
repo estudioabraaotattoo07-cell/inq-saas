@@ -8,6 +8,26 @@ const sb = createClient(
 
 const GOOGLE_REVIEW_URL = "https://g.page/r/CSIFD3cla6rxEBM/review";
 
+// Estilo premium compartilhado por todas as paginas publicas server-rendered
+// (confirmacao, avaliacao NPS, convite Google) -- mesmo padrao visual do app:
+// fundo com brilho violeta, quadro com moldura dourada neon, botoes em pilula.
+const PAGE_STYLE = `*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,serif;background:radial-gradient(ellipse 700px 420px at 50% -5%, rgba(139,92,222,0.3), transparent 65%), #0A0A0A;color:#E8E2D9;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:radial-gradient(ellipse 320px 160px at 50% -10%, rgba(139,92,222,0.22), transparent 70%), linear-gradient(180deg, #1A1A1A, #0F0F0F);border:1.5px solid rgba(201,168,76,0.4);border-radius:20px;max-width:460px;width:100%;padding:40px 32px;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,0.75), 0 0 34px rgba(201,168,76,0.16)}
+.logo-img{width:min(220px,70%);height:auto;margin:0 auto 24px}
+h1{font-size:20px;font-weight:normal;color:#E8E2D9;line-height:1.5;margin-bottom:12px}
+.sub{font-size:14px;color:#A09585;line-height:1.7;margin-bottom:24px}
+.icon{font-size:48px;margin-bottom:16px}
+.caixa{background:#050505;border:1px solid rgba(201,168,76,0.15);border-radius:8px;padding:14px;font-size:13px;color:#C9BFB2;text-align:left;line-height:1.7;margin-bottom:12px;white-space:pre-wrap;box-shadow:inset 0 2px 6px rgba(0,0,0,0.5)}
+textarea{width:100%;background:#050505;border:1px solid rgba(201,168,76,0.15);border-radius:8px;color:#E8E2D9;font-family:Georgia,serif;font-size:14px;padding:12px;resize:vertical;min-height:100px;margin-bottom:16px;box-shadow:inset 0 2px 6px rgba(0,0,0,0.5)}
+button,button[type=submit],.btn-g{display:block;width:100%;background:linear-gradient(135deg,#E8C97A,#C9A84C 45%,#8a6a24);color:#17140A;border:1px solid rgba(255,224,160,0.6);border-radius:999px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:Georgia,serif;text-decoration:none;box-shadow:0 4px 16px rgba(201,168,76,0.3),inset 0 1px 0 rgba(255,255,255,0.35);margin-bottom:8px}
+.btn-copy{background:rgba(255,255,255,0.03);color:var(--gold,#C9A84C);border:1px solid rgba(201,168,76,0.4);border-radius:999px;padding:10px 20px;font-size:13px;cursor:pointer;width:100%;font-family:Georgia,serif}
+.nota-btn,.notas a{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:999px;text-decoration:none;font-size:15px;font-weight:bold;margin:4px;border:1px solid rgba(201,168,76,0.2)}
+.baixa,.nota-baixa{background:#050505;color:#A09585}
+.alta,.nota-alta{background:linear-gradient(135deg,#E8C97A,#C9A84C 45%,#8a6a24);color:#17140A;border-color:rgba(255,224,160,0.6)}
+.footer{font-size:11px;color:#4a4235;margin-top:28px;letter-spacing:.05em;text-transform:uppercase}`;
+const PAGE_LOGO = `<img class="logo-img" src="https://inq-saas.vercel.app/logo-ink-system.png" alt="INK SYSTEM">`;
+
 function paginaConfirmacao(estado, cli, evento) {
   const nome = cli?.nome ? cli.nome.split(" ")[0] : "Olá";
   const dataEv = evento?.data
@@ -25,11 +45,11 @@ function paginaConfirmacao(estado, cli, evento) {
       <p class="sub">Confirme sua presença para a sessão${dataEv ? `<br><strong>${dataEv}${horaEv ? " às " + horaEv : ""}</strong>` : ""}.</p>
       <form method="POST">
         <input type="hidden" name="resposta" value="confirmado">
-        <button type="submit" style="background:#27ae60;margin-bottom:12px">✅ Confirmo minha presença</button>
+        <button type="submit" style="background:linear-gradient(135deg,#4fd68a,#27AE60 60%,#1c8a4b);color:#0A1A10;border-color:rgba(160,255,200,0.5);margin-bottom:12px">✅ Confirmo minha presença</button>
       </form>
       <form method="POST">
         <input type="hidden" name="resposta" value="precisa_remarcar">
-        <button type="submit" style="background:#c0392b">❌ Preciso remarcar</button>
+        <button type="submit" style="background:linear-gradient(135deg,#e57368,#C0392B 60%,#8a281c);color:#1A0A0A;border-color:rgba(255,190,180,0.5)">❌ Preciso remarcar</button>
       </form>
     `,
   }[estado] || "";
@@ -40,21 +60,11 @@ function paginaConfirmacao(estado, cli, evento) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Confirmação de Presença</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-  .card{background:#1a1a1a;border:1px solid #333;border-radius:12px;max-width:420px;width:100%;padding:40px 32px;text-align:center}
-  .logo{font-size:12px;letter-spacing:3px;color:#d4a84b;text-transform:uppercase;margin-bottom:24px}
-  h1{font-size:20px;font-weight:normal;color:#f0ede8;line-height:1.5;margin-bottom:12px}
-  .sub{font-size:14px;color:#888;line-height:1.7;margin-bottom:24px}
-  .icon{font-size:48px;margin-bottom:16px}
-  button{width:100%;border:none;border-radius:8px;padding:14px;font-size:15px;font-weight:bold;cursor:pointer;color:#fff;font-family:Georgia,serif;margin-bottom:0}
-  .footer{font-size:11px;color:#444;margin-top:28px}
-</style>
+<style>${PAGE_STYLE}</style>
 </head>
 <body>
 <div class="card">
-  <div class="logo">INK SYSTEM</div>
+  ${PAGE_LOGO}
   ${conteudo}
   <div class="footer">Powered by INK SYSTEM</div>
 </div>
@@ -69,26 +79,11 @@ function paginaAvaliacao(token, mensagem, mostrarFeedback) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Avaliação</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-  .card{background:#1a1a1a;border:1px solid #333;border-radius:12px;max-width:480px;width:100%;padding:40px 32px;text-align:center}
-  .logo{font-size:13px;letter-spacing:3px;color:#d4a84b;text-transform:uppercase;margin-bottom:24px}
-  h1{font-size:22px;font-weight:normal;color:#f0ede8;line-height:1.5;margin-bottom:12px}
-  .sub{font-size:14px;color:#888;line-height:1.7;margin-bottom:28px}
-  .notas{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:28px}
-  .notas a{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:8px;text-decoration:none;font-size:16px;font-weight:bold}
-  .nota-baixa{background:#2a2a2a;color:#aaa;border:1px solid #333}
-  .nota-alta{background:#d4a84b;color:#111;border:1px solid #d4a84b}
-  .icon{font-size:48px;margin-bottom:16px}
-  textarea{width:100%;background:#111;border:1px solid #333;border-radius:8px;color:#f0ede8;font-family:Georgia,serif;font-size:14px;padding:12px;resize:vertical;min-height:100px;margin-bottom:16px}
-  button{background:#d4a84b;color:#111;border:none;border-radius:8px;padding:12px 28px;font-size:14px;font-weight:bold;cursor:pointer;width:100%}
-  .footer{font-size:11px;color:#444;margin-top:28px}
-</style>
+<style>${PAGE_STYLE}</style>
 </head>
 <body>
 <div class="card">
-  <div class="logo">INK SYSTEM</div>
+  ${PAGE_LOGO}
   ${mensagem}
   ${mostrarFeedback ? `<form method="POST" action="/api/lead?acao=feedback&token=${token}"><textarea name="feedback" placeholder="Conta pra gente o que aconteceu..."></textarea><button type="submit">Enviar feedback</button></form>` : ""}
   <div class="footer">Powered by INK SYSTEM</div>
@@ -99,7 +94,6 @@ function paginaAvaliacao(token, mensagem, mostrarFeedback) {
 
 function paginaAvaliacaoNps(estado, cli, nota) {
   const nome = cli?.nome ? cli.nome.split(" ")[0] : "Olá";
-  const estiloBase = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.card{background:#1a1a1a;border:1px solid #333;border-radius:12px;max-width:480px;width:100%;padding:40px 32px;text-align:center}.logo{font-size:12px;letter-spacing:3px;color:#d4a84b;text-transform:uppercase;margin-bottom:24px}h1{font-size:20px;font-weight:normal;color:#f0ede8;line-height:1.5;margin-bottom:12px}.sub{font-size:14px;color:#888;line-height:1.7;margin-bottom:24px}.icon{font-size:48px;margin-bottom:16px}.nota-btn{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:bold;margin:4px}.baixa{background:#2a2a2a;color:#aaa;border:1px solid #333}.alta{background:#d4a84b;color:#111;border:1px solid #d4a84b}textarea{width:100%;background:#111;border:1px solid #444;border-radius:8px;color:#f0ede8;font-family:Georgia,serif;font-size:14px;padding:12px;resize:vertical;min-height:100px;margin-bottom:16px}button[type=submit]{background:#d4a84b;color:#111;border:none;border-radius:8px;padding:13px 28px;font-size:14px;font-weight:bold;cursor:pointer;width:100%}.footer{font-size:11px;color:#444;margin-top:28px}`;
 
   const conteudos = {
     invalido: `<div class="icon">❌</div><h1>Link inválido</h1><p class="sub">Este link não foi encontrado. Entre em contato com o estúdio.</p>`,
@@ -111,13 +105,12 @@ function paginaAvaliacaoNps(estado, cli, nota) {
     obrigado_negativo: `<div class="icon">🙏</div><h1>Obrigado pela honestidade, ${nome}</h1><p class="sub">Cada retorno nos ajuda a melhorar. Vamos levar sua experiência muito a sério.</p>`,
   };
 
-  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avaliação</title><style>${estiloBase}</style></head><body><div class="card"><div class="logo">INK SYSTEM</div>${conteudos[estado] || ""}<div class="footer">Powered by INK SYSTEM</div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avaliação</title><style>${PAGE_STYLE}</style></head><body><div class="card">${PAGE_LOGO}${conteudos[estado] || ""}<div class="footer">Powered by INK SYSTEM</div></div></body></html>`;
 }
 
 function paginaGoogleResposta(estado, cli, googleLink) {
   const nome = cli?.nome ? cli.nome.split(" ")[0] : "Olá";
   const comentario = cli?.avaliacao_comentario || "";
-  const estiloBase = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.card{background:#1a1a1a;border:1px solid #333;border-radius:12px;max-width:480px;width:100%;padding:40px 32px;text-align:center}.logo{font-size:12px;letter-spacing:3px;color:#d4a84b;text-transform:uppercase;margin-bottom:24px}h1{font-size:20px;font-weight:normal;color:#f0ede8;line-height:1.5;margin-bottom:12px}.sub{font-size:14px;color:#888;line-height:1.7;margin-bottom:20px}.icon{font-size:48px;margin-bottom:16px}.caixa{background:#111;border:1px solid #444;border-radius:8px;padding:14px;font-size:13px;color:#ccc;text-align:left;line-height:1.7;margin-bottom:12px;white-space:pre-wrap}.btn-g{display:block;background:#d4a84b;color:#111;border:none;border-radius:8px;padding:13px 28px;font-size:14px;font-weight:bold;cursor:pointer;width:100%;text-decoration:none;margin-bottom:8px}.btn-copy{background:#2a2a2a;color:#d4a84b;border:1px solid #d4a84b;border-radius:8px;padding:10px 20px;font-size:13px;cursor:pointer;width:100%;font-family:Georgia,serif}.footer{font-size:11px;color:#444;margin-top:28px}`;
 
   const conteudos = {
     invalido: `<div class="icon">❌</div><h1>Link inválido</h1><p class="sub">Entre em contato com o estúdio.</p>`,
@@ -125,7 +118,7 @@ function paginaGoogleResposta(estado, cli, googleLink) {
     nao: `<div class="icon">🖤</div><h1>Tudo bem, ${nome}!</h1><p class="sub">Obrigado por ter avaliado sua experiência conosco — isso já nos ajuda muito. Até a próxima sessão!</p>`,
   };
 
-  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avaliação Google</title><style>${estiloBase}</style></head><body><div class="card"><div class="logo">INK SYSTEM</div>${conteudos[estado] || ""}<div class="footer">Powered by INK SYSTEM</div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avaliação Google</title><style>${PAGE_STYLE}</style></head><body><div class="card">${PAGE_LOGO}${conteudos[estado] || ""}<div class="footer">Powered by INK SYSTEM</div></div></body></html>`;
 }
 
 export default async function handler(req, res) {
@@ -303,7 +296,7 @@ export default async function handler(req, res) {
         acao: "Ainda não — recontato em 30 dias agendado — " + cli.nome,
         user_id: cli.user_id,
       });
-      return res.status(200).send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Confirmação</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Georgia,serif;background:#111;color:#f0ede8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.card{background:#1a1a1a;border:1px solid #333;border-radius:12px;max-width:420px;width:100%;padding:40px 32px;text-align:center}.logo{font-size:12px;letter-spacing:3px;color:#d4a84b;text-transform:uppercase;margin-bottom:24px}h1{font-size:20px;font-weight:normal;color:#f0ede8;line-height:1.5;margin-bottom:12px}.sub{font-size:14px;color:#888;line-height:1.7}</style></head><body><div class="card"><div class="logo">INK SYSTEM</div><div style="font-size:40px;margin-bottom:16px">🖤</div><h1>Tudo bem, ${(cli.nome || "").split(" ")[0]}!</h1><p class="sub">Seu projeto continua guardado com carinho. Entraremos em contato novamente em 30 dias.</p></div></body></html>`);
+      return res.status(200).send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Confirmação</title><style>${PAGE_STYLE}</style></head><body><div class="card">${PAGE_LOGO}<div class="icon">🖤</div><h1>Tudo bem, ${(cli.nome || "").split(" ")[0]}!</h1><p class="sub">Seu projeto continua guardado com carinho. Entraremos em contato novamente em 30 dias.</p><div class="footer">Powered by INK SYSTEM</div></div></body></html>`);
     } catch (e) {
       return res.status(500).send("<p style='font-family:Georgia,serif;padding:40px;text-align:center;color:#888'>Erro interno.</p>");
     }
