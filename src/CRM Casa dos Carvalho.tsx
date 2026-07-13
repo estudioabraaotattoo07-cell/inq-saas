@@ -2178,6 +2178,7 @@ export default function CRM() {
         }
       }
       setArtists(p => p.map(a => ({ ...a, _siteDirty: false })));
+      await sb.from("configuracoes").update({ studio_city: studioCity || null, studio_estado: studioEstado || null }).eq("user_id", userId);
     }
     setSiteSaving(false);
     if (error) { setShowAviso("❌ Erro ao salvar o site: " + error.message); return; }
@@ -13644,17 +13645,28 @@ export default function CRM() {
 
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 14 }}>Identidade</div>
-                <ImageSlot label="Foto de capa (Hero)" hint="Recomendado: 1600×900px, paisagem. É a primeira imagem que o visitante vê, em tela cheia."
+                <ImageSlot label="Foto de capa (Hero)" hint="Recomendado: 1600×900px, paisagem. É a primeira imagem que o visitante vê, em tela cheia. Ideal: a fachada do seu estúdio, ou uma foto sua (ou com a equipe) com sua marca aparecendo."
                   value={sc.hero_foto_url || ""} onChange={(url) => upd({ hero_foto_url: url })} />
-                <Help>A frase principal por cima da foto de capa. Até 2 linhas — use Enter pra quebrar.</Help>
+                <Help>Aparecem embaixo da foto de capa e no rodapé do site, pra mostrar onde fica o estúdio.</Help>
+                <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+                  <div className="ff" style={{ flex: 2 }}>
+                    <label className="fl">Cidade</label>
+                    <input className="fi" placeholder="Escreva aqui. Ex: Vitória" value={studioCity || ""} onChange={e => setStudioCity(e.target.value)} />
+                  </div>
+                  <div className="ff" style={{ flex: 1 }}>
+                    <label className="fl">Estado (sigla)</label>
+                    <input className="fi" placeholder="Ex: ES" maxLength={2} value={studioEstado || ""} onChange={e => setStudioEstado(e.target.value.toUpperCase())} />
+                  </div>
+                </div>
+                <Help>Frase principal por cima da foto de capa. Até 2 linhas — use Enter pra quebrar.</Help>
                 <div className="ff" style={{ marginBottom: 20 }}>
                   <label className="fl">Frase de efeito</label>
-                  <textarea className="fta" placeholder={"Arte na pele, criada\na partir da sua história."} value={sc.hero_frase || ""} onChange={e => upd({ hero_frase: e.target.value })} />
+                  <textarea className="fta" placeholder={"Escreva aqui...\nEx: Arte na pele, criada\na partir da sua história."} value={sc.hero_frase || ""} onChange={e => upd({ hero_frase: e.target.value })} />
                 </div>
                 <Help>Uma frase curta e marcante — funciona como um lema do seu estúdio.</Help>
                 <div className="ff">
                   <label className="fl">Frase do manifesto</label>
-                  <input className="fi" placeholder="Você merece a tattoo que escolheu portar." value={sc.manifesto_frase || ""} onChange={e => upd({ manifesto_frase: e.target.value })} />
+                  <input className="fi" placeholder="Escreva aqui... Ex: Aqui, cada traço carrega um significado." value={sc.manifesto_frase || ""} onChange={e => upd({ manifesto_frase: e.target.value })} />
                 </div>
               </div>
 
@@ -13665,22 +13677,22 @@ export default function CRM() {
                 <Help>Conte a história do seu estúdio — o que te trouxe até aqui, o que te diferencia.</Help>
                 <div className="ff" style={{ marginBottom: 20 }}>
                   <label className="fl">Título do banner</label>
-                  <input className="fi" placeholder="Duas visões. Uma mesma essência." value={sc.banner_titulo || ""} onChange={e => upd({ banner_titulo: e.target.value })} />
+                  <input className="fi" placeholder="Escreva aqui... Ex: Nossa história em cada traço." value={sc.banner_titulo || ""} onChange={e => upd({ banner_titulo: e.target.value })} />
                 </div>
                 <div className="ff">
                   <label className="fl">Texto do banner</label>
-                  <textarea className="fta" placeholder="Conte a história do seu estúdio, sua trajetória, o que te motiva..." value={sc.banner_texto || ""} onChange={e => upd({ banner_texto: e.target.value })} />
+                  <textarea className="fta" placeholder="Escreva aqui a história do seu estúdio — sua trajetória, o que te motiva, o que te diferencia." value={sc.banner_texto || ""} onChange={e => upd({ banner_texto: e.target.value })} />
                 </div>
               </div>
 
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Depoimentos</div>
-                <Help>Depoimentos reais de clientes — copie e cole de onde recebeu (WhatsApp, Instagram, Google).</Help>
+                <Help>Depoimentos reais de clientes — copie e cole de onde recebeu (WhatsApp, Instagram, Google). O print é opcional.</Help>
                 {(sc.depoimentos || []).map((d: any, i: number) => (
                   <div key={i} style={{ background: "#050505", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: 12, marginBottom: 8, boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}>
-                    <textarea className="fta" placeholder="Texto do depoimento..." value={d.texto || ""} style={{ marginBottom: 6 }}
+                    <textarea className="fta" placeholder="Escreva aqui o texto do depoimento (ou copie e cole de onde recebeu)." value={d.texto || ""} style={{ marginBottom: 6 }}
                       onChange={e => { const arr = [...sc.depoimentos]; arr[i] = { ...d, texto: e.target.value }; upd({ depoimentos: arr }); }} />
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
                       <input className="fi" placeholder="Autor (ex: Cliente via Instagram)" value={d.autor || ""} style={{ flex: 1 }}
                         onChange={e => { const arr = [...sc.depoimentos]; arr[i] = { ...d, autor: e.target.value }; upd({ depoimentos: arr }); }} />
                       <select className="fi" value={d.estrelas || 5} style={{ width: 70 }}
@@ -13689,9 +13701,29 @@ export default function CRM() {
                       </select>
                       <button className="btn-sm" onClick={() => upd({ depoimentos: sc.depoimentos.filter((_: any, idx: number) => idx !== i) })}>🗑</button>
                     </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {d.imagem_url ? (
+                        <div style={{ position: "relative", width: 60, height: 60 }}>
+                          <img src={d.imagem_url} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 6, border: "1px solid rgba(201,168,76,0.25)" }} />
+                          <button onClick={() => { const arr = [...sc.depoimentos]; arr[i] = { ...d, imagem_url: "" }; upd({ depoimentos: arr }); }}
+                            style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#C0392B", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 10 }}>×</button>
+                        </div>
+                      ) : (
+                        <label style={{ width: 60, height: 60, border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--gold)", fontSize: 18, background: "#0a0a0a" }}>
+                          📷
+                          <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
+                            const f = e.target.files?.[0]; if (!f) return;
+                            const url = await uploadSiteImg(f);
+                            if (url) { const arr = [...sc.depoimentos]; arr[i] = { ...d, imagem_url: url }; upd({ depoimentos: arr }); }
+                            e.target.value = "";
+                          }} />
+                        </label>
+                      )}
+                      <span style={{ fontSize: 10, color: "var(--tx3)" }}>Print da conversa/avaliação (opcional)</span>
+                    </div>
                   </div>
                 ))}
-                <button className="btn-sm" onClick={() => upd({ depoimentos: [...(sc.depoimentos || []), { texto: "", autor: "", estrelas: 5 }] })}>+ Adicionar depoimento</button>
+                <button className="btn-sm" onClick={() => upd({ depoimentos: [...(sc.depoimentos || []), { texto: "", autor: "", estrelas: 5, imagem_url: "" }] })}>+ Adicionar depoimento</button>
               </div>
 
               <div style={cardSt}>
@@ -13709,10 +13741,10 @@ export default function CRM() {
                       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, fontWeight: 600, color: a.cor || "var(--gold)", marginBottom: 12 }}>{a.nome}</div>
                       <ImageSlot label="Foto do artista" hint="Recomendado: 800×1000px, retrato."
                         value={a.foto_site_url || ""} onChange={(url) => updArtistSite(a.id, { foto_site_url: url })} />
-                      <Help>Descrição curta que aparece ao lado da foto (máx. 200 caracteres).</Help>
-                      <textarea className="fta" maxLength={200} placeholder="Projetos autorais, direção artística e profundidade em cada traço."
+                      <Help>Descrição que aparece ao lado da foto (máx. 500 caracteres) — quanto mais texto, menor a letra, pra sempre caber.</Help>
+                      <textarea className="fta" maxLength={500} placeholder="Escreva aqui... Ex: Projetos autorais, direção artística e profundidade em cada traço."
                         value={a.bio_site || ""} onChange={e => updArtistSite(a.id, { bio_site: e.target.value })} />
-                      <div style={{ fontSize: 10, color: "var(--tx3)", textAlign: "right", marginBottom: 12 }}>{bioLen}/200</div>
+                      <div style={{ fontSize: 10, color: "var(--tx3)", textAlign: "right", marginBottom: 12 }}>{bioLen}/500</div>
                       <Help>Fotos do portfólio dele — aparecem numa esteira rolante embaixo do bloco.{limiteFotos !== undefined ? ` (${fotos.length}/${limiteFotos} do plano ${sitePlano})` : ""}</Help>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
                         {fotos.map((f, i) => (

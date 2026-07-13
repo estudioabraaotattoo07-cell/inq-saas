@@ -137,9 +137,12 @@ function paginaSitePremium(site, cfg, artistas, slug) {
   const linhas = (site.hero_frase || `Arte na pele, criada\na partir da sua história.`).split("\n");
   const heroHeadline = linhas.map(l => esc(l)).join("<br>");
 
+  const IG_ICON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M12 2.2c3.2 0 3.58.01 4.85.07 1.17.05 1.8.24 2.23.41.56.21.96.47 1.38.89.42.42.68.82.89 1.38.17.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.24 1.8-.41 2.23-.21.56-.47.96-.89 1.38-.42.42-.82.68-1.38.89-.42.17-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.24-2.23-.41a3.7 3.7 0 0 1-1.38-.89 3.7 3.7 0 0 1-.89-1.38c-.17-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.24-1.8.41-2.23.21-.56.47-.96.89-1.38.42-.42.82-.68 1.38-.89.42-.17 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.31-1.46.72-2.13 1.38C1.35 2.68.94 3.35.63 4.14c-.3.76-.5 1.64-.56 2.91C0 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.72 1.46 1.38 2.13.67.66 1.34 1.07 2.13 1.38.76.3 1.64.5 2.91.56C8.33 24 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.31 1.46-.72 2.13-1.38.66-.67 1.07-1.34 1.38-2.13.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91a5.9 5.9 0 0 0-1.38-2.13A5.9 5.9 0 0 0 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0Z" fill="currentColor"/><path d="M12 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84Zm0 10.16A4 4 0 1 1 16 12a4 4 0 0 1-4 4Z" fill="currentColor"/><circle cx="18.41" cy="5.59" r="1.44" fill="currentColor"/></svg>`;
   const artistasHtml = (artistas || []).map((a) => {
     const fotos = Array.isArray(a.portfolio_fotos) ? a.portfolio_fotos : [];
     const igHandle = (a.insta || "").replace(/^@/, "");
+    const bioLen = (a.bio_site || "").length;
+    const bioFontSize = bioLen > 350 ? 8.5 : bioLen > 220 ? 9.5 : 10;
     // Esteira roda sozinha: a lista de fotos é duplicada e anda -50% em loop,
     // criando a ilusão de rolagem infinita sem salto no fim. Duração calculada
     // por velocidade constante (~70px/s, mesmo ritmo do site real) em vez de um
@@ -157,8 +160,8 @@ function paginaSitePremium(site, cfg, artistas, slug) {
       <div class="artist-info">
         <div class="artist-eyebrow">Trabalhos de:</div>
         <div class="artist-name">${esc(a.nome)}</div>
-        ${a.bio_site ? `<div class="artist-tagline">${esc(a.bio_site)}</div>` : ""}
-        ${igHandle ? `<a class="ig-link" href="https://instagram.com/${esc(igHandle)}" target="_blank">@${esc(igHandle)}</a>` : ""}
+        ${a.bio_site ? `<div class="artist-tagline" style="font-size:${bioFontSize}px">${esc(a.bio_site)}</div>` : ""}
+        ${igHandle ? `<a class="ig-link" href="https://instagram.com/${esc(igHandle)}" target="_blank">${IG_ICON}${esc(a.botao_social_label || ("@" + igHandle))}</a>` : ""}
         <a class="btn-gold" href="javascript:void(0)" onclick="AuraChat.abrir('${esc(a.nome).replace(/'/g, "\\'")}')" style="margin-top:18px">✦ Quero tatuar com ${esc((a.nome || "").split(" ")[0])}</a>
       </div>
     </div>
@@ -171,6 +174,7 @@ function paginaSitePremium(site, cfg, artistas, slug) {
       <div class="depo-stars">${"★".repeat(Math.max(1, Math.min(5, d.estrelas || 5)))}</div>
       <p class="depo-text">"${esc(d.texto || "")}"</p>
       <span class="depo-author">— ${esc(d.autor || "")}</span>
+      ${d.imagem_url ? `<a class="depo-print-link" href="${esc(d.imagem_url)}" target="_blank"><img class="depo-print" src="${esc(d.imagem_url)}" alt="Print do depoimento"></a>` : ""}
     </div>`).join("");
 
   return `<!DOCTYPE html>
@@ -204,7 +208,7 @@ body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflo
 .artist-eyebrow{font-size:7.5px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
 .artist-name{font-family:"Cormorant Garamond",serif;font-size:clamp(22px,2.8vw,34px);font-weight:300;color:#fff;margin-bottom:6px}
 .artist-tagline{font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:12px;max-width:360px}
-.ig-link{display:inline-block;font-size:10px;font-weight:500;letter-spacing:2px;color:var(--gold);text-decoration:none}
+.ig-link{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:500;letter-spacing:2px;color:var(--gold);text-decoration:none}
 .strip-outer{overflow:hidden;position:relative;padding-bottom:40px}
 .strip-outer::before,.strip-outer::after{content:"";position:absolute;top:0;bottom:40px;width:80px;z-index:10;pointer-events:none}
 .strip-outer::before{left:0;background:linear-gradient(to right,var(--bg),transparent)}
@@ -231,6 +235,8 @@ body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflo
 .depo-stars{color:var(--gold);font-size:10px;letter-spacing:3px;margin-bottom:12px}
 .depo-text{font-size:11px;color:var(--dim);line-height:1.85;font-style:italic;margin-bottom:16px}
 .depo-author{font-size:7.5px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.3)}
+.depo-print-link{display:block;margin-top:12px}
+.depo-print{width:100%;max-height:140px;object-fit:cover;border:0.5px solid rgba(255,255,255,0.1);cursor:pointer;display:block}
 .banner{position:relative;width:100%;overflow:hidden}
 .banner-img{display:block;width:100%;height:auto;min-height:400px;object-fit:cover;filter:brightness(0.42)}
 .banner-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,#080808 0%,rgba(8,8,8,0.08) 20%,rgba(8,8,8,0.08) 65%,rgba(8,8,8,0.75) 84%,#080808 100%)}
