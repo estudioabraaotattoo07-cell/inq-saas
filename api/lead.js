@@ -537,6 +537,16 @@ export default async function handler(req, res) {
     return res.status(200).send(paginaSitePremium(site, cfg, artistas || [], slug));
   }
 
+  // ── PRÉVIA AO VIVO (aba "Meu Site" do CRM) ──────────────────────────────────
+  // Mesma função de render do site real, mas com o rascunho ainda não salvo
+  // (vem no corpo do POST, não busca nada no banco) — garante que a prévia
+  // fica sempre idêntica ao site publicado de verdade, sem duplicar HTML/CSS.
+  if (acao === "preview") {
+    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+    const { site, cfg, artistas, slug: slugPreview } = req.body || {};
+    return res.status(200).send(paginaSitePremium(site || {}, cfg || {}, artistas || [], slugPreview || ""));
+  }
+
   // ── BUSCA DE CLIENTE EXISTENTE (widget do site pergunta "já é cliente?") ────
   // Telefone é a chave real de identificação já usada em todo o resto do
   // sistema (mais confiável que nome, que varia de escrita) -- então a busca

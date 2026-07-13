@@ -2168,6 +2168,31 @@ export default function CRM() {
     })();
   }, [tab, userId, siteLoaded]);
 
+  // Prévia ao vivo (ainda não salva) — reusa o mesmo render do site real via
+  // acao=preview, com uma pausa curta pra não bater no servidor a cada tecla.
+  const [previewHtml, setPreviewHtml] = useState("");
+  const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (tab !== "site" || !siteLoaded || !siteConteudo) return;
+    if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
+    previewDebounceRef.current = setTimeout(async () => {
+      try {
+        const cfgPreview = { studio_name: studioName, studio_tel: studioTel, studio_city: studioCity, studio_estado: studioEstado };
+        const artistasPreview = artists.filter((a: any) => a.ativo).map((a: any) => ({
+          nome: a.nome, insta: a.insta, foto_site_url: a.foto_site_url, bio_site: a.bio_site,
+          portfolio_fotos: a.portfolio_fotos, botao_social_label: a.botao_social_label,
+        }));
+        const resp = await fetch("https://inq-saas.vercel.app/api/lead?acao=preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ site: siteConteudo, cfg: cfgPreview, artistas: artistasPreview, slug: siteSlug }),
+        });
+        setPreviewHtml(await resp.text());
+      } catch { /* prévia é só visual — falha silenciosa não deve travar a edição */ }
+    }, 600);
+    return () => { if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current); };
+  }, [tab, siteLoaded, siteConteudo, artists, studioCity, studioEstado, studioName, studioTel, siteSlug]);
+
   const salvarSite = async () => {
     if (!siteConteudo || !userId) return;
     setSiteSaving(true);
@@ -13658,8 +13683,15 @@ export default function CRM() {
             );
           };
 
+          const isMobileView = typeof window !== "undefined" && window.innerWidth < 960;
+          const PreviewFrame = (
+            <iframe title="Prévia do site" srcDoc={previewHtml || "<body style=\"background:#080808\"></body>"}
+              style={{ width: "100%", height: "100%", border: "none", background: "#080808" }} />
+          );
+
           return (
-            <div className="pvw" style={{ maxWidth: 720 }}>
+            <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+            <div className="pvw" style={{ maxWidth: 720, flex: "1 1 720px", minWidth: 0 }}>
               <div style={{ ...cardSt, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                 <div>
                   <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 600, color: "var(--gold)" }}>✦ Meu Site</h2>
@@ -13893,15 +13925,33 @@ export default function CRM() {
                             </select>
                           </div>
                         </div>
+                        <button className="btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => upd({ estilo: {} })} title="Volta cor de fundo, botão, cantos, fonte, brilho e velocidade pro padrão do sistema">
+                          ↺ Restaurar padrão
+                        </button>
                       </div>
                     );
                   })()}
                 </TravaPlano>
               </div>
 
+              {isMobileView && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 8 }}>Prévia do site</div>
+                  <div style={{ height: 520, border: "1.5px solid rgba(201,168,76,0.3)", borderRadius: 10, overflow: "hidden" }}>
+                    {PreviewFrame}
+                  </div>
+                </div>
+              )}
+
               <button className="btn-s" onClick={salvarSite} disabled={siteSaving} style={{ marginTop: 4, marginBottom: 30, alignSelf: "flex-start" }}>
                 {siteSaving ? "Salvando..." : "💾 Salvar"}
               </button>
+            </div>
+            {!isMobileView && (
+              <div style={{ flex: "1 1 380px", position: "sticky", top: 16, height: "calc(100vh - 32px)", border: "1.5px solid rgba(201,168,76,0.3)", borderRadius: 10, overflow: "hidden" }}>
+                {PreviewFrame}
+              </div>
+            )}
             </div>
           );
         })()}
