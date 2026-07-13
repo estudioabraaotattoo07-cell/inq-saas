@@ -137,6 +137,17 @@ function paginaSitePremium(site, cfg, artistas, slug) {
   const linhas = (site.hero_frase || `Arte na pele, criada\na partir da sua história.`).split("\n");
   const heroHeadline = linhas.map(l => esc(l)).join("<br>");
 
+  // Cores/estilo personalizados — exclusivo plano Ouro (trava fica no CRM,
+  // aqui só aplica o que já foi salvo; sem estilo salvo = visual padrão de sempre).
+  const est = site.estilo || {};
+  const corFundo = /^#[0-9a-f]{3,8}$/i.test(est.corFundo || "") ? est.corFundo : "#080808";
+  const corBotao1 = /^#[0-9a-f]{3,8}$/i.test(est.corBotao1 || "") ? est.corBotao1 : "#E8C97A";
+  const corBotao2 = /^#[0-9a-f]{3,8}$/i.test(est.corBotao2 || "") ? est.corBotao2 : "#8a6a24";
+  const radius = est.cantos === "arredondado" ? "14px" : "0px";
+  const fonteTitulo = est.fonteTitulo === "moderno" ? "'Montserrat',sans-serif" : "'Cormorant Garamond',serif";
+  const glow = { nenhum: "0px", suave: "10px", intenso: "26px" }[est.brilho] || "0px";
+  const velocidadeMult = { lento: 1.6, normal: 1, rapido: 0.6 }[est.velocidadeCarrossel] || 1;
+
   const IG_ICON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M12 2.2c3.2 0 3.58.01 4.85.07 1.17.05 1.8.24 2.23.41.56.21.96.47 1.38.89.42.42.68.82.89 1.38.17.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.24 1.8-.41 2.23-.21.56-.47.96-.89 1.38-.42.42-.82.68-1.38.89-.42.17-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.24-2.23-.41a3.7 3.7 0 0 1-1.38-.89 3.7 3.7 0 0 1-.89-1.38c-.17-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.24-1.8.41-2.23.21-.56.47-.96.89-1.38.42-.42.82-.68 1.38-.89.42-.17 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.31-1.46.72-2.13 1.38C1.35 2.68.94 3.35.63 4.14c-.3.76-.5 1.64-.56 2.91C0 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.72 1.46 1.38 2.13.67.66 1.34 1.07 2.13 1.38.76.3 1.64.5 2.91.56C8.33 24 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.31 1.46-.72 2.13-1.38.66-.67 1.07-1.34 1.38-2.13.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91a5.9 5.9 0 0 0-1.38-2.13A5.9 5.9 0 0 0 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0Z" fill="currentColor"/><path d="M12 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84Zm0 10.16A4 4 0 1 1 16 12a4 4 0 0 1-4 4Z" fill="currentColor"/><circle cx="18.41" cy="5.59" r="1.44" fill="currentColor"/></svg>`;
   const artistasHtml = (artistas || []).map((a) => {
     const fotos = Array.isArray(a.portfolio_fotos) ? a.portfolio_fotos : [];
@@ -150,7 +161,7 @@ function paginaSitePremium(site, cfg, artistas, slug) {
     // Todas as esteiras andam pro mesmo lado (decisão 2026-07-13).
     const dir = "go-right";
     const largItem = 204; // 200px de foto + 4px de gap
-    const duracaoSeg = Math.max(12, Math.round((fotos.length * largItem) / 70));
+    const duracaoSeg = Math.max(12, Math.round((fotos.length * largItem) / 70 * velocidadeMult));
     const fotosStrip = fotos.length > 0
       ? [...fotos, ...fotos].map(f => `<div class="strip-item"><img src="${esc(f)}" alt=""></div>`).join("")
       : "";
@@ -186,7 +197,7 @@ function paginaSitePremium(site, cfg, artistas, slug) {
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--gold:#C9A84C;--gold-dim:rgba(201,168,76,0.35);--bg:#080808;--off:#e8e4dc;--dim:rgba(255,255,255,0.38);--pad:52px}
+:root{--gold:${corBotao1};--gold-2:${corBotao2};--gold-dim:rgba(201,168,76,0.35);--bg:${corFundo};--off:#e8e4dc;--dim:rgba(255,255,255,0.38);--pad:52px;--radius:${radius};--font-titulo:${fonteTitulo};--glow:${glow}}
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflow-x:hidden}
 .nav{position:fixed;top:0;left:0;right:0;z-index:300;display:flex;align-items:center;justify-content:space-between;padding:14px var(--pad);background:rgba(8,8,8,0.93);backdrop-filter:blur(14px);border-bottom:0.5px solid rgba(255,255,255,0.05)}
@@ -197,16 +208,16 @@ body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflo
 .hero-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(8,8,8,0.1) 0%,rgba(8,8,8,0.05) 25%,rgba(8,8,8,0.35) 55%,rgba(8,8,8,0.78) 72%,rgba(8,8,8,0.96) 87%,#080808 100%)}
 .hero-text{position:absolute;bottom:0;left:0;right:0;z-index:3;text-align:center;padding:0 24px 36px}
 .hero-location{font-size:8px;font-weight:400;letter-spacing:5px;color:rgba(232,228,220,0.5);text-transform:uppercase;margin-bottom:14px}
-.hero-headline{font-family:"Cormorant Garamond",serif;font-size:clamp(28px,5vw,64px);font-weight:300;line-height:1.02;color:#fff;text-transform:uppercase}
+.hero-headline{font-family:var(--font-titulo);font-size:clamp(28px,5vw,64px);font-weight:300;line-height:1.02;color:#fff;text-transform:uppercase}
 .cta-zone{background:var(--bg);padding:44px var(--pad);display:flex;justify-content:center}
-.btn-gold{display:inline-flex;align-items:center;gap:10px;font-size:8px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:#000;background:var(--gold);padding:16px 36px;text-decoration:none;white-space:nowrap}
+.btn-gold{display:inline-flex;align-items:center;gap:10px;font-size:8px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:#000;background:linear-gradient(135deg,var(--gold),var(--gold-2));border-radius:var(--radius);padding:16px 36px;text-decoration:none;white-space:nowrap;box-shadow:0 0 var(--glow) var(--gold-dim)}
 .manifesto{padding:56px var(--pad) 96px;text-align:center}
-.manifesto-quote{font-family:"Cormorant Garamond",serif;font-size:clamp(22px,3.8vw,48px);font-weight:300;font-style:italic;color:var(--off);line-height:1.25;max-width:820px;margin:0 auto}
+.manifesto-quote{font-family:var(--font-titulo);font-size:clamp(22px,3.8vw,48px);font-weight:300;font-style:italic;color:var(--off);line-height:1.25;max-width:820px;margin:0 auto}
 .portfolio-block{padding:64px 0 0}
 .artist-row{display:flex;align-items:flex-end;padding:0 var(--pad);margin-bottom:28px;gap:22px}
-.artist-photo{width:140px;height:185px;object-fit:cover;flex-shrink:0}
+.artist-photo{width:140px;height:185px;object-fit:cover;flex-shrink:0;border-radius:var(--radius)}
 .artist-eyebrow{font-size:7.5px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
-.artist-name{font-family:"Cormorant Garamond",serif;font-size:clamp(22px,2.8vw,34px);font-weight:300;color:#fff;margin-bottom:6px}
+.artist-name{font-family:var(--font-titulo);font-size:clamp(22px,2.8vw,34px);font-weight:300;color:#fff;margin-bottom:6px}
 .artist-tagline{font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:12px;max-width:360px}
 .ig-link{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:500;letter-spacing:2px;color:var(--gold);text-decoration:none}
 .strip-outer{overflow:hidden;position:relative;padding-bottom:40px}
@@ -219,29 +230,29 @@ body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflo
 .strip-outer:hover .strip-track{animation-play-state:paused}
 @keyframes goRight{0%{transform:translateX(-50%)}100%{transform:translateX(0)}}
 @keyframes goLeft{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
-.strip-item{width:200px;height:255px;flex-shrink:0;overflow:hidden;background:#111}
+.strip-item{width:200px;height:255px;flex-shrink:0;overflow:hidden;background:#111;border-radius:var(--radius)}
 .strip-item img{width:100%;height:100%;object-fit:cover}
 .como{padding:88px var(--pad);border-top:0.5px solid rgba(255,255,255,0.04)}
-.como-title{font-family:"Cormorant Garamond",serif;font-size:clamp(26px,3.8vw,44px);font-weight:300;text-align:center;margin-bottom:56px}
+.como-title{font-family:var(--font-titulo);font-size:clamp(26px,3.8vw,44px);font-weight:300;text-align:center;margin-bottom:56px}
 .como-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:40px}
 .como-step{text-align:center}
-.como-num{font-family:"Cormorant Garamond",serif;font-size:46px;font-weight:300;color:rgba(201,168,76,0.11);margin-bottom:14px}
+.como-num{font-family:var(--font-titulo);font-size:46px;font-weight:300;color:rgba(201,168,76,0.11);margin-bottom:14px}
 .como-name{font-size:8.5px;font-weight:600;letter-spacing:3px;text-transform:uppercase;margin-bottom:10px}
 .como-desc{font-size:11px;color:var(--dim);line-height:1.9}
 .depo{padding:72px var(--pad);background:#0a0a0a}
-.depo-title{font-family:"Cormorant Garamond",serif;font-size:clamp(24px,3vw,32px);font-weight:300;text-align:center;margin-bottom:40px}
+.depo-title{font-family:var(--font-titulo);font-size:clamp(24px,3vw,32px);font-weight:300;text-align:center;margin-bottom:40px}
 .depo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:960px;margin:0 auto}
-.depo-card{padding:24px 20px;border:0.5px solid rgba(255,255,255,0.06)}
+.depo-card{padding:24px 20px;border:0.5px solid rgba(255,255,255,0.06);border-radius:var(--radius)}
 .depo-stars{color:var(--gold);font-size:10px;letter-spacing:3px;margin-bottom:12px}
 .depo-text{font-size:11px;color:var(--dim);line-height:1.85;font-style:italic;margin-bottom:16px}
 .depo-author{font-size:7.5px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.3)}
 .depo-print-link{display:block;margin-top:12px}
-.depo-print{width:100%;max-height:140px;object-fit:cover;border:0.5px solid rgba(255,255,255,0.1);cursor:pointer;display:block}
+.depo-print{width:100%;max-height:140px;object-fit:cover;border:0.5px solid rgba(255,255,255,0.1);border-radius:var(--radius);cursor:pointer;display:block}
 .banner{position:relative;width:100%;overflow:hidden}
 .banner-img{display:block;width:100%;height:auto;min-height:400px;object-fit:cover;filter:brightness(0.42)}
 .banner-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,#080808 0%,rgba(8,8,8,0.08) 20%,rgba(8,8,8,0.08) 65%,rgba(8,8,8,0.75) 84%,#080808 100%)}
 .banner-bottom{position:absolute;bottom:0;left:0;right:0;z-index:2;padding:0 var(--pad) 56px;text-align:center}
-.banner-title{font-family:"Cormorant Garamond",serif;font-size:clamp(28px,5vw,58px);font-weight:300;line-height:1.05;color:#fff;margin-bottom:14px}
+.banner-title{font-family:var(--font-titulo);font-size:clamp(28px,5vw,58px);font-weight:300;line-height:1.05;color:#fff;margin-bottom:14px}
 .banner-body{font-size:11.5px;color:rgba(232,228,220,0.5);line-height:1.9;max-width:520px;margin:0 auto}
 footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28px;background:#050505;text-align:center}
 .footer-line{font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:6px}
@@ -520,7 +531,7 @@ export default async function handler(req, res) {
     const [{ data: site }, { data: cfg }, { data: artistas }] = await Promise.all([
       sb.from("site_conteudo").select("*").eq("user_id", uid).single(),
       sb.from("configuracoes").select("studio_name, studio_tel, studio_city, studio_estado").eq("user_id", uid).single(),
-      sb.from("artistas").select("nome, insta, foto_site_url, bio_site, portfolio_fotos").eq("user_id", uid).eq("ativo", true).order("nome"),
+      sb.from("artistas").select("nome, insta, foto_site_url, bio_site, portfolio_fotos, botao_social_label").eq("user_id", uid).eq("ativo", true).order("nome"),
     ]);
     if (!site || !site.publicado) return res.status(404).send(paginaSiteIndisponivel());
     return res.status(200).send(paginaSitePremium(site, cfg, artistas || [], slug));

@@ -2174,7 +2174,7 @@ export default function CRM() {
     if (!error) {
       for (const a of artists) {
         if (a._siteDirty) {
-          await sb.from("artistas").update({ foto_site_url: a.foto_site_url || null, bio_site: a.bio_site || null, portfolio_fotos: a.portfolio_fotos || [] }).eq("id", a.id);
+          await sb.from("artistas").update({ foto_site_url: a.foto_site_url || null, bio_site: a.bio_site || null, portfolio_fotos: a.portfolio_fotos || [], botao_social_label: a.botao_social_label || null }).eq("id", a.id);
         }
       }
       setArtists(p => p.map(a => ({ ...a, _siteDirty: false })));
@@ -2215,9 +2215,12 @@ export default function CRM() {
 
   // Upgrade de plano: cobra só a diferença proporcional até o vencimento do
   // ciclo atual (não o mês cheio) — combinado com o Abraão em 2026-07-13.
-  const calcUpgrade = (planoAtual: string, vencimento: string): { planoNovo: string; valor: number; dataFmt: string } | null => {
-    const planoNovo = PROXIMO_PLANO[planoAtual];
-    if (!planoNovo || !PLANO_LIMITES[planoAtual] || !vencimento) return null;
+  // planoAlvo é opcional: se não vier, assume o próximo plano da escada
+  // (Bronze→Prata→Ouro). Passar um planoAlvo explícito permite pular direto
+  // pra um plano específico (ex: Bronze → Ouro pra desbloquear algo exclusivo).
+  const calcUpgrade = (planoAtual: string, vencimento: string, planoAlvo?: string): { planoNovo: string; valor: number; dataFmt: string } | null => {
+    const planoNovo = planoAlvo || PROXIMO_PLANO[planoAtual];
+    if (!planoNovo || !PLANO_LIMITES[planoAtual] || !PLANO_LIMITES[planoNovo] || !vencimento) return null;
     const diasRestantes = Math.max(0, Math.ceil((new Date(vencimento).getTime() - Date.now()) / 86400000));
     const diferenca = (PLANO_LIMITES[planoNovo].preco - PLANO_LIMITES[planoAtual].preco) / 30 * diasRestantes;
     return {
@@ -2226,6 +2229,7 @@ export default function CRM() {
       dataFmt: new Date(vencimento).toLocaleDateString("pt-BR"),
     };
   };
+  const PLANO_ORDEM = ["Bronze", "Prata", "Ouro"];
 
   useEffect(() => {
     if (tab === "agenda") {
@@ -13619,6 +13623,36 @@ export default function CRM() {
             </div>
           );
 
+          // Trava genérica de feature por plano — reutilizável (hoje: Cores e Estilo,
+          // exclusivo Ouro). Sem plano reconhecido (ex: conta do dono do sistema) = sem trava.
+          const TravaPlano = ({ minPlano, featureNome, children }: { minPlano: string; featureNome: string; children: React.ReactNode }) => {
+            const idxAtual = PLANO_ORDEM.indexOf(sitePlano);
+            const idxMin = PLANO_ORDEM.indexOf(minPlano);
+            const temAcesso = !sitePlano || (idxAtual >= 0 && idxAtual >= idxMin);
+            if (temAcesso) return <>{children}</>;
+            const upgrade = calcUpgrade(sitePlano, siteVencimento, minPlano);
+            return (
+              <div style={{ border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 8, padding: "14px 16px", background: "#0a0a0a", opacity: 0.85, filter: "grayscale(0.4)" }}>
+                <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>
+                  🔒 {featureNome} é exclusivo do plano {minPlano}.
+                </div>
+                {upgrade ? (
+                  <a
+                    href={`https://wa.me/${WHATSAPP_SUPORTE_INK}?text=${encodeURIComponent(
+                      `Olá! Gostaria de fazer upgrade para o plano ${minPlano} pra desbloquear: ${featureNome}. Calculei a diferença proporcional em R$${upgrade.valor.toFixed(2)} até o fim do ciclo atual (${upgrade.dataFmt}). Podemos confirmar o pagamento?`
+                    )}`}
+                    target="_blank" rel="noopener noreferrer" className="btn-sm"
+                    style={{ display: "inline-block", textDecoration: "none" }}
+                  >
+                    Fazer upgrade para {minPlano} por R${upgrade.valor.toFixed(2)} →
+                  </a>
+                ) : (
+                  <div style={{ fontSize: 11, color: "var(--tx3)" }}>Fale com o suporte pra desbloquear.</div>
+                )}
+              </div>
+            );
+          };
+
           return (
             <div className="pvw" style={{ maxWidth: 720 }}>
               <div style={{ ...cardSt, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
@@ -13745,6 +13779,14 @@ export default function CRM() {
                       <textarea className="fta" maxLength={500} placeholder="Escreva aqui... Ex: Projetos autorais, direção artística e profundidade em cada traço."
                         value={a.bio_site || ""} onChange={e => updArtistSite(a.id, { bio_site: e.target.value })} />
                       <div style={{ fontSize: 10, color: "var(--tx3)", textAlign: "right", marginBottom: 12 }}>{bioLen}/500</div>
+                      {a.insta && (
+                        <div className="ff" style={{ marginBottom: 20 }}>
+                          <Help>Nome do botão que leva pro Instagram dele (o link já é automático, vem do Instagram cadastrado em Colaboradores).</Help>
+                          <label className="fl">Texto do botão</label>
+                          <input className="fi" placeholder={`Escreva aqui... Ex: @${(a.insta || "").replace(/^@/, "")}`}
+                            value={a.botao_social_label || ""} onChange={e => updArtistSite(a.id, { botao_social_label: e.target.value })} />
+                        </div>
+                      )}
                       <Help>Fotos do portfólio dele — aparecem numa esteira rolante embaixo do bloco.{limiteFotos !== undefined ? ` (${fotos.length}/${limiteFotos} do plano ${sitePlano})` : ""}</Help>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
                         {fotos.map((f, i) => (
@@ -13789,6 +13831,67 @@ export default function CRM() {
                     </div>
                   );
                 })}
+              </div>
+
+              <div style={cardSt}>
+                <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Cores e Estilo</div>
+                <Help>Personalize a identidade visual do seu site — cores, cantos, fonte do título, brilho e velocidade da esteira de fotos.</Help>
+                <TravaPlano minPlano="Ouro" featureNome="Cores e Estilo personalizados">
+                  {(() => {
+                    const est = sc.estilo || {};
+                    const updEst = (patch: any) => upd({ estilo: { ...est, ...patch } });
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                          <div className="ff">
+                            <label className="fl">Cor de fundo do site</label>
+                            <input type="color" value={est.corFundo || "#080808"} onChange={e => updEst({ corFundo: e.target.value })} style={{ width: 60, height: 34, background: "none", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 6, cursor: "pointer" }} />
+                          </div>
+                          <div className="ff">
+                            <label className="fl">Cor do botão (início do degradê)</label>
+                            <input type="color" value={est.corBotao1 || "#E8C97A"} onChange={e => updEst({ corBotao1: e.target.value })} style={{ width: 60, height: 34, background: "none", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 6, cursor: "pointer" }} />
+                          </div>
+                          <div className="ff">
+                            <label className="fl">Cor do botão (fim do degradê)</label>
+                            <input type="color" value={est.corBotao2 || "#8a6a24"} onChange={e => updEst({ corBotao2: e.target.value })} style={{ width: 60, height: 34, background: "none", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 6, cursor: "pointer" }} />
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                          <div className="ff">
+                            <label className="fl">Cantos</label>
+                            <select className="fi" value={est.cantos || "reto"} onChange={e => updEst({ cantos: e.target.value })}>
+                              <option value="reto">Retos</option>
+                              <option value="arredondado">Arredondados</option>
+                            </select>
+                          </div>
+                          <div className="ff">
+                            <label className="fl">Fonte do título</label>
+                            <select className="fi" value={est.fonteTitulo || "classico"} onChange={e => updEst({ fonteTitulo: e.target.value })}>
+                              <option value="classico">Clássica (serifada)</option>
+                              <option value="moderno">Moderna (sem serifa)</option>
+                            </select>
+                          </div>
+                          <div className="ff">
+                            <label className="fl">Brilho dourado</label>
+                            <select className="fi" value={est.brilho || "nenhum"} onChange={e => updEst({ brilho: e.target.value })}>
+                              <option value="nenhum">Nenhum</option>
+                              <option value="suave">Suave</option>
+                              <option value="intenso">Intenso</option>
+                            </select>
+                          </div>
+                          <div className="ff">
+                            <label className="fl">Velocidade da esteira de fotos</label>
+                            <select className="fi" value={est.velocidadeCarrossel || "normal"} onChange={e => updEst({ velocidadeCarrossel: e.target.value })}>
+                              <option value="lento">Lenta</option>
+                              <option value="normal">Normal</option>
+                              <option value="rapido">Rápida</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </TravaPlano>
               </div>
 
               <button className="btn-s" onClick={salvarSite} disabled={siteSaving} style={{ marginTop: 4, marginBottom: 30, alignSelf: "flex-start" }}>
