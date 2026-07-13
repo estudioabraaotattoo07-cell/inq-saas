@@ -239,7 +239,8 @@ body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflo
 footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28px;background:#050505;text-align:center}
 .footer-line{font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:6px}
 .footer-bottom{margin-top:20px;font-size:7.5px;color:rgba(255,255,255,0.18);letter-spacing:1.5px}
-.aura-fab{position:fixed;bottom:26px;right:26px;z-index:220;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#E8C97A,#C9A84C 45%,#8a6a24);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 22px rgba(201,168,76,0.4);cursor:pointer;font-size:24px;color:#17140A;border:none}
+.aura-fab{position:fixed;bottom:26px;right:26px;z-index:220;height:52px;padding:0 22px;border-radius:999px;background:linear-gradient(135deg,#E8C97A,#C9A84C 45%,#8a6a24);display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 22px rgba(201,168,76,0.4);cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.03em;color:#17140A;border:none;font-family:"Montserrat",sans-serif;white-space:nowrap}
+.aura-wa-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;background:#25D366;color:#fff;border:none;border-radius:999px;padding:11px;font-size:12px;font-weight:700;text-decoration:none;font-family:"Montserrat",sans-serif}
 .aura-panel{display:none;flex-direction:column;position:fixed;bottom:26px;right:26px;z-index:230;width:340px;max-width:calc(100vw - 32px);height:480px;max-height:calc(100vh - 60px);background:radial-gradient(ellipse 300px 160px at 50% -10%, rgba(139,92,222,0.2), transparent 70%), linear-gradient(180deg,#151515,#0A0A0A);border:1px solid rgba(201,168,76,0.35);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.6);overflow:hidden;font-family:"Montserrat",sans-serif}
 .aura-head{padding:14px 16px;background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(201,168,76,0.2);display:flex;justify-content:space-between;align-items:center;font-size:12px;letter-spacing:1px;color:var(--gold)}
 .aura-close{cursor:pointer;color:var(--dim);font-size:14px}
@@ -295,7 +296,7 @@ ${site.banner_foto_url ? `<section class="banner">
   <div class="footer-line">© ${new Date().getFullYear()} ${esc(nomeEstudio)}</div>
   <div class="footer-bottom">Powered by INK SYSTEM</div>
 </footer>
-<button id="aura-fab" class="aura-fab" onclick="AuraChat.abrir()">✦</button>
+<button id="aura-fab" class="aura-fab" onclick="AuraChat.abrir()">✦ Marque agora</button>
 <div id="aura-panel" class="aura-panel">
   <div class="aura-head"><span>✦ Fale com a gente</span><span class="aura-close" onclick="AuraChat.fechar()">✕</span></div>
   <div id="aura-msgs" class="aura-msgs"></div>
@@ -306,6 +307,7 @@ ${site.banner_foto_url ? `<section class="banner">
   var ARTISTAS = ${JSON.stringify((artistas || []).map(a => a.nome))};
   var SLUG = ${JSON.stringify(slug || "")};
   var WA_LINK = ${JSON.stringify(waLink)};
+  var NOME_ESTUDIO = ${JSON.stringify(nomeEstudio)};
   var lead = {};
   var aberto = false;
 
@@ -391,18 +393,29 @@ ${site.banner_foto_url ? `<section class="banner">
   }
 
   function passoNome(){
-    botMsg('Oi! Eu sou a Aura ✦ Como você se chama?');
+    botMsg('Olá! Eu sou a Aura e sou responsável por cadastrar você no ecossistema do ' + NOME_ESTUDIO + '. Como você se chama?');
     mostrarInput('Seu nome', function(nome){ lead.nome = nome; passoTelefone(); });
   }
   function passoTelefone(){
-    botMsg('Prazer, ' + lead.nome.split(' ')[0] + '! Qual seu WhatsApp com DDD?');
+    botMsg('Muito prazer, ' + lead.nome.split(' ')[0] + '! Por gentileza, você pode me informar o seu número de WhatsApp?');
     mostrarInput('(99) 99999-9999', function(tel){ salvar({ nome: lead.nome, tel: tel }); passoArtista(); });
   }
   function passoArtista(){
     if (lead._artistaSugerido) { salvar({ artista: lead._artistaSugerido }); return passoIdeia(); }
     if (ARTISTAS.length <= 1) { salvar({ artista: ARTISTAS[0] || '' }); return passoIdeia(); }
-    botMsg('Com qual profissional você gostaria de tatuar?');
-    mostrarBotoes(ARTISTAS, function(art){ salvar({ artista: art }); passoIdeia(); });
+    botMsg('Vendo os trabalhos dos profissionais, com qual você se identificou mais?');
+    var area = $('aura-input-area');
+    area.innerHTML = '';
+    var wrap = document.createElement('div');
+    wrap.className = 'aura-btns';
+    ARTISTAS.forEach(function(art, i){
+      var b = document.createElement('button');
+      b.className = 'aura-btn';
+      b.textContent = '(' + (i + 1) + ') ' + art;
+      b.onclick = function(){ userMsg(art); area.innerHTML = ''; salvar({ artista: art }); passoIdeia(); };
+      wrap.appendChild(b);
+    });
+    area.appendChild(wrap);
   }
   function passoIdeia(){
     botMsg('Me conta um pouco sobre a ideia que você tem em mente:');
@@ -425,9 +438,8 @@ ${site.banner_foto_url ? `<section class="banner">
     var area = $('aura-input-area');
     area.innerHTML = '';
     var a = document.createElement('a');
-    a.href = WA_LINK; a.target = '_blank'; a.className = 'aura-btn';
-    a.style.width = '100%'; a.style.textAlign = 'center'; a.style.boxSizing = 'border-box';
-    a.textContent = '✦ Falar agora no WhatsApp';
+    a.href = WA_LINK; a.target = '_blank'; a.className = 'aura-wa-btn';
+    a.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.65-.6-2.9-1.25-4.79-4.17-4.94-4.36-.14-.2-1.18-1.56-1.18-2.98s.75-2.11 1.02-2.4c.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.19-.28.37-.23.62-.14.26.09 1.63.77 1.91.91.28.14.47.21.54.33.07.12.07.68-.17 1.36Z"/></svg>Falar agora no WhatsApp';
     area.appendChild(a);
   }
 
