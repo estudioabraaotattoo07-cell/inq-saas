@@ -320,8 +320,8 @@ ${site.banner_foto_url ? `<section class="banner">
       $('aura-fab').style.display = 'none';
     }
     if ($('aura-msgs').children.length === 0) {
-      if (artistaPreEscolhido) lead._artistaSugerido = artistaPreEscolhido;
-      passoNome();
+      if (artistaPreEscolhido) lead.artista = artistaPreEscolhido;
+      passoBoasVindas();
     }
   }
   function fechar(){
@@ -384,24 +384,55 @@ ${site.banner_foto_url ? `<section class="banner">
   function salvar(campos){
     Object.assign(lead, campos);
     var payload = Object.assign({}, lead, { slug: SLUG, orig: 'Site' });
-    delete payload._artistaSugerido;
+    delete payload._jaECliente;
     fetch('/api/lead', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     }).catch(function(){});
   }
+  function waBtnHtml(){
+    return '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.65-.6-2.9-1.25-4.79-4.17-4.94-4.36-.14-.2-1.18-1.56-1.18-2.98s.75-2.11 1.02-2.4c.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.19-.28.37-.23.62-.14.26.09 1.63.77 1.91.91.28.14.47.21.54.33.07.12.07.68-.17 1.36Z"/></svg>';
+  }
 
-  function passoNome(){
-    botMsg('Olá! Eu sou a Aura e sou responsável por cadastrar você no ecossistema do ' + NOME_ESTUDIO + '. Como você se chama?');
-    mostrarInput('Seu nome', function(nome){ lead.nome = nome; passoTelefone(); });
+  function passoBoasVindas(){
+    botMsg('Olá! Eu sou a Aura e sou responsável por cadastrar você no ecossistema do ' + NOME_ESTUDIO + '. Você já é nosso cliente ou é novo por aqui?');
+    mostrarBotoes(['Já sou cliente', 'Sou novo por aqui'], function(op){
+      lead._jaECliente = op.indexOf('novo') === -1;
+      passoAvisoColeta();
+    });
+  }
+  function passoAvisoColeta(){
+    botMsg('Precisamos coletar alguns dados pra registrar sua solicitação de agendamento. Qual seu nome completo?');
+    mostrarInput('Seu nome completo', function(nome){ lead.nome = nome; passoTelefone(); });
   }
   function passoTelefone(){
     botMsg('Muito prazer, ' + lead.nome.split(' ')[0] + '! Por gentileza, você pode me informar o seu número de WhatsApp?');
-    mostrarInput('(99) 99999-9999', function(tel){ salvar({ nome: lead.nome, tel: tel }); passoArtista(); });
+    mostrarInput('(99) 99999-9999', function(tel){
+      salvar({ nome: lead.nome, tel: tel });
+      if (lead._jaECliente) buscarCliente(tel); else passoArtista();
+    });
+  }
+  function buscarCliente(tel){
+    botMsg('Só um instante, deixa eu conferir seu cadastro...');
+    fetch('/api/lead?acao=lead_busca&slug=' + encodeURIComponent(SLUG) + '&tel=' + encodeURIComponent(tel))
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.encontrado) {
+          botMsg('Que bom te ver por aqui de novo, ' + lead.nome.split(' ')[0] + '! 🖤');
+          if (!lead.artista && data.artista) lead.artista = data.artista;
+          if (!lead.idea && data.descricao) lead.idea = data.descricao;
+          if (!lead.regiao && data.regiao) lead.regiao = data.regiao;
+          if (!lead.email && data.email) lead.email = data.email;
+        } else {
+          botMsg('Não encontrei seu cadastro por aqui ainda — vamos preencher rapidinho!');
+        }
+        passoArtista();
+      })
+      .catch(function(){ passoArtista(); });
   }
   function passoArtista(){
-    if (lead._artistaSugerido) { salvar({ artista: lead._artistaSugerido }); return passoIdeia(); }
+    if (lead.artista) { salvar({ artista: lead.artista }); return passoIdeia(); }
     if (ARTISTAS.length <= 1) { salvar({ artista: ARTISTAS[0] || '' }); return passoIdeia(); }
     botMsg('Vendo os trabalhos dos profissionais, com qual você se identificou mais?');
     var area = $('aura-input-area');
@@ -418,10 +449,12 @@ ${site.banner_foto_url ? `<section class="banner">
     area.appendChild(wrap);
   }
   function passoIdeia(){
+    if (lead.idea) { salvar({ idea: lead.idea }); return passoRegiao(); }
     botMsg('Me conta um pouco sobre a ideia que você tem em mente:');
     mostrarInput('Sua ideia...', function(idea){ salvar({ idea: idea }); passoRegiao(); });
   }
   function passoRegiao(){
+    if (lead.regiao) { salvar({ regiao: lead.regiao }); return passoClassificacao(); }
     botMsg('Em qual região do corpo?');
     mostrarInput('Ex: braço, costas...', function(regiao){ salvar({ regiao: regiao }); passoClassificacao(); });
   }
@@ -430,16 +463,21 @@ ${site.banner_foto_url ? `<section class="banner">
     mostrarBotoes(['🎯 Já decidi, quero agendar', '💬 Quero conversar antes'], function(op){
       var etapa = op.indexOf('conversar') !== -1 ? 'lead_morno' : 'aura_agend';
       salvar({ etapa: etapa });
-      passoFinal();
+      passoEmail();
     });
   }
+  function passoEmail(){
+    if (lead.email) { salvar({ email: lead.email }); return passoFinal(); }
+    botMsg('Por último, qual o seu melhor e-mail?');
+    mostrarInput('seu@email.com', function(email){ salvar({ email: email }); passoFinal(); });
+  }
   function passoFinal(){
-    botMsg('Perfeito! Já registrei tudo por aqui — nossa equipe vai entrar em contato em breve. 🖤');
+    botMsg('Pronto! Já registramos os dados principais — nossa equipe vai entrar em contato com você em breve. Se quiser adiantar, pode chamar no WhatsApp do estúdio! 🖤');
     var area = $('aura-input-area');
     area.innerHTML = '';
     var a = document.createElement('a');
     a.href = WA_LINK; a.target = '_blank'; a.className = 'aura-wa-btn';
-    a.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.65-.6-2.9-1.25-4.79-4.17-4.94-4.36-.14-.2-1.18-1.56-1.18-2.98s.75-2.11 1.02-2.4c.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.19-.28.37-.23.62-.14.26.09 1.63.77 1.91.91.28.14.47.21.54.33.07.12.07.68-.17 1.36Z"/></svg>Falar agora no WhatsApp';
+    a.innerHTML = waBtnHtml() + 'Falar agora no WhatsApp';
     area.appendChild(a);
   }
 
@@ -479,6 +517,29 @@ export default async function handler(req, res) {
     ]);
     if (!site || !site.publicado) return res.status(404).send(paginaSiteIndisponivel());
     return res.status(200).send(paginaSitePremium(site, cfg, artistas || [], slug));
+  }
+
+  // ── BUSCA DE CLIENTE EXISTENTE (widget do site pergunta "já é cliente?") ────
+  // Telefone é a chave real de identificação já usada em todo o resto do
+  // sistema (mais confiável que nome, que varia de escrita) -- então a busca
+  // usa só o telefone, mesmo que o widget também colete o nome no meio.
+  if (acao === "lead_busca") {
+    const slugBusca = (req.query?.slug || "").trim();
+    const telBusca = (req.query?.tel || "").replace(/\D/g, "").slice(-11);
+    if (!slugBusca || !telBusca) return res.status(200).json({ encontrado: false });
+    const { data: tenantBusca } = await sb.from("ink_clientes").select("auth_user_id").eq("slug", slugBusca).single();
+    if (!tenantBusca) return res.status(200).json({ encontrado: false });
+    const { data: candidatos } = await sb.from("clientes")
+      .select("nome, tel, artista, descricao, regiao, email")
+      .eq("user_id", tenantBusca.auth_user_id).is("excluido_em", null);
+    const match = (candidatos || []).find(c => c.tel && c.tel.replace(/\D/g, "").slice(-11) === telBusca);
+    if (!match) return res.status(200).json({ encontrado: false });
+    const completo = !!(match.artista && match.descricao && match.regiao && match.email);
+    return res.status(200).json({
+      encontrado: true, completo,
+      nome: match.nome, artista: match.artista || "", descricao: match.descricao || "",
+      regiao: match.regiao || "", email: match.email || "",
+    });
   }
 
   // ── AVALIAÇÃO NPS + CONVITE GOOGLE (novo fluxo pós-sessão) ──────────────────
@@ -953,9 +1014,12 @@ export default async function handler(req, res) {
       if (regiaoVal) updateFields.regiao = regiaoVal;
       if (obsExtra) updateFields.obs = `Lead captado via Aura Chat no site. ${obsExtra}`;
       // Classificação (Sessão/Consulta/Aguardando nova solicitação) só move a etapa
-      // quando o chat explicitamente pedir — nunca sobrescreve silenciosamente
-      // uma etapa mais avançada do pipeline (ex: cliente já com Sessão Marcada).
-      if (etapaSolicitada) {
+      // quando o chat explicitamente pedir — e só se o cliente ainda estiver numa
+      // fase inicial do funil. Sem essa checagem, um cliente que já tem Sessão
+      // Marcada ou está em Pós-venda voltaria pra "Solicitação de Consulta" só
+      // por reabrir o chat e responder a pergunta de classificação de novo.
+      const ETAPAS_INICIAIS = ["lead", "lead_morno", "aura_agend", "precisa_remarcar"];
+      if (etapaSolicitada && (!match.etapa || ETAPAS_INICIAIS.includes(match.etapa))) {
         updateFields.etapa = etapaSolicitada;
         updateFields.etapa_desde = new Date().toISOString();
       }
