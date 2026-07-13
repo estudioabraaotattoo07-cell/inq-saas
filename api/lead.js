@@ -128,7 +128,7 @@ function paginaSiteIndisponivel() {
 // Molde "Premium" — site publico do tenant, gerado a partir de site_conteudo +
 // configuracoes + artistas (colunas foto_site_url/bio_site/portfolio_fotos).
 // Publicacao automatica: nao ha build, o HTML e montado na hora a cada visita.
-function paginaSitePremium(site, cfg, artistas) {
+function paginaSitePremium(site, cfg, artistas, slug) {
   const nomeEstudio = cfg?.studio_name || "Estúdio";
   const local = [cfg?.studio_city, cfg?.studio_estado].filter(Boolean).join(" · ");
   const tel = (cfg?.studio_tel || "").replace(/\D/g, "");
@@ -158,7 +158,7 @@ function paginaSitePremium(site, cfg, artistas) {
         <div class="artist-name">${esc(a.nome)}</div>
         ${a.bio_site ? `<div class="artist-tagline">${esc(a.bio_site)}</div>` : ""}
         ${igHandle ? `<a class="ig-link" href="https://instagram.com/${esc(igHandle)}" target="_blank">@${esc(igHandle)}</a>` : ""}
-        <a class="btn-gold" href="${waLink}" target="_blank" style="margin-top:18px">✦ Quero tatuar com ${esc((a.nome || "").split(" ")[0])}</a>
+        <a class="btn-gold" href="javascript:void(0)" onclick="AuraChat.abrir('${esc(a.nome).replace(/'/g, "\\'")}')" style="margin-top:18px">✦ Quero tatuar com ${esc((a.nome || "").split(" ")[0])}</a>
       </div>
     </div>
     ${fotos.length > 0 ? `<div class="strip-outer"><div class="strip-track ${dir}" style="animation-duration:${duracaoSeg}s">${fotosStrip}</div></div>` : ""}`;
@@ -239,14 +239,27 @@ body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflo
 footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28px;background:#050505;text-align:center}
 .footer-line{font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:6px}
 .footer-bottom{margin-top:20px;font-size:7.5px;color:rgba(255,255,255,0.18);letter-spacing:1.5px}
-.wa-float{position:fixed;bottom:26px;right:26px;z-index:200;width:52px;height:52px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 22px rgba(37,211,102,0.32);text-decoration:none;font-size:24px}
+.aura-fab{position:fixed;bottom:26px;right:26px;z-index:220;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#E8C97A,#C9A84C 45%,#8a6a24);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 22px rgba(201,168,76,0.4);cursor:pointer;font-size:24px;color:#17140A;border:none}
+.aura-panel{display:none;flex-direction:column;position:fixed;bottom:26px;right:26px;z-index:230;width:340px;max-width:calc(100vw - 32px);height:480px;max-height:calc(100vh - 60px);background:radial-gradient(ellipse 300px 160px at 50% -10%, rgba(139,92,222,0.2), transparent 70%), linear-gradient(180deg,#151515,#0A0A0A);border:1px solid rgba(201,168,76,0.35);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.6);overflow:hidden;font-family:"Montserrat",sans-serif}
+.aura-head{padding:14px 16px;background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(201,168,76,0.2);display:flex;justify-content:space-between;align-items:center;font-size:12px;letter-spacing:1px;color:var(--gold)}
+.aura-close{cursor:pointer;color:var(--dim);font-size:14px}
+.aura-msgs{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.aura-msg-bot{background:rgba(255,255,255,0.06);color:#f0ede8;padding:9px 12px;border-radius:10px 10px 10px 2px;font-size:12.5px;line-height:1.5;max-width:85%;align-self:flex-start}
+.aura-msg-user{background:var(--gold);color:#17140A;padding:9px 12px;border-radius:10px 10px 2px 10px;font-size:12.5px;line-height:1.5;max-width:85%;align-self:flex-end;font-weight:600}
+.aura-input-area{padding:12px 14px;border-top:1px solid rgba(201,168,76,0.15);display:flex;gap:8px;flex-wrap:wrap}
+.aura-btns{display:flex;gap:8px;flex-wrap:wrap;width:100%}
+.aura-btn{background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.4);color:var(--gold);padding:8px 14px;border-radius:20px;font-size:11.5px;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block}
+.aura-btn:hover{background:rgba(201,168,76,0.2)}
+.aura-text-input{flex:1;background:#050505;border:1px solid rgba(201,168,76,0.25);border-radius:20px;padding:9px 14px;color:#fff;font-size:12.5px;font-family:inherit;outline:none;min-width:0}
+.aura-send-btn{background:var(--gold);color:#17140A;border:none;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:14px;flex-shrink:0}
+@media(max-width:480px){.aura-panel{width:100vw;height:100vh;max-height:100vh;max-width:100vw;bottom:0;right:0;border-radius:0}}
 @media(max-width:768px){:root{--pad:20px}.como-grid{grid-template-columns:repeat(2,1fr)}.depo-grid{grid-template-columns:1fr}.artist-row{flex-direction:column;align-items:flex-start;text-align:left}}
 </style>
 </head>
 <body>
 <nav class="nav">
   <span class="nav-name">${esc(nomeEstudio)}</span>
-  <a class="nav-cta" href="${waLink}" target="_blank">✦ Marque seu horário</a>
+  <a class="nav-cta" href="javascript:void(0)" onclick="AuraChat.abrir()">✦ Marque seu horário</a>
 </nav>
 <section class="hero">
   ${heroFoto ? `<img class="hero-img" src="${esc(heroFoto)}" alt="${esc(nomeEstudio)}">` : ""}
@@ -256,7 +269,7 @@ footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28p
     <h1 class="hero-headline">${heroHeadline}</h1>
   </div>
 </section>
-<div class="cta-zone"><a class="btn-gold" href="${waLink}" target="_blank">✦ Quero tatuar com vocês!</a></div>
+<div class="cta-zone"><a class="btn-gold" href="javascript:void(0)" onclick="AuraChat.abrir()">✦ Quero tatuar com vocês!</a></div>
 ${site.manifesto_frase ? `<section class="manifesto"><blockquote class="manifesto-quote">"${esc(site.manifesto_frase)}"</blockquote></section>` : ""}
 <section class="portfolio-block">${artistasHtml}</section>
 <section class="como">
@@ -282,7 +295,145 @@ ${site.banner_foto_url ? `<section class="banner">
   <div class="footer-line">© ${new Date().getFullYear()} ${esc(nomeEstudio)}</div>
   <div class="footer-bottom">Powered by INK SYSTEM</div>
 </footer>
-${tel ? `<a class="wa-float" href="${waLink}" target="_blank">💬</a>` : ""}
+<button id="aura-fab" class="aura-fab" onclick="AuraChat.abrir()">✦</button>
+<div id="aura-panel" class="aura-panel">
+  <div class="aura-head"><span>✦ Fale com a gente</span><span class="aura-close" onclick="AuraChat.fechar()">✕</span></div>
+  <div id="aura-msgs" class="aura-msgs"></div>
+  <div id="aura-input-area" class="aura-input-area"></div>
+</div>
+<script>
+(function(){
+  var ARTISTAS = ${JSON.stringify((artistas || []).map(a => a.nome))};
+  var SLUG = ${JSON.stringify(slug || "")};
+  var WA_LINK = ${JSON.stringify(waLink)};
+  var lead = {};
+  var aberto = false;
+
+  function $(id){ return document.getElementById(id); }
+
+  function abrir(artistaPreEscolhido){
+    if (!aberto) {
+      aberto = true;
+      $('aura-panel').style.display = 'flex';
+      $('aura-fab').style.display = 'none';
+    }
+    if ($('aura-msgs').children.length === 0) {
+      if (artistaPreEscolhido) lead._artistaSugerido = artistaPreEscolhido;
+      passoNome();
+    }
+  }
+  function fechar(){
+    aberto = false;
+    $('aura-panel').style.display = 'none';
+    $('aura-fab').style.display = 'flex';
+  }
+
+  function botMsg(texto){
+    var d = document.createElement('div');
+    d.className = 'aura-msg-bot';
+    d.textContent = texto;
+    $('aura-msgs').appendChild(d);
+    $('aura-msgs').scrollTop = $('aura-msgs').scrollHeight;
+  }
+  function userMsg(texto){
+    var d = document.createElement('div');
+    d.className = 'aura-msg-user';
+    d.textContent = texto;
+    $('aura-msgs').appendChild(d);
+    $('aura-msgs').scrollTop = $('aura-msgs').scrollHeight;
+  }
+  function mostrarBotoes(opcoes, onEscolher){
+    var area = $('aura-input-area');
+    area.innerHTML = '';
+    var wrap = document.createElement('div');
+    wrap.className = 'aura-btns';
+    opcoes.forEach(function(op){
+      var b = document.createElement('button');
+      b.className = 'aura-btn';
+      b.textContent = op;
+      b.onclick = function(){ userMsg(op); area.innerHTML = ''; onEscolher(op); };
+      wrap.appendChild(b);
+    });
+    area.appendChild(wrap);
+  }
+  function mostrarInput(placeholder, onEnviar){
+    var area = $('aura-input-area');
+    area.innerHTML = '';
+    var inp = document.createElement('input');
+    inp.className = 'aura-text-input';
+    inp.placeholder = placeholder;
+    var btn = document.createElement('button');
+    btn.className = 'aura-send-btn';
+    btn.textContent = '→';
+    function enviar(){
+      var v = inp.value.trim();
+      if (!v) return;
+      userMsg(v);
+      area.innerHTML = '';
+      onEnviar(v);
+    }
+    btn.onclick = enviar;
+    inp.onkeydown = function(e){ if (e.key === 'Enter') enviar(); };
+    area.appendChild(inp);
+    area.appendChild(btn);
+    inp.focus();
+  }
+
+  function salvar(campos){
+    Object.assign(lead, campos);
+    var payload = Object.assign({}, lead, { slug: SLUG, orig: 'Site' });
+    delete payload._artistaSugerido;
+    fetch('/api/lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(function(){});
+  }
+
+  function passoNome(){
+    botMsg('Oi! Eu sou a Aura ✦ Como você se chama?');
+    mostrarInput('Seu nome', function(nome){ lead.nome = nome; passoTelefone(); });
+  }
+  function passoTelefone(){
+    botMsg('Prazer, ' + lead.nome.split(' ')[0] + '! Qual seu WhatsApp com DDD?');
+    mostrarInput('(99) 99999-9999', function(tel){ salvar({ nome: lead.nome, tel: tel }); passoArtista(); });
+  }
+  function passoArtista(){
+    if (lead._artistaSugerido) { salvar({ artista: lead._artistaSugerido }); return passoIdeia(); }
+    if (ARTISTAS.length <= 1) { salvar({ artista: ARTISTAS[0] || '' }); return passoIdeia(); }
+    botMsg('Com qual profissional você gostaria de tatuar?');
+    mostrarBotoes(ARTISTAS, function(art){ salvar({ artista: art }); passoIdeia(); });
+  }
+  function passoIdeia(){
+    botMsg('Me conta um pouco sobre a ideia que você tem em mente:');
+    mostrarInput('Sua ideia...', function(idea){ salvar({ idea: idea }); passoRegiao(); });
+  }
+  function passoRegiao(){
+    botMsg('Em qual região do corpo?');
+    mostrarInput('Ex: braço, costas...', function(regiao){ salvar({ regiao: regiao }); passoClassificacao(); });
+  }
+  function passoClassificacao(){
+    botMsg('Você já está pronto pra tatuar ou prefere conversar antes?');
+    mostrarBotoes(['🎯 Já decidi, quero agendar', '💬 Quero conversar antes'], function(op){
+      var etapa = op.indexOf('conversar') !== -1 ? 'lead_morno' : 'aura_agend';
+      salvar({ etapa: etapa });
+      passoFinal();
+    });
+  }
+  function passoFinal(){
+    botMsg('Perfeito! Já registrei tudo por aqui — nossa equipe vai entrar em contato em breve. 🖤');
+    var area = $('aura-input-area');
+    area.innerHTML = '';
+    var a = document.createElement('a');
+    a.href = WA_LINK; a.target = '_blank'; a.className = 'aura-btn';
+    a.style.width = '100%'; a.style.textAlign = 'center'; a.style.boxSizing = 'border-box';
+    a.textContent = '✦ Falar agora no WhatsApp';
+    area.appendChild(a);
+  }
+
+  window.AuraChat = { abrir: abrir, fechar: fechar };
+})();
+</script>
 </body>
 </html>`;
 }
@@ -315,7 +466,7 @@ export default async function handler(req, res) {
       sb.from("artistas").select("nome, insta, foto_site_url, bio_site, portfolio_fotos").eq("user_id", uid).eq("ativo", true).order("nome"),
     ]);
     if (!site || !site.publicado) return res.status(404).send(paginaSiteIndisponivel());
-    return res.status(200).send(paginaSitePremium(site, cfg, artistas || []));
+    return res.status(200).send(paginaSitePremium(site, cfg, artistas || [], slug));
   }
 
   // ── AVALIAÇÃO NPS + CONVITE GOOGLE (novo fluxo pós-sessão) ──────────────────
@@ -698,7 +849,7 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada } = req.body;
+  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug } = req.body;
   if (!nome && !tel && !email) return res.status(400).json({ error: "pelo menos um dado obrigatorio" });
 
   const ideaFinal = idea || ideia || "";
@@ -743,7 +894,14 @@ export default async function handler(req, res) {
     referencias: Array.isArray(referencias) && referencias.length ? referencias : [],
   };
 
+  // Site do tenant manda `slug` -- resolve o dono certo. Sem slug (chat antigo
+  // da Casa dos Carvalho, que não manda esse campo), mantém o comportamento
+  // de sempre pra não quebrar nada em produção.
   row.user_id = "2d366d35-1cae-40d5-ba92-06fe2ab8a763";
+  if (siteSlug) {
+    const { data: tenantLead } = await sb.from("ink_clientes").select("auth_user_id").eq("slug", siteSlug).single();
+    if (tenantLead?.auth_user_id) row.user_id = tenantLead.auth_user_id;
+  }
 
   // Identificação de cliente existente por telefone — telefone bate = mesmo cliente, sempre
   // Ao atualizar, prevalece o campo com mais dados (novo só substitui se existente estiver vazio)
