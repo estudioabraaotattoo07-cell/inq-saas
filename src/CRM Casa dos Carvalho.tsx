@@ -5040,6 +5040,9 @@ export default function CRM() {
                 💰 {colaboradoresComPendencia.length} repasse{colaboradoresComPendencia.length > 1 ? "s" : ""} pendente{colaboradoresComPendencia.length > 1 ? "s" : ""}
               </div>
             )}
+            {authEmail === OWNER_EMAIL && (
+              <a href="https://inksystem.com.br/admin" target="_blank" rel="noreferrer" title="Painel Admin" className="theme-btn" style={{ fontSize: 13, textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>🛠️</a>
+            )}
             <button className="theme-btn" title="Sair" onClick={async () => { await sb.auth.signOut(); setLogado(false); }} style={{ fontSize: 13 }}>🚪</button>
             <button className="btn-new" onClick={() => setShowForm(true)}>+ Novo Cliente</button>
           </div>
