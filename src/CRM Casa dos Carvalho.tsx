@@ -2157,7 +2157,12 @@ export default function CRM() {
         banner_foto_url: "", banner_titulo: "", banner_texto: "", depoimentos: [],
       });
       setSiteSlug(tenant?.slug || "");
-      setSitePlano(tenant?.plano || "");
+      // "plano" é texto livre digitado manualmente em ink_clientes (não é enum) —
+      // normaliza maiúscula/minúscula e espaços em volta pra não travar por
+      // diferença de digitação (ex: "ouro ", "OURO").
+      const planoBruto = (tenant?.plano || "").trim();
+      const planoCanonico = ["Bronze", "Prata", "Ouro"].find(p => p.toLowerCase() === planoBruto.toLowerCase()) || planoBruto;
+      setSitePlano(planoCanonico);
       setSiteVencimento(tenant?.data_vencimento || "");
       setSiteLoaded(true);
     })();
