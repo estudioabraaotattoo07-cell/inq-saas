@@ -137,14 +137,15 @@ function paginaSitePremium(site, cfg, artistas, slug) {
   const linhas = (site.hero_frase || `Arte na pele, criada\na partir da sua história.`).split("\n");
   const heroHeadline = linhas.map(l => esc(l)).join("<br>");
 
-  const artistasHtml = (artistas || []).map((a, i) => {
+  const artistasHtml = (artistas || []).map((a) => {
     const fotos = Array.isArray(a.portfolio_fotos) ? a.portfolio_fotos : [];
     const igHandle = (a.insta || "").replace(/^@/, "");
     // Esteira roda sozinha: a lista de fotos é duplicada e anda -50% em loop,
     // criando a ilusão de rolagem infinita sem salto no fim. Duração calculada
     // por velocidade constante (~70px/s, mesmo ritmo do site real) em vez de um
     // tempo fixo — senão poucas fotos ficam lentas e muitas fotos ficam rápidas.
-    const dir = i % 2 === 0 ? "go-right" : "go-left";
+    // Todas as esteiras andam pro mesmo lado (decisão 2026-07-13).
+    const dir = "go-right";
     const largItem = 204; // 200px de foto + 4px de gap
     const duracaoSeg = Math.max(12, Math.round((fotos.length * largItem) / 70));
     const fotosStrip = fotos.length > 0

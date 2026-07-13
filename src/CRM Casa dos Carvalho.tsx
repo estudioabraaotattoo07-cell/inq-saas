@@ -8,6 +8,15 @@ const SUPA_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPA_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const sb = createClient(SUPA_URL, SUPA_KEY);
 const OWNER_EMAIL = "estudioabraaotattoo07@gmail.com";
+// Preços e limites por plano — espelha ink-system-plataform/app/page.tsx (PLANOS).
+// Se mudar preço/limite lá, mudar aqui também (repos separados, sem import compartilhado).
+const PLANO_LIMITES: Record<string, { preco: number; fotosPorArtista: number; artistasInclusos: number }> = {
+  Bronze: { preco: 297, fotosPorArtista: 5, artistasInclusos: 2 },
+  Prata: { preco: 497, fotosPorArtista: 15, artistasInclusos: 4 },
+  Ouro: { preco: 597, fotosPorArtista: 30, artistasInclusos: 6 },
+};
+const PROXIMO_PLANO: Record<string, string> = { Bronze: "Prata", Prata: "Ouro" };
+const WHATSAPP_SUPORTE_INK = "5527999598230"; // espelha ink-system-plataform/app/page.tsx (WHATSAPP_SUPORTE)
 // Variável global para manter tool pendente da Aura sem stale closure
 let _auraToolPendenteCache: { tool: string; params: any; descricao: string } | null = null;
 
@@ -1250,6 +1259,8 @@ export default function CRM() {
   const [siteLoaded, setSiteLoaded] = useState(false);
   const [siteSaving, setSiteSaving] = useState(false);
   const [siteSlug, setSiteSlug] = useState<string>("");
+  const [sitePlano, setSitePlano] = useState<string>("");
+  const [siteVencimento, setSiteVencimento] = useState<string>("");
   // ── FILTRO EXTRA (campanha | origem) — mutuamente exclusivo com filtro de artista ──
   const [filtroExtra, setFiltroExtra] = useState<{tipo: "campanha"|"orig"; valor: string} | null>(null);
   const [dropdownAberto, setDropdownAberto] = useState<"campanhas"|"orig"|null>(null);
@@ -2138,7 +2149,7 @@ export default function CRM() {
     (async () => {
       const [{ data: site }, { data: tenant }] = await Promise.all([
         sb.from("site_conteudo").select("*").eq("user_id", userId).single(),
-        sb.from("ink_clientes").select("slug").eq("auth_user_id", userId).single(),
+        sb.from("ink_clientes").select("slug, plano, data_vencimento").eq("auth_user_id", userId).single(),
       ]);
       setSiteConteudo(site || {
         user_id: userId, molde: "premium", publicado: false,
@@ -2146,6 +2157,8 @@ export default function CRM() {
         banner_foto_url: "", banner_titulo: "", banner_texto: "", depoimentos: [],
       });
       setSiteSlug(tenant?.slug || "");
+      setSitePlano(tenant?.plano || "");
+      setSiteVencimento(tenant?.data_vencimento || "");
       setSiteLoaded(true);
     })();
   }, [tab, userId, siteLoaded]);
@@ -2197,6 +2210,20 @@ export default function CRM() {
     });
     const d = await resp.json();
     return d.url || "";
+  };
+
+  // Upgrade de plano: cobra só a diferença proporcional até o vencimento do
+  // ciclo atual (não o mês cheio) — combinado com o Abraão em 2026-07-13.
+  const calcUpgrade = (planoAtual: string, vencimento: string): { planoNovo: string; valor: number; dataFmt: string } | null => {
+    const planoNovo = PROXIMO_PLANO[planoAtual];
+    if (!planoNovo || !PLANO_LIMITES[planoAtual] || !vencimento) return null;
+    const diasRestantes = Math.max(0, Math.ceil((new Date(vencimento).getTime() - Date.now()) / 86400000));
+    const diferenca = (PLANO_LIMITES[planoNovo].preco - PLANO_LIMITES[planoAtual].preco) / 30 * diasRestantes;
+    return {
+      planoNovo,
+      valor: Math.max(0, Math.round(diferenca * 100) / 100),
+      dataFmt: new Date(vencimento).toLocaleDateString("pt-BR"),
+    };
   };
 
   useEffect(() => {
@@ -13673,6 +13700,10 @@ export default function CRM() {
                 {artists.filter((a: any) => a.ativo).map((a: any) => {
                   const bioLen = (a.bio_site || "").length;
                   const fotos: string[] = Array.isArray(a.portfolio_fotos) ? a.portfolio_fotos : [];
+                  // Sem plano reconhecido (ex: conta do dono do sistema) = sem limite.
+                  const limiteFotos = PLANO_LIMITES[sitePlano]?.fotosPorArtista;
+                  const limiteAtingido = limiteFotos !== undefined && fotos.length >= limiteFotos;
+                  const upgrade = limiteAtingido ? calcUpgrade(sitePlano, siteVencimento) : null;
                   return (
                     <div key={a.id} style={{ background: "#050505", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 10, padding: 16, marginBottom: 12 }}>
                       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, fontWeight: 600, color: a.cor || "var(--gold)", marginBottom: 12 }}>{a.nome}</div>
@@ -13682,7 +13713,7 @@ export default function CRM() {
                       <textarea className="fta" maxLength={200} placeholder="Projetos autorais, direção artística e profundidade em cada traço."
                         value={a.bio_site || ""} onChange={e => updArtistSite(a.id, { bio_site: e.target.value })} />
                       <div style={{ fontSize: 10, color: "var(--tx3)", textAlign: "right", marginBottom: 12 }}>{bioLen}/200</div>
-                      <Help>Fotos do portfólio dele — aparecem numa esteira rolante embaixo do bloco.</Help>
+                      <Help>Fotos do portfólio dele — aparecem numa esteira rolante embaixo do bloco.{limiteFotos !== undefined ? ` (${fotos.length}/${limiteFotos} do plano ${sitePlano})` : ""}</Help>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
                         {fotos.map((f, i) => (
                           <div key={i} style={{ position: "relative", width: 80, height: 100 }}>
@@ -13691,16 +13722,38 @@ export default function CRM() {
                               style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: "#C0392B", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11 }}>×</button>
                           </div>
                         ))}
-                        <label style={{ width: 80, height: 100, border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--gold)", fontSize: 22, background: "#0a0a0a" }}>
-                          +
-                          <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
-                            const f = e.target.files?.[0]; if (!f) return;
-                            const url = await uploadSiteImg(f);
-                            if (url) updArtistSite(a.id, { portfolio_fotos: [...fotos, url] });
-                            e.target.value = "";
-                          }} />
-                        </label>
+                        {!limiteAtingido && (
+                          <label style={{ width: 80, height: 100, border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--gold)", fontSize: 22, background: "#0a0a0a" }}>
+                            +
+                            <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
+                              const f = e.target.files?.[0]; if (!f) return;
+                              const url = await uploadSiteImg(f);
+                              if (url) updArtistSite(a.id, { portfolio_fotos: [...fotos, url] });
+                              e.target.value = "";
+                            }} />
+                          </label>
+                        )}
                       </div>
+                      {limiteAtingido && (
+                        <div style={{ width: "100%", border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 6, padding: "10px 12px", background: "#0a0a0a", opacity: 0.85, filter: "grayscale(0.4)" }}>
+                          <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>
+                            🔒 Limite de {limiteFotos} fotos do plano {sitePlano} atingido para {a.nome}.
+                          </div>
+                          {upgrade ? (
+                            <a
+                              href={`https://wa.me/${WHATSAPP_SUPORTE_INK}?text=${encodeURIComponent(
+                                `Olá! Meu estúdio atingiu o limite de fotos do plano ${sitePlano} e gostaria de fazer upgrade para o ${upgrade.planoNovo}. Calculei a diferença proporcional em R$${upgrade.valor.toFixed(2)} até o fim do ciclo atual (${upgrade.dataFmt}). Podemos confirmar o pagamento?`
+                              )}`}
+                              target="_blank" rel="noopener noreferrer" className="btn-sm"
+                              style={{ display: "inline-block", textDecoration: "none" }}
+                            >
+                              Fazer upgrade para {upgrade.planoNovo} por R${upgrade.valor.toFixed(2)} →
+                            </a>
+                          ) : (
+                            <div style={{ fontSize: 11, color: "var(--tx3)" }}>Você já está no plano mais completo ({sitePlano}) — esse é o limite máximo de fotos por artista.</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
