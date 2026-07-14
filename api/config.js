@@ -35,8 +35,10 @@ export default async function handler(req, res) {
       studio_email: "demo@inksystem.com.br", studio_city: "Vitória", studio_estado: "ES",
       onboarding_done: true,
     };
-    if (cfgExistente) await sb.from("configuracoes").update(cfgPayload).eq("id", cfgExistente.id);
-    else await sb.from("configuracoes").insert(cfgPayload);
+    let cfgWriteResult;
+    if (cfgExistente) cfgWriteResult = await sb.from("configuracoes").update(cfgPayload).eq("id", cfgExistente.id);
+    else cfgWriteResult = await sb.from("configuracoes").insert(cfgPayload);
+    if (req.query?.debug === "1") return res.status(200).json({ cfgExistente, cfgWriteError: cfgWriteResult.error, cfgPayload });
     const artistaId1 = crypto.randomUUID();
     const artistaId2 = crypto.randomUUID();
     await sb.from("artistas").insert([
