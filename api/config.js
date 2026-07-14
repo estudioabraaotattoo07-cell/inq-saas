@@ -64,6 +64,11 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  if (req.query?.debugLeads === "1") {
+    const { data, error } = await sb.from("ink_leads").select("*").order("created_at", { ascending: false }).limit(5);
+    return res.status(200).json({ data, error });
+  }
+
   try {
     const { data } = await sb.from("configuracoes")
       .select("studio_tel, studio_name")
