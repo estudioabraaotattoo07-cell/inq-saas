@@ -769,6 +769,38 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  // ── SOLICITAÇÕES (quiz de plano da demo + suporte/assessoria dentro do CRM) ─
+  // Sem WhatsApp de propósito — cai numa fila no /admin, revisada manualmente.
+  if (acao === "criarSolicitacao") {
+    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+    const { tipo, nome, email, telefone, estudio, mensagem, plano_sugerido, respostas, user_id } = req.body || {};
+    if (!email || !String(email).includes("@")) return res.status(400).json({ error: "E-mail inválido" });
+    const { error: errInsert } = await sb.from("ink_leads").insert({
+      tipo: tipo === "suporte" ? "suporte" : "plano",
+      nome: nome || null, email, telefone: telefone || null, estudio: estudio || null,
+      mensagem: mensagem || null, plano_sugerido: plano_sugerido || null,
+      respostas: respostas || null, user_id: user_id || null,
+    });
+    if (errInsert) return res.status(500).json({ error: errInsert.message });
+    // E-mail de confirmação — reusa a mesma infra do resend.js, sem outro round-trip.
+    try {
+      const key = process.env.RESEND_API_KEY;
+      const remetente = process.env.EMAIL_REMETENTE || "";
+      if (key && remetente) {
+        const assunto = tipo === "suporte" ? "Recebemos sua solicitação de suporte" : "Recebemos seu pedido de informações sobre planos";
+        const corpo = tipo === "suporte"
+          ? `<p>Olá${nome ? " " + esc(nome) : ""}!</p><p>Recebemos sua solicitação de suporte/assessoria. Nossa equipe vai analisar e te responder por aqui em breve.</p><p>— INK SYSTEM</p>`
+          : `<p>Olá${nome ? " " + esc(nome) : ""}!</p><p>Recebemos seu interesse${plano_sugerido ? ` no plano <strong>${esc(plano_sugerido)}</strong>` : ""}. Vamos analisar e te responder por e-mail em breve.</p><p>— INK SYSTEM</p>`;
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
+          body: JSON.stringify({ from: remetente, to: email, subject: assunto, html: corpo }),
+        });
+      }
+    } catch { /* confirmação por e-mail é um extra -- não deve travar o envio do pedido */ }
+    return res.status(200).json({ ok: true });
+  }
+
   // ── PRÉVIA AO VIVO (aba "Meu Site" do CRM) ──────────────────────────────────
   // Mesma função de render do site real, mas com o rascunho ainda não salvo
   // (vem no corpo do POST, não busca nada no banco) — garante que a prévia

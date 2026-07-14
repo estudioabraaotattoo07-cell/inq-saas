@@ -10,13 +10,37 @@ const sb = createClient(SUPA_URL, SUPA_KEY);
 const OWNER_EMAIL = "estudioabraaotattoo07@gmail.com";
 // Preços e limites por plano — espelha ink-system-plataform/app/page.tsx (PLANOS).
 // Se mudar preço/limite lá, mudar aqui também (repos separados, sem import compartilhado).
-const PLANO_LIMITES: Record<string, { preco: number; fotosPorArtista: number; artistasInclusos: number }> = {
-  Bronze: { preco: 297, fotosPorArtista: 5, artistasInclusos: 2 },
-  Prata: { preco: 497, fotosPorArtista: 15, artistasInclusos: 4 },
-  Ouro: { preco: 597, fotosPorArtista: 30, artistasInclusos: 6 },
+const PLANO_LIMITES: Record<string, { preco: number; fotosPorArtista: number; artistasInclusos: number; smsPorMes: number; coresPersonalizadas: boolean }> = {
+  Bronze: { preco: 297, fotosPorArtista: 5, artistasInclusos: 2, smsPorMes: 15, coresPersonalizadas: false },
+  Prata: { preco: 497, fotosPorArtista: 15, artistasInclusos: 4, smsPorMes: 30, coresPersonalizadas: false },
+  Ouro: { preco: 597, fotosPorArtista: 30, artistasInclusos: 6, smsPorMes: 50, coresPersonalizadas: true },
 };
 const PROXIMO_PLANO: Record<string, string> = { Bronze: "Prata", Prata: "Ouro" };
 const WHATSAPP_SUPORTE_INK = "5527999598230"; // espelha ink-system-plataform/app/page.tsx (WHATSAPP_SUPORTE)
+
+// Quiz "qual plano cabe no meu bolso" — cada resposta aponta pro plano mínimo
+// que atende aquela necessidade; o resultado final é o mais "exigente" dos
+// quatro (não uma média), porque é isso que a pessoa realmente vai precisar.
+const QUIZ_PERGUNTAS = [
+  { chave: "artistas", texto: "Quantos artistas (incluindo você) vão usar o sistema no seu estúdio?",
+    opcoes: [{ v: "so_eu", t: "Só eu", plano: "Bronze" }, { v: "2_a_4", t: "2 a 4", plano: "Prata" }, { v: "5_ou_mais", t: "5 ou mais", plano: "Ouro" }] },
+  { chave: "personalizacao", texto: "Você quer que o site tenha a cara da sua marca — cores, fontes e estilo só seus — ou o visual padrão do sistema já te agrada?",
+    opcoes: [{ v: "sim", t: "Quero personalizar tudo", plano: "Ouro" }, { v: "nao", t: "O padrão já é lindo o suficiente", plano: "Bronze" }] },
+  { chave: "sms", texto: "Mais ou menos quantos SMS por mês (lembrete de horário, confirmação de sessão) você imagina precisar mandar?",
+    opcoes: [{ v: "ate_15", t: "Até 15", plano: "Bronze" }, { v: "ate_30", t: "Até 30", plano: "Prata" }, { v: "mais_30", t: "Mais de 30", plano: "Ouro" }] },
+  { chave: "fotos", texto: "Quer um portfólio robusto de fotos pra cada artista no site, ou uma vitrine mais simples já resolve?",
+    opcoes: [{ v: "vitrine", t: "Vitrine simples (até 5 fotos)", plano: "Bronze" }, { v: "medio", t: "Portfólio médio (até 15)", plano: "Prata" }, { v: "completo", t: "Portfólio completo (até 30)", plano: "Ouro" }] },
+];
+const PLANO_RANK: Record<string, number> = { Bronze: 1, Prata: 2, Ouro: 3 };
+function calcularPlanoRecomendado(respostas: Record<string, string>): string {
+  let melhor = "Bronze";
+  for (const pergunta of QUIZ_PERGUNTAS) {
+    const resp = respostas[pergunta.chave];
+    const opcao = pergunta.opcoes.find(o => o.v === resp);
+    if (opcao && PLANO_RANK[opcao.plano] > PLANO_RANK[melhor]) melhor = opcao.plano;
+  }
+  return melhor;
+}
 // Variável global para manter tool pendente da Aura sem stale closure
 let _auraToolPendenteCache: { tool: string; params: any; descricao: string } | null = null;
 
@@ -1183,6 +1207,15 @@ export default function CRM() {
   // ── LOGIN ──
   const [logado, setLogado] = useState(false);
   const [demoBootstrapping, setDemoBootstrapping] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "1");
+  const isDemoMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "1";
+  // ── Quiz de plano (demo) / formulário de suporte (cliente real) ──
+  const [showSolicitacao, setShowSolicitacao] = useState(false);
+  const [quizStep, setQuizStep] = useState(0);
+  const [quizRespostas, setQuizRespostas] = useState<Record<string, string>>({});
+  const [quizVendoComparativo, setQuizVendoComparativo] = useState(false);
+  const [solicForm, setSolicForm] = useState({ nome: "", email: "", telefone: "", estudio: "", mensagem: "" });
+  const [solicEnviando, setSolicEnviando] = useState(false);
+  const [solicEnviada, setSolicEnviada] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [showAuthPassword, setShowAuthPassword] = useState(false);
@@ -15740,6 +15773,138 @@ export default function CRM() {
             ✦ {(auraName && !auraName.includes("@")) ? auraName : "Configura a sua agente de IA"}
           </button>
         </div>
+
+        {/* ── BOTÃO DE SOLICITAÇÃO: quiz de plano (demo) / suporte (cliente real) ── */}
+        <div style={{ position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", left: 16, zIndex: 9999 }}>
+          <button onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setSolicEnviada(false); }}
+            style={{ background: "var(--dk3)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 50, padding: "12px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 20px rgba(0,0,0,.4)", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
+            {isDemoMode ? "💰 Quanto custa pro meu estúdio?" : "🛟 Suporte e assessoria"}
+          </button>
+        </div>
+
+        {showSolicitacao && (() => {
+          const perguntaAtual = QUIZ_PERGUNTAS[quizStep];
+          const quizTerminou = quizStep >= QUIZ_PERGUNTAS.length;
+          const planoRecomendado = quizTerminou ? calcularPlanoRecomendado(quizRespostas) : null;
+          const abrirFormulario = (plano: string | null) => {
+            setSolicForm(f => ({ ...f, mensagem: plano ? `Interesse no plano ${plano}.` : f.mensagem }));
+            setQuizStep(-1); // -1 = mostrando o formulário de contato
+          };
+          const enviarSolicitacao = async () => {
+            if (!solicForm.email || !solicForm.email.includes("@")) { setShowAviso("Preencha um e-mail válido."); return; }
+            setSolicEnviando(true);
+            try {
+              const resp = await fetch("https://inq-saas.vercel.app/api/lead?acao=criarSolicitacao", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  tipo: isDemoMode ? "plano" : "suporte",
+                  nome: solicForm.nome, email: solicForm.email, telefone: solicForm.telefone,
+                  estudio: solicForm.estudio, mensagem: solicForm.mensagem,
+                  plano_sugerido: isDemoMode ? planoRecomendado : null,
+                  respostas: isDemoMode ? quizRespostas : null,
+                  user_id: !isDemoMode ? userId : null,
+                }),
+              });
+              if (!resp.ok) {
+                const d = await resp.json().catch(() => ({}));
+                setShowAviso("❌ Não deu pra enviar: " + (d.error || "erro desconhecido"));
+              } else {
+                setSolicEnviada(true);
+              }
+            } catch {
+              setShowAviso("❌ Não deu pra enviar agora. Tenta de novo em instantes.");
+            }
+            setSolicEnviando(false);
+          };
+          return (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", backdropFilter: "blur(3px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+              onClick={() => setShowSolicitacao(false)}>
+              <div style={{ background: "var(--dk2)", border: "1px solid var(--gold)", borderRadius: 14, padding: 26, minWidth: 320, maxWidth: 460, width: "100%", maxHeight: "85vh", overflowY: "auto" }}
+                onClick={e => e.stopPropagation()}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 19, color: "var(--gold)" }}>
+                    {isDemoMode ? "✦ Qual plano cabe em você" : "✦ Suporte e assessoria"}
+                  </div>
+                  <button onClick={() => setShowSolicitacao(false)} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", fontSize: 18 }}>✕</button>
+                </div>
+
+                {solicEnviada ? (
+                  <div style={{ textAlign: "center", padding: "20px 0" }}>
+                    <div style={{ fontSize: 32, marginBottom: 10 }}>✓</div>
+                    <div style={{ fontSize: 14, color: "var(--tx)", marginBottom: 6 }}>Solicitação enviada!</div>
+                    <div style={{ fontSize: 12, color: "var(--tx3)" }}>Você vai receber um e-mail de confirmação em instantes. Nossa equipe analisa e retorna em breve.</div>
+                    <button className="btn-s" style={{ marginTop: 16 }} onClick={() => setShowSolicitacao(false)}>Fechar</button>
+                  </div>
+                ) : !isDemoMode ? (
+                  // ── Formulário simples de suporte (cliente real) ──
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div style={{ fontSize: 12, color: "var(--tx3)" }}>Conta pra gente o que você precisa — suporte técnico, dúvida ou assessoria. A gente responde por e-mail.</div>
+                    <input className="fi" placeholder="Seu nome" value={solicForm.nome} onChange={e => setSolicForm(f => ({ ...f, nome: e.target.value }))} />
+                    <input className="fi" placeholder="Seu e-mail *" value={solicForm.email || studioEmail} onChange={e => setSolicForm(f => ({ ...f, email: e.target.value }))} />
+                    <textarea className="fta" placeholder="Descreva sua solicitação..." value={solicForm.mensagem} onChange={e => setSolicForm(f => ({ ...f, mensagem: e.target.value }))} />
+                    <button className="btn-s" disabled={solicEnviando} onClick={enviarSolicitacao}>{solicEnviando ? "Enviando..." : "Enviar solicitação"}</button>
+                  </div>
+                ) : quizStep === -1 ? (
+                  // ── Formulário de contato (pós-quiz) ──
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div style={{ fontSize: 12, color: "var(--tx3)" }}>Só mais um passo — deixa seu contato que a gente te responde por e-mail.</div>
+                    <input className="fi" placeholder="Seu nome" value={solicForm.nome} onChange={e => setSolicForm(f => ({ ...f, nome: e.target.value }))} />
+                    <input className="fi" placeholder="Seu e-mail *" value={solicForm.email} onChange={e => setSolicForm(f => ({ ...f, email: e.target.value }))} />
+                    <input className="fi" placeholder="Nome do seu estúdio" value={solicForm.estudio} onChange={e => setSolicForm(f => ({ ...f, estudio: e.target.value }))} />
+                    <textarea className="fta" placeholder="Quer contar mais alguma coisa?" value={solicForm.mensagem} onChange={e => setSolicForm(f => ({ ...f, mensagem: e.target.value }))} />
+                    <button className="btn-s" disabled={solicEnviando} onClick={enviarSolicitacao}>{solicEnviando ? "Enviando..." : "Enviar solicitação"}</button>
+                  </div>
+                ) : quizVendoComparativo ? (
+                  // ── Comparativo dos 3 planos ──
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div style={{ fontSize: 12, color: "var(--tx3)" }}>Pode começar por um plano mais simples pra testar — o que não estiver incluso aparece destacado dentro do sistema, com a opção de liberar quando quiser, sem perder nada do que já configurou.</div>
+                    {(["Bronze", "Prata", "Ouro"] as const).map(p => {
+                      const info = PLANO_LIMITES[p];
+                      return (
+                        <div key={p} style={{ background: "#050505", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 10, padding: 14 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+                            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, color: "var(--gold)", fontWeight: 600 }}>{p}</div>
+                            <div style={{ fontSize: 15, color: "var(--tx)", fontWeight: 700 }}>R${info.preco}<span style={{ fontSize: 10, color: "var(--tx3)" }}>/mês</span></div>
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.8, marginBottom: 10 }}>
+                            {info.artistasInclusos} artistas inclusos · {info.fotosPorArtista} fotos por artista · {info.smsPorMes} SMS/mês · Cores e Estilo {info.coresPersonalizadas ? "✓ incluso" : "🔒 exclusivo Ouro"}
+                          </div>
+                          <button className="btn-sm" onClick={() => abrirFormulario(p)}>Falar sobre o {p}</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : quizTerminou ? (
+                  // ── Resultado + pergunta de orçamento ──
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14, textAlign: "center" }}>
+                    <div style={{ fontSize: 12, color: "var(--tx3)" }}>Pelo que você respondeu, o plano ideal é:</div>
+                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 26, color: "var(--gold)", fontWeight: 700 }}>{planoRecomendado}</div>
+                    <div style={{ fontSize: 20, color: "var(--tx)", fontWeight: 700 }}>R${PLANO_LIMITES[planoRecomendado!].preco}<span style={{ fontSize: 11, color: "var(--tx3)" }}>/mês</span></div>
+                    <div style={{ fontSize: 12, color: "var(--tx3)" }}>Isso cabe no seu orçamento agora?</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <button className="btn-s" onClick={() => abrirFormulario(planoRecomendado)}>✓ Sim, é esse que eu quero</button>
+                      <button className="btn-c" onClick={() => setQuizVendoComparativo(true)}>Quero ver as outras opções antes de decidir</button>
+                    </div>
+                  </div>
+                ) : (
+                  // ── Pergunta atual do quiz ──
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div style={{ fontSize: 10, color: "var(--tx3)", textAlign: "right" }}>{quizStep + 1}/{QUIZ_PERGUNTAS.length}</div>
+                    <div style={{ fontSize: 14, color: "var(--tx)", lineHeight: 1.6 }}>{perguntaAtual.texto}</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {perguntaAtual.opcoes.map(op => (
+                        <button key={op.v} className="btn-sm" style={{ textAlign: "left" }}
+                          onClick={() => { setQuizRespostas(r => ({ ...r, [perguntaAtual.chave]: op.v })); setQuizStep(s => s + 1); }}>
+                          {op.t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── MODAL: EDITAR ETAPA DO PIPELINE ── */}
         {editingStage && (
