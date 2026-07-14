@@ -10,11 +10,14 @@ const sb = createClient(SUPA_URL, SUPA_KEY);
 const OWNER_EMAIL = "estudioabraaotattoo07@gmail.com";
 // Preços e limites por plano — espelha ink-system-plataform/app/page.tsx (PLANOS).
 // Se mudar preço/limite lá, mudar aqui também (repos separados, sem import compartilhado).
-const PLANO_LIMITES: Record<string, { preco: number; fotosPorArtista: number; artistasInclusos: number; smsPorMes: number; coresPersonalizadas: boolean }> = {
-  Bronze: { preco: 297, fotosPorArtista: 5, artistasInclusos: 2, smsPorMes: 15, coresPersonalizadas: false },
-  Prata: { preco: 497, fotosPorArtista: 15, artistasInclusos: 4, smsPorMes: 30, coresPersonalizadas: false },
-  Ouro: { preco: 597, fotosPorArtista: 30, artistasInclusos: 6, smsPorMes: 50, coresPersonalizadas: true },
+const PLANO_LIMITES: Record<string, { preco: number; fotosPorArtista: number; artistasInclusos: number; smsPorMes: number; emailPorMes: number; coresPersonalizadas: boolean }> = {
+  Bronze: { preco: 297, fotosPorArtista: 5, artistasInclusos: 2, smsPorMes: 50, emailPorMes: 120, coresPersonalizadas: false },
+  Prata: { preco: 497, fotosPorArtista: 15, artistasInclusos: 4, smsPorMes: 100, emailPorMes: 200, coresPersonalizadas: false },
+  Ouro: { preco: 597, fotosPorArtista: 30, artistasInclusos: 6, smsPorMes: 200, emailPorMes: 400, coresPersonalizadas: true },
 };
+// Recarga automática ao estourar a cota do mês — mesmo valor fixo pra qualquer plano.
+const RECARGA_SMS = { qtd: 50, preco: 15 };
+const RECARGA_EMAIL = { qtd: 100, preco: 5 };
 const PROXIMO_PLANO: Record<string, string> = { Bronze: "Prata", Prata: "Ouro" };
 const WHATSAPP_SUPORTE_INK = "5527999598230"; // espelha ink-system-plataform/app/page.tsx (WHATSAPP_SUPORTE)
 
@@ -27,7 +30,7 @@ const QUIZ_PERGUNTAS = [
   { chave: "personalizacao", texto: "Você quer que o site tenha a cara da sua marca — cores, fontes e estilo só seus — ou o visual padrão do sistema já te agrada?",
     opcoes: [{ v: "sim", t: "Quero personalizar tudo", plano: "Ouro" }, { v: "nao", t: "O padrão já é lindo o suficiente", plano: "Bronze" }] },
   { chave: "sms", texto: "Mais ou menos quantos SMS por mês (lembrete de horário, confirmação de sessão) você imagina precisar mandar?",
-    opcoes: [{ v: "ate_15", t: "Até 15", plano: "Bronze" }, { v: "ate_30", t: "Até 30", plano: "Prata" }, { v: "mais_30", t: "Mais de 30", plano: "Ouro" }] },
+    opcoes: [{ v: "ate_50", t: "Até 50", plano: "Bronze" }, { v: "ate_100", t: "Até 100", plano: "Prata" }, { v: "mais_100", t: "Mais de 100", plano: "Ouro" }] },
   { chave: "fotos", texto: "Quer um portfólio robusto de fotos pra cada artista no site, ou uma vitrine mais simples já resolve?",
     opcoes: [{ v: "vitrine", t: "Vitrine simples (até 5 fotos)", plano: "Bronze" }, { v: "medio", t: "Portfólio médio (até 15)", plano: "Prata" }, { v: "completo", t: "Portfólio completo (até 30)", plano: "Ouro" }] },
 ];
@@ -1538,6 +1541,14 @@ export default function CRM() {
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
   const [pvEditando, setPvEditando] = useState<number | null>(null);
   const [canaisHabilitados, setCanaisHabilitados] = useState<{email: boolean; whatsapp: boolean; sms: boolean}>({ email: true, whatsapp: false, sms: false });
+  // ── USO MENSAL DE MENSAGERIA (e-mail/SMS) — cota do plano + recarga comprada ──
+  const [usoMensal, setUsoMensal] = useState({ emailEnviados: 0, smsEnviados: 0, emailComprado: 0, smsComprado: 0 });
+  const anoMesAtual = new Date().toISOString().slice(0, 7);
+  const logEnvio = useCallback((canal: "email" | "sms", qtd: number = 1) => {
+    if (!userId) return;
+    setUsoMensal(p => canal === "email" ? { ...p, emailEnviados: p.emailEnviados + qtd } : { ...p, smsEnviados: p.smsEnviados + qtd });
+    sb.rpc("incrementar_uso_mensageria", { p_user_id: userId, p_ano_mes: anoMesAtual, p_canal: canal, p_qtd: qtd }).then(() => {}, () => {});
+  }, [userId, anoMesAtual]);
   const [fluxoToggles, setFluxoToggles] = useState({ boas_vindas_email: true, nps: true, google_convite: true, confirmacao_presenca: true, notificacao_artista: true, confirma_consulta: true, confirma_sessao: true, sms_consulta: true, sms_sessao: true, recontato_prox_sessao: true, remarcar: true, agradecimento_1asessao: true, recontato_d30: true });
   const [toggleConfirm, setToggleConfirm] = useState<{campo: string; novoValor: boolean; label: string} | null>(null);
   // ── ACORDEÃO DAS RÉGUAS ──
@@ -1751,17 +1762,25 @@ export default function CRM() {
           if (!uid) return await sb.from("clientes").select("*").is("excluido_em", null).then(r => r.data);
           return await sb.from("clientes").select("*").or(`user_id.eq.${uid},user_id.is.null`).is("excluido_em", null).then(r => r.data);
         };
-        const [cls, arts, fins, sds, ags, cfgs, eqs, orgs, camps, evts] = await Promise.all([
+        const anoMesCarga = new Date().toISOString().slice(0, 7);
+        const [cls, arts, fins, sds, ags, cfgs, eqs, orgs, camps, evts, usoMes] = await Promise.all([
           loadClientes(), loadWithUser("artistas"), loadWithUser("financeiro"),
           loadWithUser("saidas"), loadWithUser("agenda"), loadCfg(), loadWithUser("equipamentos"),
           uid ? sb.from("origens").select("*").eq("user_id", uid).order("criado_em", { ascending: true }).then(r => r.data) : Promise.resolve([]),
           uid ? sb.from("campanhas").select("*").eq("user_id", uid).order("criado_em", { ascending: true }).then(r => r.data) : Promise.resolve([]),
-          uid ? sb.from("eventos_trafego").select("*").eq("user_id", uid).order("criado_em", { ascending: false }).then(r => r.data) : Promise.resolve([])
+          uid ? sb.from("eventos_trafego").select("*").eq("user_id", uid).order("criado_em", { ascending: false }).then(r => r.data) : Promise.resolve([]),
+          uid ? sb.from("mensageria_uso").select("*").eq("user_id", uid).eq("ano_mes", anoMesCarga).maybeSingle().then(r => r.data) : Promise.resolve(null)
         ]);
         if (orgs && orgs.length > 0) setOrigens(orgs);
         if (camps && camps.length > 0) setCampanhas(camps);
         if (evts && evts.length >= 0) setEventosTrafego(evts || []);
         if (eqs && eqs.length > 0) setEquipamentos(eqs);
+        setUsoMensal({
+          emailEnviados: usoMes?.emails_enviados || 0,
+          smsEnviados: usoMes?.sms_enviados || 0,
+          emailComprado: usoMes?.emails_comprados || 0,
+          smsComprado: usoMes?.sms_comprados || 0,
+        });
         // Carregar etapas do pipeline
         const { data: etapasDB } = await sb.from("pipeline_etapas").select("*").eq("user_id", uid).order("ordem", { ascending: true });
         if (etapasDB && etapasDB.length > 0) {
@@ -2035,6 +2054,7 @@ export default function CRM() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ apiKey: resendApiKey, from: (nomeRemetente || studioName || "INK SYSTEM") + " <" + emailRemetente + ">", to: pendente.cliente_email, subject: acao === "aprovar" ? "Agendamento confirmado — " + (studioName || "INK SYSTEM") : "Sobre seu agendamento — " + (studioName || "INK SYSTEM"), html })
           });
+          logEnvio("email");
         } catch {}
       }
       await addLog((acao === "aprovar" ? "✅ Agendamento aprovado" : "❌ Agendamento recusado") + " — " + pendente.cliente_nome + (pendente.profissional_nome ? " com " + pendente.profissional_nome : ""));
@@ -2120,6 +2140,7 @@ export default function CRM() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ apiKey: resendApiKey, from: emailRemetente, to: cliente.email, subject: etapa.label + " — " + (studioName || "INK SYSTEM"), html })
           });
+          logEnvio("email");
           enviados++;
         } else if ((canal === "whatsapp" || canal === "sms") && zenviaApiKey && zenviaNumero && cliente.tel) {
           await fetch("/api/zenvia", {
@@ -2127,6 +2148,7 @@ export default function CRM() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ from: zenviaNumero, to: cliente.tel, text: msg, canal })
           });
+          if (canal === "sms") logEnvio("sms");
           enviados++;
         }
       } catch {}
@@ -2192,6 +2214,7 @@ export default function CRM() {
           html
         })
       });
+      logEnvio("email");
       setShowAviso("✅ Relatório de " + nomeMes + "/" + ano + " enviado para " + studioEmail + ". Encaminhe para seu contador.");
     } catch { setShowAviso("❌ Erro ao enviar relatório. Verifique as configurações de e-mail."); }
     setEnviandoRelatorio(false);
@@ -3226,6 +3249,7 @@ export default function CRM() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey: resendApiKey, from: `${nomeRemetente || studioNomeF} <${emailRemetente}>`, to: cliente.email, subject: `Seu piercing foi feito, ${cliente.nome}! Cuidados importantes 🖤`, html }),
       });
+      logEnvio("email");
     } catch { /* silencioso — solicitação já foi concluída */ }
   };
 
@@ -3266,6 +3290,7 @@ export default function CRM() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey: resendApiKey, from: `${nomeRemetente || studioNomeF} <${emailRemetente}>`, to: cliente.email, subject: `Bem-vindo(a) à ${studioNomeF}, ${cliente.nome}! 🖤`, html }),
       });
+      logEnvio("email");
     } catch { /* silencioso — cliente já foi salvo */ }
   };
 
@@ -3332,6 +3357,7 @@ export default function CRM() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey: resendApiKey, from: `${nomeRemetente || studioNomeF} <${emailRemetente}>`, to: cliente.email, subject: assunto, html }),
       });
+      logEnvio("email");
     } catch { /* silencioso — agendamento já foi salvo */ }
   };
 
@@ -3587,6 +3613,7 @@ export default function CRM() {
               html: "<p>" + mensagem.replace(/\n/g, "<br/>") + "</p><br/><p style='font-size:11px;color:#888'>— " + (studioName || "") + "</p>"
             })
           });
+          logEnvio("email");
           emailOk++;
         } catch {}
       }
@@ -3602,6 +3629,7 @@ export default function CRM() {
               text: smsBody
             })
           });
+          logEnvio("sms");
           smsOk++;
         } catch {}
       }
@@ -3911,6 +3939,7 @@ export default function CRM() {
             html: "<p>" + params.mensagem.replace(/\n/g, "<br/>") + "</p>"
           })
         });
+        logEnvio("email");
         try { await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: (auraName || "IA") + " enviou email para " + params.cliente_nome, user_id: userId }); } catch {}
         return "✅ Email enviado para " + params.cliente_nome + " (" + params.cliente_email + ").";
       }
@@ -4041,6 +4070,7 @@ export default function CRM() {
             const errData = await smsResp.json().catch(() => ({}));
             return "❌ Zenvia retornou erro " + smsResp.status + ": " + (errData.message || errData.error || JSON.stringify(errData));
           }
+          logEnvio("sms");
           try {
             await sb.from("historico").insert({
               data: dataStr,
@@ -4068,6 +4098,7 @@ export default function CRM() {
               html: "<p>" + params.mensagem.replace(/\n/g, "<br>") + "</p><p style='font-size:12px;color:#999'>Enviado via INK SYSTEM</p>"
             })
           });
+          logEnvio("email");
           try {
             await sb.from("historico").insert({
               data: dataStr, hora: horaStr,
@@ -5784,10 +5815,10 @@ export default function CRM() {
                 if (disparoMassa!.canal === "email" && c.email && resendApiKey) {
                   const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
                   const r = await fetch("/api/resend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: resendApiKey, from: (nomeRemetente || studioName || "INK SYSTEM") + " <" + emailRemetente + ">", to: c.email, subject: "Mensagem de " + (studioName || "INK SYSTEM"), html }) });
-                  if (r.ok) ok++;
+                  if (r.ok) { ok++; logEnvio("email"); }
                 } else if (disparoMassa!.canal === "sms" && c.tel && zenviaApiKey && zenviaNumero) {
                   const r = await fetch("/api/zenvia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: zenviaNumero, to: c.tel, text: msg, canal: "sms" }) });
-                  if (r.ok) ok++;
+                  if (r.ok) { ok++; logEnvio("sms"); }
                 }
               } catch {}
             }
@@ -7859,15 +7890,39 @@ export default function CRM() {
                 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", marginBottom: 4 }}>Canais habilitados</div>
                 <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 10 }}>Status definido por teste real, em Configurações → IA. O canal usado em cada mensagem é escolhido na própria régua.</div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  {([["email", "E-mail"], ["whatsapp", "WhatsApp"], ["sms", "SMS"]] as const).map(([ch, label]) => {
+                  {(authEmail === OWNER_EMAIL ? (["email", "whatsapp", "sms"] as const) : (["email", "sms"] as const)).map((ch) => {
+                    const label = ch === "email" ? "E-mail" : ch === "sms" ? "SMS" : "WhatsApp";
                     const testado = canaisHabilitados[ch] === true;
+                    const ehOwner = authEmail === OWNER_EMAIL;
+                    const enviados = ch === "email" ? usoMensal.emailEnviados : ch === "sms" ? usoMensal.smsEnviados : 0;
+                    const comprado = ch === "email" ? usoMensal.emailComprado : ch === "sms" ? usoMensal.smsComprado : 0;
+                    const cota = ch === "email" ? PLANO_LIMITES[sitePlano]?.emailPorMes : ch === "sms" ? PLANO_LIMITES[sitePlano]?.smsPorMes : undefined;
+                    const cotaTotal = (cota || 0) + comprado;
+                    const pct = cotaTotal > 0 ? Math.min(100, (enviados / cotaTotal) * 100) : 0;
+                    const corBarra = pct >= 90 ? "#e74c3c" : pct >= 70 ? "#e6b800" : "var(--q3)";
                     return (
-                      <div key={ch}
-                        title={testado ? "Testado e aprovado" : "Ainda não testado — vá em Configurações → IA para testar"}
-                        style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 12px", background: testado ? "rgba(39,174,96,.08)" : "var(--dk4)", border: "1px solid " + (testado ? "rgba(39,174,96,.3)" : "var(--br)"), borderRadius: 9, opacity: testado ? 1 : 0.55 }}>
-                        <div style={{ width: 9, height: 9, borderRadius: "50%", background: testado ? "var(--q3)" : "var(--tx3)", flexShrink: 0 }} />
-                        <span style={{ fontSize: 12, color: testado ? "var(--q3)" : "var(--tx3)", fontWeight: 500 }}>{label}</span>
-                        <span style={{ fontSize: 10, color: "var(--tx3)" }}>{testado ? "— testado e aprovado" : "— não testado"}</span>
+                      <div key={ch} style={{ minWidth: 150 }}>
+                        <div
+                          title={testado ? "Testado e aprovado" : "Ainda não testado — vá em Configurações → IA para testar"}
+                          style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 12px", background: testado ? "rgba(39,174,96,.08)" : "var(--dk4)", border: "1px solid " + (testado ? "rgba(39,174,96,.3)" : "var(--br)"), borderRadius: 9, opacity: testado ? 1 : 0.55 }}>
+                          <div style={{ width: 9, height: 9, borderRadius: "50%", background: testado ? "var(--q3)" : "var(--tx3)", flexShrink: 0 }} />
+                          <span style={{ fontSize: 12, color: testado ? "var(--q3)" : "var(--tx3)", fontWeight: 500 }}>{label}</span>
+                          <span style={{ fontSize: 10, color: "var(--tx3)" }}>{testado ? "— testado e aprovado" : "— não testado"}</span>
+                        </div>
+                        {(ch === "email" || ch === "sms") && (
+                          <div style={{ marginTop: 6 }}>
+                            {ehOwner ? (
+                              <div style={{ fontSize: 10, color: "var(--tx3)" }}>{enviados} enviados este mês · conta ilimitada</div>
+                            ) : (
+                              <>
+                                <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{enviados}/{cotaTotal} este mês{comprado > 0 ? ` (+${comprado} adquiridos)` : ""}</div>
+                                <div style={{ width: "100%", height: 5, background: "var(--dk4)", borderRadius: 3, overflow: "hidden" }}>
+                                  <div style={{ width: pct + "%", height: "100%", background: corBarra, transition: "width .3s, background .3s" }} />
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -9499,6 +9554,7 @@ export default function CRM() {
                       });
                       const rData = await r.json().catch(() => ({}));
                       if (r.ok) {
+                        logEnvio("email");
                         await salvarDocsStatus(docId, "enviado");
                         alert(`Email enviado para ${sc.email}`);
                       } else {
@@ -9598,6 +9654,7 @@ export default function CRM() {
                         }),
                       });
                       if (r.ok) {
+                        logEnvio("email");
                         alert(`Link de assinatura enviado para ${emailDestino}. Valido por 7 dias.`);
                       } else {
                         let motivo = "";
@@ -10025,7 +10082,7 @@ export default function CRM() {
                                       </span>
                                     );
                                   })()}
-                                  {(() => {
+                                  {authEmail === OWNER_EMAIL && (() => {
                                     const telCliente = ((sc as any).tel || "").replace(/\D/g, "");
                                     const telWa = telCliente.startsWith("55") ? telCliente : "55" + telCliente;
                                     const linkDoc = (sc as any).assinar_link?.[doc.id]?.token
@@ -15869,7 +15926,7 @@ export default function CRM() {
                             <div style={{ fontSize: 15, color: "var(--tx)", fontWeight: 700 }}>R${info.preco}<span style={{ fontSize: 10, color: "var(--tx3)" }}>/mês</span></div>
                           </div>
                           <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.8, marginBottom: 10 }}>
-                            {info.artistasInclusos} artistas inclusos · {info.fotosPorArtista} fotos por artista · {info.smsPorMes} SMS/mês · Cores e Estilo {info.coresPersonalizadas ? "✓ incluso" : "🔒 exclusivo Ouro"}
+                            {info.artistasInclusos} artistas inclusos · {info.fotosPorArtista} fotos por artista · {info.smsPorMes} SMS/mês · {info.emailPorMes} e-mails/mês · Cores e Estilo {info.coresPersonalizadas ? "✓ incluso" : "🔒 exclusivo Ouro"}
                           </div>
                           <button className="btn-sm" onClick={() => abrirFormulario(p)}>Falar sobre o {p}</button>
                         </div>
