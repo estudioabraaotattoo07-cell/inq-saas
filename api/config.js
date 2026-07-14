@@ -35,6 +35,7 @@ export default async function handler(req, res) {
     const cfgPayload = {
       user_id: uid, studio_name: "Seu Estúdio", studio_owner: "Seu Nome",
       studio_email: "demo@inksystem.com.br", studio_city: "Vitória", studio_estado: "ES",
+      studio_tel: "(27) 99999-0000",
       onboarding_done: false,
     };
     if (cfgExistente) await sb.from("configuracoes").update(cfgPayload).eq("id", cfgExistente.id);
