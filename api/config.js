@@ -23,6 +23,11 @@ export default async function handler(req, res) {
     for (const t of ["clientes", "agenda", "financeiro", "historico", "artistas"]) {
       await sb.from(t).delete().eq("user_id", uid);
     }
+    // Garante licença sempre válida pra conta demo (checada no login).
+    const { data: licExistente } = await sb.from("licencas").select("id").eq("user_id", uid).limit(1).maybeSingle();
+    const licPayload = { user_id: uid, status: "ativo", data_vencimento: "2099-12-31", plano: "Ouro" };
+    if (licExistente) await sb.from("licencas").update(licPayload).eq("id", licExistente.id);
+    else await sb.from("licencas").insert(licPayload);
     const artistaId1 = crypto.randomUUID();
     const artistaId2 = crypto.randomUUID();
     await sb.from("artistas").insert([
