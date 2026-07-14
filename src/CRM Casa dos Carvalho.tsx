@@ -1082,6 +1082,20 @@ function maskCNPJ(v: string) {
 function slugify(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
+// Endereço público do site: propõe um slug único a partir do nome do estúdio,
+// acrescentando -2/-3... se já existir outra conta com o mesmo nome. Usado
+// tanto no onboarding quanto na aba Meu Site — mesma regra nos dois lugares.
+async function gerarSlugUnico(nomeEstudio: string): Promise<string> {
+  const base = slugify(nomeEstudio) || "estudio";
+  let candidato = base;
+  let n = 2;
+  while (true) {
+    const { data } = await sb.from("ink_clientes").select("id").eq("slug", candidato).limit(1).maybeSingle();
+    if (!data) return candidato;
+    candidato = `${base}-${n}`;
+    n++;
+  }
+}
 function maskTel(v: string) {
   if (!v) return "";
   v = String(v).replace(/\D/g, "").slice(0, 11);
@@ -1200,6 +1214,9 @@ export default function CRM() {
   const [showSplash, setShowSplash] = useState(() => !!localStorage.getItem("inq_onb"));
   const [userId, setUserId] = useState<string>("");
   const [onbStep, setOnbStep] = useState(0);
+  const [onbSlugProposto, setOnbSlugProposto] = useState("");
+  const [onbSlugConfirmado, setOnbSlugConfirmado] = useState("");
+  const [onbSlugSalvando, setOnbSlugSalvando] = useState(false);
   const [onbSalvando, setOnbSalvando] = useState(false);
   const [dark, setDark] = useState(true);
   const [tema, setTema] = useState<ThemeId>("carvalho");
@@ -2204,20 +2221,25 @@ export default function CRM() {
   // — a gravação de verdade só acontece quando o usuário confirma.
   useEffect(() => {
     if (tab !== "site" || !siteLoaded || siteSlug || !studioName || !userId) return;
-    (async () => {
-      const base = slugify(studioName) || "estudio";
-      let candidato = base;
-      let n = 2;
-      // Confere colisão com outra conta (não a própria, que ainda não tem slug).
-      while (true) {
-        const { data } = await sb.from("ink_clientes").select("id").eq("slug", candidato).limit(1).maybeSingle();
-        if (!data) break;
-        candidato = `${base}-${n}`;
-        n++;
-      }
-      setSlugProposto(candidato);
-    })();
+    gerarSlugUnico(studioName).then(setSlugProposto);
   }, [tab, siteLoaded, siteSlug, studioName, userId]);
+
+  // Mesma proposta de endereço, mas no passo final do onboarding — dá pra
+  // confirmar já ou deixar pra decidir depois na aba Meu Site.
+  useEffect(() => {
+    if (onboardingDone || onbStep !== 3 || !studioName) return;
+    gerarSlugUnico(studioName).then(setOnbSlugProposto);
+  }, [onboardingDone, onbStep, studioName]);
+
+  const confirmarSlugOnboarding = async () => {
+    if (!onbSlugProposto || !userId) return;
+    setOnbSlugSalvando(true);
+    const { error } = await sb.from("ink_clientes").update({ slug: onbSlugProposto }).eq("auth_user_id", userId);
+    setOnbSlugSalvando(false);
+    if (error) { setShowAviso("❌ Erro ao definir o endereço: " + error.message); return; }
+    setSiteSlug(onbSlugProposto);
+    setOnbSlugConfirmado(onbSlugProposto);
+  };
 
   const confirmarSlug = async () => {
     if (!slugProposto || !userId) return;
@@ -5050,6 +5072,23 @@ export default function CRM() {
               <div style={{ fontSize: 13, color: "#8A8070", lineHeight: 1.7 }}>
                 O <strong style={{ color: "#E8E2D9" }}>{studioName}</strong> esta configurado.<br />Bem-vindo ao INK SYSTEM.
               </div>
+              {onbSlugConfirmado ? (
+                <div style={{ fontSize: 12, color: "#27AE60", background: "rgba(39,174,96,0.1)", border: "1px solid rgba(39,174,96,0.3)", borderRadius: 8, padding: "10px 14px", width: "100%" }}>
+                  ✓ Endereço definido: <b>inksystem.com.br/{onbSlugConfirmado}</b>
+                </div>
+              ) : onbSlugProposto && (
+                <div style={{ fontSize: 12, color: "#8A8070", background: "#1A1A1A", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 8, padding: "12px 14px", width: "100%", textAlign: "left", lineHeight: 1.6 }}>
+                  Seu endereço público seria <b style={{ color: "#C9A84C" }}>inksystem.com.br/{onbSlugProposto}</b>, baseado no nome do estúdio. <b>Isso é definitivo e não pode ser trocado depois</b> — mas você não precisa decidir agora, dá pra confirmar mais tarde na aba "Meu Site".
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <button className="btn-s" disabled={onbSlugSalvando} onClick={confirmarSlugOnboarding} style={{ flex: 1 }}>
+                      {onbSlugSalvando ? "Confirmando..." : "✓ Confirmar agora"}
+                    </button>
+                    <button className="btn-c" disabled={onbSlugSalvando} onClick={() => setOnbSlugProposto("")} style={{ flex: 1 }}>
+                      Decidir depois
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <div style={{ padding: "14px 28px", borderTop: "1px solid rgba(201,168,76,0.12)", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -13765,6 +13804,9 @@ export default function CRM() {
                 <div>
                   <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 600, color: "var(--gold)" }}>✦ Meu Site</h2>
                   <div style={{ fontSize: 11, color: "var(--tx3)" }}>Edite o conteúdo do seu site público — ao salvar, já publica sozinho.</div>
+                  {siteSlug && (
+                    <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 4 }}>Seu endereço: <b style={{ color: "var(--gold)" }}>inksystem.com.br/{siteSlug}</b></div>
+                  )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div onClick={() => upd({ publicado: !sc.publicado })} title={sc.publicado ? "Site publicado — clique para despublicar" : "Site em rascunho — clique para publicar"}
