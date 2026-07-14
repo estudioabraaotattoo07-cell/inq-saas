@@ -15,6 +15,22 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
+  // Branch de manutenção TEMPORÁRIO (remover depois de usar uma vez) — limpa
+  // a aba "Meu Site" da conta real (Casa dos Carvalho), contaminada por causa
+  // do bug de sessão compartilhada entre abas com a conta de teste.
+  if (req.query?.resetMeuSite === "confirmado") {
+    await sb.from("site_conteudo").update({
+      hero_foto_url: null, hero_frase: null, manifesto_frase: null,
+      banner_foto_url: null, banner_titulo: null, banner_texto: null,
+      depoimentos: [], como_titulo: null, como_passos: [], estilo: {},
+      publicado: false,
+    }).eq("user_id", STUDIO_USER_ID);
+    await sb.from("artistas").update({
+      foto_site_url: null, bio_site: null, portfolio_fotos: [], botao_social_label: null,
+    }).eq("user_id", STUDIO_USER_ID);
+    return res.status(200).json({ ok: true, limpo: STUDIO_USER_ID });
+  }
+
   try {
     const { data } = await sb.from("configuracoes")
       .select("studio_tel, studio_name")
