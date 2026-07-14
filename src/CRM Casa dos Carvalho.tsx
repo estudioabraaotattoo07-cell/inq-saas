@@ -13919,7 +13919,7 @@ export default function CRM() {
 
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Cores e Estilo</div>
-                <Help>Personalize a identidade visual do seu site — cores, cantos, fonte do título, brilho e velocidade da esteira de fotos.</Help>
+                <Help>Personalize a identidade visual do seu site — cores (fundo, botão e texto), cantos, estilo de fontes, brilho e velocidade da esteira de fotos.</Help>
                 <TravaPlano minPlano="Ouro" featureNome="Cores e Estilo personalizados">
                   {(() => {
                     const est = sc.estilo || {};
@@ -13939,6 +13939,14 @@ export default function CRM() {
                             <label className="fl">Cor do botão (fim do degradê)</label>
                             <input type="color" value={est.corBotao2 || "#8a6a24"} onChange={e => updEst({ corBotao2: e.target.value })} style={{ width: 60, height: 34, background: "none", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 6, cursor: "pointer" }} />
                           </div>
+                          <div className="ff">
+                            <label className="fl">Cor do texto de destaque</label>
+                            <input type="color" value={est.corTitulo || "#ffffff"} onChange={e => updEst({ corTitulo: e.target.value })} style={{ width: 60, height: 34, background: "none", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 6, cursor: "pointer" }} />
+                          </div>
+                          <div className="ff">
+                            <label className="fl">Cor do texto corrido</label>
+                            <input type="color" value={est.corCorpo || "#c8c8c8"} onChange={e => updEst({ corCorpo: e.target.value })} style={{ width: 60, height: 34, background: "none", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 6, cursor: "pointer" }} />
+                          </div>
                         </div>
                         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                           <div className="ff">
@@ -13946,13 +13954,24 @@ export default function CRM() {
                             <select className="fi" value={est.cantos || "reto"} onChange={e => updEst({ cantos: e.target.value })}>
                               <option value="reto">Retos</option>
                               <option value="arredondado">Arredondados</option>
+                              <option value="capsula">Sem bordas (cápsula)</option>
                             </select>
                           </div>
                           <div className="ff">
-                            <label className="fl">Fonte do título</label>
-                            <select className="fi" value={est.fonteTitulo || "classico"} onChange={e => updEst({ fonteTitulo: e.target.value })}>
-                              <option value="classico">Clássica (serifada)</option>
-                              <option value="moderno">Moderna (sem serifa)</option>
+                            <label className="fl">Estilo de fontes</label>
+                            <select className="fi" value={est.fontePreset || "classico"} onChange={e => updEst({ fontePreset: e.target.value })}>
+                              <option value="classico">Clássico Elegante</option>
+                              <option value="editorial">Editorial Moderno</option>
+                              <option value="minimalista">Minimalista</option>
+                              <option value="vintage">Vintage</option>
+                              <option value="urbano">Urbano</option>
+                              <option value="sofisticado">Sofisticado</option>
+                              <option value="gotico">Gótico</option>
+                              <option value="artdeco">Art Déco</option>
+                              <option value="rustico">Rústico</option>
+                              <option value="futurista">Futurista</option>
+                              <option value="autoral">Autoral</option>
+                              <option value="serifmoderna">Serifada Moderna</option>
                             </select>
                           </div>
                           <div className="ff">

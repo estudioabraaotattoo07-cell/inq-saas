@@ -143,10 +143,33 @@ function paginaSitePremium(site, cfg, artistas, slug) {
   const corFundo = /^#[0-9a-f]{3,8}$/i.test(est.corFundo || "") ? est.corFundo : "#080808";
   const corBotao1 = /^#[0-9a-f]{3,8}$/i.test(est.corBotao1 || "") ? est.corBotao1 : "#E8C97A";
   const corBotao2 = /^#[0-9a-f]{3,8}$/i.test(est.corBotao2 || "") ? est.corBotao2 : "#8a6a24";
-  const radius = est.cantos === "arredondado" ? "14px" : "0px";
-  const fonteTitulo = est.fonteTitulo === "moderno" ? "'Montserrat',sans-serif" : "'Cormorant Garamond',serif";
+  const corTitulo = /^#[0-9a-f]{3,8}$/i.test(est.corTitulo || "") ? est.corTitulo : "#ffffff";
+  const corCorpo = /^#[0-9a-f]{3,8}$/i.test(est.corCorpo || "") ? est.corCorpo : "rgba(255,255,255,0.38)";
+  const radius = { arredondado: "14px", capsula: "999px" }[est.cantos] || "0px";
   const glow = { nenhum: "0px", suave: "10px", intenso: "26px" }[est.brilho] || "0px";
   const velocidadeMult = { lento: 1.6, normal: 1, rapido: 0.6 }[est.velocidadeCarrossel] || 1;
+
+  // Composições de fonte prontas (título + corpo já combinados por um designer)
+  // em vez de escolher cada fonte solta — mais fácil de acertar visualmente.
+  // Só carrega no Google Fonts as 2 famílias da composição escolhida, não as 12.
+  const FONT_PRESETS = {
+    classico: { nome: "Clássico Elegante", titulo: "'Cormorant Garamond',serif", corpo: "'Montserrat',sans-serif", google: "Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600" },
+    editorial: { nome: "Editorial Moderno", titulo: "'Playfair Display',serif", corpo: "'Inter',sans-serif", google: "Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600" },
+    minimalista: { nome: "Minimalista", titulo: "'Poppins',sans-serif", corpo: "'Inter',sans-serif", google: "Poppins:wght@300;500;600&family=Inter:wght@300;400;500" },
+    vintage: { nome: "Vintage", titulo: "'Abril Fatface',serif", corpo: "'Lato',sans-serif", google: "Abril+Fatface&family=Lato:wght@300;400;600" },
+    urbano: { nome: "Urbano", titulo: "'Bebas Neue',sans-serif", corpo: "'Roboto',sans-serif", google: "Bebas+Neue&family=Roboto:wght@300;400;500" },
+    sofisticado: { nome: "Sofisticado", titulo: "'Cormorant',serif", corpo: "'Work Sans',sans-serif", google: "Cormorant:wght@300;500;600&family=Work+Sans:wght@300;400;500" },
+    gotico: { nome: "Gótico", titulo: "'Cinzel',serif", corpo: "'Nunito Sans',sans-serif", google: "Cinzel:wght@400;600&family=Nunito+Sans:wght@300;400;600" },
+    artdeco: { nome: "Art Déco", titulo: "'Poiret One',sans-serif", corpo: "'Raleway',sans-serif", google: "Poiret+One&family=Raleway:wght@300;400;500" },
+    rustico: { nome: "Rústico", titulo: "'Special Elite',cursive", corpo: "'Roboto Condensed',sans-serif", google: "Special+Elite&family=Roboto+Condensed:wght@300;400;500" },
+    futurista: { nome: "Futurista", titulo: "'Orbitron',sans-serif", corpo: "'Rubik',sans-serif", google: "Orbitron:wght@400;600;700&family=Rubik:wght@300;400;500" },
+    autoral: { nome: "Autoral", titulo: "'Caveat',cursive", corpo: "'Montserrat',sans-serif", google: "Caveat:wght@500;700&family=Montserrat:wght@300;400;500" },
+    serifmoderna: { nome: "Serifada Moderna", titulo: "'Fraunces',serif", corpo: "'DM Sans',sans-serif", google: "Fraunces:wght@400;600&family=DM+Sans:wght@300;400;500" },
+  };
+  const fontePreset = FONT_PRESETS[est.fontePreset] || FONT_PRESETS.classico;
+  const fonteTitulo = fontePreset.titulo;
+  const fonteCorpo = fontePreset.corpo;
+  const googleFontsHref = `https://fonts.googleapis.com/css2?family=${fontePreset.google}&display=swap`;
 
   const IG_ICON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M12 2.2c3.2 0 3.58.01 4.85.07 1.17.05 1.8.24 2.23.41.56.21.96.47 1.38.89.42.42.68.82.89 1.38.17.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.24 1.8-.41 2.23-.21.56-.47.96-.89 1.38-.42.42-.82.68-1.38.89-.42.17-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.24-2.23-.41a3.7 3.7 0 0 1-1.38-.89 3.7 3.7 0 0 1-.89-1.38c-.17-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.24-1.8.41-2.23.21-.56.47-.96.89-1.38.42-.42.82-.68 1.38-.89.42-.17 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.31-1.46.72-2.13 1.38C1.35 2.68.94 3.35.63 4.14c-.3.76-.5 1.64-.56 2.91C0 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.72 1.46 1.38 2.13.67.66 1.34 1.07 2.13 1.38.76.3 1.64.5 2.91.56C8.33 24 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.31 1.46-.72 2.13-1.38.66-.67 1.07-1.34 1.38-2.13.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91a5.9 5.9 0 0 0-1.38-2.13A5.9 5.9 0 0 0 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0Z" fill="currentColor"/><path d="M12 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84Zm0 10.16A4 4 0 1 1 16 12a4 4 0 0 1-4 4Z" fill="currentColor"/><circle cx="18.41" cy="5.59" r="1.44" fill="currentColor"/></svg>`;
   const EXPAND_ICON = `<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
@@ -236,12 +259,12 @@ ${pixelId ? `<script>
 fbq('init', '${esc(pixelId)}');
 fbq('track', 'PageView');
 </script>` : ""}
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="${googleFontsHref}" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--gold:${corBotao1};--gold-2:${corBotao2};--gold-dim:rgba(201,168,76,0.35);--bg:${corFundo};--off:#e8e4dc;--dim:rgba(255,255,255,0.38);--pad:52px;--radius:${radius};--font-titulo:${fonteTitulo};--glow:${glow}}
+:root{--gold:${corBotao1};--gold-2:${corBotao2};--gold-dim:rgba(201,168,76,0.35);--bg:${corFundo};--off:#e8e4dc;--dim:${corCorpo};--pad:52px;--radius:${radius};--font-titulo:${fonteTitulo};--font-corpo:${fonteCorpo};--cor-titulo:${corTitulo};--glow:${glow}}
 html{scroll-behavior:smooth}
-body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflow-x:hidden}
+body{background:var(--bg);color:var(--cor-titulo);font-family:var(--font-corpo);overflow-x:hidden}
 .nav{position:fixed;top:0;left:0;right:0;z-index:300;display:flex;align-items:center;justify-content:space-between;padding:14px var(--pad);background:rgba(8,8,8,0.93);backdrop-filter:blur(14px);border-bottom:0.5px solid rgba(255,255,255,0.05)}
 .nav-name{font-size:9px;font-weight:500;letter-spacing:3px;color:var(--off);text-transform:uppercase}
 .nav-cta{font-size:7.5px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold);padding:10px 22px;background:transparent;text-decoration:none;white-space:nowrap}
@@ -250,7 +273,7 @@ body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflo
 .hero-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(8,8,8,0.1) 0%,rgba(8,8,8,0.05) 25%,rgba(8,8,8,0.35) 55%,rgba(8,8,8,0.78) 72%,rgba(8,8,8,0.96) 87%,#080808 100%)}
 .hero-text{position:absolute;bottom:0;left:0;right:0;z-index:3;text-align:center;padding:0 24px 36px}
 .hero-location{font-size:8px;font-weight:400;letter-spacing:5px;color:rgba(232,228,220,0.5);text-transform:uppercase;margin-bottom:14px}
-.hero-headline{font-family:var(--font-titulo);font-size:clamp(28px,5vw,64px);font-weight:300;line-height:1.02;color:#fff;text-transform:uppercase}
+.hero-headline{font-family:var(--font-titulo);font-size:clamp(28px,5vw,64px);font-weight:300;line-height:1.02;color:var(--cor-titulo);text-transform:uppercase}
 .cta-zone{background:var(--bg);padding:44px var(--pad);display:flex;justify-content:center}
 .btn-gold{display:inline-flex;align-items:center;gap:10px;font-size:8px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:#000;background:linear-gradient(135deg,var(--gold),var(--gold-2));border-radius:var(--radius);padding:16px 36px;text-decoration:none;white-space:nowrap;box-shadow:0 0 var(--glow) var(--gold-dim)}
 .manifesto{padding:56px var(--pad) 96px;text-align:center}
@@ -259,7 +282,7 @@ body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflo
 .artist-row{display:flex;align-items:flex-end;padding:0 var(--pad);margin-bottom:28px;gap:22px}
 .artist-photo{width:140px;height:185px;object-fit:cover;flex-shrink:0;border-radius:var(--radius)}
 .artist-eyebrow{font-size:7.5px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
-.artist-name{font-family:var(--font-titulo);font-size:clamp(22px,2.8vw,34px);font-weight:300;color:#fff;margin-bottom:6px}
+.artist-name{font-family:var(--font-titulo);font-size:clamp(22px,2.8vw,34px);font-weight:300;color:var(--cor-titulo);margin-bottom:6px}
 .artist-tagline{font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:12px;max-width:360px}
 .ig-link{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:500;letter-spacing:2px;color:var(--gold);text-decoration:none}
 .strip-outer{overflow:hidden;position:relative;padding-bottom:40px}
@@ -310,7 +333,7 @@ body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflo
 .banner-img{display:block;width:100%;height:auto;min-height:400px;object-fit:cover;filter:brightness(0.42)}
 .banner-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,#080808 0%,rgba(8,8,8,0.08) 20%,rgba(8,8,8,0.08) 65%,rgba(8,8,8,0.75) 84%,#080808 100%)}
 .banner-bottom{position:absolute;bottom:0;left:0;right:0;z-index:2;padding:0 var(--pad) 56px;text-align:center}
-.banner-title{font-family:var(--font-titulo);font-size:clamp(28px,5vw,58px);font-weight:300;line-height:1.05;color:#fff;margin-bottom:14px}
+.banner-title{font-family:var(--font-titulo);font-size:clamp(28px,5vw,58px);font-weight:300;line-height:1.05;color:var(--cor-titulo);margin-bottom:14px}
 .banner-body{font-size:11.5px;color:rgba(232,228,220,0.5);line-height:1.9;max-width:520px;margin:0 auto}
 footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28px;background:#050505;text-align:center}
 .footer-line{font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:6px}
