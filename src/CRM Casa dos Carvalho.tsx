@@ -1645,23 +1645,32 @@ export default function CRM() {
   useEffect(() => {
     const isDemoUrl = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "1";
     sb.auth.getSession().then(async ({ data: { session } }) => {
+      if (isDemoUrl) {
+        // Modo demo: reseta os dados fictícios SEMPRE, mesmo se a sessão da
+        // conta demo já existir de uma visita anterior — senão um F5 mantém
+        // o que a última pessoa digitou, em vez de voltar tudo do zero.
+        try { await fetch("https://inq-saas.vercel.app/api/config?acao=resetDemo"); } catch {}
+        let demoSession = session;
+        if (!demoSession) {
+          const { data } = await sb.auth.signInWithPassword({ email: "demo@inksystem.com.br", password: "InkSystemDemo2026!" });
+          demoSession = data.session;
+        }
+        if (demoSession) {
+          setLogado(true);
+          setUserId(demoSession.user?.id || "");
+          lastUserIdRef.current = demoSession.user?.id || null;
+          verificarAcessoPos(demoSession.user?.id || "", demoSession.user?.email || "");
+        }
+        setDemoBootstrapping(false);
+        return;
+      }
       if (session) {
         setLogado(true);
         setUserId(session.user?.id || "");
         lastUserIdRef.current = session.user?.id || null;
         verificarAcessoPos(session.user?.id || "", session.user?.email || "");
-        setDemoBootstrapping(false);
-        return;
       }
-      if (isDemoUrl) {
-        // Modo demo: reseta os dados fictícios da conta demo e entra
-        // automaticamente, sem passar pela tela de login normal.
-        try { await fetch("https://inq-saas.vercel.app/api/config?acao=resetDemo"); } catch {}
-        await sb.auth.signInWithPassword({ email: "demo@inksystem.com.br", password: "InkSystemDemo2026!" });
-        setDemoBootstrapping(false);
-      } else {
-        setDemoBootstrapping(false);
-      }
+      setDemoBootstrapping(false);
     });
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
       const novoId = session?.user?.id || null;
