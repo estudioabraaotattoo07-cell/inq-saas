@@ -179,6 +179,15 @@ function paginaSitePremium(site, cfg, artistas, slug) {
     ${fotos.length > 0 ? `<div class="strip-outer"><div class="strip-track ${dir}" style="animation-duration:${duracaoSeg}s">${fotosStrip}</div></div>` : ""}`;
   }).join("");
 
+  const passosDefault = [
+    { nome: "Conversa", desc: "Você conta a sua história, referências e intenção. Sem pressa." },
+    { nome: "Criação", desc: "Desenvolvemos, do zero, a melhor arte pra você." },
+    { nome: "Execução", desc: "Sessão focada, com técnica e atenção total ao seu conforto." },
+    { nome: "Cuidado", desc: "Acompanhamento da cicatrização e garantia de resultado." },
+  ];
+  const comoPassos = Array.isArray(site.como_passos) && site.como_passos.length > 0 ? site.como_passos : passosDefault;
+  const comoPassosHtml = comoPassos.map((p, i) => `<div class="como-step"><div class="como-num">${String(i + 1).padStart(2, "0")}</div><div class="como-name">${esc(p.nome || "")}</div><div class="como-desc">${esc(p.desc || "")}</div></div>`).join("");
+
   const depoimentos = Array.isArray(site.depoimentos) ? site.depoimentos : [];
   const depoimentosHtml = depoimentos.map(d => `
     <div class="depo-card">
@@ -190,13 +199,28 @@ function paginaSitePremium(site, cfg, artistas, slug) {
 
   const ogDescricao = (site.manifesto_frase || site.hero_frase || `Arte na pele, criada a partir da sua história.`).replace(/\n/g, " ");
   const ogUrl = slug ? `https://inksystem.com.br/${esc(slug)}` : "";
+  // Categoria vem de Configurações > Configurações avançadas — texto livre,
+  // default cobre o único caso real hoje (estúdio de tatuagem), mas não deve
+  // ser fixo no código pra não "mentir" se um dia outro segmento comprar o sistema.
+  const categoriaNegocio = cfg?.categoria_negocio || "Estúdio de tatuagem";
+  const localBusinessJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: nomeEstudio,
+    description: categoriaNegocio,
+    ...(cfg?.studio_city ? { address: { "@type": "PostalAddress", addressLocality: cfg.studio_city, addressRegion: cfg.studio_estado || undefined } } : {}),
+    ...(tel ? { telephone: `+55${tel}` } : {}),
+    ...(heroFoto ? { image: heroFoto } : {}),
+    ...(ogUrl ? { url: ogUrl } : {}),
+  };
+  const pixelId = (cfg?.meta_pixel_id || "").replace(/[^0-9]/g, "");
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(nomeEstudio)} – Estúdio de Tatuagem</title>
+<title>${esc(nomeEstudio)} – ${esc(categoriaNegocio)}</title>
 <meta name="description" content="${esc(ogDescricao)}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${esc(nomeEstudio)}">
@@ -204,6 +228,12 @@ function paginaSitePremium(site, cfg, artistas, slug) {
 ${heroFoto ? `<meta property="og:image" content="${esc(heroFoto)}">` : ""}
 ${ogUrl ? `<meta property="og:url" content="${ogUrl}">` : ""}
 <meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">${JSON.stringify(localBusinessJsonLd)}</script>
+${pixelId ? `<script>
+!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '${esc(pixelId)}');
+fbq('track', 'PageView');
+</script>` : ""}
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -244,7 +274,7 @@ body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflo
 .strip-item img{width:100%;height:100%;object-fit:cover}
 .como{padding:88px var(--pad);border-top:0.5px solid rgba(255,255,255,0.04)}
 .como-title{font-family:var(--font-titulo);font-size:clamp(26px,3.8vw,44px);font-weight:300;text-align:center;margin-bottom:56px}
-.como-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:40px}
+.como-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:40px}
 .como-step{text-align:center}
 .como-num{font-family:var(--font-titulo);font-size:46px;font-weight:300;color:rgba(201,168,76,0.11);margin-bottom:14px}
 .como-name{font-size:8.5px;font-weight:600;letter-spacing:3px;text-transform:uppercase;margin-bottom:10px}
@@ -302,12 +332,9 @@ footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28p
 ${site.manifesto_frase ? `<section class="manifesto"><blockquote class="manifesto-quote">"${esc(site.manifesto_frase)}"</blockquote></section>` : ""}
 <section class="portfolio-block">${artistasHtml}</section>
 <section class="como">
-  <h2 class="como-title">No estúdio é assim:</h2>
+  <h2 class="como-title">${esc(site.como_titulo || "No estúdio é assim:")}</h2>
   <div class="como-grid">
-    <div class="como-step"><div class="como-num">01</div><div class="como-name">Conversa</div><div class="como-desc">Você conta a sua história, referências e intenção. Sem pressa.</div></div>
-    <div class="como-step"><div class="como-num">02</div><div class="como-name">Criação</div><div class="como-desc">Desenvolvemos, do zero, a melhor arte pra você.</div></div>
-    <div class="como-step"><div class="como-num">03</div><div class="como-name">Execução</div><div class="como-desc">Sessão focada, com técnica e atenção total ao seu conforto.</div></div>
-    <div class="como-step"><div class="como-num">04</div><div class="como-name">Cuidado</div><div class="como-desc">Acompanhamento da cicatrização e garantia de resultado.</div></div>
+    ${comoPassosHtml}
   </div>
 </section>
 ${depoimentosHtml ? `<section class="depo"><h2 class="depo-title">Nossos clientes dizem:</h2><div class="depo-grid">${depoimentosHtml}</div></section>` : ""}
@@ -540,7 +567,7 @@ export default async function handler(req, res) {
     const uid = tenant.auth_user_id;
     const [{ data: site }, { data: cfg }, { data: artistas }] = await Promise.all([
       sb.from("site_conteudo").select("*").eq("user_id", uid).single(),
-      sb.from("configuracoes").select("studio_name, studio_tel, studio_city, studio_estado").eq("user_id", uid).single(),
+      sb.from("configuracoes").select("studio_name, studio_tel, studio_city, studio_estado, categoria_negocio, meta_pixel_id").eq("user_id", uid).single(),
       sb.from("artistas").select("nome, insta, foto_site_url, bio_site, portfolio_fotos, botao_social_label").eq("user_id", uid).eq("ativo", true).order("nome"),
     ]);
     if (!site || !site.publicado) return res.status(404).send(paginaSiteIndisponivel());

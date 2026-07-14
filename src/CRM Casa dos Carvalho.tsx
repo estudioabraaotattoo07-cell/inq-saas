@@ -1261,6 +1261,9 @@ export default function CRM() {
   const [siteSlug, setSiteSlug] = useState<string>("");
   const [sitePlano, setSitePlano] = useState<string>("");
   const [siteVencimento, setSiteVencimento] = useState<string>("");
+  const [categoriaNegocio, setCategoriaNegocio] = useState<string>("");
+  const [metaPixelId, setMetaPixelId] = useState<string>("");
+  const [siteAdvOpen, setSiteAdvOpen] = useState(false);
   // ── FILTRO EXTRA (campanha | origem) — mutuamente exclusivo com filtro de artista ──
   const [filtroExtra, setFiltroExtra] = useState<{tipo: "campanha"|"orig"; valor: string} | null>(null);
   const [dropdownAberto, setDropdownAberto] = useState<"campanhas"|"orig"|null>(null);
@@ -1755,6 +1758,8 @@ export default function CRM() {
           if (cfg.studio_bairro) setStudioBairro(cfg.studio_bairro);
           if (cfg.studio_cep) setStudioCep(cfg.studio_cep);
           if (cfg.studio_estado) setStudioEstado(cfg.studio_estado);
+          if (cfg.categoria_negocio) setCategoriaNegocio(cfg.categoria_negocio);
+          if (cfg.meta_pixel_id) setMetaPixelId(cfg.meta_pixel_id);
           if (cfg.studio_pais) setStudioPais(cfg.studio_pais);
           if (cfg.studio_redes) setStudioRedes(cfg.studio_redes);
           if (cfg.dono_nome) setDonoNome(cfg.dono_nome);
@@ -2177,7 +2182,7 @@ export default function CRM() {
     if (previewDebounceRef.current) clearTimeout(previewDebounceRef.current);
     previewDebounceRef.current = setTimeout(async () => {
       try {
-        const cfgPreview = { studio_name: studioName, studio_tel: studioTel, studio_city: studioCity, studio_estado: studioEstado };
+        const cfgPreview = { studio_name: studioName, studio_tel: studioTel, studio_city: studioCity, studio_estado: studioEstado, categoria_negocio: categoriaNegocio, meta_pixel_id: metaPixelId };
         const artistasPreview = artists.filter((a: any) => a.ativo).map((a: any) => ({
           nome: a.nome, insta: a.insta, foto_site_url: a.foto_site_url, bio_site: a.bio_site,
           portfolio_fotos: a.portfolio_fotos, botao_social_label: a.botao_social_label,
@@ -2208,7 +2213,10 @@ export default function CRM() {
         }
       }
       setArtists(p => p.map(a => ({ ...a, _siteDirty: false })));
-      await sb.from("configuracoes").update({ studio_city: studioCity || null, studio_estado: studioEstado || null }).eq("user_id", userId);
+      await sb.from("configuracoes").update({
+        studio_city: studioCity || null, studio_estado: studioEstado || null,
+        categoria_negocio: categoriaNegocio || null, meta_pixel_id: metaPixelId || null,
+      }).eq("user_id", userId);
     }
     setSiteSaving(false);
     if (error) { setShowAviso("❌ Erro ao salvar o site: " + error.message); return; }
@@ -13820,6 +13828,40 @@ export default function CRM() {
               </div>
 
               <div style={cardSt}>
+                <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Como funciona</div>
+                <Help>Os passos do seu atendimento, do primeiro contato até a entrega — aparecem em cards no site. Pode editar, adicionar ou remover.</Help>
+                {(() => {
+                  const passosDefault = [
+                    { nome: "Conversa", desc: "Você conta a sua história, referências e intenção. Sem pressa." },
+                    { nome: "Criação", desc: "Desenvolvemos, do zero, a melhor arte pra você." },
+                    { nome: "Execução", desc: "Sessão focada, com técnica e atenção total ao seu conforto." },
+                    { nome: "Cuidado", desc: "Acompanhamento da cicatrização e garantia de resultado." },
+                  ];
+                  const passos = Array.isArray(sc.como_passos) && sc.como_passos.length > 0 ? sc.como_passos : passosDefault;
+                  return (
+                    <>
+                      <div className="ff" style={{ marginBottom: 14 }}>
+                        <label className="fl">Título da seção</label>
+                        <input className="fi" placeholder="Escreva aqui... Ex: No estúdio é assim:" value={sc.como_titulo || ""} onChange={e => upd({ como_titulo: e.target.value })} />
+                      </div>
+                      {passos.map((p: any, i: number) => (
+                        <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8, background: "#050505", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: 12 }}>
+                          <div style={{ flex: 1 }}>
+                            <input className="fi" placeholder="Nome do passo (ex: Conversa)" value={p.nome || ""} style={{ marginBottom: 6 }}
+                              onChange={e => { const arr = [...passos]; arr[i] = { ...p, nome: e.target.value }; upd({ como_passos: arr }); }} />
+                            <textarea className="fta" placeholder="Descrição curta do passo" value={p.desc || ""}
+                              onChange={e => { const arr = [...passos]; arr[i] = { ...p, desc: e.target.value }; upd({ como_passos: arr }); }} />
+                          </div>
+                          <button className="btn-sm" onClick={() => upd({ como_passos: passos.filter((_: any, idx: number) => idx !== i) })}>🗑</button>
+                        </div>
+                      ))}
+                      <button className="btn-sm" onClick={() => upd({ como_passos: [...passos, { nome: "", desc: "" }] })}>+ Adicionar passo</button>
+                    </>
+                  );
+                })()}
+              </div>
+
+              <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Depoimentos</div>
                 <Help>Depoimentos reais de clientes — copie e cole de onde recebeu (WhatsApp, Instagram, Google). O print é opcional.</Help>
                 {(sc.depoimentos || []).map((d: any, i: number) => (
@@ -13937,6 +13979,26 @@ export default function CRM() {
                     );
                   })()}
                 </TravaPlano>
+              </div>
+
+              <div style={cardSt}>
+                <button className="btn-sm" onClick={() => setSiteAdvOpen(o => !o)} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {siteAdvOpen ? "▾" : "▸"} ⚙ Configurações avançadas
+                </button>
+                {siteAdvOpen && (
+                  <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div className="ff">
+                      <Help>Usado nos bastidores pra ajudar seu site a aparecer no Google (ex: "tatuador perto de mim"). Já vem preenchido pro caso mais comum — só mude se seu negócio for diferente de um estúdio de tatuagem.</Help>
+                      <label className="fl">Categoria do negócio</label>
+                      <input className="fi" placeholder="Estúdio de tatuagem" value={categoriaNegocio} onChange={e => setCategoriaNegocio(e.target.value)} />
+                    </div>
+                    <div className="ff">
+                      <Help>Cole aqui o ID do Pixel da sua conta de anúncios do Meta (Facebook/Instagram Ads) — deixa vazio se você não impulsiona posts nem roda anúncio. Isso ajuda o Meta a otimizar seus anúncios pra gente parecida com quem visita seu site.</Help>
+                      <label className="fl">Pixel ID do Meta Ads</label>
+                      <input className="fi" placeholder="Ex: 123456789012345" value={metaPixelId} onChange={e => setMetaPixelId(e.target.value)} />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {isMobileView && (
