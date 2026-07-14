@@ -1642,19 +1642,24 @@ export default function CRM() {
   };
 
   const lastUserIdRef = useRef<string | null>(null);
+  const demoResetEmAndamentoRef = useRef(false);
   useEffect(() => {
     const isDemoUrl = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "1";
+    if (isDemoUrl) demoResetEmAndamentoRef.current = true;
     sb.auth.getSession().then(async ({ data: { session } }) => {
       if (isDemoUrl) {
         // Modo demo: reseta os dados fictícios SEMPRE, mesmo se a sessão da
         // conta demo já existir de uma visita anterior — senão um F5 mantém
         // o que a última pessoa digitou, em vez de voltar tudo do zero.
+        // O onAuthStateChange abaixo fica "pausado" enquanto isso roda, pra
+        // não carregar os dados antigos antes do reset terminar.
         try { await fetch("https://inq-saas.vercel.app/api/config?acao=resetDemo"); } catch {}
         let demoSession = session;
         if (!demoSession) {
           const { data } = await sb.auth.signInWithPassword({ email: "demo@inksystem.com.br", password: "InkSystemDemo2026!" });
           demoSession = data.session;
         }
+        demoResetEmAndamentoRef.current = false;
         if (demoSession) {
           setLogado(true);
           setUserId(demoSession.user?.id || "");
@@ -1673,6 +1678,7 @@ export default function CRM() {
       setDemoBootstrapping(false);
     });
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
+      if (demoResetEmAndamentoRef.current) return;
       const novoId = session?.user?.id || null;
       // A sessão de login fica no localStorage, compartilhado entre TODAS as
       // abas do mesmo navegador — se outra aba logar em outra conta, essa
