@@ -1213,6 +1213,7 @@ export default function CRM() {
   const [quizStep, setQuizStep] = useState(0);
   const [quizRespostas, setQuizRespostas] = useState<Record<string, string>>({});
   const [quizVendoComparativo, setQuizVendoComparativo] = useState(false);
+  const [quizPlanoEscolhido, setQuizPlanoEscolhido] = useState<string | null>(null);
   const [solicForm, setSolicForm] = useState({ nome: "", email: "", telefone: "", estudio: "", mensagem: "" });
   const [solicEnviando, setSolicEnviando] = useState(false);
   const [solicEnviada, setSolicEnviada] = useState(false);
@@ -15776,7 +15777,7 @@ export default function CRM() {
 
         {/* ── BOTÃO DE SOLICITAÇÃO: quiz de plano (demo) / suporte (cliente real) ── */}
         <div style={{ position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", left: 16, zIndex: 9999 }}>
-          <button onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setSolicEnviada(false); }}
+          <button onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); }}
             style={{ background: "var(--dk3)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 50, padding: "12px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 20px rgba(0,0,0,.4)", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
             {isDemoMode ? "💰 Quanto custa pro meu estúdio?" : "🛟 Suporte e assessoria"}
           </button>
@@ -15788,6 +15789,7 @@ export default function CRM() {
           const planoRecomendado = quizTerminou ? calcularPlanoRecomendado(quizRespostas) : null;
           const abrirFormulario = (plano: string | null) => {
             setSolicForm(f => ({ ...f, mensagem: plano ? `Interesse no plano ${plano}.` : f.mensagem }));
+            setQuizPlanoEscolhido(plano);
             setQuizStep(-1); // -1 = mostrando o formulário de contato
           };
           const enviarSolicitacao = async () => {
@@ -15800,7 +15802,7 @@ export default function CRM() {
                   tipo: isDemoMode ? "plano" : "suporte",
                   nome: solicForm.nome, email: solicForm.email, telefone: solicForm.telefone,
                   estudio: solicForm.estudio, mensagem: solicForm.mensagem,
-                  plano_sugerido: isDemoMode ? planoRecomendado : null,
+                  plano_sugerido: isDemoMode ? quizPlanoEscolhido : null,
                   respostas: isDemoMode ? quizRespostas : null,
                   user_id: !isDemoMode ? userId : null,
                 }),
