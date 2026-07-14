@@ -1203,8 +1203,8 @@ export default function CRM() {
   const [tourAtivo, setTourAtivo] = useState(false);
   const [tourStep, setTourStep] = useState(0);
   const TOUR_STEPS = [
-    { sel: ".topbar", title: "Topbar", desc: "Aqui ficam o logo do seu estúdio, o botão de alertas e o acesso às configurações." },
-    { sel: ".tabs", title: "Abas de Navegação", desc: "Pipeline, Clientes, Agenda, Financeiro, Profissionais e mais. Clique para navegar entre as seções." },
+    { sel: ".topbar", title: "Topbar", desc: "Aqui ficam o nome do seu estúdio, o botão de alertas e o ícone de configurações — é por ali que você define o endereço público do seu site, cadastra e edita colaboradores, e controla o estoque de materiais." },
+    { sel: ".tabs", title: "Abas de Navegação", desc: "Pipeline, Clientes, Agenda, Financeiro, Visão Geral, Relacionamento e Meu Site — clique em qualquer uma pra navegar entre as áreas do seu estúdio." },
     { sel: ".kw", title: "Pipeline Kanban", desc: "Cada coluna representa uma etapa do cliente. Arraste ou clique nos botões da ficha para mover." },
     { sel: ".btn-new", title: "Novo Cliente", desc: "Cadastre um novo cliente aqui. Preencha os dados básicos e ele entra automaticamente no Pipeline." },
     { sel: ".alert-btn", title: "Alertas", desc: "Notificações de clientes sem contato, orçamentos pendentes e garantias vencendo." },
