@@ -1261,6 +1261,8 @@ export default function CRM() {
   const [siteSlug, setSiteSlug] = useState<string>("");
   const [sitePlano, setSitePlano] = useState<string>("");
   const [siteVencimento, setSiteVencimento] = useState<string>("");
+  const [slugProposto, setSlugProposto] = useState<string>("");
+  const [slugConfirmando, setSlugConfirmando] = useState(false);
   const [categoriaNegocio, setCategoriaNegocio] = useState<string>("");
   const [metaPixelId, setMetaPixelId] = useState<string>("");
   const [siteAdvOpen, setSiteAdvOpen] = useState(false);
@@ -2196,6 +2198,36 @@ export default function CRM() {
         setSiteStats(data.reduce((acc, r) => ({ visitas: acc.visitas + (r.visitas || 0), cliques: acc.cliques + (r.cliques || 0) }), { visitas: 0, cliques: 0 }));
       });
   }, [tab, userId]);
+
+  // Endereço público (slug): gerado a partir do Nome do Estúdio na primeira
+  // vez que a conta abre a aba Meu Site sem ter um definido ainda. Só propõe
+  // — a gravação de verdade só acontece quando o usuário confirma.
+  useEffect(() => {
+    if (tab !== "site" || !siteLoaded || siteSlug || !studioName || !userId) return;
+    (async () => {
+      const base = slugify(studioName) || "estudio";
+      let candidato = base;
+      let n = 2;
+      // Confere colisão com outra conta (não a própria, que ainda não tem slug).
+      while (true) {
+        const { data } = await sb.from("ink_clientes").select("id").eq("slug", candidato).limit(1).maybeSingle();
+        if (!data) break;
+        candidato = `${base}-${n}`;
+        n++;
+      }
+      setSlugProposto(candidato);
+    })();
+  }, [tab, siteLoaded, siteSlug, studioName, userId]);
+
+  const confirmarSlug = async () => {
+    if (!slugProposto || !userId) return;
+    setSlugConfirmando(true);
+    const { error } = await sb.from("ink_clientes").update({ slug: slugProposto }).eq("auth_user_id", userId);
+    setSlugConfirmando(false);
+    if (error) { setShowAviso("❌ Erro ao definir o endereço: " + error.message); return; }
+    setSiteSlug(slugProposto);
+    setShowAviso("✅ Endereço definido: inksystem.com.br/" + slugProposto);
+  };
 
   // Prévia ao vivo (ainda não salva) — reusa o mesmo render do site real via
   // acao=preview, com uma pausa curta pra não bater no servidor a cada tecla.
@@ -13752,8 +13784,19 @@ export default function CRM() {
                 </div>
               )}
               {!siteSlug && (
-                <div style={{ fontSize: 11, color: "var(--tx3)", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "10px 12px", marginBottom: 16 }}>
-                  Seu endereço público ainda não foi configurado — fale com o suporte pra definir o link do seu site.
+                <div style={{ fontSize: 12, color: "var(--tx2)", background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 8, padding: "14px 16px", marginBottom: 16, lineHeight: 1.6 }}>
+                  {slugProposto ? (
+                    <>
+                      Seu endereço será <b style={{ color: "var(--gold)" }}>inksystem.com.br/{slugProposto}</b> — isso é <b>definitivo</b> e não pode ser trocado depois (é o link que vai em cartão, Instagram, WhatsApp). Confirma?
+                      <div style={{ marginTop: 10 }}>
+                        <button className="btn-sm" disabled={slugConfirmando} onClick={confirmarSlug}>
+                          {slugConfirmando ? "Confirmando..." : "✓ Confirmar e criar meu endereço"}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    "Calculando seu endereço público..."
+                  )}
                 </div>
               )}
 
