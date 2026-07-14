@@ -61,6 +61,12 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  if (req.query?.debugDemo === "1") {
+    const uid = process.env.DEMO_USER_ID;
+    const { data, error } = await sb.from("configuracoes").select("*").eq("user_id", uid);
+    return res.status(200).json({ uid, rows: data, error });
+  }
+
   try {
     const { data } = await sb.from("configuracoes")
       .select("studio_tel, studio_name")
