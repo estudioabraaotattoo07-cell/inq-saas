@@ -64,11 +64,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
-  if (req.query?.debugCount === "1") {
-    const { count } = await sb.from("clientes").select("*", { count: "exact", head: true }).eq("user_id", STUDIO_USER_ID);
-    return res.status(200).json({ totalClientes: count });
-  }
-
   try {
     const { data } = await sb.from("configuracoes")
       .select("studio_tel, studio_name")
