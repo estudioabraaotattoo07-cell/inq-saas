@@ -35,13 +35,11 @@ export default async function handler(req, res) {
       studio_email: "demo@inksystem.com.br", studio_city: "Vitória", studio_estado: "ES",
       onboarding_done: true,
     };
-    let cfgWriteResult;
-    if (cfgExistente) cfgWriteResult = await sb.from("configuracoes").update(cfgPayload).eq("id", cfgExistente.id);
-    else cfgWriteResult = await sb.from("configuracoes").insert(cfgPayload);
-    if (req.query?.debug === "1") return res.status(200).json({ cfgExistente, cfgWriteError: cfgWriteResult.error, cfgPayload });
+    if (cfgExistente) await sb.from("configuracoes").update(cfgPayload).eq("id", cfgExistente.id);
+    else await sb.from("configuracoes").insert(cfgPayload);
     const artistaId1 = crypto.randomUUID();
     const artistaId2 = crypto.randomUUID();
-    const rArt = await sb.from("artistas").insert([
+    await sb.from("artistas").insert([
       { id: artistaId1, user_id: uid, nome: "Artista Exemplo 1", email: "artista1@exemplo.com", tel: "(27) 98888-0001", cor: "#4A9EBF", ativo: true, role: "residente", com: 50, insta: "" },
       { id: artistaId2, user_id: uid, nome: "Artista Exemplo 2", email: "artista2@exemplo.com", tel: "(27) 98888-0002", cor: "#9B6BB5", ativo: true, role: "residente", com: 50, insta: "" },
     ]);
@@ -51,7 +49,7 @@ export default async function handler(req, res) {
       hist: [{ t: "Cliente cadastrado (exemplo)", d: new Date().toLocaleDateString("pt-BR") }],
       etapa_desde: new Date().toISOString(), ...over,
     });
-    const rCli = await sb.from("clientes").insert([
+    await sb.from("clientes").insert([
       cli({ nome: "Marina Alves", artista: artistaId1, etapa: "lead", insta: "@marina.alves" }),
       cli({ nome: "Bruno Kern", artista: artistaId2, etapa: "lead_morno", insta: "@brunokern" }),
       cli({ nome: "Talita Nunes", artista: artistaId1, etapa: "cons_agendada", insta: "@talitanunes" }),
@@ -60,20 +58,7 @@ export default async function handler(req, res) {
       cli({ nome: "Yasmin Duarte", artista: artistaId2, etapa: "pos_venda", insta: "@yasminduarte" }),
       cli({ nome: "Hugo Martins", artista: artistaId1, etapa: "tatuado", insta: "@hugomartins" }),
     ]);
-    return res.status(200).json({ ok: true, errArt: rArt.error, errCli: rCli.error });
-  }
-
-  if (req.query?.debugDemo === "clientes") {
-    const uid = process.env.DEMO_USER_ID;
-    const { data: cli, error: errCli } = await sb.from("clientes").select("id, nome, etapa, artista").eq("user_id", uid);
-    const { data: art, error: errArt } = await sb.from("artistas").select("id, nome").eq("user_id", uid);
-    return res.status(200).json({ uid, cli, errCli, art, errArt });
-  }
-
-  if (req.query?.debugDemo === "1") {
-    const uid = process.env.DEMO_USER_ID;
-    const { data, error } = await sb.from("configuracoes").select("*").eq("user_id", uid);
-    return res.status(200).json({ uid, rows: data, error });
+    return res.status(200).json({ ok: true });
   }
 
   try {
