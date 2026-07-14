@@ -13742,62 +13742,6 @@ export default function CRM() {
               </div>
 
               <div style={cardSt}>
-                <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 14 }}>História do estúdio</div>
-                <ImageSlot label="Foto do banner" hint="Recomendado: 1600×900px, paisagem. Uma foto marcante do estúdio, da equipe ou de um trabalho autoral."
-                  value={sc.banner_foto_url || ""} onChange={(url) => upd({ banner_foto_url: url })} />
-                <Help>Conte a história do seu estúdio — o que te trouxe até aqui, o que te diferencia.</Help>
-                <div className="ff" style={{ marginBottom: 20 }}>
-                  <label className="fl">Título do banner</label>
-                  <input className="fi" placeholder="Escreva aqui... Ex: Do primeiro traço até hoje." value={sc.banner_titulo || ""} onChange={e => upd({ banner_titulo: e.target.value })} />
-                </div>
-                <div className="ff">
-                  <label className="fl">Texto do banner</label>
-                  <textarea className="fta" placeholder="Escreva aqui a história do seu estúdio — sua trajetória, o que te motiva, o que te diferencia. Ex: Começamos numa garagem, hoje somos referência no bairro." value={sc.banner_texto || ""} onChange={e => upd({ banner_texto: e.target.value })} />
-                </div>
-              </div>
-
-              <div style={cardSt}>
-                <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Depoimentos</div>
-                <Help>Depoimentos reais de clientes — copie e cole de onde recebeu (WhatsApp, Instagram, Google). O print é opcional.</Help>
-                {(sc.depoimentos || []).map((d: any, i: number) => (
-                  <div key={i} style={{ background: "#050505", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: 12, marginBottom: 8, boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}>
-                    <textarea className="fta" placeholder="Escreva aqui o texto do depoimento (ou copie e cole de onde recebeu)." value={d.texto || ""} style={{ marginBottom: 6 }}
-                      onChange={e => { const arr = [...sc.depoimentos]; arr[i] = { ...d, texto: e.target.value }; upd({ depoimentos: arr }); }} />
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                      <input className="fi" placeholder="Autor (ex: Cliente via Instagram)" value={d.autor || ""} style={{ flex: 1 }}
-                        onChange={e => { const arr = [...sc.depoimentos]; arr[i] = { ...d, autor: e.target.value }; upd({ depoimentos: arr }); }} />
-                      <select className="fi" value={d.estrelas || 5} style={{ width: 70 }}
-                        onChange={e => { const arr = [...sc.depoimentos]; arr[i] = { ...d, estrelas: Number(e.target.value) }; upd({ depoimentos: arr }); }}>
-                        {[5, 4, 3, 2, 1].map(n => <option key={n} value={n}>{"★".repeat(n)}</option>)}
-                      </select>
-                      <button className="btn-sm" onClick={() => upd({ depoimentos: sc.depoimentos.filter((_: any, idx: number) => idx !== i) })}>🗑</button>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      {d.imagem_url ? (
-                        <div style={{ position: "relative", width: 60, height: 60 }}>
-                          <img src={d.imagem_url} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 6, border: "1px solid rgba(201,168,76,0.25)" }} />
-                          <button onClick={() => { const arr = [...sc.depoimentos]; arr[i] = { ...d, imagem_url: "" }; upd({ depoimentos: arr }); }}
-                            style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#C0392B", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 10 }}>×</button>
-                        </div>
-                      ) : (
-                        <label style={{ width: 60, height: 60, border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--gold)", fontSize: 18, background: "#0a0a0a" }}>
-                          📷
-                          <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
-                            const f = e.target.files?.[0]; if (!f) return;
-                            const url = await uploadSiteImg(f);
-                            if (url) { const arr = [...sc.depoimentos]; arr[i] = { ...d, imagem_url: url }; upd({ depoimentos: arr }); }
-                            e.target.value = "";
-                          }} />
-                        </label>
-                      )}
-                      <span style={{ fontSize: 10, color: "var(--tx3)" }}>Print da conversa/avaliação (opcional)</span>
-                    </div>
-                  </div>
-                ))}
-                <button className="btn-sm" onClick={() => upd({ depoimentos: [...(sc.depoimentos || []), { texto: "", autor: "", estrelas: 5, imagem_url: "" }] })}>+ Adicionar depoimento</button>
-              </div>
-
-              <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Profissionais no site</div>
                 <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 14 }}>Cada profissional ativo em Colaboradores ganha automaticamente um bloco no site — só preencha foto, descrição e portfólio.</div>
                 {artists.filter((a: any) => a.ativo).map((a: any) => {
@@ -13868,6 +13812,62 @@ export default function CRM() {
                     </div>
                   );
                 })}
+              </div>
+
+              <div style={cardSt}>
+                <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Depoimentos</div>
+                <Help>Depoimentos reais de clientes — copie e cole de onde recebeu (WhatsApp, Instagram, Google). O print é opcional.</Help>
+                {(sc.depoimentos || []).map((d: any, i: number) => (
+                  <div key={i} style={{ background: "#050505", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: 12, marginBottom: 8, boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}>
+                    <textarea className="fta" placeholder="Escreva aqui o texto do depoimento (ou copie e cole de onde recebeu)." value={d.texto || ""} style={{ marginBottom: 6 }}
+                      onChange={e => { const arr = [...sc.depoimentos]; arr[i] = { ...d, texto: e.target.value }; upd({ depoimentos: arr }); }} />
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                      <input className="fi" placeholder="Autor (ex: Cliente via Instagram)" value={d.autor || ""} style={{ flex: 1 }}
+                        onChange={e => { const arr = [...sc.depoimentos]; arr[i] = { ...d, autor: e.target.value }; upd({ depoimentos: arr }); }} />
+                      <select className="fi" value={d.estrelas || 5} style={{ width: 70 }}
+                        onChange={e => { const arr = [...sc.depoimentos]; arr[i] = { ...d, estrelas: Number(e.target.value) }; upd({ depoimentos: arr }); }}>
+                        {[5, 4, 3, 2, 1].map(n => <option key={n} value={n}>{"★".repeat(n)}</option>)}
+                      </select>
+                      <button className="btn-sm" onClick={() => upd({ depoimentos: sc.depoimentos.filter((_: any, idx: number) => idx !== i) })}>🗑</button>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {d.imagem_url ? (
+                        <div style={{ position: "relative", width: 60, height: 60 }}>
+                          <img src={d.imagem_url} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 6, border: "1px solid rgba(201,168,76,0.25)" }} />
+                          <button onClick={() => { const arr = [...sc.depoimentos]; arr[i] = { ...d, imagem_url: "" }; upd({ depoimentos: arr }); }}
+                            style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#C0392B", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 10 }}>×</button>
+                        </div>
+                      ) : (
+                        <label style={{ width: 60, height: 60, border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--gold)", fontSize: 18, background: "#0a0a0a" }}>
+                          📷
+                          <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
+                            const f = e.target.files?.[0]; if (!f) return;
+                            const url = await uploadSiteImg(f);
+                            if (url) { const arr = [...sc.depoimentos]; arr[i] = { ...d, imagem_url: url }; upd({ depoimentos: arr }); }
+                            e.target.value = "";
+                          }} />
+                        </label>
+                      )}
+                      <span style={{ fontSize: 10, color: "var(--tx3)" }}>Print da conversa/avaliação (opcional)</span>
+                    </div>
+                  </div>
+                ))}
+                <button className="btn-sm" onClick={() => upd({ depoimentos: [...(sc.depoimentos || []), { texto: "", autor: "", estrelas: 5, imagem_url: "" }] })}>+ Adicionar depoimento</button>
+              </div>
+
+              <div style={cardSt}>
+                <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 14 }}>História do estúdio</div>
+                <ImageSlot label="Foto do banner" hint="Recomendado: 1600×900px, paisagem. Uma foto marcante do estúdio, da equipe ou de um trabalho autoral."
+                  value={sc.banner_foto_url || ""} onChange={(url) => upd({ banner_foto_url: url })} />
+                <Help>Conte a história do seu estúdio — o que te trouxe até aqui, o que te diferencia.</Help>
+                <div className="ff" style={{ marginBottom: 20 }}>
+                  <label className="fl">Título do banner</label>
+                  <input className="fi" placeholder="Escreva aqui... Ex: Do primeiro traço até hoje." value={sc.banner_titulo || ""} onChange={e => upd({ banner_titulo: e.target.value })} />
+                </div>
+                <div className="ff">
+                  <label className="fl">Texto do banner</label>
+                  <textarea className="fta" placeholder="Escreva aqui a história do seu estúdio — sua trajetória, o que te motiva, o que te diferencia. Ex: Começamos numa garagem, hoje somos referência no bairro." value={sc.banner_texto || ""} onChange={e => upd({ banner_texto: e.target.value })} />
+                </div>
               </div>
 
               <div style={cardSt}>
