@@ -1315,6 +1315,7 @@ export default function CRM() {
   const [siteSaving, setSiteSaving] = useState(false);
   const [siteSlug, setSiteSlug] = useState<string>("");
   const [sitePlano, setSitePlano] = useState<string>("");
+  const [meuPlano, setMeuPlano] = useState<string>("");
   const [siteVencimento, setSiteVencimento] = useState<string>("");
   const [slugProposto, setSlugProposto] = useState<string>("");
   const [slugConfirmando, setSlugConfirmando] = useState(false);
@@ -1676,6 +1677,8 @@ export default function CRM() {
       return;
     }
     setLicencaOk(true);
+    const planoBrutoLic = (lic.plano || "").trim();
+    setMeuPlano(["Bronze", "Prata", "Ouro"].find(p => p.toLowerCase() === planoBrutoLic.toLowerCase()) || planoBrutoLic);
     // Verificar perfil: artista residente com email cadastrado?
     const { data: artEncontrado } = await sb.from("artistas").select("id,email").eq("email", email).limit(1).single();
     if (artEncontrado) {
@@ -7896,7 +7899,7 @@ export default function CRM() {
                     const ehOwner = authEmail === OWNER_EMAIL;
                     const enviados = ch === "email" ? usoMensal.emailEnviados : ch === "sms" ? usoMensal.smsEnviados : 0;
                     const comprado = ch === "email" ? usoMensal.emailComprado : ch === "sms" ? usoMensal.smsComprado : 0;
-                    const cota = ch === "email" ? PLANO_LIMITES[sitePlano]?.emailPorMes : ch === "sms" ? PLANO_LIMITES[sitePlano]?.smsPorMes : undefined;
+                    const cota = ch === "email" ? PLANO_LIMITES[meuPlano]?.emailPorMes : ch === "sms" ? PLANO_LIMITES[meuPlano]?.smsPorMes : undefined;
                     const cotaTotal = (cota || 0) + comprado;
                     const pct = cotaTotal > 0 ? Math.min(100, (enviados / cotaTotal) * 100) : 0;
                     const corBarra = pct >= 90 ? "#e74c3c" : pct >= 70 ? "#e6b800" : "var(--q3)";
