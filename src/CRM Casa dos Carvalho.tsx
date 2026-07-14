@@ -2265,7 +2265,7 @@ export default function CRM() {
     if (!error) {
       for (const a of artists) {
         if (a._siteDirty) {
-          await sb.from("artistas").update({ foto_site_url: a.foto_site_url || null, bio_site: a.bio_site || null, portfolio_fotos: a.portfolio_fotos || [], botao_social_label: a.botao_social_label || null }).eq("id", a.id);
+          await sb.from("artistas").update({ foto_site_url: a.foto_site_url || null, bio_site: a.bio_site || null, portfolio_fotos: a.portfolio_fotos || [], botao_social_label: a.botao_social_label || null, ordem_site: a.ordem_site ?? null }).eq("id", a.id);
         }
       }
       setArtists(p => p.map(a => ({ ...a, _siteDirty: false })));
@@ -13829,8 +13829,22 @@ export default function CRM() {
 
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Profissionais no site</div>
-                <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 14 }}>Cada profissional ativo em Colaboradores ganha automaticamente um bloco no site — só preencha foto, descrição e portfólio.</div>
-                {artists.filter((a: any) => a.ativo).map((a: any) => {
+                <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 14 }}>Cada profissional ativo em Colaboradores ganha automaticamente um bloco no site — só preencha foto, descrição e portfólio. Use as setas pra escolher quem aparece primeiro.</div>
+                {(() => {
+                  const artistasParaSite = artists.filter((a: any) => a.ativo).slice().sort((a: any, b: any) => {
+                    const oa = a.ordem_site ?? 999999, ob = b.ordem_site ?? 999999;
+                    if (oa !== ob) return oa - ob;
+                    return (a.nome || "").localeCompare(b.nome || "");
+                  });
+                  const moverArtista = (id: string, direcao: -1 | 1) => {
+                    const idx = artistasParaSite.findIndex((a: any) => a.id === id);
+                    const novoIdx = idx + direcao;
+                    if (novoIdx < 0 || novoIdx >= artistasParaSite.length) return;
+                    const reordenada = artistasParaSite.slice();
+                    [reordenada[idx], reordenada[novoIdx]] = [reordenada[novoIdx], reordenada[idx]];
+                    reordenada.forEach((a: any, i: number) => updArtistSite(a.id, { ordem_site: i }));
+                  };
+                  return artistasParaSite.map((a: any, idx: number) => {
                   const bioLen = (a.bio_site || "").length;
                   const fotos: string[] = Array.isArray(a.portfolio_fotos) ? a.portfolio_fotos : [];
                   // Sem plano reconhecido (ex: conta do dono do sistema) = sem limite.
@@ -13839,7 +13853,13 @@ export default function CRM() {
                   const upgrade = limiteAtingido ? calcUpgrade(sitePlano, siteVencimento) : null;
                   return (
                     <div key={a.id} style={{ background: "#050505", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 10, padding: 16, marginBottom: 12 }}>
-                      <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, fontWeight: 600, color: a.cor || "var(--gold)", marginBottom: 12 }}>{a.nome}</div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, fontWeight: 600, color: a.cor || "var(--gold)" }}>{a.nome}</div>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button className="btn-sm" disabled={idx === 0} onClick={() => moverArtista(a.id, -1)} title="Subir" style={{ opacity: idx === 0 ? 0.3 : 1 }}>↑</button>
+                          <button className="btn-sm" disabled={idx === artistasParaSite.length - 1} onClick={() => moverArtista(a.id, 1)} title="Descer" style={{ opacity: idx === artistasParaSite.length - 1 ? 0.3 : 1 }}>↓</button>
+                        </div>
+                      </div>
                       <ImageSlot label="Foto do artista" hint="Recomendado: 800×1000px, retrato." profile="thumb"
                         value={a.foto_site_url || ""} onChange={(url) => updArtistSite(a.id, { foto_site_url: url })} />
                       <Help>Descrição que aparece ao lado da foto (máx. 500 caracteres) — quanto mais texto, menor a letra, pra sempre caber.</Help>
@@ -13897,7 +13917,8 @@ export default function CRM() {
                       )}
                     </div>
                   );
-                })}
+                  });
+                })()}
               </div>
 
               <div style={cardSt}>

@@ -749,7 +749,7 @@ export default async function handler(req, res) {
     const [{ data: site }, { data: cfg }, { data: artistas }] = await Promise.all([
       sb.from("site_conteudo").select("*").eq("user_id", uid).single(),
       sb.from("configuracoes").select("studio_name, studio_tel, studio_city, studio_estado, categoria_negocio, meta_pixel_id").eq("user_id", uid).single(),
-      sb.from("artistas").select("nome, insta, foto_site_url, bio_site, portfolio_fotos, botao_social_label").eq("user_id", uid).eq("ativo", true).order("nome"),
+      sb.from("artistas").select("nome, insta, foto_site_url, bio_site, portfolio_fotos, botao_social_label, ordem_site").eq("user_id", uid).eq("ativo", true).order("ordem_site", { ascending: true, nullsFirst: false }).order("nome"),
     ]);
     if (!site || !site.publicado) return res.status(404).send(paginaSiteIndisponivel());
     // Serverless: se não esperar aqui, a função pode encerrar antes do
