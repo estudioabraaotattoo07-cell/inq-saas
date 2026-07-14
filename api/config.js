@@ -28,12 +28,14 @@ export default async function handler(req, res) {
     const licPayload = { user_id: uid, status: "ativo", data_vencimento: "2099-12-31", plano: "Ouro" };
     if (licExistente) await sb.from("licencas").update(licPayload).eq("id", licExistente.id);
     else await sb.from("licencas").insert(licPayload);
-    // Garante configuracoes com onboarding_done=true (pula o assistente inicial).
+    // Garante configuracoes com onboarding_done=false — quem testa a demo
+    // passa pelo mesmo assistente de configuração que um cliente novo veria,
+    // com os campos já preenchidos de exemplo (pode só clicar Continuar).
     const { data: cfgExistente } = await sb.from("configuracoes").select("id").eq("user_id", uid).limit(1).maybeSingle();
     const cfgPayload = {
       user_id: uid, studio_name: "Seu Estúdio", studio_owner: "Seu Nome",
       studio_email: "demo@inksystem.com.br", studio_city: "Vitória", studio_estado: "ES",
-      onboarding_done: true,
+      onboarding_done: false,
     };
     if (cfgExistente) await sb.from("configuracoes").update(cfgPayload).eq("id", cfgExistente.id);
     else await sb.from("configuracoes").insert(cfgPayload);
