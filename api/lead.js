@@ -173,9 +173,11 @@ function paginaSitePremium(site, cfg, artistas, slug) {
 
   const IG_ICON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M12 2.2c3.2 0 3.58.01 4.85.07 1.17.05 1.8.24 2.23.41.56.21.96.47 1.38.89.42.42.68.82.89 1.38.17.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.24 1.8-.41 2.23-.21.56-.47.96-.89 1.38-.42.42-.82.68-1.38.89-.42.17-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.24-2.23-.41a3.7 3.7 0 0 1-1.38-.89 3.7 3.7 0 0 1-.89-1.38c-.17-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.24-1.8.41-2.23.21-.56.47-.96.89-1.38.42-.42.82-.68 1.38-.89.42-.17 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.31-1.46.72-2.13 1.38C1.35 2.68.94 3.35.63 4.14c-.3.76-.5 1.64-.56 2.91C0 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.72 1.46 1.38 2.13.67.66 1.34 1.07 2.13 1.38.76.3 1.64.5 2.91.56C8.33 24 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.31 1.46-.72 2.13-1.38.66-.67 1.07-1.34 1.38-2.13.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91a5.9 5.9 0 0 0-1.38-2.13A5.9 5.9 0 0 0 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0Z" fill="currentColor"/><path d="M12 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84Zm0 10.16A4 4 0 1 1 16 12a4 4 0 0 1-4 4Z" fill="currentColor"/><circle cx="18.41" cy="5.59" r="1.44" fill="currentColor"/></svg>`;
   const EXPAND_ICON = `<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
+  const stripIdsComFotos = [];
   const artistasHtml = (artistas || []).map((a, artIdx) => {
     const fotos = Array.isArray(a.portfolio_fotos) ? a.portfolio_fotos : [];
     const stripId = `strip-${artIdx}`;
+    if (fotos.length > 0) stripIdsComFotos.push(stripId);
     const igHandle = (a.insta || "").replace(/^@/, "");
     const bioLen = (a.bio_site || "").length;
     const bioFontSize = bioLen > 350 ? 8.5 : bioLen > 220 ? 9.5 : 10;
@@ -188,7 +190,7 @@ function paginaSitePremium(site, cfg, artistas, slug) {
     const largItem = 204; // 200px de foto + 4px de gap
     const duracaoSeg = Math.max(12, Math.round((fotos.length * largItem) / 70 * velocidadeMult));
     const fotosStrip = fotos.length > 0
-      ? [...fotos, ...fotos].map(f => `<div class="strip-item" onclick="lbOpen('${esc(f).replace(/'/g, "\\'")}','${stripId}')"><img src="${esc(f)}" alt=""><div class="strip-ov"><div class="strip-exp">${EXPAND_ICON}</div></div></div>`).join("")
+      ? [...fotos, ...fotos].map(f => `<div class="strip-item" data-src="${esc(f)}"><img src="${esc(f)}" alt=""><div class="strip-ov"><div class="strip-exp">${EXPAND_ICON}</div></div></div>`).join("")
       : "";
     return `
     <div class="artist-row">
@@ -201,7 +203,11 @@ function paginaSitePremium(site, cfg, artistas, slug) {
         <a class="btn-gold" href="javascript:void(0)" onclick="AuraChat.abrir('${esc(a.nome).replace(/'/g, "\\'")}')" style="margin-top:18px">✦ Quero tatuar com ${esc((a.nome || "").split(" ")[0])}</a>
       </div>
     </div>
-    ${fotos.length > 0 ? `<div class="strip-outer"><div class="strip-track ${dir}" id="${stripId}" style="animation-duration:${duracaoSeg}s">${fotosStrip}</div></div>` : ""}`;
+    ${fotos.length > 0 ? `<div class="strip-outer">
+      <div class="strip-track ${dir}" id="${stripId}" style="animation-duration:${duracaoSeg}s">${fotosStrip}</div>
+      <div class="strip-nav strip-nav-prev" onclick="stripArrow('${stripId}','prev')"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+      <div class="strip-nav strip-nav-next" onclick="stripArrow('${stripId}','next')"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+    </div>` : ""}`;
   }).join("");
 
   const passosDefault = [
@@ -284,8 +290,13 @@ body{background:var(--bg);color:var(--cor-titulo);font-family:var(--font-corpo);
 .artist-eyebrow{font-size:7.5px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
 .artist-name{font-family:var(--font-titulo);font-size:clamp(22px,2.8vw,34px);font-weight:300;color:var(--cor-titulo);margin-bottom:6px}
 .artist-tagline{font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:12px;max-width:360px}
-.ig-link{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:500;letter-spacing:2px;color:var(--gold);text-decoration:none}
+.ig-link{display:inline-flex;align-items:center;gap:8px;font-size:8px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold);background:transparent;border:1px solid var(--gold);border-radius:var(--radius);padding:14px 28px;text-decoration:none;white-space:nowrap;margin-bottom:10px}
 .strip-outer{overflow:hidden;position:relative;padding-bottom:40px}
+.strip-nav{position:absolute;top:0;bottom:40px;width:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:15;opacity:0;transition:opacity .25s}
+.strip-outer:hover .strip-nav{opacity:1}
+.strip-nav svg{width:16px;height:16px;stroke:#fff;fill:none;stroke-width:2;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))}
+.strip-nav-prev{left:4px}
+.strip-nav-next{right:4px}
 .strip-outer::before,.strip-outer::after{content:"";position:absolute;top:0;bottom:40px;width:80px;z-index:10;pointer-events:none}
 .strip-outer::before{left:0;background:linear-gradient(to right,var(--bg),transparent)}
 .strip-outer::after{right:0;background:linear-gradient(to left,var(--bg),transparent)}
@@ -353,7 +364,7 @@ footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28p
 .aura-text-input{flex:1;background:#050505;border:1px solid rgba(201,168,76,0.25);border-radius:20px;padding:9px 14px;color:#fff;font-size:12.5px;font-family:inherit;outline:none;min-width:0}
 .aura-send-btn{background:var(--gold);color:#17140A;border:none;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:14px;flex-shrink:0}
 @media(max-width:480px){.aura-panel{width:100vw;height:100vh;max-height:100vh;max-width:100vw;bottom:0;right:0;border-radius:0}}
-@media(max-width:768px){:root{--pad:20px}.como-grid{grid-template-columns:repeat(2,1fr)}.depo-grid{grid-template-columns:1fr}.artist-row{flex-direction:column;align-items:flex-start;text-align:left}}
+@media(max-width:768px){:root{--pad:20px}.como-grid{grid-template-columns:repeat(2,1fr)}.depo-grid{grid-template-columns:1fr}.artist-row{flex-direction:column;align-items:flex-start;text-align:left}.strip-nav{opacity:0.85}}
 </style>
 </head>
 <body>
@@ -405,16 +416,16 @@ ${site.banner_foto_url ? `<section class="banner">
   <div id="aura-input-area" class="aura-input-area"></div>
 </div>
 <script>
-// Lightbox das fotos (esteira de portfólio + print de depoimento) — mesmo
-// padrão do site real (a-casa-dos-carvalho), sem o arraste manual (a esteira
-// aqui já rola sozinha via CSS, então só o clique-pra-expandir foi trazido).
+// Lightbox das fotos (esteira de portfólio + print de depoimento) + arraste
+// manual da esteira (mouse/touch) e setas laterais -- mesmo padrão do site
+// real (a-casa-dos-carvalho), adaptado pra N artistas dinâmicos.
 var lbImgs = [], lbIdx = 0, lbMode = "strip";
 function lbOpen(src, sid) {
   lbMode = "strip";
   var t = document.getElementById(sid);
   // A esteira duplica as fotos pra rolar em loop sem salto -- remove repetidas
   // aqui pra prev/next não ficar andando em círculo duas vezes por volta.
-  lbImgs = t ? Array.from(new Set(Array.from(t.querySelectorAll(".strip-item")).map(function (el) { return el.querySelector("img").src; }))) : [src];
+  lbImgs = t ? Array.from(new Set(Array.from(t.querySelectorAll(".strip-item")).map(function (el) { return el.dataset.src; }))) : [src];
   lbIdx = Math.max(0, lbImgs.indexOf(src));
   document.getElementById("lb-img").src = lbImgs[lbIdx] || src;
   document.getElementById("lb-prev").style.display = "flex";
@@ -443,6 +454,60 @@ document.addEventListener("keydown", function (e) {
   if (lbMode === "strip" && e.key === "ArrowLeft") { lbIdx = (lbIdx - 1 + lbImgs.length) % lbImgs.length; document.getElementById("lb-img").src = lbImgs[lbIdx]; }
   if (lbMode === "strip" && e.key === "ArrowRight") { lbIdx = (lbIdx + 1) % lbImgs.length; document.getElementById("lb-img").src = lbImgs[lbIdx]; }
 });
+
+var CLICK_THRESH = 10;
+var stripArrowFns = {};
+function getStripOffset(track) { return new DOMMatrix(getComputedStyle(track).transform).m41; }
+function setStripOffset(track, x) { track.style.transform = "translateX(" + x + "px)"; }
+function stripArrow(trackId, dir) {
+  var fn = stripArrowFns[trackId];
+  if (fn) fn(dir);
+}
+function setupStrip(trackId) {
+  var track = document.getElementById(trackId);
+  if (!track) return;
+  var outer = track.closest(".strip-outer");
+  var isDrag = false, startX = 0, startOffset = 0, velX = 0, lastX = 0, lastT = 0, animFrame = null, dragDist = 0;
+  function startDrag(x) {
+    isDrag = true; dragDist = 0; startX = x; lastX = x; lastT = Date.now();
+    startOffset = getStripOffset(track); track.classList.add("paused"); track.style.transition = "none";
+    if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+  }
+  function moveDrag(x) {
+    if (!isDrag) return;
+    dragDist = Math.abs(x - startX); velX = (x - lastX) / (Date.now() - lastT || 1) * 16;
+    lastX = x; lastT = Date.now(); setStripOffset(track, startOffset + (x - startX));
+  }
+  function endDrag() {
+    if (!isDrag) return; isDrag = false; track.style.transition = "";
+    var vel = velX;
+    function inertia() {
+      if (Math.abs(vel) < 0.5) { track.classList.remove("paused"); return; }
+      vel *= 0.92; setStripOffset(track, getStripOffset(track) + vel); animFrame = requestAnimationFrame(inertia);
+    }
+    if (Math.abs(vel) > 1) inertia(); else track.classList.remove("paused");
+  }
+  outer.addEventListener("mousedown", function (e) { startDrag(e.pageX); e.preventDefault(); });
+  document.addEventListener("mousemove", function (e) { if (isDrag) moveDrag(e.pageX); });
+  document.addEventListener("mouseup", endDrag);
+  outer.addEventListener("touchstart", function (e) { startDrag(e.touches[0].pageX); }, { passive: true });
+  outer.addEventListener("touchmove", function (e) { moveDrag(e.touches[0].pageX); }, { passive: true });
+  outer.addEventListener("touchend", endDrag);
+  outer.addEventListener("mouseenter", function () { if (!isDrag) track.classList.add("paused"); });
+  outer.addEventListener("mouseleave", function () { if (!isDrag && !document.getElementById("lb").classList.contains("open")) track.classList.remove("paused"); });
+  Array.from(track.querySelectorAll(".strip-item")).forEach(function (item) {
+    item.addEventListener("click", function () {
+      if (dragDist > CLICK_THRESH) return;
+      lbOpen(item.dataset.src, trackId);
+    });
+  });
+  stripArrowFns[trackId] = function (dir) {
+    track.classList.add("paused"); track.style.transition = "transform .4s ease";
+    setStripOffset(track, getStripOffset(track) + (dir === "next" ? -204 : 204));
+    setTimeout(function () { track.style.transition = ""; }, 400);
+  };
+}
+${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
 </script>
 <script>
 (function(){
@@ -455,11 +520,16 @@ document.addEventListener("keydown", function (e) {
 
   function $(id){ return document.getElementById(id); }
 
+  var cliqueContado = false;
   function abrir(artistaPreEscolhido){
     if (!aberto) {
       aberto = true;
       $('aura-panel').style.display = 'flex';
       $('aura-fab').style.display = 'none';
+    }
+    if (!cliqueContado) {
+      cliqueContado = true;
+      if (SLUG) fetch('/api/lead?acao=track_click&slug=' + encodeURIComponent(SLUG), { method: 'POST', keepalive: true }).catch(function(){});
     }
     if ($('aura-msgs').children.length === 0) {
       if (artistaPreEscolhido) lead.artista = artistaPreEscolhido;
@@ -634,6 +704,30 @@ function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// Analytics do site público — visitas (acao=site) e cliques no CTA principal
+// (acao=track_click, disparado quando o chat da Aura abre). Ignora bots
+// conhecidos (WhatsApp/Facebook/etc já rastreiam o link pra montar o cartão
+// de prévia do Open Graph -- isso não é visita de gente de verdade).
+const BOT_UA_RE = /bot|crawler|spider|facebookexternalhit|whatsapp|telegrambot|slackbot|twitterbot|linkedinbot|discordbot|pinterest|embedly|quora|outbrain|redditbot|applebot|bingbot|googlebot|semrushbot|ahrefsbot|mj12bot|petalbot|preview/i;
+
+async function incrementarStat(userId, coluna) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const { data: existente } = await sb.from("site_stats").select("id, visitas, cliques").eq("user_id", userId).eq("dia", hoje).maybeSingle();
+  if (existente) {
+    await sb.from("site_stats").update({ [coluna]: (existente[coluna] || 0) + 1 }).eq("id", existente.id);
+  } else {
+    await sb.from("site_stats").insert({ user_id: userId, dia: hoje, visitas: coluna === "visitas" ? 1 : 0, cliques: coluna === "cliques" ? 1 : 0 });
+  }
+}
+async function registrarVisita(userId, req) {
+  const ua = req.headers?.["user-agent"] || "";
+  if (BOT_UA_RE.test(ua)) return;
+  await incrementarStat(userId, "visitas");
+}
+async function registrarClique(userId) {
+  await incrementarStat(userId, "cliques");
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -658,7 +752,19 @@ export default async function handler(req, res) {
       sb.from("artistas").select("nome, insta, foto_site_url, bio_site, portfolio_fotos, botao_social_label").eq("user_id", uid).eq("ativo", true).order("nome"),
     ]);
     if (!site || !site.publicado) return res.status(404).send(paginaSiteIndisponivel());
+    // Serverless: se não esperar aqui, a função pode encerrar antes do
+    // registro terminar de gravar (fire-and-forget não é confiável na Vercel).
+    await registrarVisita(uid, req).catch(() => {});
     return res.status(200).send(paginaSitePremium(site, cfg, artistas || [], slug));
+  }
+
+  // ── ANALYTICS: clique no CTA principal (aberto o chat da Aura) ──────────────
+  if (acao === "track_click") {
+    const slugClick = (req.query?.slug || "").trim();
+    if (!slugClick) return res.status(200).json({ ok: false });
+    const { data: tenantClick } = await sb.from("ink_clientes").select("auth_user_id").eq("slug", slugClick).single();
+    if (tenantClick) await registrarClique(tenantClick.auth_user_id).catch(() => {});
+    return res.status(200).json({ ok: true });
   }
 
   // ── PRÉVIA AO VIVO (aba "Meu Site" do CRM) ──────────────────────────────────

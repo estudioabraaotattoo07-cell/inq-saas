@@ -1264,6 +1264,8 @@ export default function CRM() {
   const [categoriaNegocio, setCategoriaNegocio] = useState<string>("");
   const [metaPixelId, setMetaPixelId] = useState<string>("");
   const [siteAdvOpen, setSiteAdvOpen] = useState(false);
+  const [dominioDesejado, setDominioDesejado] = useState("");
+  const [siteStats, setSiteStats] = useState<{ visitas: number; cliques: number } | null>(null);
   // ── FILTRO EXTRA (campanha | origem) — mutuamente exclusivo com filtro de artista ──
   const [filtroExtra, setFiltroExtra] = useState<{tipo: "campanha"|"orig"; valor: string} | null>(null);
   const [dropdownAberto, setDropdownAberto] = useState<"campanhas"|"orig"|null>(null);
@@ -1619,17 +1621,29 @@ export default function CRM() {
     }
   };
 
+  const lastUserIdRef = useRef<string | null>(null);
   useEffect(() => {
     sb.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setLogado(true);
         setUserId(session.user?.id || "");
+        lastUserIdRef.current = session.user?.id || null;
         verificarAcessoPos(session.user?.id || "", session.user?.email || "");
       }
     });
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
+      const novoId = session?.user?.id || null;
+      // A sessão de login fica no localStorage, compartilhado entre TODAS as
+      // abas do mesmo navegador — se outra aba logar em outra conta, essa
+      // troca "vaza" pra cá também. Recarregar do zero evita ficar com dados
+      // já carregados de uma conta enquanto grava na outra (userId trocado).
+      if (lastUserIdRef.current && novoId && novoId !== lastUserIdRef.current) {
+        window.location.reload();
+        return;
+      }
+      lastUserIdRef.current = novoId;
       setLogado(!!session);
-      setUserId(session?.user?.id || "");
+      setUserId(novoId || "");
       if (session) verificarAcessoPos(session.user?.id || "", session.user?.email || "");
     });
     return () => subscription.unsubscribe();
@@ -2172,6 +2186,16 @@ export default function CRM() {
       setSiteLoaded(true);
     })();
   }, [tab, userId, siteLoaded]);
+
+  useEffect(() => {
+    if (tab !== "site" || !userId) return;
+    const trintaDiasAtras = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    sb.from("site_stats").select("visitas, cliques").eq("user_id", userId).gte("dia", trintaDiasAtras)
+      .then(({ data }) => {
+        if (!data) return;
+        setSiteStats(data.reduce((acc, r) => ({ visitas: acc.visitas + (r.visitas || 0), cliques: acc.cliques + (r.cliques || 0) }), { visitas: 0, cliques: 0 }));
+      });
+  }, [tab, userId]);
 
   // Prévia ao vivo (ainda não salva) — reusa o mesmo render do site real via
   // acao=preview, com uma pausa curta pra não bater no servidor a cada tecla.
@@ -13721,6 +13745,12 @@ export default function CRM() {
                   {previewUrl && <a href={previewUrl} target="_blank" rel="noreferrer" className="btn-s" style={{ textDecoration: "none" }}>👁 Ver site</a>}
                 </div>
               </div>
+              {siteStats && (
+                <div style={{ display: "flex", gap: 20, fontSize: 11, color: "var(--tx3)", marginBottom: 16, marginTop: -8 }}>
+                  <span>📈 <b style={{ color: "var(--gold)" }}>{siteStats.visitas}</b> visitas nos últimos 30 dias</span>
+                  <span>✦ <b style={{ color: "var(--gold)" }}>{siteStats.cliques}</b> cliques em "Marque agora"</span>
+                </div>
+              )}
               {!siteSlug && (
                 <div style={{ fontSize: 11, color: "var(--tx3)", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: "10px 12px", marginBottom: 16 }}>
                   Seu endereço público ainda não foi configurado — fale com o suporte pra definir o link do seu site.
@@ -14015,6 +14045,22 @@ export default function CRM() {
                       <Help>Cole aqui o ID do Pixel da sua conta de anúncios do Meta (Facebook/Instagram Ads) — deixa vazio se você não impulsiona posts nem roda anúncio. Isso ajuda o Meta a otimizar seus anúncios pra gente parecida com quem visita seu site.</Help>
                       <label className="fl">Pixel ID do Meta Ads</label>
                       <input className="fi" placeholder="Ex: 123456789012345" value={metaPixelId} onChange={e => setMetaPixelId(e.target.value)} />
+                    </div>
+                    <div className="ff">
+                      <Help>Quer usar um domínio só seu (ex: seuestudio.com.br) em vez do endereço padrão do INK SYSTEM? É um serviço à parte, feito manualmente — digite o domínio desejado e mande o pedido.</Help>
+                      <label className="fl">Domínio próprio desejado</label>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input className="fi" placeholder="Ex: seuestudio.com.br" value={dominioDesejado} style={{ flex: 1 }} onChange={e => setDominioDesejado(e.target.value)} />
+                        <a
+                          href={`https://wa.me/${WHATSAPP_SUPORTE_INK}?text=${encodeURIComponent(
+                            `Olá! Meu estúdio ${studioName || ""} gostaria de usar o domínio próprio "${dominioDesejado}" no meu site do INK SYSTEM. Podemos combinar?`
+                          )}`}
+                          target="_blank" rel="noopener noreferrer" className="btn-sm"
+                          style={{ textDecoration: "none", whiteSpace: "nowrap", opacity: dominioDesejado.trim() ? 1 : 0.5, pointerEvents: dominioDesejado.trim() ? "auto" : "none" }}
+                        >
+                          Solicitar →
+                        </a>
+                      </div>
                     </div>
                   </div>
                 )}
