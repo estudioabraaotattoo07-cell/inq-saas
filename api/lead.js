@@ -188,12 +188,22 @@ function paginaSitePremium(site, cfg, artistas, slug) {
       ${d.imagem_url ? `<a class="depo-print-link" href="${esc(d.imagem_url)}" target="_blank"><img class="depo-print" src="${esc(d.imagem_url)}" alt="Print do depoimento"></a>` : ""}
     </div>`).join("");
 
+  const ogDescricao = (site.manifesto_frase || site.hero_frase || `Arte na pele, criada a partir da sua história.`).replace(/\n/g, " ");
+  const ogUrl = slug ? `https://inksystem.com.br/${esc(slug)}` : "";
+
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(nomeEstudio)} – Estúdio de Tatuagem</title>
+<meta name="description" content="${esc(ogDescricao)}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="${esc(nomeEstudio)}">
+<meta property="og:description" content="${esc(ogDescricao)}">
+${heroFoto ? `<meta property="og:image" content="${esc(heroFoto)}">` : ""}
+${ogUrl ? `<meta property="og:url" content="${ogUrl}">` : ""}
+<meta name="twitter:card" content="summary_large_image">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}

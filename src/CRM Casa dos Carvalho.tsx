@@ -2216,7 +2216,11 @@ export default function CRM() {
     setShowAviso("✅ Site salvo com sucesso!");
   };
 
-  const uploadSiteImg = async (file: File): Promise<string> => {
+  // "full" = fotos de tela cheia (hero/banner, até 1600px). "thumb" = fotos
+  // pequenas (retrato de artista, esteira de portfólio, print de depoimento) —
+  // essas nunca aparecem maiores que ~250px no site, então comprimir pra 1600px
+  // só pesa o carregamento no celular à toa, sem ganho nenhum de nitidez.
+  const uploadSiteImg = async (file: File, profile: "full" | "thumb" = "full"): Promise<string> => {
     const compress = (f: File, maxPx: number, q: number): Promise<string> => new Promise((res) => {
       const reader = new FileReader();
       reader.onload = (ev) => {
@@ -2233,7 +2237,8 @@ export default function CRM() {
       };
       reader.readAsDataURL(f);
     });
-    const base64 = await compress(file, 1600, 0.8);
+    const [maxPx, q] = profile === "thumb" ? [700, 0.75] : [1600, 0.8];
+    const base64 = await compress(file, maxPx, q);
     const resp = await fetch("https://inq-saas.vercel.app/api/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -13622,7 +13627,7 @@ export default function CRM() {
             </div>
           );
 
-          const ImageSlot = ({ label, hint, value, onChange }: { label: string; hint: string; value: string; onChange: (url: string) => void }) => (
+          const ImageSlot = ({ label, hint, value, onChange, profile = "full" }: { label: string; hint: string; value: string; onChange: (url: string) => void; profile?: "full" | "thumb" }) => (
             <div style={{ marginBottom: 22 }}>
               <Help>{hint}</Help>
               <label className="fl">{label}</label>
@@ -13645,7 +13650,7 @@ export default function CRM() {
                 )}
                 <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
                   const f = e.target.files?.[0]; if (!f) return;
-                  const url = await uploadSiteImg(f);
+                  const url = await uploadSiteImg(f, profile);
                   if (url) onChange(url);
                   e.target.value = "";
                 }} />
@@ -13754,7 +13759,7 @@ export default function CRM() {
                   return (
                     <div key={a.id} style={{ background: "#050505", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 10, padding: 16, marginBottom: 12 }}>
                       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, fontWeight: 600, color: a.cor || "var(--gold)", marginBottom: 12 }}>{a.nome}</div>
-                      <ImageSlot label="Foto do artista" hint="Recomendado: 800×1000px, retrato."
+                      <ImageSlot label="Foto do artista" hint="Recomendado: 800×1000px, retrato." profile="thumb"
                         value={a.foto_site_url || ""} onChange={(url) => updArtistSite(a.id, { foto_site_url: url })} />
                       <Help>Descrição que aparece ao lado da foto (máx. 500 caracteres) — quanto mais texto, menor a letra, pra sempre caber.</Help>
                       <textarea className="fta" maxLength={500} placeholder="Escreva aqui... Ex: Traço fino, cores vivas e um cuidado enorme com cada detalhe."
@@ -13782,7 +13787,7 @@ export default function CRM() {
                             +
                             <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
                               const f = e.target.files?.[0]; if (!f) return;
-                              const url = await uploadSiteImg(f);
+                              const url = await uploadSiteImg(f, "thumb");
                               if (url) updArtistSite(a.id, { portfolio_fotos: [...fotos, url] });
                               e.target.value = "";
                             }} />
@@ -13842,7 +13847,7 @@ export default function CRM() {
                           📷
                           <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
                             const f = e.target.files?.[0]; if (!f) return;
-                            const url = await uploadSiteImg(f);
+                            const url = await uploadSiteImg(f, "thumb");
                             if (url) { const arr = [...sc.depoimentos]; arr[i] = { ...d, imagem_url: url }; upd({ depoimentos: arr }); }
                             e.target.value = "";
                           }} />
