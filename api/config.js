@@ -15,34 +15,6 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  // Setup ÚNICO da conta demo (rodar uma vez, depois remover este branch).
-  if (req.query?.setupDemo === "confirmado") {
-    const DEMO_EMAIL = "demo@inksystem.com.br";
-    const DEMO_PASSWORD = "InkSystemDemo2026!";
-    let uid;
-    const { data: existing } = await sb.auth.admin.listUsers();
-    const jaExiste = existing?.users?.find(u => u.email === DEMO_EMAIL);
-    if (jaExiste) {
-      uid = jaExiste.id;
-    } else {
-      const { data: created, error: errCreate } = await sb.auth.admin.createUser({
-        email: DEMO_EMAIL, password: DEMO_PASSWORD, email_confirm: true,
-      });
-      if (errCreate) return res.status(500).json({ error: errCreate.message });
-      uid = created.user.id;
-    }
-    await sb.from("configuracoes").upsert({
-      user_id: uid, studio_name: "Seu Estúdio", studio_owner: "Seu Nome",
-      studio_email: DEMO_EMAIL, studio_city: "Vitória", studio_estado: "ES",
-      onboarding_done: true,
-    }, { onConflict: "user_id" });
-    await sb.from("ink_clientes").upsert({
-      auth_user_id: uid, email: DEMO_EMAIL, nome_estudio: "Seu Estúdio",
-      slug: "demo-interno", status: "ativo", plano: "Ouro",
-    }, { onConflict: "auth_user_id" });
-    return res.status(200).json({ ok: true, uid, email: DEMO_EMAIL });
-  }
-
   // Reset + reseed da conta demo — chamado a cada carregamento de ?demo=1,
   // pra quem está testando sempre ver dados fictícios do zero.
   if (req.query?.acao === "resetDemo") {

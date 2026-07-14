@@ -1182,6 +1182,7 @@ export default function CRM() {
 
   // ── LOGIN ──
   const [logado, setLogado] = useState(false);
+  const [demoBootstrapping, setDemoBootstrapping] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "1");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [showAuthPassword, setShowAuthPassword] = useState(false);
@@ -1642,12 +1643,24 @@ export default function CRM() {
 
   const lastUserIdRef = useRef<string | null>(null);
   useEffect(() => {
-    sb.auth.getSession().then(({ data: { session } }) => {
+    const isDemoUrl = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "1";
+    sb.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         setLogado(true);
         setUserId(session.user?.id || "");
         lastUserIdRef.current = session.user?.id || null;
         verificarAcessoPos(session.user?.id || "", session.user?.email || "");
+        setDemoBootstrapping(false);
+        return;
+      }
+      if (isDemoUrl) {
+        // Modo demo: reseta os dados fictícios da conta demo e entra
+        // automaticamente, sem passar pela tela de login normal.
+        try { await fetch("https://inq-saas.vercel.app/api/config?acao=resetDemo"); } catch {}
+        await sb.auth.signInWithPassword({ email: "demo@inksystem.com.br", password: "InkSystemDemo2026!" });
+        setDemoBootstrapping(false);
+      } else {
+        setDemoBootstrapping(false);
       }
     });
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
@@ -4794,6 +4807,14 @@ export default function CRM() {
   };
 
   // ── LOGIN ──
+  if (demoBootstrapping) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0E0E0E", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, fontFamily: "'DM Sans',sans-serif" }}>
+        <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ width: 220 }} />
+        <div style={{ color: "#C9A84C", fontSize: 13 }}>Preparando sua demonstração...</div>
+      </div>
+    );
+  }
   if (!logado) {
     const handleAuth = async () => {
       setAuthError("");

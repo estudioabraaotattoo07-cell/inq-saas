@@ -746,6 +746,8 @@ export default async function handler(req, res) {
     const { data: tenant } = await sb.from("ink_clientes").select("auth_user_id, status").eq("slug", slug).single();
     if (!tenant || tenant.status !== "ativo") return res.status(404).send(paginaSiteIndisponivel());
     const uid = tenant.auth_user_id;
+    // Conta demo nunca publica de verdade, mesmo com "Publicado" ligado no CRM.
+    if (uid === process.env.DEMO_USER_ID) return res.status(404).send(paginaSiteIndisponivel());
     const [{ data: site }, { data: cfg }, { data: artistas }] = await Promise.all([
       sb.from("site_conteudo").select("*").eq("user_id", uid).single(),
       sb.from("configuracoes").select("studio_name, studio_tel, studio_city, studio_estado, categoria_negocio, meta_pixel_id").eq("user_id", uid).single(),
