@@ -63,6 +63,13 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  if (req.query?.debugDemo === "clientes") {
+    const uid = process.env.DEMO_USER_ID;
+    const { data: cli, error: errCli } = await sb.from("clientes").select("id, nome, etapa, artista").eq("user_id", uid);
+    const { data: art, error: errArt } = await sb.from("artistas").select("id, nome").eq("user_id", uid);
+    return res.status(200).json({ uid, cli, errCli, art, errArt });
+  }
+
   if (req.query?.debugDemo === "1") {
     const uid = process.env.DEMO_USER_ID;
     const { data, error } = await sb.from("configuracoes").select("*").eq("user_id", uid);
