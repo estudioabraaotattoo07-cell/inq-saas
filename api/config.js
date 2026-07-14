@@ -24,12 +24,19 @@ export default async function handler(req, res) {
       await sb.from(t).delete().eq("user_id", uid);
     }
     // Garante licença sempre válida pra conta demo (checada no login).
-    const { data: licExistente, error: errLicSel } = await sb.from("licencas").select("id").eq("user_id", uid).limit(1).maybeSingle();
+    const { data: licExistente } = await sb.from("licencas").select("id").eq("user_id", uid).limit(1).maybeSingle();
     const licPayload = { user_id: uid, status: "ativo", data_vencimento: "2099-12-31", plano: "Ouro" };
-    let errLicWrite = null;
-    if (licExistente) { const r = await sb.from("licencas").update(licPayload).eq("id", licExistente.id); errLicWrite = r.error; }
-    else { const r = await sb.from("licencas").insert(licPayload); errLicWrite = r.error; }
-    if (req.query?.debug === "1") return res.status(200).json({ errLicSel, errLicWrite, licExistente });
+    if (licExistente) await sb.from("licencas").update(licPayload).eq("id", licExistente.id);
+    else await sb.from("licencas").insert(licPayload);
+    // Garante configuracoes com onboarding_done=true (pula o assistente inicial).
+    const { data: cfgExistente } = await sb.from("configuracoes").select("id").eq("user_id", uid).limit(1).maybeSingle();
+    const cfgPayload = {
+      user_id: uid, studio_name: "Seu Estúdio", studio_owner: "Seu Nome",
+      studio_email: "demo@inksystem.com.br", studio_city: "Vitória", studio_estado: "ES",
+      onboarding_done: true,
+    };
+    if (cfgExistente) await sb.from("configuracoes").update(cfgPayload).eq("id", cfgExistente.id);
+    else await sb.from("configuracoes").insert(cfgPayload);
     const artistaId1 = crypto.randomUUID();
     const artistaId2 = crypto.randomUUID();
     await sb.from("artistas").insert([
