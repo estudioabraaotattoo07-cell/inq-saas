@@ -149,8 +149,10 @@ function paginaSitePremium(site, cfg, artistas, slug) {
   const velocidadeMult = { lento: 1.6, normal: 1, rapido: 0.6 }[est.velocidadeCarrossel] || 1;
 
   const IG_ICON = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M12 2.2c3.2 0 3.58.01 4.85.07 1.17.05 1.8.24 2.23.41.56.21.96.47 1.38.89.42.42.68.82.89 1.38.17.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.24 1.8-.41 2.23-.21.56-.47.96-.89 1.38-.42.42-.82.68-1.38.89-.42.17-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.24-2.23-.41a3.7 3.7 0 0 1-1.38-.89 3.7 3.7 0 0 1-.89-1.38c-.17-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.24-1.8.41-2.23.21-.56.47-.96.89-1.38.42-.42.82-.68 1.38-.89.42-.17 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.31-1.46.72-2.13 1.38C1.35 2.68.94 3.35.63 4.14c-.3.76-.5 1.64-.56 2.91C0 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.72 1.46 1.38 2.13.67.66 1.34 1.07 2.13 1.38.76.3 1.64.5 2.91.56C8.33 24 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.31 1.46-.72 2.13-1.38.66-.67 1.07-1.34 1.38-2.13.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91a5.9 5.9 0 0 0-1.38-2.13A5.9 5.9 0 0 0 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0Z" fill="currentColor"/><path d="M12 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84Zm0 10.16A4 4 0 1 1 16 12a4 4 0 0 1-4 4Z" fill="currentColor"/><circle cx="18.41" cy="5.59" r="1.44" fill="currentColor"/></svg>`;
-  const artistasHtml = (artistas || []).map((a) => {
+  const EXPAND_ICON = `<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
+  const artistasHtml = (artistas || []).map((a, artIdx) => {
     const fotos = Array.isArray(a.portfolio_fotos) ? a.portfolio_fotos : [];
+    const stripId = `strip-${artIdx}`;
     const igHandle = (a.insta || "").replace(/^@/, "");
     const bioLen = (a.bio_site || "").length;
     const bioFontSize = bioLen > 350 ? 8.5 : bioLen > 220 ? 9.5 : 10;
@@ -163,7 +165,7 @@ function paginaSitePremium(site, cfg, artistas, slug) {
     const largItem = 204; // 200px de foto + 4px de gap
     const duracaoSeg = Math.max(12, Math.round((fotos.length * largItem) / 70 * velocidadeMult));
     const fotosStrip = fotos.length > 0
-      ? [...fotos, ...fotos].map(f => `<div class="strip-item"><img src="${esc(f)}" alt=""></div>`).join("")
+      ? [...fotos, ...fotos].map(f => `<div class="strip-item" onclick="lbOpen('${esc(f).replace(/'/g, "\\'")}','${stripId}')"><img src="${esc(f)}" alt=""><div class="strip-ov"><div class="strip-exp">${EXPAND_ICON}</div></div></div>`).join("")
       : "";
     return `
     <div class="artist-row">
@@ -176,7 +178,7 @@ function paginaSitePremium(site, cfg, artistas, slug) {
         <a class="btn-gold" href="javascript:void(0)" onclick="AuraChat.abrir('${esc(a.nome).replace(/'/g, "\\'")}')" style="margin-top:18px">✦ Quero tatuar com ${esc((a.nome || "").split(" ")[0])}</a>
       </div>
     </div>
-    ${fotos.length > 0 ? `<div class="strip-outer"><div class="strip-track ${dir}" style="animation-duration:${duracaoSeg}s">${fotosStrip}</div></div>` : ""}`;
+    ${fotos.length > 0 ? `<div class="strip-outer"><div class="strip-track ${dir}" id="${stripId}" style="animation-duration:${duracaoSeg}s">${fotosStrip}</div></div>` : ""}`;
   }).join("");
 
   const passosDefault = [
@@ -194,7 +196,7 @@ function paginaSitePremium(site, cfg, artistas, slug) {
       <div class="depo-stars">${"★".repeat(Math.max(1, Math.min(5, d.estrelas || 5)))}</div>
       <p class="depo-text">"${esc(d.texto || "")}"</p>
       <span class="depo-author">— ${esc(d.autor || "")}</span>
-      ${d.imagem_url ? `<a class="depo-print-link" href="${esc(d.imagem_url)}" target="_blank"><img class="depo-print" src="${esc(d.imagem_url)}" alt="Print do depoimento"></a>` : ""}
+      ${d.imagem_url ? `<div class="depo-print-link" onclick="lbOpenImg('${esc(d.imagem_url).replace(/'/g, "\\'")}')"><img class="depo-print" src="${esc(d.imagem_url)}" alt="Print do depoimento"></div>` : ""}
     </div>`).join("");
 
   const ogDescricao = (site.manifesto_frase || site.hero_frase || `Arte na pele, criada a partir da sua história.`).replace(/\n/g, " ");
@@ -270,8 +272,24 @@ body{background:var(--bg);color:#fff;font-family:"Montserrat",sans-serif;overflo
 .strip-outer:hover .strip-track{animation-play-state:paused}
 @keyframes goRight{0%{transform:translateX(-50%)}100%{transform:translateX(0)}}
 @keyframes goLeft{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
-.strip-item{width:200px;height:255px;flex-shrink:0;overflow:hidden;background:#111;border-radius:var(--radius)}
-.strip-item img{width:100%;height:100%;object-fit:cover}
+.strip-item{width:200px;height:255px;flex-shrink:0;overflow:hidden;background:#111;border-radius:var(--radius);position:relative;cursor:pointer}
+.strip-item img{width:100%;height:100%;object-fit:cover;pointer-events:none}
+.strip-ov{position:absolute;inset:0;background:rgba(0,0,0,0);transition:background .3s;display:flex;align-items:center;justify-content:center}
+.strip-item:hover .strip-ov{background:rgba(0,0,0,0.22)}
+.strip-exp{opacity:0;transition:opacity .3s;width:36px;height:36px;border-radius:50%;background:rgba(201,168,76,0.9);display:flex;align-items:center;justify-content:center}
+.strip-item:hover .strip-exp{opacity:1}
+.strip-exp svg{width:13px;height:13px;stroke:#000;fill:none;stroke-width:2}
+.depo-print-link{cursor:pointer}
+.lb{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.96);display:none;align-items:center;justify-content:center}
+.lb.open{display:flex}
+.lb-img{max-width:75vw;max-height:75vh;object-fit:contain;width:auto;height:auto;border-radius:var(--radius)}
+.lb-close{position:absolute;top:18px;right:20px;width:40px;height:40px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:0.5px solid rgba(255,255,255,0.1);transition:border-color .2s}
+.lb-close:hover{border-color:var(--gold)}
+.lb-close svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:1.5}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:42px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:0.5px solid rgba(255,255,255,0.1);transition:border-color .2s}
+.lb-nav:hover{border-color:var(--gold)}
+.lb-nav svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:1.5}
+.lb-prev{left:16px}.lb-next{right:16px}
 .como{padding:88px var(--pad);border-top:0.5px solid rgba(255,255,255,0.04)}
 .como-title{font-family:var(--font-titulo);font-size:clamp(26px,3.8vw,44px);font-weight:300;text-align:center;margin-bottom:56px}
 .como-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:40px}
@@ -351,12 +369,58 @@ ${site.banner_foto_url ? `<section class="banner">
   <div class="footer-line">© ${new Date().getFullYear()} ${esc(nomeEstudio)}</div>
   <div class="footer-bottom">Powered by INK SYSTEM</div>
 </footer>
+<div class="lb" id="lb">
+  <div class="lb-close" id="lb-x"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+  <div class="lb-nav lb-prev" id="lb-prev"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+  <img class="lb-img" id="lb-img" src="" alt="">
+  <div class="lb-nav lb-next" id="lb-next"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+</div>
 <button id="aura-fab" class="aura-fab" onclick="AuraChat.abrir()">✦ Marque agora</button>
 <div id="aura-panel" class="aura-panel">
   <div class="aura-head"><span>✦ Fale com a gente</span><span class="aura-close" onclick="AuraChat.fechar()">✕</span></div>
   <div id="aura-msgs" class="aura-msgs"></div>
   <div id="aura-input-area" class="aura-input-area"></div>
 </div>
+<script>
+// Lightbox das fotos (esteira de portfólio + print de depoimento) — mesmo
+// padrão do site real (a-casa-dos-carvalho), sem o arraste manual (a esteira
+// aqui já rola sozinha via CSS, então só o clique-pra-expandir foi trazido).
+var lbImgs = [], lbIdx = 0, lbMode = "strip";
+function lbOpen(src, sid) {
+  lbMode = "strip";
+  var t = document.getElementById(sid);
+  // A esteira duplica as fotos pra rolar em loop sem salto -- remove repetidas
+  // aqui pra prev/next não ficar andando em círculo duas vezes por volta.
+  lbImgs = t ? Array.from(new Set(Array.from(t.querySelectorAll(".strip-item")).map(function (el) { return el.querySelector("img").src; }))) : [src];
+  lbIdx = Math.max(0, lbImgs.indexOf(src));
+  document.getElementById("lb-img").src = lbImgs[lbIdx] || src;
+  document.getElementById("lb-prev").style.display = "flex";
+  document.getElementById("lb-next").style.display = "flex";
+  document.getElementById("lb").classList.add("open");
+  document.querySelectorAll(".strip-track").forEach(function (el) { el.classList.add("paused"); });
+}
+function lbOpenImg(src) {
+  lbMode = "single";
+  document.getElementById("lb-img").src = src;
+  document.getElementById("lb-prev").style.display = "none";
+  document.getElementById("lb-next").style.display = "none";
+  document.getElementById("lb").classList.add("open");
+}
+function lbClose() {
+  document.getElementById("lb").classList.remove("open");
+  document.querySelectorAll(".strip-track").forEach(function (el) { el.classList.remove("paused"); });
+}
+document.getElementById("lb").addEventListener("click", function (e) { if (e.target === document.getElementById("lb")) lbClose(); });
+document.getElementById("lb-x").onclick = lbClose;
+document.getElementById("lb-prev").onclick = function (e) { e.stopPropagation(); lbIdx = (lbIdx - 1 + lbImgs.length) % lbImgs.length; document.getElementById("lb-img").src = lbImgs[lbIdx]; };
+document.getElementById("lb-next").onclick = function (e) { e.stopPropagation(); lbIdx = (lbIdx + 1) % lbImgs.length; document.getElementById("lb-img").src = lbImgs[lbIdx]; };
+document.addEventListener("keydown", function (e) {
+  if (!document.getElementById("lb").classList.contains("open")) return;
+  if (e.key === "Escape") lbClose();
+  if (lbMode === "strip" && e.key === "ArrowLeft") { lbIdx = (lbIdx - 1 + lbImgs.length) % lbImgs.length; document.getElementById("lb-img").src = lbImgs[lbIdx]; }
+  if (lbMode === "strip" && e.key === "ArrowRight") { lbIdx = (lbIdx + 1) % lbImgs.length; document.getElementById("lb-img").src = lbImgs[lbIdx]; }
+});
+</script>
 <script>
 (function(){
   var ARTISTAS = ${JSON.stringify((artistas || []).map(a => a.nome))};
