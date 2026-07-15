@@ -1602,6 +1602,9 @@ export default function CRM() {
   const [auraBtnPos, setAuraBtnPos] = useState<{ x: number; y: number } | null>(null);
   const [auraDragging, setAuraDragging] = useState(false);
   const auraDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number; moved: boolean } | null>(null);
+  const [suporteBtnPos, setSuporteBtnPos] = useState<{ x: number; y: number } | null>(null);
+  const [suporteDragging, setSuporteDragging] = useState(false);
+  const suporteDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number; moved: boolean } | null>(null);
   const [auraChatMessages, setAuraChatMessages] = useState<{role: string; content: string}[]>([]);
   const [auraChatInput, setAuraChatInput] = useState("");
   const [auraChatLoading, setAuraChatLoading] = useState(false);
@@ -4229,6 +4232,53 @@ export default function CRM() {
       window.removeEventListener("touchend", onTouchEnd);
     };
   }, [auraDragging]);
+
+  // Mesmo mecanismo de arrastar da Aura, replicado pro botão de Suporte/Quiz —
+  // evita que ele fique preso num canto atrapalhando outros botões da tela.
+  const handleSuporteDragStart = (clientX: number, clientY: number) => {
+    const btn = document.getElementById("suporte-fab-btn");
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    suporteDragRef.current = { startX: clientX, startY: clientY, origX: rect.left, origY: rect.top, moved: false };
+    setSuporteDragging(true);
+  };
+
+  const handleSuporteDragMove = (clientX: number, clientY: number) => {
+    if (!suporteDragRef.current) return;
+    const dx = clientX - suporteDragRef.current.startX;
+    const dy = clientY - suporteDragRef.current.startY;
+    if (!suporteDragRef.current.moved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+    suporteDragRef.current.moved = true;
+    const btn = document.getElementById("suporte-fab-btn");
+    const w = btn ? btn.offsetWidth : 120;
+    const h = btn ? btn.offsetHeight : 48;
+    const newX = Math.min(Math.max(0, suporteDragRef.current.origX + dx), window.innerWidth - w);
+    const newY = Math.min(Math.max(0, suporteDragRef.current.origY + dy), window.innerHeight - h);
+    setSuporteBtnPos({ x: newX, y: newY });
+  };
+
+  const handleSuporteDragEnd = () => {
+    suporteDragRef.current = null;
+    setSuporteDragging(false);
+  };
+
+  useEffect(() => {
+    if (!suporteDragging) return;
+    const onMouseMove = (e: MouseEvent) => handleSuporteDragMove(e.clientX, e.clientY);
+    const onMouseUp = () => handleSuporteDragEnd();
+    const onTouchMove = (e: TouchEvent) => { if (e.touches[0]) handleSuporteDragMove(e.touches[0].clientX, e.touches[0].clientY); };
+    const onTouchEnd = () => handleSuporteDragEnd();
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [suporteDragging]);
 
   const enviarMensagemAura = async (msgOverride?: string, imagemBase64?: string, imagemMediaType?: string) => {
     const userMsg = msgOverride !== undefined ? msgOverride : auraChatInput.trim();
@@ -15833,9 +15883,16 @@ export default function CRM() {
           </button>
         </div>
 
-        {/* ── BOTÃO DE SOLICITAÇÃO: quiz de plano (demo) / suporte (cliente real) ── */}
-        <div style={{ position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", left: 16, zIndex: 9999 }}>
-          <button onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); }}
+        {/* ── BOTÃO DE SOLICITAÇÃO: quiz de plano (demo) / suporte (cliente real) — arrastável, mesmo mecanismo da Aura ── */}
+        <div
+          id="suporte-fab-btn"
+          style={suporteBtnPos
+            ? { position: "fixed", top: suporteBtnPos.y, left: suporteBtnPos.x, zIndex: 9999, cursor: suporteDragging ? "grabbing" : "grab" }
+            : { position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", left: 16, zIndex: 9999, cursor: "grab" }}
+          onMouseDown={e => { handleSuporteDragStart(e.clientX, e.clientY); }}
+          onTouchStart={e => { if (e.touches[0]) handleSuporteDragStart(e.touches[0].clientX, e.touches[0].clientY); }}
+        >
+          <button onClick={() => { if (!suporteDragRef.current?.moved) { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); } }}
             style={{ background: "var(--dk3)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 50, padding: "12px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 20px rgba(0,0,0,.4)", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
             {isDemoMode ? "💰 Quanto custa pro meu estúdio?" : "🛟 Suporte e assessoria"}
           </button>
