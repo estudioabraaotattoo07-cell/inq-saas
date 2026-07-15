@@ -5284,7 +5284,7 @@ export default function CRM() {
         {/* TOPBAR */}
         <div className="topbar">
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ height: "80%", width: "auto" }} />
+            <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ height: 45, width: "auto" }} />
             <div style={{ width: 1, height: 26, background: "linear-gradient(to bottom, transparent, var(--gold), transparent)", boxShadow: "0 0 6px var(--gold-glow)" }} />
             <button onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); }}
               style={{ background: "var(--dk3)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 50, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
