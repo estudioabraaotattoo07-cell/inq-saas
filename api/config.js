@@ -64,14 +64,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
-  if (req.query?.acao === "rotateDemoPw") {
-    const uid = process.env.DEMO_USER_ID;
-    if (!uid) return res.status(500).json({ error: "DEMO_USER_ID não configurado" });
-    const { error } = await sb.auth.admin.updateUserById(uid, { password: "Ix9kLp3Qw7Rt2VbNz8Fh" });
-    if (error) return res.status(500).json({ error: error.message });
-    return res.status(200).json({ ok: true });
-  }
-
   try {
     const { data } = await sb.from("configuracoes")
       .select("studio_tel, studio_name")
