@@ -1704,7 +1704,7 @@ export default function CRM() {
         try { await fetch("https://inq-saas.vercel.app/api/config?acao=resetDemo"); } catch {}
         let demoSession = session;
         if (!demoSession) {
-          const { data } = await sb.auth.signInWithPassword({ email: "demo@inksystem.com.br", password: "InkSystemDemo2026!" });
+          const { data } = await sb.auth.signInWithPassword({ email: "demo@inksystem.com.br", password: "Ix9kLp3Qw7Rt2VbNz8Fh" });
           demoSession = data.session;
         }
         demoResetEmAndamentoRef.current = false;
