@@ -64,6 +64,13 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  if (req.query?.debugEnv === "1") {
+    return res.status(200).json({
+      emailRemetenteServidor: process.env.EMAIL_REMETENTE || null,
+      resendKeyServidorPresente: !!process.env.RESEND_API_KEY,
+    });
+  }
+
   try {
     const { data } = await sb.from("configuracoes")
       .select("studio_tel, studio_name")
