@@ -1553,6 +1553,10 @@ export default function CRM() {
     setUsoMensal(p => canal === "email" ? { ...p, emailEnviados: p.emailEnviados + qtd } : { ...p, smsEnviados: p.smsEnviados + qtd });
     sb.rpc("incrementar_uso_mensageria", { p_user_id: userId, p_ano_mes: anoMesAtual, p_canal: canal, p_qtd: qtd }).then(() => {}, () => {});
   }, [userId, anoMesAtual]);
+  const logFalha = useCallback((canal: "email" | "sms", motivo: string) => {
+    if (!userId) return;
+    sb.rpc("registrar_falha_mensageria", { p_user_id: userId, p_canal: canal, p_motivo: motivo }).then(() => {}, () => {});
+  }, [userId]);
   const [fluxoToggles, setFluxoToggles] = useState({ boas_vindas_email: true, nps: true, google_convite: true, confirmacao_presenca: true, notificacao_artista: true, confirma_consulta: true, confirma_sessao: true, sms_consulta: true, sms_sessao: true, recontato_prox_sessao: true, remarcar: true, agradecimento_1asessao: true, recontato_d30: true });
   const [toggleConfirm, setToggleConfirm] = useState<{campo: string; novoValor: boolean; label: string} | null>(null);
   // ── ACORDEÃO DAS RÉGUAS ──
@@ -2033,7 +2037,7 @@ export default function CRM() {
             body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: pendente.cliente_email, subject: acao === "aprovar" ? "Agendamento confirmado — " + (studioName || "INK SYSTEM") : "Sobre seu agendamento — " + (studioName || "INK SYSTEM"), html })
           });
           logEnvio("email");
-        } catch {}
+        } catch (e: any) { logFalha("email", e?.message || "erro ao confirmar agendamento"); }
       }
       await addLog((acao === "aprovar" ? "✅ Agendamento aprovado" : "❌ Agendamento recusado") + " — " + pendente.cliente_nome + (pendente.profissional_nome ? " com " + pendente.profissional_nome : ""));
       setAgendamentosPendentes(prev => prev.filter((p: any) => p.id !== id));
@@ -2087,7 +2091,7 @@ export default function CRM() {
           if (canal === "sms") logEnvio("sms");
           enviados++;
         }
-      } catch {}
+      } catch (e: any) { if (canal === "email" || canal === "sms") logFalha(canal, e?.message || "erro no disparo manual"); }
     }
     try {
       const now = new Date();
@@ -2151,7 +2155,7 @@ export default function CRM() {
       });
       logEnvio("email");
       setShowAviso("✅ Relatório de " + nomeMes + "/" + ano + " enviado para " + studioEmail + ". Encaminhe para seu contador.");
-    } catch { setShowAviso("❌ Erro ao enviar relatório. Verifique as configurações de e-mail."); }
+    } catch (e: any) { logFalha("email", e?.message || "erro ao enviar relatório"); setShowAviso("❌ Erro ao enviar relatório. Verifique as configurações de e-mail."); }
     setEnviandoRelatorio(false);
   };
 
@@ -3190,7 +3194,7 @@ export default function CRM() {
         body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Seu piercing foi feito, ${cliente.nome}! Cuidados importantes 🖤`, html }),
       });
       logEnvio("email");
-    } catch { /* silencioso — solicitação já foi concluída */ }
+    } catch (e: any) { logFalha("email", e?.message || "erro no e-mail de pós-venda de piercing"); }
   };
 
   const traduzirErro = (msg: string): string => {
@@ -3231,7 +3235,7 @@ export default function CRM() {
         body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Bem-vindo(a) à ${studioNomeF}, ${cliente.nome}! 🖤`, html }),
       });
       logEnvio("email");
-    } catch { /* silencioso — cliente já foi salvo */ }
+    } catch (e: any) { logFalha("email", e?.message || "erro no e-mail de boas-vindas"); }
   };
 
   const enviarEmailAgendamento = async (tipo: "cons" | "sess", cliente: any, data: string, horaInicio: number, artistaNome: string) => {
@@ -3298,7 +3302,7 @@ export default function CRM() {
         body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: assunto, html }),
       });
       logEnvio("email");
-    } catch { /* silencioso — agendamento já foi salvo */ }
+    } catch (e: any) { logFalha("email", e?.message || "erro na confirmação de agendamento"); }
   };
 
   const saveAgEvent = async (forceRetroativo = false) => {
@@ -3555,7 +3559,7 @@ export default function CRM() {
           });
           logEnvio("email");
           emailOk++;
-        } catch {}
+        } catch (e: any) { logFalha("email", e?.message || "erro no disparo em massa"); }
       }
       if (cliente.tel && zenviaApiKey && zenviaNumero) {
         try {
@@ -3571,7 +3575,7 @@ export default function CRM() {
           });
           logEnvio("sms");
           smsOk++;
-        } catch {}
+        } catch (e: any) { logFalha("sms", e?.message || "erro no disparo em massa"); }
       }
     }
     const novoItem = { data: dataHora, hora: horaStr, segmento: segmentoLabel, destinatarios: clientesAlvo.length, preview: mensagem.slice(0, 60) };
@@ -5799,12 +5803,12 @@ export default function CRM() {
                 if (disparoMassa!.canal === "email" && c.email) {
                   const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
                   const r = await fetch(API_BASE + "/api/resend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: c.email, subject: "Mensagem de " + (studioName || "INK SYSTEM"), html }) });
-                  if (r.ok) { ok++; logEnvio("email"); }
+                  if (r.ok) { ok++; logEnvio("email"); } else { logFalha("email", "HTTP " + r.status + " no disparo em massa"); }
                 } else if (disparoMassa!.canal === "sms" && c.tel && zenviaApiKey && zenviaNumero) {
                   const r = await fetch(API_BASE + "/api/zenvia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: zenviaNumero, to: c.tel, text: msg, canal: "sms" }) });
-                  if (r.ok) { ok++; logEnvio("sms"); }
+                  if (r.ok) { ok++; logEnvio("sms"); } else { logFalha("sms", "HTTP " + r.status + " no disparo em massa"); }
                 }
-              } catch {}
+              } catch (e: any) { logFalha(disparoMassa!.canal === "sms" ? "sms" : "email", e?.message || "erro no disparo em massa"); }
             }
             try {
               await sb.from("historico").insert({ data: dataStr, hora: horaStr, acao: "Disparo em massa [" + disparoMassa!.canal.toUpperCase() + "] — " + ok + " de " + selecionados.length + " cliente(s)", user_id: userId });
@@ -9522,9 +9526,11 @@ export default function CRM() {
                         await salvarDocsStatus(docId, "enviado");
                         alert(`Email enviado para ${sc.email}`);
                       } else {
+                        logFalha("email", rData?.message || rData?.error || `HTTP ${r.status}`);
                         alert(`Erro ao enviar email: ${rData?.message || rData?.error || r.status}`);
                       }
                     } catch {
+                      logFalha("email", "erro de conexão ao enviar documento");
                       alert("Erro de conexao ao enviar email.");
                     }
                   };
@@ -9619,9 +9625,11 @@ export default function CRM() {
                       } else {
                         let motivo = "";
                         try { const err = await r.json(); motivo = err?.message || err?.error || ""; } catch {}
+                        logFalha("email", motivo || "erro ao enviar link de assinatura");
                         alert("Nao foi possivel enviar para " + emailDestino + (motivo ? "\n\nMotivo: " + motivo : "\n\nVerifique se o endereco de e-mail esta correto e tente novamente."));
                       }
                     } catch {
+                      logFalha("email", "erro de conexão ao gerar link de assinatura");
                       alert("Erro ao gerar link de assinatura.");
                     }
                     setDocsEnviandoLink(null);
