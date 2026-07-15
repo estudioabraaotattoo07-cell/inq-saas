@@ -64,6 +64,23 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  if (req.query?.debugEmail === "1") {
+    const { data: cfg } = await sb.from("configuracoes")
+      .select("resend_api_key, email_remetente, nome_remetente, canais_habilitados")
+      .eq("user_id", STUDIO_USER_ID).limit(1).maybeSingle();
+    const { data: cli } = await sb.from("clientes")
+      .select("id, nome, email, etapa")
+      .eq("user_id", STUDIO_USER_ID).ilike("nome", "%Passeio Pelo Pipeline%").limit(1).maybeSingle();
+    return res.status(200).json({
+      resendKeyPresente: !!(cfg?.resend_api_key && cfg.resend_api_key.length > 5),
+      resendKeyPrefixo: cfg?.resend_api_key ? cfg.resend_api_key.slice(0, 8) + "..." : null,
+      emailRemetente: cfg?.email_remetente || null,
+      nomeRemetente: cfg?.nome_remetente || null,
+      canaisHabilitados: cfg?.canais_habilitados || null,
+      cliente: cli || null,
+    });
+  }
+
   try {
     const { data } = await sb.from("configuracoes")
       .select("studio_tel, studio_name")
