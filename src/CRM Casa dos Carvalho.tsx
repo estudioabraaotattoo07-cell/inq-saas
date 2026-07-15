@@ -224,7 +224,6 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .mn{font-size:18px!important;}
   .tab{padding:9px 7px!important;font-size:10px!important;}
   .topbar{padding:0 12px!important;}
-  .topbar-logo{height:29px!important;}
   .wg{min-width:0!important;grid-template-columns:26px repeat(7,1fr)!important;}
   .wt{font-size:7px!important;padding:1px 2px!important;}
   .wh{font-size:9px!important;padding:4px 1px!important;}
@@ -236,11 +235,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .mdh{padding:3px 1px!important;font-size:8px!important;}
   .ag-day-head{font-size:12px!important;padding:7px 10px!important;}
 }
-@media(max-height:500px) and (orientation:landscape){
-  .topbar-logo{height:22px!important;}
-}
 .topbar{background:var(--dk2);border-bottom:1px solid var(--br);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;gap:8px;}
-.topbar-logo{height:135px;display:block;}
 .bmark{width:30px;height:30px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:700;color:#000;}
 .bname{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:600;letter-spacing:.08em;color:var(--tx);}
 .bsub{font-size:10px;letter-spacing:.15em;color:var(--gold);text-transform:uppercase;}
@@ -5289,12 +5284,7 @@ export default function CRM() {
         {/* TOPBAR */}
         <div className="topbar">
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <img src="/logo-ink-system.png" alt="INK SYSTEM" className="topbar-logo" style={{ width: "auto" }} />
-            <div style={{ width: 1, height: 26, background: "linear-gradient(to bottom, transparent, var(--gold), transparent)", boxShadow: "0 0 6px var(--gold-glow)" }} />
-            <button onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); }}
-              style={{ background: "var(--dk3)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 50, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-              {isDemoMode ? "💰 Quanto custa pro meu estúdio?" : "🛟 Suporte e assessoria"}
-            </button>
+            <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ height: 26, width: "auto" }} />
             <div style={{ width: 1, height: 26, background: "linear-gradient(to bottom, transparent, var(--gold), transparent)", boxShadow: "0 0 6px var(--gold-glow)" }} />
             <div style={{ cursor: userRole === "admin" ? "pointer" : "default" }} onClick={() => { if (userRole === "admin") setShowSettings(true); }}>
               <div className="bname">{studioName}</div>
@@ -15842,6 +15832,14 @@ export default function CRM() {
             onClick={() => { if (!auraDragRef.current?.moved) setShowAuraChat(p => !p); }}
             style={{ background: showAuraChat ? "var(--dk3)" : "var(--gold)", color: showAuraChat ? "var(--tx2)" : "#000", border: "1px solid var(--gold)", borderRadius: 50, padding: "12px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 20px rgba(201,168,76,.4)", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap", animation: showAuraChat ? "none" : "goldPulse 2.5s infinite" }}>
             ✦ {(auraName && !auraName.includes("@")) ? auraName : "Configura a sua agente de IA"}
+          </button>
+        </div>
+
+        {/* ── BOTÃO DE SOLICITAÇÃO: quiz de plano (demo) / suporte (cliente real) ── */}
+        <div style={{ position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", left: 16, zIndex: 9999 }}>
+          <button onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); }}
+            style={{ background: "var(--dk3)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 50, padding: "12px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 20px rgba(0,0,0,.4)", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
+            {isDemoMode ? "💰 Quanto custa pro meu estúdio?" : "🛟 Suporte e assessoria"}
           </button>
         </div>
 
