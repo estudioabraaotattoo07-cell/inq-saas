@@ -2082,7 +2082,6 @@ export default function CRM() {
 
   const testarCanal = async (canal: "email" | "sms" | "whatsapp") => {
     if (canal === "email") {
-      if (!resendApiKey || !emailRemetente) { setShowAviso("Preencha a Resend API Key e o Email Remetente antes de testar."); return; }
       if (!studioEmail) { setShowAviso("Preencha o Email do Estúdio em Configurações → Estúdio para receber o teste."); return; }
       setTestandoCanal("email");
       try {
@@ -2090,7 +2089,7 @@ export default function CRM() {
         await fetch("/api/resend", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey: resendApiKey, from: (nomeRemetente || studioName || "INK SYSTEM") + " <" + emailRemetente + ">", to: studioEmail, subject: "Teste de canal — INK SYSTEM", html })
+          body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: studioEmail, subject: "Teste de canal — INK SYSTEM", html })
         });
         setTesteCanalEnviado({ canal: "email", destino: studioEmail });
       } catch { setShowAviso("Erro ao enviar o teste. Revise a Resend API Key."); }
