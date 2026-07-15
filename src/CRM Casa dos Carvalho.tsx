@@ -8,6 +8,9 @@ const SUPA_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPA_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const sb = createClient(SUPA_URL, SUPA_KEY);
 const OWNER_EMAIL = "estudioabraaotattoo07@gmail.com";
+// As funções de servidor (/api/*) só existem no deploy do inq-saas — usar URL absoluta
+// garante que funcionem mesmo quando o CRM é acessado por outro domínio (ex: inksystem.com.br).
+const API_BASE = "https://inq-saas.vercel.app";
 // Preços e limites por plano — espelha ink-system-plataform/app/page.tsx (PLANOS).
 // Se mudar preço/limite lá, mudar aqui também (repos separados, sem import compartilhado).
 const PLANO_LIMITES: Record<string, { preco: number; fotosPorArtista: number; artistasInclusos: number; smsPorMes: number; emailPorMes: number; coresPersonalizadas: boolean }> = {
@@ -2058,7 +2061,7 @@ export default function CRM() {
           : "Olá, " + pendente.cliente_nome + "! Recebemos seu pedido de agendamento, mas o horário solicitado não pôde ser confirmado. Vamos te ligar em breve para combinar uma nova data.";
         const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg + "</div>";
         try {
-          await fetch("/api/resend", {
+          await fetch(API_BASE + "/api/resend", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: pendente.cliente_email, subject: acao === "aprovar" ? "Agendamento confirmado — " + (studioName || "INK SYSTEM") : "Sobre seu agendamento — " + (studioName || "INK SYSTEM"), html })
@@ -2086,7 +2089,7 @@ export default function CRM() {
       setTestandoCanal("email");
       try {
         const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>Esta é uma mensagem de teste do INK SYSTEM.<br>Se você recebeu este e-mail, o canal está funcionando corretamente.</div>";
-        await fetch("/api/resend", {
+        await fetch(API_BASE + "/api/resend", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: studioEmail, subject: "Teste de canal — INK SYSTEM", html })
@@ -2101,7 +2104,7 @@ export default function CRM() {
       try {
         const telRaw = (studioTel || "").replace(/[^0-9]/g, "");
         const tel = telRaw.startsWith("55") ? telRaw : "55" + telRaw;
-        await fetch("/api/zenvia", {
+        await fetch(API_BASE + "/api/zenvia", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ apiKey: zenviaApiKey, from: zenviaNumero, to: tel, text: "Mensagem de teste do INK SYSTEM. Se você recebeu isso, o canal está funcionando!", canal })
@@ -2143,7 +2146,7 @@ export default function CRM() {
       try {
         if (canal === "email" && cliente.email) {
           const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
-          await fetch("/api/resend", {
+          await fetch(API_BASE + "/api/resend", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: cliente.email, subject: etapa.label + " — " + (studioName || "INK SYSTEM"), html })
@@ -2151,7 +2154,7 @@ export default function CRM() {
           logEnvio("email");
           enviados++;
         } else if ((canal === "whatsapp" || canal === "sms") && zenviaApiKey && zenviaNumero && cliente.tel) {
-          await fetch("/api/zenvia", {
+          await fetch(API_BASE + "/api/zenvia", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ from: zenviaNumero, to: cliente.tel, text: msg, canal })
@@ -2210,7 +2213,7 @@ export default function CRM() {
         (linhasSaidas ? "<h3 style='margin-top:24px;color:#1a1a1a'>Saídas</h3><table style='width:100%;border-collapse:collapse;font-size:13px'><thead><tr style='background:#f0f0f0'><th style='padding:6px;text-align:left;border:1px solid #ddd'>Data</th><th style='padding:6px;text-align:left;border:1px solid #ddd'>Descrição</th><th style='padding:6px;text-align:left;border:1px solid #ddd'>Categoria</th><th style='padding:6px;text-align:right;border:1px solid #ddd'>Valor</th></tr></thead><tbody>" + linhasSaidas + "</tbody></table>" : "") +
         (linhasPermutas ? "<h3 style='margin-top:24px;color:#9B59B6'>Permutas (informativo)</h3><table style='width:100%;border-collapse:collapse;font-size:13px'><thead><tr style='background:#f5f0ff'><th style='padding:6px;text-align:left;border:1px solid #ddd'>Data</th><th style='padding:6px;text-align:left;border:1px solid #ddd'>Cliente</th><th style='padding:6px;text-align:left;border:1px solid #ddd'>Tipo</th><th style='padding:6px;text-align:right;border:1px solid #ddd'>Valor</th></tr></thead><tbody>" + linhasPermutas + "</tbody></table>" : "") +
         "<p style='margin-top:24px;font-size:12px;color:#999'>Gerado pelo INK SYSTEM · " + new Date().toLocaleString("pt-BR") + "</p></div>";
-      await fetch("/api/resend", {
+      await fetch(API_BASE + "/api/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -3256,7 +3259,7 @@ export default function CRM() {
         </div>
       </div>`;
     try {
-      await fetch("/api/resend", {
+      await fetch(API_BASE + "/api/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Seu piercing foi feito, ${cliente.nome}! Cuidados importantes 🖤`, html }),
@@ -3297,7 +3300,7 @@ export default function CRM() {
         </div>
       </div>`;
     try {
-      await fetch("/api/resend", {
+      await fetch(API_BASE + "/api/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Bem-vindo(a) à ${studioNomeF}, ${cliente.nome}! 🖤`, html }),
@@ -3364,7 +3367,7 @@ export default function CRM() {
         </div>
       </div>`;
     try {
-      await fetch("/api/resend", {
+      await fetch(API_BASE + "/api/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: assunto, html }),
@@ -3614,7 +3617,7 @@ export default function CRM() {
     for (const cliente of clientesAlvo) {
       if (cliente.email) {
         try {
-          await fetch("/api/resend", {
+          await fetch(API_BASE + "/api/resend", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -3632,7 +3635,7 @@ export default function CRM() {
       if (cliente.tel && zenviaApiKey && zenviaNumero) {
         try {
           const smsBody = mensagem.slice(0, 160);
-          await fetch("/api/zenvia", {
+          await fetch(API_BASE + "/api/zenvia", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -3940,7 +3943,7 @@ export default function CRM() {
         return "✅ Cliente **" + params.nome + "** cadastrado com sucesso no pipeline!";
       }
       if (tool === "disparar_email") {
-        await fetch("/api/resend", {
+        await fetch(API_BASE + "/api/resend", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -4069,7 +4072,7 @@ export default function CRM() {
           if (!zenviaApiKey) {
             return "❌ Credenciais Zenvia não configuradas. Acesse **Configurações → IA → SMS** para configurar.";
           }
-          const smsResp = await fetch("/api/zenvia", {
+          const smsResp = await fetch(API_BASE + "/api/zenvia", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -4098,7 +4101,7 @@ export default function CRM() {
       }
       if (tool === "encaminhar_pdf") {
         try {
-          await fetch("/api/resend", {
+          await fetch(API_BASE + "/api/resend", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -4372,7 +4375,7 @@ export default function CRM() {
         if (typeof m.content === "string" && m.content.startsWith("📷")) return null;
         return m;
       }).filter(Boolean);
-      const resp = await fetch("/api/aura", {
+      const resp = await fetch(API_BASE + "/api/aura", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey: auraApiKey, system: contexto, messages: apiMessages, tools: AURA_TOOLS })
@@ -5872,10 +5875,10 @@ export default function CRM() {
               try {
                 if (disparoMassa!.canal === "email" && c.email) {
                   const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
-                  const r = await fetch("/api/resend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: c.email, subject: "Mensagem de " + (studioName || "INK SYSTEM"), html }) });
+                  const r = await fetch(API_BASE + "/api/resend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: c.email, subject: "Mensagem de " + (studioName || "INK SYSTEM"), html }) });
                   if (r.ok) { ok++; logEnvio("email"); }
                 } else if (disparoMassa!.canal === "sms" && c.tel && zenviaApiKey && zenviaNumero) {
-                  const r = await fetch("/api/zenvia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: zenviaNumero, to: c.tel, text: msg, canal: "sms" }) });
+                  const r = await fetch(API_BASE + "/api/zenvia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: zenviaNumero, to: c.tel, text: msg, canal: "sms" }) });
                   if (r.ok) { ok++; logEnvio("sms"); }
                 }
               } catch {}
@@ -8620,7 +8623,7 @@ export default function CRM() {
                                         if (!instrucao || !auraApiKey) return;
                                         setGerandoDisparo(item.id);
                                         try {
-                                          const resp = await fetch("/api/aura", {
+                                          const resp = await fetch(API_BASE + "/api/aura", {
                                             method: "POST",
                                             headers: { "Content-Type": "application/json" },
                                             body: JSON.stringify({
@@ -9595,7 +9598,7 @@ export default function CRM() {
                       </div>`;
 
                     try {
-                      const r = await fetch("/api/resend", {
+                      const r = await fetch(API_BASE + "/api/resend", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -9692,7 +9695,7 @@ export default function CRM() {
                           </div>
                         </div>`;
 
-                      const r = await fetch("/api/resend", {
+                      const r = await fetch(API_BASE + "/api/resend", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({

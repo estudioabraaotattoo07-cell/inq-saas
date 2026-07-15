@@ -2,6 +2,8 @@ const ALLOWED_ORIGINS = [
   "https://inq-saas.vercel.app",
   "https://acasadoscarvalhotattoo.com.br",
   "https://www.acasadoscarvalhotattoo.com.br",
+  "https://inksystem.com.br",
+  "https://www.inksystem.com.br",
 ];
 
 export default async function handler(req, res) {
