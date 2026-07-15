@@ -1316,6 +1316,7 @@ export default function CRM() {
   const [siteSlug, setSiteSlug] = useState<string>("");
   const [sitePlano, setSitePlano] = useState<string>("");
   const [meuPlano, setMeuPlano] = useState<string>("");
+  const [meuSlug, setMeuSlug] = useState<string>("");
   const [siteVencimento, setSiteVencimento] = useState<string>("");
   const [slugProposto, setSlugProposto] = useState<string>("");
   const [slugConfirmando, setSlugConfirmando] = useState(false);
@@ -1679,6 +1680,8 @@ export default function CRM() {
     setLicencaOk(true);
     const planoBrutoLic = (lic.plano || "").trim();
     setMeuPlano(["Bronze", "Prata", "Ouro"].find(p => p.toLowerCase() === planoBrutoLic.toLowerCase()) || planoBrutoLic);
+    const { data: inkCli } = await sb.from("ink_clientes").select("slug").eq("auth_user_id", uid).limit(1).maybeSingle();
+    setMeuSlug(inkCli?.slug || "");
     // Verificar perfil: artista residente com email cadastrado?
     const { data: artEncontrado } = await sb.from("artistas").select("id,email").eq("email", email).limit(1).single();
     if (artEncontrado) {
@@ -2045,7 +2048,7 @@ export default function CRM() {
       if (!pendente) { setProcessandoDecisao(false); setDecisaoPendente(null); return; }
       const novoStatus = acao === "aprovar" ? "aprovado" : "recusado";
       await sb.from("agendamentos_pendentes").update({ status: novoStatus, decidido_em: new Date().toISOString() }).eq("id", id);
-      if (pendente.cliente_email && resendApiKey && emailRemetente) {
+      if (pendente.cliente_email) {
         const dataFmt = pendente.data_solicitada ? String(pendente.data_solicitada).split("-").reverse().join("/") : "";
         const msg = acao === "aprovar"
           ? "Olá, " + pendente.cliente_nome + "! Seu agendamento com " + (pendente.profissional_nome || "nosso time") + " foi confirmado para " + dataFmt + (pendente.hora_solicitada ? " às " + pendente.hora_solicitada : "") + ". Te esperamos no estúdio!"
@@ -2055,7 +2058,7 @@ export default function CRM() {
           await fetch("/api/resend", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ apiKey: resendApiKey, from: (nomeRemetente || studioName || "INK SYSTEM") + " <" + emailRemetente + ">", to: pendente.cliente_email, subject: acao === "aprovar" ? "Agendamento confirmado — " + (studioName || "INK SYSTEM") : "Sobre seu agendamento — " + (studioName || "INK SYSTEM"), html })
+            body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: pendente.cliente_email, subject: acao === "aprovar" ? "Agendamento confirmado — " + (studioName || "INK SYSTEM") : "Sobre seu agendamento — " + (studioName || "INK SYSTEM"), html })
           });
           logEnvio("email");
         } catch {}
@@ -2136,12 +2139,12 @@ export default function CRM() {
         .replace(/\[ESTUDIO\]/gi, studioName || "INK SYSTEM")
         .replace(/\[LINK_GOOGLE\]/gi, googleLink || "[link Google não configurado]");
       try {
-        if (canal === "email" && resendApiKey && cliente.email) {
+        if (canal === "email" && cliente.email) {
           const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
           await fetch("/api/resend", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ apiKey: resendApiKey, from: emailRemetente, to: cliente.email, subject: etapa.label + " — " + (studioName || "INK SYSTEM"), html })
+            body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: cliente.email, subject: etapa.label + " — " + (studioName || "INK SYSTEM"), html })
           });
           logEnvio("email");
           enviados++;
@@ -2169,7 +2172,6 @@ export default function CRM() {
   // ─── RELATÓRIO FINANCEIRO ────────────────────────────────────────────────
   const enviarRelatorioContador = async () => {
     if (!studioEmail) { setShowAviso("Configure o e-mail do estúdio nas Configurações antes de enviar."); return; }
-    if (!resendApiKey) { setShowAviso("Configure a Resend API Key nas Configurações → IA."); return; }
     setEnviandoRelatorio(true);
     try {
       const mes = finFiltroMes || new Date().toISOString().slice(0, 7);
@@ -2211,7 +2213,7 @@ export default function CRM() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           apiKey: resendApiKey,
-          from: emailRemetente,
+          from: remetenteFrom(),
           to: studioEmail,
           subject: "📊 Relatório Financeiro — " + nomeMes + "/" + ano + " · " + (studioName || "INK SYSTEM"),
           html
@@ -3211,11 +3213,16 @@ export default function CRM() {
     if (!onboardingDone) { setOnbStep(s => s + 1); }
   };
 
+  // Remetente centralizado: usa a chave/e-mail próprios do estúdio se configurados;
+  // senão cai no remetente do INK SYSTEM identificado pelo slug do estúdio (a "secretária").
+  const remetenteEmail = () => emailRemetente || (meuSlug ? `${meuSlug}@inksystem.com.br` : "contato@inksystem.com.br");
+  const remetenteFrom = (nomeCustom?: string) => `${nomeCustom || nomeRemetente || studioName || "INK SYSTEM"} <${remetenteEmail()}>`;
+
   // E-mail do dia 0 da régua de pós-venda de piercing — disparado na hora em que a solicitação é concluída.
   // Os dias 1/7/15/30 (e o SMS do dia 37) rodam pelo cron do servidor, não por aqui.
   const enviarEmailPosVendaPiercingDia0 = async (cid: number) => {
     const cliente = clients.find(c => c.id === cid);
-    if (!resendApiKey || !emailRemetente || !cliente?.email) return;
+    if (!cliente?.email) return;
     const studioNomeF = (studioName || "seu estúdio").replace(/_/g, " ");
     const whatsappFmt = studioTel ? maskTel(studioTel) : "";
     const waNumero = (studioTel || "").replace(/\D/g, "");
@@ -3250,7 +3257,7 @@ export default function CRM() {
       await fetch("/api/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: resendApiKey, from: `${nomeRemetente || studioNomeF} <${emailRemetente}>`, to: cliente.email, subject: `Seu piercing foi feito, ${cliente.nome}! Cuidados importantes 🖤`, html }),
+        body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Seu piercing foi feito, ${cliente.nome}! Cuidados importantes 🖤`, html }),
       });
       logEnvio("email");
     } catch { /* silencioso — solicitação já foi concluída */ }
@@ -3268,7 +3275,7 @@ export default function CRM() {
 
   // Boas-vindas para clientes cadastrados manualmente no CRM (o site já dispara o equivalente sozinho via /api/lead)
   const enviarEmailBoasVindas = async (cliente: any, artistaNome: string) => {
-    if (!resendApiKey || !emailRemetente || !cliente?.email) return;
+    if (!cliente?.email) return;
     if (!fluxoToggles.boas_vindas_email) return;
     const studioNomeF = (studioName || "seu estúdio").replace(/_/g, " ");
     const whatsappFmt = studioTel ? maskTel(studioTel) : "nosso WhatsApp";
@@ -3291,14 +3298,14 @@ export default function CRM() {
       await fetch("/api/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: resendApiKey, from: `${nomeRemetente || studioNomeF} <${emailRemetente}>`, to: cliente.email, subject: `Bem-vindo(a) à ${studioNomeF}, ${cliente.nome}! 🖤`, html }),
+        body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Bem-vindo(a) à ${studioNomeF}, ${cliente.nome}! 🖤`, html }),
       });
       logEnvio("email");
     } catch { /* silencioso — cliente já foi salvo */ }
   };
 
   const enviarEmailAgendamento = async (tipo: "cons" | "sess", cliente: any, data: string, horaInicio: number, artistaNome: string) => {
-    if (!resendApiKey || !emailRemetente || !cliente?.email) return;
+    if (!cliente?.email) return;
     const ehConsulta = tipo === "cons";
     if (ehConsulta && !fluxoToggles.confirma_consulta) return;
     if (!ehConsulta && !fluxoToggles.confirma_sessao) return;
@@ -3358,7 +3365,7 @@ export default function CRM() {
       await fetch("/api/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: resendApiKey, from: `${nomeRemetente || studioNomeF} <${emailRemetente}>`, to: cliente.email, subject: assunto, html }),
+        body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: assunto, html }),
       });
       logEnvio("email");
     } catch { /* silencioso — agendamento já foi salvo */ }
@@ -3603,14 +3610,14 @@ export default function CRM() {
     let emailOk = 0;
     let smsOk = 0;
     for (const cliente of clientesAlvo) {
-      if (cliente.email && resendApiKey && emailRemetente) {
+      if (cliente.email) {
         try {
           await fetch("/api/resend", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               apiKey: resendApiKey,
-              from: (nomeRemetente || studioName) + " <" + emailRemetente + ">",
+              from: remetenteFrom(),
               to: [cliente.email],
               subject: "Mensagem de " + (studioName || "seu estúdio"),
               html: "<p>" + mensagem.replace(/\n/g, "<br/>") + "</p><br/><p style='font-size:11px;color:#888'>— " + (studioName || "") + "</p>"
@@ -3936,7 +3943,7 @@ export default function CRM() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             apiKey: resendApiKey,
-            from: (nomeRemetente || studioName) + " <" + emailRemetente + ">",
+            from: remetenteFrom(),
             to: [params.cliente_email],
             subject: params.assunto,
             html: "<p>" + params.mensagem.replace(/\n/g, "<br/>") + "</p>"
@@ -4089,13 +4096,12 @@ export default function CRM() {
       }
       if (tool === "encaminhar_pdf") {
         try {
-          if (!resendApiKey) return "❌ Resend não configurado. Acesse Configurações → IA para configurar.";
           await fetch("/api/resend", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               apiKey: resendApiKey,
-              from: emailRemetente,
+              from: remetenteFrom(),
               to: params.destinatario_email,
               subject: params.assunto,
               html: "<p>" + params.mensagem.replace(/\n/g, "<br>") + "</p><p style='font-size:12px;color:#999'>Enviado via INK SYSTEM</p>"
@@ -5815,9 +5821,9 @@ export default function CRM() {
             for (const c of selecionados) {
               const msg = (disparoMassa!.texto || "").replace(/\{nome\}/gi, c.nome.split(" ")[0]);
               try {
-                if (disparoMassa!.canal === "email" && c.email && resendApiKey) {
+                if (disparoMassa!.canal === "email" && c.email) {
                   const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
-                  const r = await fetch("/api/resend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: resendApiKey, from: (nomeRemetente || studioName || "INK SYSTEM") + " <" + emailRemetente + ">", to: c.email, subject: "Mensagem de " + (studioName || "INK SYSTEM"), html }) });
+                  const r = await fetch("/api/resend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: c.email, subject: "Mensagem de " + (studioName || "INK SYSTEM"), html }) });
                   if (r.ok) { ok++; logEnvio("email"); }
                 } else if (disparoMassa!.canal === "sms" && c.tel && zenviaApiKey && zenviaNumero) {
                   const r = await fetch("/api/zenvia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: zenviaNumero, to: c.tel, text: msg, canal: "sms" }) });
@@ -9472,10 +9478,6 @@ export default function CRM() {
                   };
 
                   const enviarEmail = async (docId: string) => {
-                    if (!resendApiKey || !emailRemetente) {
-                      alert("Configure a Resend API Key e o Email Remetente nas Configuracoes do estudio.");
-                      return;
-                    }
                     if (!sc.email) {
                       alert("Este cliente nao tem email cadastrado.");
                       return;
@@ -9549,7 +9551,7 @@ export default function CRM() {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                           apiKey: resendApiKey,
-                          from: `${nomeRemetente || studioNomeFormatado} <${emailRemetente}>`,
+                          from: remetenteFrom(studioNomeFormatado),
                           to: sc.email,
                           subject: `${titulo} — ${studioNomeFormatado}`,
                           html: htmlEmail,
@@ -9569,10 +9571,6 @@ export default function CRM() {
                   };
 
                   const enviarParaAssinar = async (docId: string) => {
-                    if (!resendApiKey || !emailRemetente) {
-                      alert("Configure a Resend API Key e o Email Remetente nas Configuracoes do estudio.");
-                      return;
-                    }
                     const artistaId = (sc as any).artista || "";
                     const artistaNomeResolv = artists.find((a: any) => a.id === artistaId)?.nome || artists.find((a: any) => a.nome === artistaId)?.nome || artistaId;
                     const respDadosPai: Record<string,string> = { ...((sc as any).menor_responsavel || {}), artista_nome: artistaNomeResolv };
@@ -9650,7 +9648,7 @@ export default function CRM() {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                           apiKey: resendApiKey,
-                          from: `${nomeRemetente || studioNomeFormatado} <${emailRemetente}>`,
+                          from: remetenteFrom(studioNomeFormatado),
                           to: emailDestino,
                           subject: `Assine seu ${titulo} — ${studioNomeFormatado}`,
                           html: htmlEmail,
