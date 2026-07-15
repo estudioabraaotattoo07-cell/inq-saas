@@ -1234,7 +1234,6 @@ export default function CRM() {
   // ── LICENÇA ──
   const [licencaOk, setLicencaOk] = useState(true);
   const [licencaMsg, setLicencaMsg] = useState("");
-  const [licencas, setLicencas] = useState<any[]>([]);
   // ── PERFIL DE ACESSO ──
   const [userRole, setUserRole] = useState<"admin"|"profissional">("admin");
   const [userArtistId, setUserArtistId] = useState<string>("");
@@ -1582,25 +1581,7 @@ export default function CRM() {
   const [nomeRemetente, setNomeRemetente] = useState("");
   const [zenviaApiKey, setZenviaApiKey] = useState("");
   const [zenviaNumero, setZenviaNumero] = useState("");
-  // ── TESTE DE CANAIS (confirmação manual de recebimento) ──
-  const [testeCanalEnviado, setTesteCanalEnviado] = useState<{canal: "email" | "sms" | "whatsapp"; destino: string} | null>(null);
-  const [testandoCanal, setTestandoCanal] = useState<string | null>(null);
   const [auraApiKey, setAuraApiKey] = useState("");
-  const [vercelToken, setVercelToken] = useState("");
-  const [githubToken, setGithubToken] = useState("");
-  const [githubRepo, setGithubRepo] = useState("");
-  const [infraStats, setInfraStats] = useState<any>(null);
-  const [infraLoading, setInfraLoading] = useState(false);
-  const [licencasSubTab, setLicencasSubTab] = useState<"monitoramento"|"chaves"|"licencas">("monitoramento");
-  const [anthropicSaldo, setAnthropicSaldo] = useState("");
-  const [anthropicGasto, setAnthropicGasto] = useState("");
-  const [anthropicLimite, setAnthropicLimite] = useState("");
-  const [resendLimite, setResendLimite] = useState("3000");
-  const [resendBounce, setResendBounce] = useState("");
-  const [zenviaGasto, setZenviaGasto] = useState("");
-  const [zenviaLimite, setZenviaLimite] = useState("");
-  const [zenviaInteractions, setZenviaInteractions] = useState("");
-  const [zenviaInteractionsLimite, setZenviaInteractionsLimite] = useState("");
   const [showAuraChat, setShowAuraChat] = useState(false);
   const [auraBtnPos, setAuraBtnPos] = useState<{ x: number; y: number } | null>(null);
   const [auraDragging, setAuraDragging] = useState(false);
@@ -1669,9 +1650,6 @@ export default function CRM() {
     if (email === OWNER_EMAIL) {
       setUserRole("admin");
       setLicencaOk(true);
-      // Carrega licencas para painel de gestão
-      const { data: lics } = await sb.from("licencas").select("*").order("created_at", { ascending: false });
-      if (lics) setLicencas(lics);
       return;
     }
     // Verificar licença
@@ -1913,18 +1891,6 @@ export default function CRM() {
           if (cfg.zenvia_numero) setZenviaNumero(cfg.zenvia_numero);
           if (cfg.aura_api_key) setAuraApiKey(cfg.aura_api_key);
           if (cfg.aura_instrucoes) setAuraInstrucoes(cfg.aura_instrucoes);
-          if (cfg.vercel_token) setVercelToken(cfg.vercel_token);
-          if (cfg.github_token) setGithubToken(cfg.github_token);
-          if (cfg.github_repo) setGithubRepo(cfg.github_repo);
-          if (cfg.anthropic_saldo) setAnthropicSaldo(cfg.anthropic_saldo);
-          if (cfg.anthropic_gasto) setAnthropicGasto(cfg.anthropic_gasto);
-          if (cfg.anthropic_limite) setAnthropicLimite(cfg.anthropic_limite);
-          if (cfg.resend_limite) setResendLimite(cfg.resend_limite);
-          if (cfg.resend_bounce) setResendBounce(cfg.resend_bounce);
-          if (cfg.zenvia_gasto) setZenviaGasto(cfg.zenvia_gasto);
-          if (cfg.zenvia_limite) setZenviaLimite(cfg.zenvia_limite);
-          if (cfg.zenvia_interactions) setZenviaInteractions(cfg.zenvia_interactions);
-          if (cfg.zenvia_interactions_limite) setZenviaInteractionsLimite(cfg.zenvia_interactions_limite);
           // ── CANAIS HABILITADOS ──
           if (cfg.canais_habilitados) {
             try {
@@ -2082,47 +2048,6 @@ export default function CRM() {
       await sb.from("configuracoes").upsert({ user_id: userId, canais_habilitados: JSON.stringify(novos) }, { onConflict: "user_id" });
     } catch {}
   };
-
-  const testarCanal = async (canal: "email" | "sms" | "whatsapp") => {
-    if (canal === "email") {
-      if (!studioEmail) { setShowAviso("Preencha o Email do Estúdio em Configurações → Estúdio para receber o teste."); return; }
-      setTestandoCanal("email");
-      try {
-        const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>Esta é uma mensagem de teste do INK SYSTEM.<br>Se você recebeu este e-mail, o canal está funcionando corretamente.</div>";
-        await fetch(API_BASE + "/api/resend", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: studioEmail, subject: "Teste de canal — INK SYSTEM", html })
-        });
-        setTesteCanalEnviado({ canal: "email", destino: studioEmail });
-      } catch { setShowAviso("Erro ao enviar o teste. Revise a Resend API Key."); }
-      setTestandoCanal(null);
-    } else {
-      if (!zenviaApiKey || !zenviaNumero) { setShowAviso("Preencha a Zenvia API Key e o Número de Envio antes de testar."); return; }
-      if (!studioTel) { setShowAviso("Preencha o WhatsApp do Estúdio em Configurações → Estúdio para receber o teste."); return; }
-      setTestandoCanal(canal);
-      try {
-        const telRaw = (studioTel || "").replace(/[^0-9]/g, "");
-        const tel = telRaw.startsWith("55") ? telRaw : "55" + telRaw;
-        await fetch(API_BASE + "/api/zenvia", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey: zenviaApiKey, from: zenviaNumero, to: tel, text: "Mensagem de teste do INK SYSTEM. Se você recebeu isso, o canal está funcionando!", canal })
-        });
-        setTesteCanalEnviado({ canal, destino: studioTel });
-      } catch { setShowAviso("Erro ao enviar o teste. Revise a Zenvia API Key."); }
-      setTestandoCanal(null);
-    }
-  };
-
-  const confirmarRecebimentoTeste = async (recebeu: boolean) => {
-    if (!testeCanalEnviado) return;
-    const canal = testeCanalEnviado.canal;
-    await salvarCanaisHabilitados({ ...canaisHabilitados, [canal]: recebeu });
-    setShowAviso(recebeu ? "✅ Canal confirmado e marcado como testado." : "Canal não confirmado. Revise as credenciais e tente novamente.");
-    setTesteCanalEnviado(null);
-  };
-
 
   // ── DISPARO MANUAL: executa envio de uma etapa sob demanda ────────────────
   const executarDisparoManual = async (etapa: any, tipoRegua: string) => {
@@ -5548,9 +5473,7 @@ export default function CRM() {
             { id: "dashboard", l: "Visão Geral", i: "📊", roles: ["admin","profissional"] },
             { id: "posvenda", l: "Relacionamento", i: "💬", roles: ["admin","profissional"] },
             { id: "site", l: "Meu Site", i: "🌐", roles: ["admin"] },
-            { id: "licencas", l: "Licenças", i: "🔑", roles: ["owner"] },
           ] as {id:string;l:string;i:string;roles:string[]}[]).filter(t => {
-            if (t.id === "licencas") return authEmail === OWNER_EMAIL;
             return t.roles.includes(userRole);
           }).map(t => (
             <button key={t.id} className={"tab" + (tab === t.id ? " on" : "")} onClick={() => changeTab(t.id)}>
@@ -7989,22 +7912,6 @@ export default function CRM() {
                   })}
                 </div>
               </div>
-
-              {/* ── MODAL: confirmação de recebimento do teste de canal ── */}
-              {testeCanalEnviado && (
-                <div className="ov" style={{ zIndex: 9999 }} onClick={() => setTesteCanalEnviado(null)}>
-                  <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(380px, 90vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>Você recebeu a mensagem de teste?</div>
-                    <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>
-                      Enviamos uma mensagem de teste via <strong>{testeCanalEnviado.canal === "email" ? "E-mail" : testeCanalEnviado.canal === "sms" ? "SMS" : "WhatsApp"}</strong> para <strong>{testeCanalEnviado.destino}</strong>. Confirme se ela chegou antes de marcar o canal como aprovado.
-                    </div>
-                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                      <button className="btn-c" onClick={() => confirmarRecebimentoTeste(false)}>Não recebi</button>
-                      <button className="btn-s" onClick={() => confirmarRecebimentoTeste(true)}>Sim, recebi</button>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* ── MODAL: confirmação de toggle de automação ── */}
               {toggleConfirm && (
@@ -14374,426 +14281,6 @@ export default function CRM() {
           );
         })()}
 
-        {/* ── LICENÇAS (dono do sistema) ── */}
-        {tab === "licencas" && authEmail === OWNER_EMAIL && (() => {
-          const carregarInfra = async () => {
-            setInfraLoading(true);
-            const stats: any = {};
-            // Supabase — contagem de linhas + disparos do mês por canal
-            try {
-              const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-              const { count: cClientes } = await sb.from("clientes").select("id", { count: "exact", head: true });
-              const { count: cLicencas } = await sb.from("licencas").select("id", { count: "exact", head: true });
-              const { count: cConfigs } = await sb.from("configuracoes").select("id", { count: "exact", head: true });
-              const { count: cHistorico } = await sb.from("historico").select("id", { count: "exact", head: true });
-              const { data: disparosMes } = await sb.from("historico").select("acao, created_at").gte("created_at", primeiroDiaMes).ilike("acao", "Disparo em massa%");
-              const emailsMes = (disparosMes || []).filter((d: any) => d.acao?.includes("[EMAIL]")).length;
-              const smsMes = (disparosMes || []).filter((d: any) => d.acao?.includes("[SMS]")).length;
-              const waMes = (disparosMes || []).filter((d: any) => d.acao?.includes("[WHATSAPP]")).length;
-              stats.supabase = { clientes: cClientes ?? 0, licencas: cLicencas ?? 0, configuracoes: cConfigs ?? 0, historico: cHistorico ?? 0, total: (cClientes ?? 0) + (cLicencas ?? 0) + (cConfigs ?? 0) + (cHistorico ?? 0), emailsMes, smsMes, waMes };
-            } catch { stats.supabase = { erro: true }; }
-            // Resend — CORS bloqueia chamada direta; mostrar chave configurada apenas
-            stats.resend = resendApiKey ? { dashboard: true } : { semChave: true };
-            // Vercel — deploys do mês com paginação (until = createdAt do último item)
-            if (vercelToken) {
-              try {
-                const primeiroDiaMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-                let total = 0;
-                let until: number | null = null;
-                let continua = true;
-                let paginas = 0;
-                while (continua && paginas < 20) {
-                  const url = `https://api.vercel.com/v6/deployments?limit=100${until ? "&until=" + until : ""}`;
-                  const r = await fetch(url, { headers: { Authorization: "Bearer " + vercelToken } });
-                  if (!r.ok) { continua = false; break; }
-                  const d = await r.json();
-                  const deploys: any[] = Array.isArray(d.deployments) ? d.deployments : [];
-                  if (deploys.length === 0) break;
-                  for (const dep of deploys) {
-                    const ts = Number(dep.createdAt);
-                    if (ts < primeiroDiaMes) { continua = false; break; }
-                    total++;
-                  }
-                  if (continua) {
-                    const ultimo = deploys[deploys.length - 1];
-                    until = Number(ultimo.createdAt) - 1;
-                    if (deploys.length < 100) continua = false;
-                  }
-                  paginas++;
-                }
-                stats.vercel = { mes: total, keyOk: true };
-              } catch { stats.vercel = { keyOk: false }; }
-            } else { stats.vercel = { semChave: true }; }
-            // GitHub — Actions runs do mês
-            if (githubToken && githubRepo) {
-              try {
-                const agora = new Date();
-                const primeiroDiaMes = new Date(agora.getFullYear(), agora.getMonth(), 1).toISOString().split("T")[0];
-                const r = await fetch(`https://api.github.com/repos/${githubRepo}/actions/runs?per_page=100&created=%3E%3D${primeiroDiaMes}`, { headers: { Authorization: "Bearer " + githubToken, Accept: "application/vnd.github+json" } });
-                if (r.ok) {
-                  const d = await r.json();
-                  stats.github = { mes: d.total_count ?? 0, keyOk: true };
-                } else { stats.github = { keyOk: false }; }
-              } catch { stats.github = { keyOk: false }; }
-            } else { stats.github = { semChave: true }; }
-            setInfraStats(stats);
-            setInfraLoading(false);
-          };
-
-          const C_CARD = { background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, padding: "16px 18px", minWidth: 200, flex: "1 1 200px" };
-          const C_LABEL = { fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase" as const, letterSpacing: ".07em", marginBottom: 4 };
-          const C_VAL = { fontSize: 26, fontWeight: 700, color: "var(--tx)", fontFamily: "'Cormorant Garamond',serif" };
-          const C_SUB = { fontSize: 11, color: "var(--tx3)", marginTop: 3 };
-          const C_BADGE_OK = { fontSize: 10, padding: "2px 8px", borderRadius: 20, background: "rgba(39,174,96,.15)", color: "#27AE60", border: "1px solid rgba(39,174,96,.3)", display: "inline-block" };
-          const C_BADGE_ERR = { fontSize: 10, padding: "2px 8px", borderRadius: 20, background: "rgba(192,57,43,.15)", color: "#C0392B", border: "1px solid rgba(192,57,43,.3)", display: "inline-block" };
-          const C_BADGE_WARN = { fontSize: 10, padding: "2px 8px", borderRadius: 20, background: "rgba(230,126,34,.15)", color: "#E67E22", border: "1px solid rgba(230,126,34,.3)", display: "inline-block" };
-
-          return (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflowY: "auto" }}>
-            {/* cabeçalho */}
-            <div style={{ padding: "20px 20px 0" }}>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 700, color: "var(--tx)", marginBottom: 4 }}>INK SYSTEM — Painel do Dono</div>
-              <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 16 }}>Infraestrutura, chaves de acesso e licenças dos estúdios.</div>
-              {/* sub-abas */}
-              <div style={{ display: "flex", gap: 2, borderBottom: "1px solid var(--br)", marginBottom: 20 }}>
-                {([["monitoramento","Monitoramento"],["chaves","Chaves de Acesso"],["licencas","Licenças"]] as const).map(([id, label]) => (
-                  <div key={id} onClick={() => setLicencasSubTab(id)} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer", color: licencasSubTab === id ? "var(--gold)" : "var(--tx3)", borderBottom: licencasSubTab === id ? "2px solid var(--gold)" : "2px solid transparent", letterSpacing: ".03em" }}>{label}</div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ padding: "0 20px 20px", flex: 1 }}>
-
-              {/* ── MONITORAMENTO ── */}
-              {licencasSubTab === "monitoramento" && (
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, color: "var(--tx3)" }}>Uso da Infraestrutura{infraStats ? " — atualizado às " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""}</div>
-                    <button onClick={carregarInfra} disabled={infraLoading} style={{ fontSize: 11, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "5px 12px", color: "var(--tx2)", cursor: infraLoading ? "wait" : "pointer" }}>{infraLoading ? "Carregando..." : "Atualizar"}</button>
-                  </div>
-                  {!infraStats && !infraLoading && (
-                    <div style={{ textAlign: "center", padding: "40px 0", color: "var(--tx3)", fontSize: 13 }}>
-                      Clique em <strong>Atualizar</strong> para carregar os dados de uso.
-                    </div>
-                  )}
-                  {infraStats && (() => {
-                    const C_ROW = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: "1px solid var(--br)" };
-                    const C_RK = { fontSize: 11, color: "var(--tx3)" };
-                    const C_RV = { fontSize: 12, fontWeight: 700, color: "var(--tx)" };
-                    const Barra = ({ v, max, warn }: { v: number; max: number; warn?: number }) => {
-                      const pct = Math.min((v / max) * 100, 100);
-                      const cor = warn && v >= warn ? "#C0392B" : v >= max * 0.7 ? "#E67E22" : "#27AE60";
-                      return (<div style={{ marginTop: 10 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                          <span style={{ fontSize: 10, color: "var(--tx3)" }}>{v.toLocaleString("pt-BR")} / {max.toLocaleString("pt-BR")}</span>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: cor }}>{pct.toFixed(1)}%</span>
-                        </div>
-                        <div style={{ height: 6, background: "var(--dk4)", borderRadius: 4, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: pct + "%", background: cor, borderRadius: 4, transition: "width .4s" }} />
-                        </div>
-                      </div>);
-                    };
-                    return (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
-                      {/* Supabase */}
-                      <div style={{ ...C_CARD, minWidth: 260 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                          <svg width="22" height="22" viewBox="0 0 109 113" fill="none" style={{ flexShrink: 0 }}><path d="M63.708 110.284c-2.86 3.601-8.658 1.628-8.727-2.97l-1.007-67.251h45.22c8.19 0 12.758 9.46 7.665 15.874L63.708 110.284z" fill="url(#supaA)"/><path d="M63.708 110.284c-2.86 3.601-8.658 1.628-8.727-2.97l-1.007-67.251h45.22c8.19 0 12.758 9.46 7.665 15.874L63.708 110.284z" fill="url(#supaB)" fillOpacity=".2"/><path d="M45.317 2.071c2.86-3.601 8.657-1.628 8.726 2.97l.442 67.251H9.83c-8.19 0-12.759-9.46-7.665-15.875L45.317 2.071z" fill="#3ECF8E"/><defs><linearGradient id="supaA" x1="53.974" y1="54.974" x2="94.163" y2="71.829" gradientUnits="userSpaceOnUse"><stop stopColor="#249361"/><stop offset="1" stopColor="#3ECF8E"/></linearGradient><linearGradient id="supaB" x1="36.156" y1="30.578" x2="54.484" y2="65.081" gradientUnits="userSpaceOnUse"><stop/><stop offset="1" stopOpacity="0"/></linearGradient></defs></svg>
-                          <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>Supabase</div><div style={{ fontSize: 10, color: "var(--tx3)" }}>Free Plan · 500 MB</div></div>
-                          <span style={C_BADGE_OK}>LIVE</span>
-                        </div>
-                        <div style={C_ROW}><span style={C_RK}>Clientes</span><span style={C_RV}>{infraStats.supabase?.clientes ?? "—"}</span></div>
-                        <div style={C_ROW}><span style={C_RK}>Licenças</span><span style={C_RV}>{infraStats.supabase?.licencas ?? "—"}</span></div>
-                        <div style={C_ROW}><span style={C_RK}>Histórico de ações</span><span style={C_RV}>{infraStats.supabase?.historico ?? "—"}</span></div>
-                        <div style={C_ROW}><span style={C_RK}>Total de linhas</span><span style={C_RV}>{infraStats.supabase?.total ?? "—"}</span></div>
-                        <Barra v={infraStats.supabase?.total ?? 0} max={50000} />
-                        <div style={{ ...C_SUB, marginTop: 6 }}>~{((infraStats.supabase?.total ?? 0) * 2).toFixed(0)} KB estimado / 500 MB</div>
-                      </div>
-                      {/* Vercel */}
-                      <div style={{ ...C_CARD, minWidth: 240 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                          <svg width="22" height="22" viewBox="0 0 76 65" fill="currentColor" style={{ color: "var(--tx)", flexShrink: 0 }}><path d="M37.5274 0L75.0548 65H0L37.5274 0Z"/></svg>
-                          <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>Vercel</div><div style={{ fontSize: 10, color: "var(--tx3)" }}>Hobby Plan</div></div>
-                          {infraStats.vercel?.keyOk ? <span style={C_BADGE_OK}>LIVE</span> : infraStats.vercel?.semChave ? <span style={C_BADGE_WARN}>SEM CHAVE</span> : <span style={C_BADGE_ERR}>ERRO</span>}
-                        </div>
-                        {infraStats.vercel?.keyOk ? <>
-                          <div style={C_ROW}><span style={C_RK}>Deploys este mês</span><span style={{ ...C_RV, color: "#27AE60" }}>{infraStats.vercel.mes}</span></div>
-                          <div style={C_ROW}><span style={C_RK}>Limite de deploys</span><span style={{ ...C_RV, color: "#27AE60" }}>Sem limite</span></div>
-                          <div style={C_ROW}><span style={C_RK}>Cobrança por deploy</span><span style={{ ...C_RV, color: "#27AE60" }}>Gratuito</span></div>
-                          <div style={{ ...C_SUB, marginTop: 10 }}>Limites reais: 100 GB bandwidth · 12 serverless functions</div>
-                        </> : <div style={C_SUB}>Configure o Vercel Token em Chaves de Acesso</div>}
-                      </div>
-                      {/* Resend */}
-                      <div style={{ ...C_CARD, minWidth: 240 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                          <svg width="22" height="22" viewBox="0 0 60 60" fill="none" style={{ flexShrink: 0 }}><circle cx="30" cy="30" r="30" fill="#000"/><path d="M18 20h24l-12 12L18 20z" fill="#fff"/><path d="M18 20v20h24V20" stroke="#fff" strokeWidth="2" fill="none"/></svg>
-                          <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>Resend</div><div style={{ fontSize: 10, color: "var(--tx3)" }}>Free Plan · {Number(resendLimite || 3000).toLocaleString("pt-BR")}/mês</div></div>
-                          {resendApiKey ? <span style={C_BADGE_OK}>CONFIG</span> : <span style={C_BADGE_WARN}>SEM CHAVE</span>}
-                        </div>
-                        <div style={C_ROW}><span style={C_RK}>Emails enviados (mês)</span><span style={C_RV}>{infraStats.supabase?.emailsMes ?? "—"}</span></div>
-                        <div style={C_ROW}><span style={C_RK}>Limite mensal</span><span style={C_RV}>{Number(resendLimite || 3000).toLocaleString("pt-BR")}</span></div>
-                        <div style={C_ROW}><span style={C_RK}>Taxa de bounce</span><span style={{ ...C_RV, color: Number(resendBounce) > 5 ? "#C0392B" : "#27AE60" }}>{resendBounce ? resendBounce + "%" : "—"}</span></div>
-                        <div style={C_ROW}><span style={C_RK}>Restam</span><span style={C_RV}>{resendLimite ? (Number(resendLimite) - (infraStats.supabase?.emailsMes ?? 0)).toLocaleString("pt-BR") : "—"}</span></div>
-                        {resendLimite && <Barra v={infraStats.supabase?.emailsMes ?? 0} max={Number(resendLimite)} warn={Number(resendLimite) * 0.85} />}
-                      </div>
-                      {/* GitHub */}
-                      <div style={{ ...C_CARD, minWidth: 240 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                          <svg width="22" height="22" viewBox="0 0 98 96" fill="currentColor" style={{ color: "var(--tx)", flexShrink: 0 }}><path fillRule="evenodd" clipRule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z"/></svg>
-                          <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>GitHub</div><div style={{ fontSize: 10, color: "var(--tx3)" }}>Free Plan · 2.000 min/mês</div></div>
-                          {infraStats.github?.keyOk ? <span style={C_BADGE_OK}>LIVE</span> : infraStats.github?.semChave ? <span style={C_BADGE_WARN}>SEM CHAVE</span> : <span style={C_BADGE_ERR}>ERRO</span>}
-                        </div>
-                        {infraStats.github?.keyOk ? <>
-                          <div style={C_ROW}><span style={C_RK}>Runs este mês</span><span style={C_RV}>{infraStats.github.mes}</span></div>
-                          <div style={C_ROW}><span style={C_RK}>Minutos estimados</span><span style={C_RV}>~{infraStats.github.mes * 2} min</span></div>
-                          <div style={C_ROW}><span style={C_RK}>Limite mensal</span><span style={C_RV}>2.000 min</span></div>
-                          <div style={C_ROW}><span style={C_RK}>Restam</span><span style={{ ...C_RV, color: (2000 - infraStats.github.mes * 2) < 400 ? "#C0392B" : "#27AE60" }}>~{2000 - infraStats.github.mes * 2} min</span></div>
-                          <Barra v={infraStats.github.mes * 2} max={2000} warn={1600} />
-                        </> : <div style={C_SUB}>Configure GitHub Token em Chaves de Acesso</div>}
-                      </div>
-                      {/* Anthropic */}
-                      <div style={{ ...C_CARD, minWidth: 240 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style={{ color: "#D97757", flexShrink: 0 }}><path d="M13.827 3.52h3.603L24 20h-3.603l-6.57-16.48zm-3.654 0H6.57L0 20h3.603l1.498-3.818h6.366l1.498 3.818h3.603L10.173 3.52zm-3.27 9.796 2.096-5.338 2.096 5.338H6.903z"/></svg>
-                          <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>Anthropic</div><div style={{ fontSize: 10, color: "var(--tx3)" }}>Pay as you go</div></div>
-                          {auraApiKey ? <span style={C_BADGE_OK}>CONFIG</span> : <span style={C_BADGE_WARN}>SEM CHAVE</span>}
-                        </div>
-                        <div style={C_ROW}><span style={C_RK}>Saldo restante</span><span style={{ ...C_RV, color: Number(anthropicSaldo) < 3 ? "#C0392B" : Number(anthropicSaldo) < 5 ? "#E67E22" : "#27AE60" }}>{anthropicSaldo ? "US$ " + anthropicSaldo : "—"}</span></div>
-                        <div style={C_ROW}><span style={C_RK}>Gasto este mês</span><span style={C_RV}>{anthropicGasto ? "US$ " + anthropicGasto : "—"}</span></div>
-                        <div style={C_ROW}><span style={C_RK}>Limite mensal</span><span style={C_RV}>{anthropicLimite ? "US$ " + anthropicLimite : "—"}</span></div>
-                        <div style={C_ROW}><span style={C_RK}>Renovação</span><span style={C_RV}>1 jul 2026</span></div>
-                        {anthropicSaldo && anthropicGasto && (() => { const g = Number(anthropicGasto.replace(",",".")); const s = Number(anthropicSaldo.replace(",",".")); return <Barra v={g} max={g + s} />; })()}
-                        <div style={{ ...C_SUB, marginTop: 6 }}>Atualize manualmente em Chaves de Acesso após consultar console.anthropic.com/billing</div>
-                      </div>
-                      {/* Zenvia */}
-                      <div style={{ ...C_CARD, minWidth: 240 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                          <svg width="22" height="22" viewBox="0 0 40 40" fill="none" style={{ flexShrink: 0 }}><rect width="40" height="40" rx="8" fill="#00B4D8"/><path d="M8 14h24M8 20h16M8 26h20" stroke="#fff" strokeWidth="3" strokeLinecap="round"/></svg>
-                          <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>Zenvia</div><div style={{ fontSize: 10, color: "var(--tx3)" }}>Plano Starter</div></div>
-                          {zenviaApiKey ? <span style={C_BADGE_OK}>CONFIG</span> : <span style={C_BADGE_WARN}>SEM CHAVE</span>}
-                        </div>
-                        <div style={C_ROW}><span style={C_RK}>Gasto do período</span><span style={{ ...C_RV, color: "var(--tx)" }}>{zenviaGasto ? "R$ " + zenviaGasto : "—"}</span></div>
-                        <div style={C_ROW}><span style={C_RK}>Limite do plano</span><span style={C_RV}>{zenviaLimite ? "R$ " + zenviaLimite : "—"}</span></div>
-                        <div style={C_ROW}><span style={C_RK}>InteractionZ usadas</span><span style={C_RV}>{zenviaInteractions || "—"} / {zenviaInteractionsLimite || "—"}</span></div>
-                        <div style={C_ROW}><span style={C_RK}>SMS/WA enviados (mês)</span><span style={C_RV}>{(infraStats.supabase?.smsMes ?? 0) + (infraStats.supabase?.waMes ?? 0)}</span></div>
-                        {zenviaGasto && zenviaLimite && <Barra v={Number(zenviaGasto.replace(",", "."))} max={Number(zenviaLimite.replace(",", "."))} warn={Number(zenviaLimite.replace(",", ".")) * 0.85} />}
-                        <div style={{ ...C_SUB, marginTop: 6 }}>Atualize manualmente em Chaves de Acesso após consultar app.zenvia.com</div>
-                      </div>
-                    </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* ── CHAVES DE ACESSO ── */}
-              {licencasSubTab === "chaves" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                  <div style={{ background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.15)", borderRadius: 8, padding: "12px 14px" }}>
-                    <div style={{ fontSize: 11, color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>Credenciais centralizadas</div>
-                    <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.6 }}>Estas chaves são salvas nas configurações do estúdio. Visíveis apenas para o dono do sistema.</div>
-                  </div>
-                  {/* Anthropic */}
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx2)", marginBottom: 10, borderBottom: "1px solid var(--br)", paddingBottom: 8 }}>Anthropic — IA (Aura)</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", width: 140, flexShrink: 0 }}>Chave API Anthropic</div>
-                        <input className="ef" type="password" placeholder="sk-ant-..." value={auraApiKey} onChange={e => setAuraApiKey(e.target.value)} style={{ flex: 1 }} />
-                      </div>
-                      <div style={{ fontSize: 10, color: "var(--tx3)" }}>Obtenha em console.anthropic.com/settings/api-keys</div>
-                      <div style={{ marginTop: 8, background: "rgba(255,255,255,.03)", border: "1px solid var(--br)", borderRadius: 6, padding: "10px 12px" }}>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, fontWeight: 600 }}>Dados de consumo (atualize manualmente via console.anthropic.com/billing)</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 180px" }}>
-                            <div style={{ fontSize: 11, color: "var(--tx3)", width: 110, flexShrink: 0 }}>Saldo restante (US$)</div>
-                            <input className="ef" placeholder="11.30" value={anthropicSaldo} onChange={e => setAnthropicSaldo(e.target.value)} style={{ flex: 1 }} />
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 180px" }}>
-                            <div style={{ fontSize: 11, color: "var(--tx3)", width: 110, flexShrink: 0 }}>Gasto no mês (US$)</div>
-                            <input className="ef" placeholder="13.61" value={anthropicGasto} onChange={e => setAnthropicGasto(e.target.value)} style={{ flex: 1 }} />
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 180px" }}>
-                            <div style={{ fontSize: 11, color: "var(--tx3)", width: 110, flexShrink: 0 }}>Limite (US$)</div>
-                            <input className="ef" placeholder="200000" value={anthropicLimite} onChange={e => setAnthropicLimite(e.target.value)} style={{ flex: 1 }} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Resend */}
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx2)", marginBottom: 10, borderBottom: "1px solid var(--br)", paddingBottom: 8 }}>Resend — Email</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", width: 140, flexShrink: 0 }}>Resend API Key</div>
-                        <input className="ef" type="password" placeholder="re_..." value={resendApiKey} onChange={e => setResendApiKey(e.target.value)} style={{ flex: 1 }} />
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", width: 140, flexShrink: 0 }}>Email Remetente</div>
-                        <input className="ef" type="email" placeholder="aura@seuestudio.com.br" value={emailRemetente} onChange={e => setEmailRemetente(e.target.value)} style={{ flex: 1 }} />
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", width: 140, flexShrink: 0 }}>Nome Remetente</div>
-                        <input className="ef" placeholder="Ex: Nome do seu Estúdio" value={nomeRemetente} onChange={e => setNomeRemetente(e.target.value)} style={{ flex: 1 }} />
-                      </div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                        <button type="button" disabled={testandoCanal === "email"} onClick={() => testarCanal("email")} style={{ background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 12, color: "var(--gold)", cursor: testandoCanal === "email" ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                          {testandoCanal === "email" ? "Enviando..." : "Testar canal email"}
-                          {canaisHabilitados.email && <span style={{ color: "#27AE60" }}>✓ Testado</span>}
-                        </button>
-                      </div>
-                      <div style={{ marginTop: 8, background: "rgba(255,255,255,.03)", border: "1px solid var(--br)", borderRadius: 6, padding: "10px 12px" }}>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, fontWeight: 600 }}>Dados do plano (atualize manualmente via resend.com/emails)</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 180px" }}>
-                            <div style={{ fontSize: 11, color: "var(--tx3)", width: 110, flexShrink: 0 }}>Limite mensal</div>
-                            <input className="ef" placeholder="3000" value={resendLimite} onChange={e => setResendLimite(e.target.value)} style={{ flex: 1 }} />
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 180px" }}>
-                            <div style={{ fontSize: 11, color: "var(--tx3)", width: 110, flexShrink: 0 }}>Taxa de bounce (%)</div>
-                            <input className="ef" placeholder="6.47" value={resendBounce} onChange={e => setResendBounce(e.target.value)} style={{ flex: 1 }} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Zenvia */}
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx2)", marginBottom: 10, borderBottom: "1px solid var(--br)", paddingBottom: 8 }}>Zenvia — SMS / WhatsApp</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", width: 140, flexShrink: 0 }}>Zenvia API Key</div>
-                        <input className="ef" type="password" placeholder="Sua chave Zenvia" value={zenviaApiKey} onChange={e => setZenviaApiKey(e.target.value)} style={{ flex: 1 }} />
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", width: 140, flexShrink: 0 }}>Número de Envio</div>
-                        <input className="ef" placeholder="+55DDD999999999" value={zenviaNumero} onChange={e => setZenviaNumero(e.target.value)} style={{ flex: 1 }} />
-                      </div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                        <button type="button" disabled={testandoCanal === "sms"} onClick={() => testarCanal("sms")} style={{ background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 12, color: "var(--gold)", cursor: testandoCanal === "sms" ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                          {testandoCanal === "sms" ? "Enviando..." : "Testar SMS"}
-                          {canaisHabilitados.sms && <span style={{ color: "#27AE60" }}>✓</span>}
-                        </button>
-                        <button type="button" disabled={testandoCanal === "whatsapp"} onClick={() => testarCanal("whatsapp")} style={{ background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.35)", borderRadius: 6, padding: "6px 12px", fontSize: 12, color: "var(--gold)", cursor: testandoCanal === "whatsapp" ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                          {testandoCanal === "whatsapp" ? "Enviando..." : "Testar WhatsApp"}
-                          {canaisHabilitados.whatsapp && <span style={{ color: "#27AE60" }}>✓</span>}
-                        </button>
-                      </div>
-                      <div style={{ marginTop: 8, background: "rgba(255,255,255,.03)", border: "1px solid var(--br)", borderRadius: 6, padding: "10px 12px" }}>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8, fontWeight: 600 }}>Dados do plano (atualize manualmente via app.zenvia.com)</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 180px" }}>
-                            <div style={{ fontSize: 11, color: "var(--tx3)", width: 110, flexShrink: 0 }}>Gasto período (R$)</div>
-                            <input className="ef" placeholder="19.40" value={zenviaGasto} onChange={e => setZenviaGasto(e.target.value)} style={{ flex: 1 }} />
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 180px" }}>
-                            <div style={{ fontSize: 11, color: "var(--tx3)", width: 110, flexShrink: 0 }}>Limite do plano (R$)</div>
-                            <input className="ef" placeholder="100.00" value={zenviaLimite} onChange={e => setZenviaLimite(e.target.value)} style={{ flex: 1 }} />
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 180px" }}>
-                            <div style={{ fontSize: 11, color: "var(--tx3)", width: 110, flexShrink: 0 }}>InteractionZ usadas</div>
-                            <input className="ef" placeholder="0" value={zenviaInteractions} onChange={e => setZenviaInteractions(e.target.value)} style={{ flex: 1 }} />
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 180px" }}>
-                            <div style={{ fontSize: 11, color: "var(--tx3)", width: 110, flexShrink: 0 }}>InteractionZ limite</div>
-                            <input className="ef" placeholder="100" value={zenviaInteractionsLimite} onChange={e => setZenviaInteractionsLimite(e.target.value)} style={{ flex: 1 }} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Vercel */}
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx2)", marginBottom: 10, borderBottom: "1px solid var(--br)", paddingBottom: 8 }}>Vercel — Deploy</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", width: 140, flexShrink: 0 }}>Vercel Token</div>
-                        <input className="ef" type="password" placeholder="Token gerado em vercel.com/account/tokens" value={vercelToken} onChange={e => setVercelToken(e.target.value)} style={{ flex: 1 }} />
-                      </div>
-                      <div style={{ fontSize: 10, color: "var(--tx3)" }}>Gere em vercel.com → Account Settings → Tokens</div>
-                    </div>
-                  </div>
-                  {/* GitHub */}
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx2)", marginBottom: 10, borderBottom: "1px solid var(--br)", paddingBottom: 8 }}>GitHub — Actions</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", width: 140, flexShrink: 0 }}>GitHub Token</div>
-                        <input className="ef" type="password" placeholder="ghp_..." value={githubToken} onChange={e => setGithubToken(e.target.value)} style={{ flex: 1 }} />
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 11, color: "var(--tx3)", width: 140, flexShrink: 0 }}>Repositório</div>
-                        <input className="ef" placeholder="usuario/nome-do-repo" value={githubRepo} onChange={e => setGithubRepo(e.target.value)} style={{ flex: 1 }} />
-                      </div>
-                      <div style={{ fontSize: 10, color: "var(--tx3)" }}>Gere em github.com → Settings → Developer settings → Personal access tokens</div>
-                    </div>
-                  </div>
-                  {/* Botão salvar */}
-                  <div style={{ paddingTop: 8, borderTop: "1px solid var(--br)" }}>
-                    <button onClick={async () => {
-                      if (!userId) return;
-                      const { data: existing } = await sb.from("configuracoes").select("id").eq("user_id", userId).limit(1).single();
-                      const fields = { aura_api_key: auraApiKey, resend_api_key: resendApiKey, email_remetente: emailRemetente, nome_remetente: nomeRemetente, zenvia_api_key: zenviaApiKey, zenvia_numero: zenviaNumero, vercel_token: vercelToken, github_token: githubToken, github_repo: githubRepo, anthropic_saldo: anthropicSaldo, anthropic_gasto: anthropicGasto, anthropic_limite: anthropicLimite, resend_limite: resendLimite, resend_bounce: resendBounce, zenvia_gasto: zenviaGasto, zenvia_limite: zenviaLimite, zenvia_interactions: zenviaInteractions, zenvia_interactions_limite: zenviaInteractionsLimite, updated_at: new Date().toISOString() };
-                      if (existing?.id) await sb.from("configuracoes").update(fields).eq("id", existing.id);
-                      setShowAviso("Chaves salvas com sucesso.");
-                    }} style={{ background: "var(--gold)", color: "#000", border: "none", borderRadius: 8, padding: "10px 24px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                      Salvar Chaves
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* ── LICENÇAS ── */}
-              {licencasSubTab === "licencas" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {licencas.length === 0 && <div style={{ fontSize: 13, color: "var(--tx3)" }}>Nenhuma licença cadastrada ainda.</div>}
-                  {licencas.map(lic => {
-                    const diasRestantes = lic.data_vencimento ? Math.ceil((new Date(lic.data_vencimento).getTime() - Date.now()) / 86400000) : -999;
-                    const vencendo = diasRestantes >= 0 && diasRestantes <= 7;
-                    const expirado = diasRestantes < 0 || lic.status !== "ativo";
-                    const cor = expirado ? "#C0392B" : vencendo ? "#E67E22" : "#27AE60";
-                    return (
-                      <div key={lic.id} style={{ background: "var(--dk2)", border: "1px solid " + (expirado ? "rgba(192,57,43,.3)" : vencendo ? "rgba(230,126,34,.3)" : "var(--br)"), borderRadius: 10, padding: "14px 18px", display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center" }}>
-                        <div style={{ flex: 1, minWidth: 200 }}>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--tx)" }}>{lic.email || lic.studio_id || lic.user_id}</div>
-                          <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 3 }}>
-                            Plano: <strong style={{ color: "var(--gold)" }}>{lic.plano || "—"}</strong>
-                            {" · "}Início: {lic.data_inicio || "—"}
-                            {" · "}Vence: {lic.data_vencimento || "—"}
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: cor + "22", color: cor, border: "1px solid " + cor + "55" }}>
-                            {expirado ? "EXPIRADO" : vencendo ? ("VENCE EM " + diasRestantes + "d") : "ATIVO"}
-                          </span>
-                          <select style={{ fontSize: 16, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 8px", color: "var(--tx)", cursor: "pointer" }}
-                            value={lic.status}
-                            onChange={async e => {
-                              const novoStatus = e.target.value;
-                              await sb.from("licencas").update({ status: novoStatus }).eq("id", lic.id);
-                              setLicencas(p => p.map(l => l.id === lic.id ? { ...l, status: novoStatus } : l));
-                            }}>
-                            <option value="ativo">Ativo</option>
-                            <option value="expirado">Expirado</option>
-                            <option value="bloqueado">Bloqueado</option>
-                          </select>
-                          <input type="date" value={lic.data_vencimento || ""} style={{ fontSize: 16, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 8px", color: "var(--tx)", cursor: "pointer" }}
-                            onChange={async e => {
-                              const novaData = e.target.value;
-                              await sb.from("licencas").update({ data_vencimento: novaData, status: "ativo" }).eq("id", lic.id);
-                              setLicencas(p => p.map(l => l.id === lic.id ? { ...l, data_vencimento: novaData, status: "ativo" } : l));
-                            }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-            </div>
-          </div>
-        );})()}
-
         {/* ── SETTINGS ── */}
         {showSettings && (() => {
           // Snapshot para cancelar
@@ -15654,18 +15141,6 @@ export default function CRM() {
                     zenvia_numero: zenviaNumero,
                     aura_api_key: auraApiKey,
                     aura_instrucoes: auraInstrucoes,
-                    vercel_token: vercelToken,
-                    github_token: githubToken,
-                    github_repo: githubRepo,
-                    anthropic_saldo: anthropicSaldo,
-                    anthropic_gasto: anthropicGasto,
-                    anthropic_limite: anthropicLimite,
-                    resend_limite: resendLimite,
-                    resend_bounce: resendBounce,
-                    zenvia_gasto: zenviaGasto,
-                    zenvia_limite: zenviaLimite,
-                    zenvia_interactions: zenviaInteractions,
-                    zenvia_interactions_limite: zenviaInteractionsLimite,
                     user_id: userId,
                     updated_at: new Date().toISOString()
                   };
