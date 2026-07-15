@@ -235,7 +235,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .mdh{padding:3px 1px!important;font-size:8px!important;}
   .ag-day-head{font-size:12px!important;padding:7px 10px!important;}
 }
-.topbar{background:var(--dk2);border-bottom:1px solid var(--br);padding:0 20px;height:170px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;gap:8px;}
+.topbar{background:var(--dk2);border-bottom:1px solid var(--br);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;gap:8px;}
 .bmark{width:30px;height:30px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:700;color:#000;}
 .bname{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:600;letter-spacing:.08em;color:var(--tx);}
 .bsub{font-size:10px;letter-spacing:.15em;color:var(--gold);text-transform:uppercase;}
@@ -5284,7 +5284,7 @@ export default function CRM() {
         {/* TOPBAR */}
         <div className="topbar">
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ height: 136, width: "auto" }} />
+            <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ height: 45, width: "auto" }} />
             <div style={{ width: 1, height: 26, background: "linear-gradient(to bottom, transparent, var(--gold), transparent)", boxShadow: "0 0 6px var(--gold-glow)" }} />
             <button onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); }}
               style={{ background: "var(--dk3)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 50, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
