@@ -5284,7 +5284,12 @@ export default function CRM() {
         {/* TOPBAR */}
         <div className="topbar">
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ height: 26, width: "auto" }} />
+            <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ height: "80%", width: "auto" }} />
+            <div style={{ width: 1, height: 26, background: "linear-gradient(to bottom, transparent, var(--gold), transparent)", boxShadow: "0 0 6px var(--gold-glow)" }} />
+            <button onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); }}
+              style={{ background: "var(--dk3)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 50, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+              {isDemoMode ? "💰 Quanto custa pro meu estúdio?" : "🛟 Suporte e assessoria"}
+            </button>
             <div style={{ width: 1, height: 26, background: "linear-gradient(to bottom, transparent, var(--gold), transparent)", boxShadow: "0 0 6px var(--gold-glow)" }} />
             <div style={{ cursor: userRole === "admin" ? "pointer" : "default" }} onClick={() => { if (userRole === "admin") setShowSettings(true); }}>
               <div className="bname">{studioName}</div>
@@ -15832,14 +15837,6 @@ export default function CRM() {
             onClick={() => { if (!auraDragRef.current?.moved) setShowAuraChat(p => !p); }}
             style={{ background: showAuraChat ? "var(--dk3)" : "var(--gold)", color: showAuraChat ? "var(--tx2)" : "#000", border: "1px solid var(--gold)", borderRadius: 50, padding: "12px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 20px rgba(201,168,76,.4)", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap", animation: showAuraChat ? "none" : "goldPulse 2.5s infinite" }}>
             ✦ {(auraName && !auraName.includes("@")) ? auraName : "Configura a sua agente de IA"}
-          </button>
-        </div>
-
-        {/* ── BOTÃO DE SOLICITAÇÃO: quiz de plano (demo) / suporte (cliente real) ── */}
-        <div style={{ position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", left: 16, zIndex: 9999 }}>
-          <button onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); }}
-            style={{ background: "var(--dk3)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 50, padding: "12px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 20px rgba(0,0,0,.4)", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
-            {isDemoMode ? "💰 Quanto custa pro meu estúdio?" : "🛟 Suporte e assessoria"}
           </button>
         </div>
 
