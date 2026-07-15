@@ -207,6 +207,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .disw{flex-direction:column!important;}
   .disr{width:100%!important;}
   /* Topbar */
+  .topbar-logo{height:26px!important;}
   .bsub{display:none!important;}
   .btn-new{font-size:11px!important;padding:6px 10px!important;}
   /* Tabs */
@@ -239,6 +240,7 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .ag-day-head{font-size:12px!important;padding:7px 10px!important;}
 }
 .topbar{background:var(--dk2);border-bottom:1px solid var(--br);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;gap:8px;}
+.topbar-logo{height:44px;width:auto;}
 .bmark{width:30px;height:30px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:700;color:#000;}
 .bname{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:600;letter-spacing:.08em;color:var(--tx);}
 .bsub{font-size:10px;letter-spacing:.15em;color:var(--gold);text-transform:uppercase;}
@@ -5271,7 +5273,7 @@ export default function CRM() {
         {/* TOPBAR */}
         <div className="topbar">
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <img src="/logo-ink-system.png" alt="INK SYSTEM" style={{ height: 26, width: "auto" }} />
+            <img src="/logo-ink-system.png" alt="INK SYSTEM" className="topbar-logo" />
             <div style={{ width: 1, height: 26, background: "linear-gradient(to bottom, transparent, var(--gold), transparent)", boxShadow: "0 0 6px var(--gold-glow)" }} />
             <div style={{ cursor: userRole === "admin" ? "pointer" : "default" }} onClick={() => { if (userRole === "admin") setShowSettings(true); }}>
               <div className="bname">{studioName}</div>
