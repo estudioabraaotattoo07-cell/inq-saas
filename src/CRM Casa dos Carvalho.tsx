@@ -18,9 +18,18 @@ const PLANO_LIMITES: Record<string, { preco: number; fotosPorArtista: number; ar
   Prata: { preco: 497, fotosPorArtista: 15, artistasInclusos: 4, smsPorMes: 100, emailPorMes: 200, coresPersonalizadas: false },
   Ouro: { preco: 597, fotosPorArtista: 30, artistasInclusos: 6, smsPorMes: 200, emailPorMes: 400, coresPersonalizadas: true },
 };
-// Recarga automática ao estourar a cota do mês — mesmo valor fixo pra qualquer plano.
-const RECARGA_SMS = { qtd: 50, preco: 15 };
-const RECARGA_EMAIL = { qtd: 100, preco: 5 };
+// Pacotes de recarga ao estourar a cota do mês — mesmos valores pra qualquer plano,
+// quantidade maior sai por um preço unitário menor.
+const RECARGA_SMS_TIERS = [
+  { qtd: 20, preco: 9 },
+  { qtd: 30, preco: 12 },
+  { qtd: 50, preco: 18 },
+];
+const RECARGA_EMAIL_TIERS = [
+  { qtd: 50, preco: 5 },
+  { qtd: 100, preco: 10 },
+  { qtd: 200, preco: 15 },
+];
 const PROXIMO_PLANO: Record<string, string> = { Bronze: "Prata", Prata: "Ouro" };
 const WHATSAPP_SUPORTE_INK = "5527999598230"; // espelha ink-system-plataform/app/page.tsx (WHATSAPP_SUPORTE)
 
@@ -1374,6 +1383,8 @@ export default function CRM() {
   const [showForm, setShowForm] = useState(false);
   const [showArtForm, setShowArtForm] = useState(false);
   const [showExtraArtistConfirm, setShowExtraArtistConfirm] = useState(false);
+  const [showRecargaModal, setShowRecargaModal] = useState<"sms" | "email" | null>(null);
+  const [comprandoRecarga, setComprandoRecarga] = useState(false);
   const [showAgForm, setShowAgForm] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const alertBtnRef = useRef<HTMLDivElement>(null);
@@ -1566,11 +1577,28 @@ export default function CRM() {
     if (!userId) return;
     setUsoMensal(p => canal === "email" ? { ...p, emailEnviados: p.emailEnviados + qtd } : { ...p, smsEnviados: p.smsEnviados + qtd });
     sb.rpc("incrementar_uso_mensageria", { p_user_id: userId, p_ano_mes: anoMesAtual, p_canal: canal, p_qtd: qtd }).then(() => {}, () => {});
+    sb.rpc("incrementar_uso_diario", { p_user_id: userId, p_canal: canal, p_qtd: qtd }).then(() => {}, () => {});
   }, [userId, anoMesAtual]);
   const logFalha = useCallback((canal: "email" | "sms", motivo: string) => {
     if (!userId) return;
     sb.rpc("registrar_falha_mensageria", { p_user_id: userId, p_canal: canal, p_motivo: motivo }).then(() => {}, () => {});
   }, [userId]);
+  // Recarga self-service: aplica a compra na hora (soma em emails_comprados/sms_comprados),
+  // sem cobrança automática ainda — fica registrado no histórico pra reconciliar
+  // manualmente com o cliente até o gateway de pagamento existir.
+  const comprarRecarga = async (canal: "email" | "sms", tier: { qtd: number; preco: number }) => {
+    if (!userId) return;
+    setComprandoRecarga(true);
+    try {
+      const { error } = await sb.rpc("comprar_recarga_mensageria", { p_user_id: userId, p_ano_mes: anoMesAtual, p_canal: canal, p_qtd: tier.qtd });
+      if (error) { setShowAviso("Erro ao registrar a recarga: " + error.message); return; }
+      setUsoMensal(p => canal === "email" ? { ...p, emailComprado: p.emailComprado + tier.qtd } : { ...p, smsComprado: p.smsComprado + tier.qtd });
+      addLog(`Recarga comprada: +${tier.qtd} ${canal === "email" ? "e-mails" : "SMS"} — R$${tier.preco.toFixed(2)}`);
+      setShowRecargaModal(null);
+    } finally {
+      setComprandoRecarga(false);
+    }
+  };
   const [fluxoToggles, setFluxoToggles] = useState({ boas_vindas_email: true, nps: true, google_convite: true, confirmacao_presenca: true, notificacao_artista: true, confirma_consulta: true, confirma_sessao: true, sms_consulta: true, sms_sessao: true, recontato_prox_sessao: true, remarcar: true, agradecimento_1asessao: true, recontato_d30: true });
   const [toggleConfirm, setToggleConfirm] = useState<{campo: string; novoValor: boolean; label: string} | null>(null);
   // ── ACORDEÃO DAS RÉGUAS ──
@@ -7954,6 +7982,11 @@ export default function CRM() {
                                 <div style={{ width: "100%", height: 5, background: "var(--dk4)", borderRadius: 3, overflow: "hidden" }}>
                                   <div style={{ width: pct + "%", height: "100%", background: corBarra, transition: "width .3s, background .3s" }} />
                                 </div>
+                                {(ch === "email" || ch === "sms") && (
+                                  <button onClick={() => setShowRecargaModal(ch)} style={{ marginTop: 5, background: "none", border: "none", color: "var(--gold)", fontSize: 10, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                                    + Comprar mais
+                                  </button>
+                                )}
                               </>
                             )}
                           </div>
@@ -15730,6 +15763,35 @@ export default function CRM() {
                   Adicionar (+R$45/mês)
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── COMPRAR RECARGA DE SMS/E-MAIL (self-service, aplica na hora) ── */}
+        {showRecargaModal && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+            onClick={() => { if (!comprandoRecarga) setShowRecargaModal(null); }}>
+            <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 14, padding: 28, minWidth: 320, maxWidth: 400 }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, color: "var(--gold)", marginBottom: 4 }}>
+                Comprar {showRecargaModal === "email" ? "e-mails" : "SMS"} extra
+              </div>
+              <p style={{ fontSize: 12, color: "var(--tx3)", lineHeight: 1.6, marginBottom: 16 }}>
+                Escolha um pacote. Ele soma direto na sua cota do mês.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+                {(showRecargaModal === "email" ? RECARGA_EMAIL_TIERS : RECARGA_SMS_TIERS).map(tier => (
+                  <button key={tier.qtd} disabled={comprandoRecarga} onClick={() => comprarRecarga(showRecargaModal, tier)}
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 9, padding: "12px 16px", cursor: comprandoRecarga ? "not-allowed" : "pointer", fontFamily: "'DM Sans',sans-serif", opacity: comprandoRecarga ? 0.6 : 1 }}>
+                    <span style={{ fontSize: 13, color: "var(--tx)", fontWeight: 600 }}>+{tier.qtd} {showRecargaModal === "email" ? "e-mails" : "SMS"}</span>
+                    <span style={{ fontSize: 13, color: "var(--gold)", fontWeight: 700 }}>R${tier.preco.toFixed(2)}</span>
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setShowRecargaModal(null)} disabled={comprandoRecarga}
+                style={{ width: "100%", padding: "10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                Cancelar
+              </button>
             </div>
           </div>
         )}
