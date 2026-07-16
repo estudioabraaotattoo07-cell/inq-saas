@@ -522,6 +522,12 @@ const DEFAULT_STAGES = [
   { id: "blacklist", label: "Blacklist", color: "#C0392B", emoji: "🚫" },
 ];
 
+// Estágios de onde agendar uma consulta/sessão pode avançar o cliente
+// automaticamente no pipeline. Mesma lista pros dois tipos de agendamento —
+// antes a de consulta só aceitava "lead", deixando de mover clientes vindos
+// de "Solicitação de Consulta"/"Solicitação de Sessão" e outros estágios.
+const AUTO_MOVE_ORIGENS = ["lead", "lead_morno", "aura_agend", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"];
+
 const STAGE_INFO: Record<string, string> = {
   lead: "Primeiros contatos captados pelo site, redes sociais, indicação ou qualquer outro canal de entrada. O cliente demonstrou algum interesse mas ainda não foi qualificado. Seu papel aqui é iniciar o relacionamento: entender a ideia, o projeto e o nível de intenção. Quanto antes entrar em contato, maior a chance de conversão.",
   lead_morno: "Clientes que solicitaram consulta via chat. Aguardam contato da equipe para agendar a conversa presencial.",
@@ -3388,9 +3394,9 @@ export default function CRM() {
       if (agClientVinc) {
         const tipoKey = (agForm.tipo || "").split("_")[0];
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
-        if (tipoKey === "cons" && cli && ["lead"].includes(cli.etapa)) {
+        if (tipoKey === "cons" && cli && AUTO_MOVE_ORIGENS.includes(cli.etapa)) {
           executarMove(agClientVinc.id, "cons_agendada");
-        } else if ((tipoKey === "sess" || tipoKey === "piercing") && cli && ["lead", "lead_morno", "aura_agend", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"].includes(cli.etapa)) {
+        } else if ((tipoKey === "sess" || tipoKey === "piercing") && cli && AUTO_MOVE_ORIGENS.includes(cli.etapa)) {
           executarMove(agClientVinc.id, "sessao_agend");
         }
       }
@@ -3475,14 +3481,14 @@ export default function CRM() {
       // Movimento automático de pipeline — único bloco, sem duplicação
       if (tipoKey === "cons") {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
-        if (cli && ["lead"].includes(cli.etapa)) {
+        if (cli && AUTO_MOVE_ORIGENS.includes(cli.etapa)) {
           // Guarda a etapa de origem só se ainda não houver uma guardada (evita perder o valor original em agendamentos em sequência)
           executarMove(agClientVinc.id, "cons_agendada", { etapa_antes_agenda: (cli as any).etapa_antes_agenda ?? cli.etapa });
         }
         enviarEmailAgendamento("cons", agClientVinc, agForm.date, agForm.start, artistaNome);
       } else if (tipoKey === "sess" || tipoKey === "piercing") {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
-        if (cli && ["lead", "lead_morno", "aura_agend", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"].includes(cli.etapa)) {
+        if (cli && AUTO_MOVE_ORIGENS.includes(cli.etapa)) {
           if (cli.etapa === "hibernacao" && (cli.faltas || 0) > 0) {
             setTimeout(() => setShowAviso(`⚠️ ${cli.nome} estava em hibernação por desmarcação. Lembre de cobrar R$100,00 de taxa — conforme política do estúdio.`), 500);
           }
