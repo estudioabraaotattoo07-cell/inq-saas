@@ -13871,7 +13871,7 @@ export default function CRM() {
           const upd = (patch: any) => setSiteConteudo((p: any) => ({ ...p, ...patch }));
           const updArtistSite = (artistId: string, patch: any) =>
             setArtists(p => p.map((a: any) => a.id === artistId ? { ...a, ...patch, _siteDirty: true } : a));
-          const previewUrl = siteSlug ? `https://inq-saas.vercel.app/api/lead?acao=site&slug=${siteSlug}` : "";
+          const previewUrl = siteSlug ? `https://inksystem.com.br/${siteSlug}` : "";
 
           const cardSt: React.CSSProperties = {
             background: "radial-gradient(ellipse 420px 200px at 50% -10%, rgba(139,92,222,0.18), transparent 70%), linear-gradient(180deg, #1A1A1A, #0F0F0F)",
