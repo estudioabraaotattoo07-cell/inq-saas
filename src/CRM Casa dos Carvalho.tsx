@@ -1482,6 +1482,11 @@ export default function CRM() {
   const [stageInfoOpen, setStageInfoOpen] = useState<string | null>(null);
   const [draggingClientId, setDraggingClientId] = useState<number | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+  // Mobile: mesmo modelo "pegar → navegar → tocar pra soltar" já usado na Agenda —
+  // o Drag-and-Drop nativo do HTML5 (usado no desktop) não funciona em touch.
+  const [carryingClientId, setCarryingClientId] = useState<number | null>(null);
+  const kanbanPickupTimerRef = useRef<any>(null);
+  const kanbanPickupStartRef = useRef<{ x: number; y: number } | null>(null);
   const [proximaSessaoModal, setProximaSessaoModal] = useState<{cid: any; agEvent: any} | null>(null);
   const [editandoProjConc, setEditandoProjConc] = useState<{clienteId: any; projetoId: any} | null>(null);
   const [pgAvulso, setPgAvulso] = useState<{clienteId: any; clienteNome: string; artistaId: string; projetos?: any[]; projetoId?: any; fase: "form"|"confirm"; valor: string; forma: string; obs: string} | null>(null);
@@ -4756,6 +4761,36 @@ export default function CRM() {
     if (pickupTimerRef.current) { clearTimeout(pickupTimerRef.current); pickupTimerRef.current = null; }
   };
 
+  // Mobile: segurar ~0,45s no card do cliente o "pega" (carryingClientId). O dedo pode
+  // sair; um toque em qualquer ponto da coluna de destino solta o cliente lá.
+  const onCardTouchStart = (e: React.TouchEvent, clientId: number) => {
+    if (e.touches.length > 1) return;
+    if (carryingClientId !== null) return; // já carregando → este toque é o de soltar
+    const t = e.touches[0];
+    kanbanPickupStartRef.current = { x: t.clientX, y: t.clientY };
+    if (kanbanPickupTimerRef.current) clearTimeout(kanbanPickupTimerRef.current);
+    kanbanPickupTimerRef.current = setTimeout(() => {
+      kanbanPickupTimerRef.current = null;
+      if ((navigator as any).vibrate) { try { (navigator as any).vibrate(25); } catch {} }
+      setCarryingClientId(clientId);
+    }, 450);
+  };
+  const onCardTouchMove = (e: React.TouchEvent) => {
+    const s = kanbanPickupStartRef.current; if (!s || !kanbanPickupTimerRef.current) return;
+    const t = e.touches[0];
+    if (Math.abs(t.clientX - s.x) > 12 || Math.abs(t.clientY - s.y) > 12) {
+      clearTimeout(kanbanPickupTimerRef.current); kanbanPickupTimerRef.current = null;
+    }
+  };
+  const onCardTouchEnd = () => {
+    if (kanbanPickupTimerRef.current) { clearTimeout(kanbanPickupTimerRef.current); kanbanPickupTimerRef.current = null; }
+  };
+  const dropCarriedClient = (stageId: string) => {
+    if (carryingClientId === null) return;
+    move(carryingClientId, stageId);
+    setCarryingClientId(null);
+  };
+
   const agTitle = () => {
     if (agView === "day") return agDate.getDate() + " de " + MONTHS[agDate.getMonth()] + " " + agDate.getFullYear();
     if (agView === "week") {
@@ -5616,7 +5651,7 @@ export default function CRM() {
               const infoAberto = stageInfoOpen === stage.id;
               return (
                 <div className="kc" key={stage.id} id={"kcol-" + stage.id}
-                  onClick={() => { if (infoAberto) setStageInfoOpen(null); }}
+                  onClick={() => { if (carryingClientId !== null) { dropCarriedClient(stage.id); return; } if (infoAberto) setStageInfoOpen(null); }}
                   onDragOver={e => { e.preventDefault(); setDragOverStage(stage.id); }}
                   onDragLeave={() => setDragOverStage(null)}
                   onDrop={e => {
@@ -5628,7 +5663,7 @@ export default function CRM() {
                       setDraggingClientId(null);
                     }
                   }}
-                  style={{ outline: dragOverStage === stage.id ? "2px solid var(--gold)" : undefined, borderRadius: dragOverStage === stage.id ? 10 : undefined, transition: "outline .1s" }}>
+                  style={{ outline: dragOverStage === stage.id ? "2px solid var(--gold)" : (carryingClientId !== null ? "2px dashed var(--gold)" : undefined), borderRadius: (dragOverStage === stage.id || carryingClientId !== null) ? 10 : undefined, transition: "outline .1s" }}>
                   <div className="kh" style={{ borderBottomColor: "var(--gold)", position: "relative", boxShadow: "0 6px 16px -6px var(--gold-glow)" }}>
                     <span className="kt" style={{ color: "var(--gold)" }}>{stage.emoji} {stage.label}
                       {stage.id === "lead" && newLeadsBadge > 0 && (
@@ -5677,8 +5712,11 @@ export default function CRM() {
                         <div key={c.id} className="card" draggable
                           onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDraggingClientId(c.id); }}
                           onDragEnd={() => { setDraggingClientId(null); setDragOverStage(null); }}
-                          onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}
-                          style={{ animation: "fadeSlideIn .22s ease both", opacity: draggingClientId === c.id ? 0.4 : 1, cursor: "grab" }}>
+                          onTouchStart={e => onCardTouchStart(e, c.id)}
+                          onTouchMove={onCardTouchMove}
+                          onTouchEnd={onCardTouchEnd}
+                          onClick={() => { if (carryingClientId !== null) { dropCarriedClient(stage.id); return; } setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}
+                          style={{ animation: "fadeSlideIn .22s ease both", opacity: (draggingClientId === c.id || carryingClientId === c.id) ? 0.4 : 1, outline: carryingClientId === c.id ? "2px dashed var(--gold)" : undefined, cursor: "grab", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}>
                           <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "4px", background: "var(--gold)", borderRadius: "12px 0 0 12px" }} />
                           <div className="ctop">
                             <div className="cname">{eMenorCard ? "👼 " : ""}{anivHoje ? "🎂 " : ""}{c.nome}</div>
@@ -13360,6 +13398,19 @@ export default function CRM() {
             <button onClick={() => setCarryingEv(null)} style={{ background: "transparent", border: "1px solid var(--br)", borderRadius: 7, color: "var(--tx2)", padding: "6px 11px", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0, fontFamily: "'DM Sans',sans-serif" }}>Cancelar</button>
           </div>
         )}
+        {/* Mobile: barra "carregando um cliente do pipeline" (mesmo modelo pegar → navegar → tocar) */}
+        {carryingClientId !== null && (() => {
+          const cliCarregado = clients.find(c => c.id === carryingClientId);
+          return (
+            <div style={{ position: "fixed", left: 10, right: 10, bottom: "max(env(safe-area-inset-bottom),14px)", zIndex: 100002, background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 11, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 10px 30px rgba(0,0,0,.55)" }}>
+              <span style={{ fontSize: 18, flexShrink: 0 }}>✋</span>
+              <span style={{ flex: 1, fontSize: 12.5, color: "var(--tx)", lineHeight: 1.35 }}>
+                Movendo <b>{cliCarregado?.nome || "cliente"}</b> — toque na coluna de destino para soltar.
+              </span>
+              <button onClick={() => setCarryingClientId(null)} style={{ background: "transparent", border: "1px solid var(--br)", borderRadius: 7, color: "var(--tx2)", padding: "6px 11px", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0, fontFamily: "'DM Sans',sans-serif" }}>Cancelar</button>
+            </div>
+          );
+        })()}
         {/* Desfazer reagendamento (Fase 2) */}
         {undoReag && (
           <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 9999, background: "var(--dk2)", border: "1px solid var(--ab)", borderRadius: 10, padding: "12px 20px", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 24px rgba(0,0,0,.5)", minWidth: 320, maxWidth: "92vw" }}>
