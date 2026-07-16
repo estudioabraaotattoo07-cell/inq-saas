@@ -12421,8 +12421,8 @@ export default function CRM() {
                     <span style={{ fontSize: 11, color: "#E67E22", padding: "5px 8px", background: "rgba(230,126,34,.1)", borderRadius: 5, border: "1px solid rgba(230,126,34,.3)" }}>⊘ Cancelado</span>
                   )}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center" }}>
+                  <div style={{ justifySelf: "start" }}>
                     {editingEvent && (
                       <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)", background: "rgba(192,57,43,.14)" }}
                         onClick={() => { setConfirmExcluir(editingEvent); }}>
@@ -12441,8 +12441,8 @@ export default function CRM() {
                       </button>
                     )}
                   </div>
-                  <button className="btn-c" onClick={() => { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); }}>Cancelar</button>
-                  <button className="btn-s" onClick={() => {
+                  <button className="btn-c" style={{ justifySelf: "center" }} onClick={() => { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); }}>Cancelar</button>
+                  <button className="btn-s" style={{ justifySelf: "end" }} onClick={() => {
                     if (!agClientVinc && !(agForm.tipo || "").startsWith("bloq")) {
                       setShowAviso("Apenas clientes cadastrados podem ser agendados. Cadastre o cliente primeiro na aba Clientes.");
                       return;
