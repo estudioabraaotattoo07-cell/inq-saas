@@ -11856,7 +11856,7 @@ export default function CRM() {
 
         {/* ── FORM NOVO ARTISTA ── */}
         {showArtForm && (
-          <div className="fov" onClick={e => { if (e.target === e.currentTarget) setShowArtForm(false); }}>
+          <div className="fov" style={{ zIndex: 500 }} onClick={e => { if (e.target === e.currentTarget) setShowArtForm(false); }}>
             <div className="fmod" style={{ maxWidth: 420 }}>
               <div className="fmh">
                 <div className="fmt">Adicionar Profissional</div>
