@@ -13,10 +13,10 @@ const OWNER_EMAIL = "estudioabraaotattoo07@gmail.com";
 const API_BASE = "https://inq-saas.vercel.app";
 // Preços e limites por plano — espelha ink-system-plataform/app/page.tsx (PLANOS).
 // Se mudar preço/limite lá, mudar aqui também (repos separados, sem import compartilhado).
-const PLANO_LIMITES: Record<string, { preco: number; fotosPorArtista: number; artistasInclusos: number; smsPorMes: number; emailPorMes: number; coresPersonalizadas: boolean }> = {
-  Bronze: { preco: 297, fotosPorArtista: 5, artistasInclusos: 2, smsPorMes: 50, emailPorMes: 120, coresPersonalizadas: false },
-  Prata: { preco: 497, fotosPorArtista: 15, artistasInclusos: 4, smsPorMes: 100, emailPorMes: 200, coresPersonalizadas: false },
-  Ouro: { preco: 597, fotosPorArtista: 30, artistasInclusos: 6, smsPorMes: 200, emailPorMes: 400, coresPersonalizadas: true },
+const PLANO_LIMITES: Record<string, { preco: number; fotosPorArtista: number; artistasInclusos: number; smsPorMes: number; emailPorMes: number; storageMb: number; coresPersonalizadas: boolean }> = {
+  Bronze: { preco: 297, fotosPorArtista: 5, artistasInclusos: 2, smsPorMes: 50, emailPorMes: 120, storageMb: 1024, coresPersonalizadas: false },
+  Prata: { preco: 497, fotosPorArtista: 15, artistasInclusos: 4, smsPorMes: 100, emailPorMes: 200, storageMb: 3072, coresPersonalizadas: false },
+  Ouro: { preco: 597, fotosPorArtista: 30, artistasInclusos: 6, smsPorMes: 200, emailPorMes: 400, storageMb: 5120, coresPersonalizadas: true },
 };
 // Pacotes de recarga ao estourar a cota do mês — mesmos valores pra qualquer plano,
 // quantidade maior sai por um preço unitário menor.
@@ -1336,6 +1336,7 @@ export default function CRM() {
   const [sitePlano, setSitePlano] = useState<string>("");
   const [meuPlano, setMeuPlano] = useState<string>("");
   const [meuSlug, setMeuSlug] = useState<string>("");
+  const [storageUsadoMb, setStorageUsadoMb] = useState<number>(0);
   const [siteVencimento, setSiteVencimento] = useState<string>("");
   const [slugProposto, setSlugProposto] = useState<string>("");
   const [slugConfirmando, setSlugConfirmando] = useState(false);
@@ -1599,6 +1600,13 @@ export default function CRM() {
       setComprandoRecarga(false);
     }
   };
+  // Soma o tamanho de cada upload na cota de armazenamento do plano (fire-and-forget).
+  const logStorage = (bytes: number) => {
+    if (!userId || !bytes) return;
+    const mb = bytes / (1024 * 1024);
+    setStorageUsadoMb(p => p + mb);
+    sb.rpc("incrementar_storage_usado", { p_user_id: userId, p_mb: mb }).then(() => {}, () => {});
+  };
   const [fluxoToggles, setFluxoToggles] = useState({ boas_vindas_email: true, nps: true, google_convite: true, confirmacao_presenca: true, notificacao_artista: true, confirma_consulta: true, confirma_sessao: true, sms_consulta: true, sms_sessao: true, recontato_prox_sessao: true, remarcar: true, agradecimento_1asessao: true, recontato_d30: true });
   const [toggleConfirm, setToggleConfirm] = useState<{campo: string; novoValor: boolean; label: string} | null>(null);
   // ── ACORDEÃO DAS RÉGUAS ──
@@ -1710,8 +1718,9 @@ export default function CRM() {
     setLicencaOk(true);
     const planoBrutoLic = (lic.plano || "").trim();
     setMeuPlano(["Bronze", "Prata", "Ouro"].find(p => p.toLowerCase() === planoBrutoLic.toLowerCase()) || planoBrutoLic);
-    const { data: inkCli } = await sb.from("ink_clientes").select("slug").eq("auth_user_id", uid).limit(1).maybeSingle();
+    const { data: inkCli } = await sb.from("ink_clientes").select("slug, storage_usado_mb").eq("auth_user_id", uid).limit(1).maybeSingle();
     setMeuSlug(inkCli?.slug || "");
+    setStorageUsadoMb(Number(inkCli?.storage_usado_mb) || 0);
     // Verificar perfil: artista residente com email cadastrado?
     const { data: artEncontrado } = await sb.from("artistas").select("id,email").eq("email", email).limit(1).single();
     if (artEncontrado) {
@@ -2397,6 +2406,7 @@ export default function CRM() {
       body: JSON.stringify({ base64, mimeType: "image/jpeg" }),
     });
     const d = await resp.json();
+    if (d.url) logStorage(base64.length * 0.75);
     return d.url || "";
   };
 
@@ -7995,6 +8005,21 @@ export default function CRM() {
                     );
                   })}
                 </div>
+                {authEmail !== OWNER_EMAIL && PLANO_LIMITES[meuPlano] && (() => {
+                  const cotaStorageMb = PLANO_LIMITES[meuPlano].storageMb;
+                  const pctStorage = Math.min(100, (storageUsadoMb / cotaStorageMb) * 100);
+                  const corStorage = pctStorage >= 90 ? "#e74c3c" : pctStorage >= 70 ? "#e6b800" : "var(--q3)";
+                  const fmtMb = (mb: number) => mb >= 1024 ? (mb / 1024).toFixed(2) + "GB" : Math.round(mb) + "MB";
+                  return (
+                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--br)", maxWidth: 220 }}>
+                      <div style={{ fontSize: 12, color: "var(--tx)", fontWeight: 500, marginBottom: 4 }}>📦 Armazenamento</div>
+                      <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{fmtMb(storageUsadoMb)} de {fmtMb(cotaStorageMb)} usados</div>
+                      <div style={{ width: "100%", height: 5, background: "var(--dk4)", borderRadius: 3, overflow: "hidden" }}>
+                        <div style={{ width: pctStorage + "%", height: "100%", background: corStorage, transition: "width .3s, background .3s" }} />
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* ── MODAL: confirmação de toggle de automação ── */}
@@ -9465,6 +9490,7 @@ export default function CRM() {
                           const pdfNome2=`AUTORIZACAO-${nomeMin}-${resp.sufixo}-${data}.pdf`;
                           const fname2=`pdf-${sc.id}-menor-${resp.sufixo.toLowerCase()}-${Date.now()}.pdf`;
                           await sb.storage.from("referencias").upload(fname2,blob2,{contentType:"application/pdf",upsert:true});
+                          logStorage(blob2.size);
                           const {data:pub2}=sb.storage.from("referencias").getPublicUrl(fname2);
                           arquivosAtuais=[...arquivosAtuais,{nome:pdfNome2,url:pub2.publicUrl,tipo:"pdf",criado_em:new Date().toISOString()}];
                           gerados++;
@@ -9496,6 +9522,7 @@ export default function CRM() {
                       const pdfNome = `${titulos[docId]||"doc"}-${sc.nome}-${new Date().toLocaleDateString("pt-BR").replace(/\//g,"-")}.pdf`;
                       const fname = `pdf-${sc.id}-${docId}-${Date.now()}.pdf`;
                       await sb.storage.from("referencias").upload(fname, pdfBlob, { contentType: "application/pdf", upsert: true });
+                      logStorage(pdfBlob.size);
                       const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
                       const arquivosAtuais: any[] = (sc as any).docs_arquivos || [];
                       const novos = [...arquivosAtuais, { nome: pdfNome, url: pub.publicUrl, tipo: "pdf", criado_em: new Date().toISOString() }];
@@ -9543,6 +9570,7 @@ export default function CRM() {
                         const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
                         const fname = `assin-${sc.id}-${docId}.png`;
                         await sb.storage.from("referencias").upload(fname, bytes, { contentType: "image/png", upsert: true });
+                        logStorage(bytes.length);
                         const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
                         assinImg = pub.publicUrl;
                       } catch { assinImg = ""; }
@@ -9843,6 +9871,7 @@ export default function CRM() {
                                     const blob = await compressImg(file, 800, 0.75);
                                     const fname = `doc-${sc.id}-${pessoa}-${Date.now()}.jpg`;
                                     await sb.storage.from("referencias").upload(fname, blob, { contentType: "image/jpeg", upsert: true });
+                                    logStorage(blob.size);
                                     const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
                                     salvarPai("foto_doc", pub.publicUrl);
                                   };
@@ -9850,6 +9879,7 @@ export default function CRM() {
                                     const blob = await compressImg(file, 800, 0.75);
                                     const fname = `doc-${sc.id}-mae-${Date.now()}.jpg`;
                                     await sb.storage.from("referencias").upload(fname, blob, { contentType: "image/jpeg", upsert: true });
+                                    logStorage(blob.size);
                                     const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
                                     salvarMae("foto_doc", pub.publicUrl);
                                   };
@@ -10320,6 +10350,7 @@ export default function CRM() {
                           if (d.url) {
                             const refs = [...((sc as any).referencias || []), d.url];
                             upC(sc.id, "referencias", refs);
+                            logStorage(base64.length * 0.75);
                           }
                           e.target.value = "";
                         }} />
@@ -10396,6 +10427,7 @@ export default function CRM() {
                           const blob = await compressImg(file, 800, 0.75);
                           const fname = `cicatrizacao-${sc.id}-${Date.now()}.jpg`;
                           await sb.storage.from("referencias").upload(fname, blob, { contentType: "image/jpeg", upsert: true });
+                          logStorage(blob.size);
                           const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
                           const atual = [...(((sc as any).cicatrizacao_fotos) || []), { url: pub.publicUrl, data: new Date().toISOString().slice(0, 10), obs: "" }];
                           await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
@@ -10442,6 +10474,7 @@ export default function CRM() {
                           const contentType = ehImagem ? "image/jpeg" : file.type;
                           const fname = `doc-${sc.id}-${Date.now()}-${file.name.replace(/\s/g,"_").replace(/\.[^.]+$/, "")}.${extensao}`;
                           await sb.storage.from("referencias").upload(fname, corpo, { contentType, upsert: true });
+                          logStorage(corpo.size);
                           const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
                           const arquivosAtuais: any[] = (sc as any).docs_arquivos || [];
                           const novos = [...arquivosAtuais, { nome: file.name, url: pub.publicUrl, tipo: file.type.includes("pdf") ? "pdf" : "imagem", criado_em: new Date().toISOString() }];
