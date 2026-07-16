@@ -9821,15 +9821,35 @@ export default function CRM() {
                                     setFichaEditada(false);
                                     setMenorSalvarConfirm(false);
                                   };
+                                  // Comprime toda foto que entra no sistema (economiza cota de armazenamento do plano).
+                                  const compressImg = (f: File, maxPx: number, q: number): Promise<Blob> => new Promise((resolve, reject) => {
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => {
+                                      const img = new Image();
+                                      img.onload = () => {
+                                        let w = img.width, h = img.height;
+                                        if (w > maxPx || h > maxPx) { if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; } else { w = Math.round(w * maxPx / h); h = maxPx; } }
+                                        const canvas = document.createElement("canvas");
+                                        canvas.width = w; canvas.height = h;
+                                        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+                                        canvas.toBlob(b => b ? resolve(b) : reject(new Error("falha ao comprimir")), "image/jpeg", q);
+                                      };
+                                      img.onerror = reject;
+                                      img.src = ev.target?.result as string;
+                                    };
+                                    reader.readAsDataURL(f);
+                                  });
                                   const uploadFotoDoc = async (pessoa: "pai"|"mae", file: File) => {
-                                    const fname = `doc-${sc.id}-${pessoa}-${Date.now()}.${file.name.split(".").pop()}`;
-                                    await sb.storage.from("referencias").upload(fname, file, { contentType: file.type, upsert: true });
+                                    const blob = await compressImg(file, 800, 0.75);
+                                    const fname = `doc-${sc.id}-${pessoa}-${Date.now()}.jpg`;
+                                    await sb.storage.from("referencias").upload(fname, blob, { contentType: "image/jpeg", upsert: true });
                                     const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
                                     salvarPai("foto_doc", pub.publicUrl);
                                   };
                                   const uploadFotoDocMae = async (file: File) => {
-                                    const fname = `doc-${sc.id}-mae-${Date.now()}.${file.name.split(".").pop()}`;
-                                    await sb.storage.from("referencias").upload(fname, file, { contentType: file.type, upsert: true });
+                                    const blob = await compressImg(file, 800, 0.75);
+                                    const fname = `doc-${sc.id}-mae-${Date.now()}.jpg`;
+                                    await sb.storage.from("referencias").upload(fname, blob, { contentType: "image/jpeg", upsert: true });
                                     const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
                                     salvarMae("foto_doc", pub.publicUrl);
                                   };
@@ -10356,8 +10376,26 @@ export default function CRM() {
                         <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
-                          const fname = `cicatrizacao-${sc.id}-${Date.now()}-${file.name.replace(/\s/g,"_")}`;
-                          await sb.storage.from("referencias").upload(fname, file, { contentType: file.type, upsert: true });
+                          const compressImg = (f: File, maxPx: number, q: number): Promise<Blob> => new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              const img = new Image();
+                              img.onload = () => {
+                                let w = img.width, h = img.height;
+                                if (w > maxPx || h > maxPx) { if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; } else { w = Math.round(w * maxPx / h); h = maxPx; } }
+                                const canvas = document.createElement("canvas");
+                                canvas.width = w; canvas.height = h;
+                                canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+                                canvas.toBlob(b => b ? resolve(b) : reject(new Error("falha ao comprimir")), "image/jpeg", q);
+                              };
+                              img.onerror = reject;
+                              img.src = ev.target?.result as string;
+                            };
+                            reader.readAsDataURL(f);
+                          });
+                          const blob = await compressImg(file, 800, 0.75);
+                          const fname = `cicatrizacao-${sc.id}-${Date.now()}.jpg`;
+                          await sb.storage.from("referencias").upload(fname, blob, { contentType: "image/jpeg", upsert: true });
                           const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
                           const atual = [...(((sc as any).cicatrizacao_fotos) || []), { url: pub.publicUrl, data: new Date().toISOString().slice(0, 10), obs: "" }];
                           await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
@@ -10378,10 +10416,32 @@ export default function CRM() {
                     <label style={{ fontSize: 11, fontWeight: 600, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "3px 10px", color: "var(--gold)", cursor: "pointer" }}>
                       + Anexar
                       <input type="file" accept="image/*,application/pdf" multiple style={{ display: "none" }} onChange={async e => {
+                        const compressImg = (f: File, maxPx: number, q: number): Promise<Blob> => new Promise((resolve, reject) => {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const img = new Image();
+                            img.onload = () => {
+                              let w = img.width, h = img.height;
+                              if (w > maxPx || h > maxPx) { if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; } else { w = Math.round(w * maxPx / h); h = maxPx; } }
+                              const canvas = document.createElement("canvas");
+                              canvas.width = w; canvas.height = h;
+                              canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+                              canvas.toBlob(b => b ? resolve(b) : reject(new Error("falha ao comprimir")), "image/jpeg", q);
+                            };
+                            img.onerror = reject;
+                            img.src = ev.target?.result as string;
+                          };
+                          reader.readAsDataURL(f);
+                        });
                         const files = Array.from(e.target.files || []);
                         for (const file of files) {
-                          const fname = `doc-${sc.id}-${Date.now()}-${file.name.replace(/\s/g,"_")}`;
-                          await sb.storage.from("referencias").upload(fname, file, { contentType: file.type, upsert: true });
+                          // Imagens são comprimidas; PDFs sobem do jeito que são (já leves, gerados por texto).
+                          const ehImagem = file.type.startsWith("image/");
+                          const corpo: File | Blob = ehImagem ? await compressImg(file, 800, 0.75) : file;
+                          const extensao = ehImagem ? "jpg" : (file.name.split(".").pop() || "pdf");
+                          const contentType = ehImagem ? "image/jpeg" : file.type;
+                          const fname = `doc-${sc.id}-${Date.now()}-${file.name.replace(/\s/g,"_").replace(/\.[^.]+$/, "")}.${extensao}`;
+                          await sb.storage.from("referencias").upload(fname, corpo, { contentType, upsert: true });
                           const { data: pub } = sb.storage.from("referencias").getPublicUrl(fname);
                           const arquivosAtuais: any[] = (sc as any).docs_arquivos || [];
                           const novos = [...arquivosAtuais, { nome: file.name, url: pub.publicUrl, tipo: file.type.includes("pdf") ? "pdf" : "imagem", criado_em: new Date().toISOString() }];
