@@ -12300,14 +12300,8 @@ export default function CRM() {
                   </button>
                 </div>
               )}
-              <div className="fmf" style={{ justifyContent: "space-between", rowGap: 10 }}>
+              <div className="fmf" style={{ flexDirection: "column", rowGap: 10 }}>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {editingEvent && (
-                    <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)", background: "rgba(192,57,43,.14)" }}
-                      onClick={() => { setConfirmExcluir(editingEvent); }}>
-                      🗑 Excluir
-                    </button>
-                  )}
                   {editingEvent && editingEvent.status !== "cancelado" && !editingEvent.tipo?.startsWith("bloq") && (
                     <>
                     {(editingEvent.tipo?.startsWith("sess") || editingEvent.tipo === "piercing") && editingEvent.status !== "concluido" && (() => {
@@ -12315,7 +12309,7 @@ export default function CRM() {
                       const hoje0 = new Date(); hoje0.setHours(23,59,59,0);
                       const isHojeOuPassado = !dataEv || dataEv <= hoje0;
                       return isHojeOuPassado ? (
-                        <button className="btn-c" style={{ color: "#27AE60", borderColor: "rgba(39,174,96,.3)", background: "rgba(39,174,96,.14)" }}
+                        <button className="btn-c" style={{ color: "#27AE60", borderColor: "rgba(39,174,96,.3)", background: "rgba(39,174,96,.14)", fontSize: 10, padding: "5px 8px" }}
                           onClick={() => {
                             const ev = editingEvent;
                             const valorPrev = ev.valor_previsto ? Number(ev.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "";
@@ -12334,7 +12328,7 @@ export default function CRM() {
                       const hoje0 = new Date(); hoje0.setHours(23,59,59,0);
                       if (dataEv && dataEv > hoje0) return null;
                       if (!consultaCumpridaExpanded) return (
-                        <button className="btn-c" style={{ color: "#27AE60", borderColor: "rgba(39,174,96,.3)", background: "rgba(39,174,96,.14)" }}
+                        <button className="btn-c" style={{ color: "#27AE60", borderColor: "rgba(39,174,96,.3)", background: "rgba(39,174,96,.14)", fontSize: 10, padding: "5px 8px" }}
                           onClick={() => setConsultaCumpridaExpanded(true)}>
                           ✅ Cumpriu a Consulta
                         </button>
@@ -12382,7 +12376,7 @@ export default function CRM() {
                       );
                     })()}
                     {!naoCompExpanded ? (
-                      <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)", background: "rgba(192,57,43,.14)" }}
+                      <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)", background: "rgba(192,57,43,.14)", fontSize: 10, padding: "5px 8px" }}
                         onClick={() => { setNaoCompExpanded(true); setNaoCompMotivo(""); }}>
                         ⊘ Não Compareceu
                       </button>
@@ -12417,28 +12411,36 @@ export default function CRM() {
                         </button>
                       </div>
                     )}
-                    <button className="btn-c" style={{ color: "#9B59B6", borderColor: "rgba(155,89,182,.3)", background: "rgba(155,89,182,.14)" }}
+                    <button className="btn-c" style={{ color: "#9B59B6", borderColor: "rgba(155,89,182,.3)", background: "rgba(155,89,182,.14)", fontSize: 10, padding: "5px 8px" }}
                       onClick={() => setConfirmCancelarEvento({ event: editingEvent, motivo: "", quem: "profissional" } as any)}>
                       ⊘ Profissional Desmarcou
                     </button>
                     </>
                   )}
-                  {editingEvent && editingEvent.tipo?.startsWith("bloq") && (
-                    <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)", background: "rgba(192,57,43,.14)" }}
-                      onClick={async () => {
-                        setAgEvents(p => p.filter(x => x.id !== editingEvent.id));
-                        await dbDelete("agenda", editingEvent.id);
-                        addLog(`Agenda: bloqueio excluído`);
-                        setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch("");
-                      }}>
-                      🗑 Remover Bloqueio
-                    </button>
-                  )}
                   {editingEvent && editingEvent.status === "cancelado" && (
                     <span style={{ fontSize: 11, color: "#E67E22", padding: "5px 8px", background: "rgba(230,126,34,.1)", borderRadius: 5, border: "1px solid rgba(230,126,34,.3)" }}>⊘ Cancelado</span>
                   )}
                 </div>
-                <div style={{ display: "flex", gap: 7 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    {editingEvent && (
+                      <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)", background: "rgba(192,57,43,.14)" }}
+                        onClick={() => { setConfirmExcluir(editingEvent); }}>
+                        🗑 Excluir
+                      </button>
+                    )}
+                    {editingEvent && editingEvent.tipo?.startsWith("bloq") && (
+                      <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)", background: "rgba(192,57,43,.14)" }}
+                        onClick={async () => {
+                          setAgEvents(p => p.filter(x => x.id !== editingEvent.id));
+                          await dbDelete("agenda", editingEvent.id);
+                          addLog(`Agenda: bloqueio excluído`);
+                          setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch("");
+                        }}>
+                        🗑 Remover Bloqueio
+                      </button>
+                    )}
+                  </div>
                   <button className="btn-c" onClick={() => { setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null); setAgClientSearch(""); setSessoesExtras([]); }}>Cancelar</button>
                   <button className="btn-s" onClick={() => {
                     if (!agClientVinc && !(agForm.tipo || "").startsWith("bloq")) {
