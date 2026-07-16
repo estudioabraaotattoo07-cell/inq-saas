@@ -15714,8 +15714,11 @@ export default function CRM() {
             <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 14, padding: 28, minWidth: 320, maxWidth: 380 }}
               onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, color: "var(--gold)", marginBottom: 12 }}>Artista extra</div>
-              <p style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.6, marginBottom: 20 }}>
+              <p style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.6, marginBottom: 14 }}>
                 Seu plano <strong style={{ color: "var(--tx)" }}>{meuPlano}</strong> inclui <strong style={{ color: "var(--tx)" }}>{PLANO_LIMITES[meuPlano]?.artistasInclusos}</strong> artistas. Esse será um artista extra: <strong style={{ color: "var(--gold)" }}>+R$45,00/mês</strong>, cobrado junto da sua mensalidade. Não tem limite de quantos extras você pode ter.
+              </p>
+              <p style={{ fontSize: 12, color: "var(--tx3)", lineHeight: 1.6, marginBottom: 20 }}>
+                Sem fidelidade: remova quando quiser o profissional excedente ao seu plano. Ao remover, a cobrança automática cessa no ato, mas o acesso permanece ativo até o fim dos 30 dias do ciclo já pago.
               </p>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setShowExtraArtistConfirm(false)}
