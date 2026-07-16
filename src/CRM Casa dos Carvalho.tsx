@@ -479,7 +479,7 @@ table.ft tr:nth-child(even) td{background:var(--dk4);}
 .fi::placeholder{color:var(--tx3);}
 .fs option{background:var(--dk3);}
 .fta{resize:vertical;min-height:65px;}
-.fmf{padding:13px 21px;border-top:1px solid var(--br);display:flex;gap:7px;justify-content:flex-end;flex-shrink:0;}
+.fmf{padding:13px 21px;border-top:1px solid var(--br);display:flex;gap:7px;justify-content:flex-end;flex-shrink:0;flex-wrap:wrap;}
 .btn-c{background:rgba(255,255,255,0.03);border:1px solid rgba(201,168,76,0.25);border-radius:999px;color:var(--tx2);padding:7px 16px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
 .btn-c:hover{border-color:rgba(201,168,76,0.5);background:rgba(255,255,255,0.06);}
 .btn-s{background:linear-gradient(135deg,#E8C97A,#C9A84C 45%,#8a6a24);color:#17140A;border:1px solid rgba(255,224,160,0.6);border-radius:999px;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;box-shadow:0 4px 16px rgba(201,168,76,0.3),inset 0 1px 0 rgba(255,255,255,0.35);transition:transform .15s,box-shadow .15s;}
@@ -12300,10 +12300,10 @@ export default function CRM() {
                   </button>
                 </div>
               )}
-              <div className="fmf" style={{ justifyContent: "space-between" }}>
-                <div style={{ display: "flex", gap: 6 }}>
+              <div className="fmf" style={{ justifyContent: "space-between", rowGap: 10 }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {editingEvent && (
-                    <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)" }}
+                    <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)", background: "rgba(192,57,43,.14)" }}
                       onClick={() => { setConfirmExcluir(editingEvent); }}>
                       🗑 Excluir
                     </button>
@@ -12315,7 +12315,7 @@ export default function CRM() {
                       const hoje0 = new Date(); hoje0.setHours(23,59,59,0);
                       const isHojeOuPassado = !dataEv || dataEv <= hoje0;
                       return isHojeOuPassado ? (
-                        <button className="btn-c" style={{ color: "#27AE60", borderColor: "rgba(39,174,96,.3)" }}
+                        <button className="btn-c" style={{ color: "#27AE60", borderColor: "rgba(39,174,96,.3)", background: "rgba(39,174,96,.14)" }}
                           onClick={() => {
                             const ev = editingEvent;
                             const valorPrev = ev.valor_previsto ? Number(ev.valor_previsto).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "";
@@ -12334,7 +12334,7 @@ export default function CRM() {
                       const hoje0 = new Date(); hoje0.setHours(23,59,59,0);
                       if (dataEv && dataEv > hoje0) return null;
                       if (!consultaCumpridaExpanded) return (
-                        <button className="btn-c" style={{ color: "#27AE60", borderColor: "rgba(39,174,96,.3)" }}
+                        <button className="btn-c" style={{ color: "#27AE60", borderColor: "rgba(39,174,96,.3)", background: "rgba(39,174,96,.14)" }}
                           onClick={() => setConsultaCumpridaExpanded(true)}>
                           ✅ Cumpriu a Consulta
                         </button>
@@ -12382,7 +12382,7 @@ export default function CRM() {
                       );
                     })()}
                     {!naoCompExpanded ? (
-                      <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)" }}
+                      <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)", background: "rgba(192,57,43,.14)" }}
                         onClick={() => { setNaoCompExpanded(true); setNaoCompMotivo(""); }}>
                         ⊘ Não Compareceu
                       </button>
@@ -12417,14 +12417,14 @@ export default function CRM() {
                         </button>
                       </div>
                     )}
-                    <button className="btn-c" style={{ color: "#9B59B6", borderColor: "rgba(155,89,182,.3)" }}
+                    <button className="btn-c" style={{ color: "#9B59B6", borderColor: "rgba(155,89,182,.3)", background: "rgba(155,89,182,.14)" }}
                       onClick={() => setConfirmCancelarEvento({ event: editingEvent, motivo: "", quem: "profissional" } as any)}>
                       ⊘ Profissional Desmarcou
                     </button>
                     </>
                   )}
                   {editingEvent && editingEvent.tipo?.startsWith("bloq") && (
-                    <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)" }}
+                    <button className="btn-c" style={{ color: "var(--q1)", borderColor: "rgba(192,57,43,.3)", background: "rgba(192,57,43,.14)" }}
                       onClick={async () => {
                         setAgEvents(p => p.filter(x => x.id !== editingEvent.id));
                         await dbDelete("agenda", editingEvent.id);
