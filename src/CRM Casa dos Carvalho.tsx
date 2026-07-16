@@ -1373,6 +1373,7 @@ export default function CRM() {
   const [srch, setSrch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [showArtForm, setShowArtForm] = useState(false);
+  const [showExtraArtistConfirm, setShowExtraArtistConfirm] = useState(false);
   const [showAgForm, setShowAgForm] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const alertBtnRef = useRef<HTMLDivElement>(null);
@@ -14611,7 +14612,18 @@ export default function CRM() {
                   <div>
                     <div className="stit">Profissionais do Estúdio</div>
                     <div style={{ marginBottom: 12 }}>
-                      <button className="btn-s" onClick={() => setShowArtForm(true)}>+ Adicionar Profissional</button>
+                      <button className="btn-s" onClick={() => {
+                        const ativos = artists.filter((a: any) => a.ativo).length;
+                        const limite = PLANO_LIMITES[meuPlano]?.artistasInclusos;
+                        if (limite !== undefined && ativos >= limite) setShowExtraArtistConfirm(true);
+                        else setShowArtForm(true);
+                      }}>+ Adicionar Profissional</button>
+                      {PLANO_LIMITES[meuPlano] && (
+                        <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 6 }}>
+                          {artists.filter((a: any) => a.ativo).length} de {PLANO_LIMITES[meuPlano].artistasInclusos} artistas inclusos no plano {meuPlano}
+                          {artists.filter((a: any) => a.ativo).length >= PLANO_LIMITES[meuPlano].artistasInclusos && " — próximo será cobrado à parte"}
+                        </div>
+                      )}
                     </div>
                     {artists.map(a => (
                       <div className="acard" key={a.id} style={{ opacity: a.ativo ? 1 : .55, marginBottom: 10 }}>
@@ -15689,6 +15701,30 @@ export default function CRM() {
                   setConfirmDeleteStage(null);
                 }} style={{ flex: 1, padding: "10px", background: "#E74C3C", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 700, fontFamily: "'DM Sans',sans-serif" }}>
                   Excluir
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── CONFIRMAR ARTISTA EXTRA (além da cota do plano) ── */}
+        {showExtraArtistConfirm && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+            onClick={() => setShowExtraArtistConfirm(false)}>
+            <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 14, padding: 28, minWidth: 320, maxWidth: 380 }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, color: "var(--gold)", marginBottom: 12 }}>Artista extra</div>
+              <p style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.6, marginBottom: 20 }}>
+                Seu plano <strong style={{ color: "var(--tx)" }}>{meuPlano}</strong> inclui <strong style={{ color: "var(--tx)" }}>{PLANO_LIMITES[meuPlano]?.artistasInclusos}</strong> artistas. Esse será um artista extra: <strong style={{ color: "var(--gold)" }}>+R$45,00/mês</strong>, cobrado junto da sua mensalidade. Não tem limite de quantos extras você pode ter.
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowExtraArtistConfirm(false)}
+                  style={{ flex: 1, padding: "10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                  Cancelar
+                </button>
+                <button onClick={() => { setShowExtraArtistConfirm(false); setShowArtForm(true); }}
+                  className="btn-s" style={{ flex: 1 }}>
+                  Adicionar (+R$45/mês)
                 </button>
               </div>
             </div>
