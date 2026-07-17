@@ -15308,7 +15308,10 @@ export default function CRM() {
                   <div>
                     <div className="stit">Aparência</div>
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 12 }}>Escolha o tema visual do sistema.</div>
-                    {/* Carrossel de temas */}
+                    {authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro") ? (
+                      <FoscoRecurso meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Aparência" />
+                    ) : (
+                    /* Carrossel de temas */
                     <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, scrollbarWidth: "none" }}>
                       {(Object.entries(THEMES) as [ThemeId, typeof THEMES[ThemeId]][]).map(([id, t]) => {
                         const ativo = tema === id;
@@ -15329,6 +15332,7 @@ export default function CRM() {
                         );
                       })}
                     </div>
+                    )}
                   </div>
                   <div>
                     <div className="stit">Tour Guiado</div>
