@@ -30,6 +30,13 @@ const RECARGA_EMAIL_TIERS = [
   { qtd: 100, preco: 10 },
   { qtd: 200, preco: 15 },
 ];
+// Armazenamento é recorrente (a cota fica maior todo mês), diferente de SMS/e-mail
+// (avulso, só vale pro ciclo em que foi comprado — reseta sozinho no mês seguinte).
+const RECARGA_STORAGE_TIERS = [
+  { qtd: 2048, preco: 15, label: "+2GB" },
+  { qtd: 5120, preco: 30, label: "+5GB" },
+  { qtd: 10240, preco: 50, label: "+10GB" },
+];
 const PROXIMO_PLANO: Record<string, string> = { Bronze: "Prata", Prata: "Ouro" };
 const WHATSAPP_SUPORTE_INK = "5527999598230"; // espelha ink-system-plataform/app/page.tsx (WHATSAPP_SUPORTE)
 
@@ -1337,6 +1344,7 @@ export default function CRM() {
   const [meuPlano, setMeuPlano] = useState<string>("");
   const [meuSlug, setMeuSlug] = useState<string>("");
   const [storageUsadoMb, setStorageUsadoMb] = useState<number>(0);
+  const [storageExtraMb, setStorageExtraMb] = useState<number>(0);
   const [siteVencimento, setSiteVencimento] = useState<string>("");
   const [slugProposto, setSlugProposto] = useState<string>("");
   const [slugConfirmando, setSlugConfirmando] = useState(false);
@@ -1384,7 +1392,7 @@ export default function CRM() {
   const [showForm, setShowForm] = useState(false);
   const [showArtForm, setShowArtForm] = useState(false);
   const [showExtraArtistConfirm, setShowExtraArtistConfirm] = useState(false);
-  const [showRecargaModal, setShowRecargaModal] = useState<"sms" | "email" | null>(null);
+  const [showRecargaModal, setShowRecargaModal] = useState<"sms" | "email" | "storage" | null>(null);
   const [comprandoRecarga, setComprandoRecarga] = useState(false);
   const [showAgForm, setShowAgForm] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
@@ -1587,10 +1595,19 @@ export default function CRM() {
   // Recarga self-service: aplica a compra na hora (soma em emails_comprados/sms_comprados),
   // sem cobrança automática ainda — fica registrado no histórico pra reconciliar
   // manualmente com o cliente até o gateway de pagamento existir.
-  const comprarRecarga = async (canal: "email" | "sms", tier: { qtd: number; preco: number }) => {
+  const comprarRecarga = async (canal: "email" | "sms" | "storage", tier: { qtd: number; preco: number }) => {
     if (!userId) return;
     setComprandoRecarga(true);
     try {
+      if (canal === "storage") {
+        // Recorrente: soma na cota extra permanente (não reseta todo mês, diferente de SMS/e-mail).
+        const { error } = await sb.rpc("comprar_storage_extra", { p_user_id: userId, p_mb: tier.qtd });
+        if (error) { setShowAviso("Erro ao registrar a compra: " + error.message); return; }
+        setStorageExtraMb(p => p + tier.qtd);
+        addLog(`Armazenamento extra comprado: +${(tier.qtd / 1024).toFixed(0)}GB/mês — R$${tier.preco.toFixed(2)}/mês`);
+        setShowRecargaModal(null);
+        return;
+      }
       const { error } = await sb.rpc("comprar_recarga_mensageria", { p_user_id: userId, p_ano_mes: anoMesAtual, p_canal: canal, p_qtd: tier.qtd });
       if (error) { setShowAviso("Erro ao registrar a recarga: " + error.message); return; }
       setUsoMensal(p => canal === "email" ? { ...p, emailComprado: p.emailComprado + tier.qtd } : { ...p, smsComprado: p.smsComprado + tier.qtd });
@@ -1718,9 +1735,10 @@ export default function CRM() {
     setLicencaOk(true);
     const planoBrutoLic = (lic.plano || "").trim();
     setMeuPlano(["Bronze", "Prata", "Ouro"].find(p => p.toLowerCase() === planoBrutoLic.toLowerCase()) || planoBrutoLic);
-    const { data: inkCli } = await sb.from("ink_clientes").select("slug, storage_usado_mb").eq("auth_user_id", uid).limit(1).maybeSingle();
+    const { data: inkCli } = await sb.from("ink_clientes").select("slug, storage_usado_mb, storage_extra_mb").eq("auth_user_id", uid).limit(1).maybeSingle();
     setMeuSlug(inkCli?.slug || "");
     setStorageUsadoMb(Number(inkCli?.storage_usado_mb) || 0);
+    setStorageExtraMb(Number(inkCli?.storage_extra_mb) || 0);
     // Verificar perfil: artista residente com email cadastrado?
     const { data: artEncontrado } = await sb.from("artistas").select("id,email").eq("email", email).limit(1).single();
     if (artEncontrado) {
@@ -7992,7 +8010,7 @@ export default function CRM() {
                                 <div style={{ width: "100%", height: 5, background: "var(--dk4)", borderRadius: 3, overflow: "hidden" }}>
                                   <div style={{ width: pct + "%", height: "100%", background: corBarra, transition: "width .3s, background .3s" }} />
                                 </div>
-                                {(ch === "email" || ch === "sms") && (
+                                {(ch === "email" || ch === "sms") && pct >= 90 && (
                                   <button onClick={() => setShowRecargaModal(ch)} style={{ marginTop: 5, background: "none", border: "none", color: "var(--gold)", fontSize: 10, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
                                     + Comprar mais
                                   </button>
@@ -8006,17 +8024,22 @@ export default function CRM() {
                   })}
                 </div>
                 {authEmail !== OWNER_EMAIL && PLANO_LIMITES[meuPlano] && (() => {
-                  const cotaStorageMb = PLANO_LIMITES[meuPlano].storageMb;
+                  const cotaStorageMb = PLANO_LIMITES[meuPlano].storageMb + storageExtraMb;
                   const pctStorage = Math.min(100, (storageUsadoMb / cotaStorageMb) * 100);
                   const corStorage = pctStorage >= 90 ? "#e74c3c" : pctStorage >= 70 ? "#e6b800" : "var(--q3)";
                   const fmtMb = (mb: number) => mb >= 1024 ? (mb / 1024).toFixed(2) + "GB" : Math.round(mb) + "MB";
                   return (
                     <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--br)", maxWidth: 220 }}>
                       <div style={{ fontSize: 12, color: "var(--tx)", fontWeight: 500, marginBottom: 4 }}>📦 Armazenamento</div>
-                      <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{fmtMb(storageUsadoMb)} de {fmtMb(cotaStorageMb)} usados</div>
+                      <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{fmtMb(storageUsadoMb)} de {fmtMb(cotaStorageMb)} usados{storageExtraMb > 0 ? ` (+${(storageExtraMb / 1024).toFixed(0)}GB extra)` : ""}</div>
                       <div style={{ width: "100%", height: 5, background: "var(--dk4)", borderRadius: 3, overflow: "hidden" }}>
                         <div style={{ width: pctStorage + "%", height: "100%", background: corStorage, transition: "width .3s, background .3s" }} />
                       </div>
+                      {pctStorage >= 90 && (
+                        <button onClick={() => setShowRecargaModal("storage")} style={{ marginTop: 5, background: "none", border: "none", color: "var(--gold)", fontSize: 10, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                          + Comprar mais
+                        </button>
+                      )}
                     </div>
                   );
                 })()}
@@ -15867,17 +15890,19 @@ export default function CRM() {
             <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 14, padding: 28, minWidth: 320, maxWidth: 400 }}
               onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, color: "var(--gold)", marginBottom: 4 }}>
-                Comprar {showRecargaModal === "email" ? "e-mails" : "SMS"} extra
+                {showRecargaModal === "storage" ? "Aumentar armazenamento" : `Comprar ${showRecargaModal === "email" ? "e-mails" : "SMS"} extra`}
               </div>
               <p style={{ fontSize: 12, color: "var(--tx3)", lineHeight: 1.6, marginBottom: 16 }}>
-                Escolha um pacote. Ele soma direto na sua cota do mês.
+                {showRecargaModal === "storage"
+                  ? "Escolha um pacote. Ele aumenta sua cota permanentemente, cobrado todo mês junto da mensalidade."
+                  : "Escolha um pacote. Ele soma direto na sua cota do mês."}
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-                {(showRecargaModal === "email" ? RECARGA_EMAIL_TIERS : RECARGA_SMS_TIERS).map(tier => (
+                {(showRecargaModal === "email" ? RECARGA_EMAIL_TIERS : showRecargaModal === "storage" ? RECARGA_STORAGE_TIERS : RECARGA_SMS_TIERS).map((tier: any) => (
                   <button key={tier.qtd} disabled={comprandoRecarga} onClick={() => comprarRecarga(showRecargaModal, tier)}
                     style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 9, padding: "12px 16px", cursor: comprandoRecarga ? "not-allowed" : "pointer", fontFamily: "'DM Sans',sans-serif", opacity: comprandoRecarga ? 0.6 : 1 }}>
-                    <span style={{ fontSize: 13, color: "var(--tx)", fontWeight: 600 }}>+{tier.qtd} {showRecargaModal === "email" ? "e-mails" : "SMS"}</span>
-                    <span style={{ fontSize: 13, color: "var(--gold)", fontWeight: 700 }}>R${tier.preco.toFixed(2)}</span>
+                    <span style={{ fontSize: 13, color: "var(--tx)", fontWeight: 600 }}>{tier.label || `+${tier.qtd} ${showRecargaModal === "email" ? "e-mails" : "SMS"}`}</span>
+                    <span style={{ fontSize: 13, color: "var(--gold)", fontWeight: 700 }}>R${tier.preco.toFixed(2)}{showRecargaModal === "storage" ? "/mês" : ""}</span>
                   </button>
                 ))}
               </div>
