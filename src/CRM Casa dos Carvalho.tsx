@@ -50,33 +50,45 @@ function calcUpgradeValor(planoAtual: string, vencimento: string, planoAlvo: str
   return { valor: Math.max(0, Math.round(diferenca * 100) / 100), dataFmt: new Date(vencimento).toLocaleDateString("pt-BR") };
 }
 
-// Bloqueio "fosco" genérico por plano — reutilizável em qualquer aba. Mostra só os
-// botões de upgrade que realmente destravam o recurso (ex.: um recurso exclusivo do
-// Ouro não mostra botão de upgrade pro Prata, já que não resolveria nada).
-function FoscoRecurso({ meuPlano, vencimento, minPlano, featureNome }: { meuPlano: string; vencimento: string; minPlano: string; featureNome: string }) {
+// Selo compacto de upgrade — mostra só os botões que realmente destravam o recurso
+// (ex.: um recurso exclusivo do Ouro não mostra botão de upgrade pro Prata, já que
+// não resolveria nada). Sem valor no texto do botão — o valor vai só na mensagem do
+// WhatsApp, pro Abraão já ver a conta quando o cliente clicar.
+function UpgradeBadge({ meuPlano, vencimento, minPlano, featureNome }: { meuPlano: string; vencimento: string; minPlano: string; featureNome: string }) {
   const idxMin = PLANO_ORDEM_GLOBAL.indexOf(minPlano);
   const opcoes = idxMin >= 0 ? PLANO_ORDEM_GLOBAL.slice(idxMin) : [];
   return (
-    <div style={{ border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 10, padding: "18px 20px", background: "#0a0a0a", opacity: 0.9, filter: "grayscale(0.4)" }}>
-      <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 10 }}>
-        🔒 {featureNome} é exclusivo do plano {opcoes.length > 1 ? opcoes.join(" ou ") : minPlano}.
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {opcoes.map(planoAlvo => {
+        const upgrade = calcUpgradeValor(meuPlano, vencimento, planoAlvo);
+        return (
+          <a key={planoAlvo}
+            href={`https://wa.me/${WHATSAPP_SUPORTE_INK}?text=${encodeURIComponent(
+              `Olá! Gostaria de fazer upgrade para o plano ${planoAlvo} pra desbloquear: ${featureNome}.` +
+              (upgrade ? ` Calculei a diferença proporcional em R$${upgrade.valor.toFixed(2)} até o fim do ciclo atual (${upgrade.dataFmt}). Podemos confirmar o pagamento?` : "")
+            )}`}
+            target="_blank" rel="noopener noreferrer"
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, textDecoration: "none", background: "linear-gradient(135deg,#E8C97A,#C9A84C 45%,#8a6a24)", color: "#17140A", fontWeight: 700, fontSize: 11, borderRadius: 999, padding: "6px 12px", boxShadow: "0 3px 12px rgba(201,168,76,.35)", whiteSpace: "nowrap" }}
+          >
+            🔒 Fazer upgrade agora{opcoes.length > 1 ? ` (${planoAlvo})` : ""} →
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+// Bloqueio "fosco" — mostra o recurso real por trás (escurecido, sem interação), com
+// o selo de upgrade fixo no canto superior direito, em vez de esconder o conteúdo.
+function FoscoOverlay({ bloqueado, meuPlano, vencimento, minPlano, featureNome, children }: { bloqueado: boolean; meuPlano: string; vencimento: string; minPlano: string; featureNome: string; children: React.ReactNode }) {
+  if (!bloqueado) return <>{children}</>;
+  return (
+    <div style={{ position: "relative" }}>
+      <div style={{ position: "absolute", top: 8, right: 8, zIndex: 20 }}>
+        <UpgradeBadge meuPlano={meuPlano} vencimento={vencimento} minPlano={minPlano} featureNome={featureNome} />
       </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {opcoes.map(planoAlvo => {
-          const upgrade = calcUpgradeValor(meuPlano, vencimento, planoAlvo);
-          return (
-            <a key={planoAlvo}
-              href={`https://wa.me/${WHATSAPP_SUPORTE_INK}?text=${encodeURIComponent(
-                `Olá! Gostaria de fazer upgrade para o plano ${planoAlvo} pra desbloquear: ${featureNome}.` +
-                (upgrade ? ` Calculei a diferença proporcional em R$${upgrade.valor.toFixed(2)} até o fim do ciclo atual (${upgrade.dataFmt}). Podemos confirmar o pagamento?` : "")
-              )}`}
-              target="_blank" rel="noopener noreferrer" className="btn-sm"
-              style={{ display: "inline-block", textDecoration: "none" }}
-            >
-              Upgrade para {planoAlvo}{upgrade ? ` por R$${upgrade.valor.toFixed(2)}` : ""} →
-            </a>
-          );
-        })}
+      <div style={{ opacity: 0.35, filter: "grayscale(.5)", pointerEvents: "none", userSelect: "none" }}>
+        {children}
       </div>
     </div>
   );
@@ -1439,6 +1451,9 @@ export default function CRM() {
   const [showForm, setShowForm] = useState(false);
   const [showArtForm, setShowArtForm] = useState(false);
   const [showExtraArtistConfirm, setShowExtraArtistConfirm] = useState(false);
+  // Aviso compacto quando uma ação interativa (ex.: trocar tema) não pôde ser salva
+  // por ser recurso de um plano acima do atual — guarda o nome da feature, ou null.
+  const [avisoUpgrade, setAvisoUpgrade] = useState<string | null>(null);
   const [showRecargaModal, setShowRecargaModal] = useState<"sms" | "email" | "storage" | null>(null);
   const [comprandoRecarga, setComprandoRecarga] = useState(false);
   const [showAgForm, setShowAgForm] = useState(false);
@@ -8423,9 +8438,7 @@ export default function CRM() {
         })()}
         {/* ── ORIGENS ── */}
         {tab === "posvenda" && pvSubTab === "origens" && (() => {
-          if (authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro")) {
-            return <div style={{ padding: 16, maxWidth: 780 }}><FoscoRecurso meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Origens" /></div>;
-          }
+          const bloqueadoOrigens = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro");
           const siteBase = (studioSite || "https://seusite.com.br").replace(/\/$/, "");
           const salvarOrigem = async (nome: string, idx: number | null, pago?: boolean, pagina?: string) => {
             const sl = slugify(nome);
@@ -8471,7 +8484,12 @@ export default function CRM() {
             return { ...o, frio, quente, conv, ultimo };
           }).sort((a, b) => b.conv - a.conv);
           return (
-              <div className="origem-portrait-scale" style={{ padding: "24px 16px", maxWidth: 740, margin: "0 auto", overflowX: "auto", WebkitOverflowScrolling: "touch" as any }}>
+              <div className="origem-portrait-scale" style={{ padding: "24px 16px", maxWidth: 740, margin: "0 auto", overflowX: "auto", WebkitOverflowScrolling: "touch" as any, position: "relative", ...(bloqueadoOrigens ? { opacity: 0.35, filter: "grayscale(.5)", pointerEvents: "none" as const, userSelect: "none" as const } : {}) }}>
+                {bloqueadoOrigens && (
+                  <div style={{ position: "absolute", top: 8, right: 8, zIndex: 20, opacity: 1, filter: "none", pointerEvents: "auto" }}>
+                    <UpgradeBadge meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Origens" />
+                  </div>
+                )}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🔗 Gerenciador de Origens</div>
                   <button className="btn-s" onClick={() => { setOrigenEditIdx(-1); setOrigenEditNome(""); setOrigenEditPago(false); }}>+ Nova origem</button>
@@ -8633,11 +8651,9 @@ export default function CRM() {
           })()}
         {/* ── DISPAROS ── */}
         {tab === "posvenda" && pvSubTab === "disparos" && (
-          authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata") ? (
-            <div style={{ padding: 16, maxWidth: 780 }}>
-              <FoscoRecurso meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Prata" featureNome="Disparos" />
-            </div>
-          ) : (
+          <FoscoOverlay
+            bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata")}
+            meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Prata" featureNome="Disparos">
           <div style={{ flex: 1, padding: "16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, maxWidth: 780, width: "100%", animation: "fadeIn .15s ease" }}>
 
             {/* Cabeçalho */}
@@ -9057,13 +9073,11 @@ export default function CRM() {
             )}
 
           </div>
-          )
+          </FoscoOverlay>
         )}
         {/* ── CAMPANHAS ── */}
         {tab === "posvenda" && pvSubTab === "campanhas" && (() => {
-          if (authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro")) {
-            return <div style={{ padding: 16, maxWidth: 780 }}><FoscoRecurso meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Campanhas" /></div>;
-          }
+          const bloqueadoCampanhas = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro");
           const hoje = new Date().toISOString().split("T")[0];
           const statusCamp = (c: any) => {
             if (!c.data_inicio || !c.data_fim) return "sem data";
@@ -9141,7 +9155,12 @@ export default function CRM() {
             );
           };
           return (
-            <div style={{ padding: "24px 16px", maxWidth: 700, margin: "0 auto" }}>
+            <div style={{ padding: "24px 16px", maxWidth: 700, margin: "0 auto", position: "relative", ...(bloqueadoCampanhas ? { opacity: 0.35, filter: "grayscale(.5)", pointerEvents: "none" as const, userSelect: "none" as const } : {}) }}>
+              {bloqueadoCampanhas && (
+                <div style={{ position: "absolute", top: 8, right: 8, zIndex: 20, opacity: 1, filter: "none", pointerEvents: "auto" }}>
+                  <UpgradeBadge meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Campanhas" />
+                </div>
+              )}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                 <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🎯 Campanhas</div>
                 <button className="btn-s" onClick={() => { setCampEditIdx(-1); setCampEditForm({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" }); }}>+ Nova campanha</button>
@@ -13643,6 +13662,17 @@ export default function CRM() {
             </div>
           );
         })()}
+        {/* Aviso compacto: ação de recurso exclusivo tentada mas não salva */}
+        {avisoUpgrade && (
+          <div style={{ position: "fixed", left: 10, right: 10, bottom: "max(env(safe-area-inset-bottom),14px)", zIndex: 100002, maxWidth: 460, margin: "0 auto", background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 11, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 10px 30px rgba(0,0,0,.55)", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 18, flexShrink: 0 }}>🔒</span>
+            <span style={{ flex: 1, fontSize: 12.5, color: "var(--tx)", lineHeight: 1.35, minWidth: 160 }}>
+              <b>{avisoUpgrade}</b> é recurso exclusivo do Ouro — sua alteração não foi salva.
+            </span>
+            <UpgradeBadge meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome={avisoUpgrade} />
+            <button onClick={() => setAvisoUpgrade(null)} style={{ background: "transparent", border: "1px solid var(--br)", borderRadius: 7, color: "var(--tx2)", padding: "6px 11px", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0, fontFamily: "'DM Sans',sans-serif" }}>✕</button>
+          </div>
+        )}
         {/* Desfazer reagendamento (Fase 2) */}
         {undoReag && (
           <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 9999, background: "var(--dk2)", border: "1px solid var(--ab)", borderRadius: 10, padding: "12px 20px", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 24px rgba(0,0,0,.5)", minWidth: 320, maxWidth: "92vw" }}>
@@ -15308,10 +15338,8 @@ export default function CRM() {
                   <div>
                     <div className="stit">Aparência</div>
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 12 }}>Escolha o tema visual do sistema.</div>
-                    {authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro") ? (
-                      <FoscoRecurso meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Aparência" />
-                    ) : (
-                    /* Carrossel de temas */
+                    {/* Carrossel de temas — Bronze/Prata podem ver o preview funcionando, mas o
+                        salvamento é bloqueado com aviso de upgrade (ver onClick abaixo). */}
                     <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, scrollbarWidth: "none" }}>
                       {(Object.entries(THEMES) as [ThemeId, typeof THEMES[ThemeId]][]).map(([id, t]) => {
                         const ativo = tema === id;
@@ -15319,7 +15347,12 @@ export default function CRM() {
                         const accent = dark ? t.dark["--gold"] : t.light["--gold"];
                         const txColor = dark ? t.dark["--tx2"] : t.light["--tx2"];
                         return (
-                          <div key={id} onClick={async () => { setTema(id); if (userId) await sb.from("configuracoes").update({ tema: id }).eq("user_id", userId); }} style={{ minWidth: 100, borderRadius: 8, border: `1px solid ${ativo ? accent : "var(--br)"}`, background: bg, padding: "8px 10px", cursor: "pointer", position: "relative", transition: "all .15s", flexShrink: 0 }}>
+                          <div key={id} onClick={async () => {
+                            setTema(id);
+                            const bloqueado = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro");
+                            if (bloqueado) { setAvisoUpgrade("Aparência"); return; }
+                            if (userId) await sb.from("configuracoes").update({ tema: id }).eq("user_id", userId);
+                          }} style={{ minWidth: 100, borderRadius: 8, border: `1px solid ${ativo ? accent : "var(--br)"}`, background: bg, padding: "8px 10px", cursor: "pointer", position: "relative", transition: "all .15s", flexShrink: 0 }}>
                             {ativo && <div style={{ position: "absolute", top: 4, right: 6, fontSize: 10, color: accent, fontWeight: 700 }}>✓</div>}
                             <div style={{ fontSize: 14, marginBottom: 4 }}>{t.emoji}</div>
                             <div style={{ fontSize: 11, fontWeight: 600, color: txColor, marginBottom: 6, whiteSpace: "nowrap" }}>{t.nome}</div>
@@ -15332,7 +15365,6 @@ export default function CRM() {
                         );
                       })}
                     </div>
-                    )}
                   </div>
                   <div>
                     <div className="stit">Tour Guiado</div>
