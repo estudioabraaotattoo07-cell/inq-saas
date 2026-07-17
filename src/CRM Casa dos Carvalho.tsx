@@ -1463,6 +1463,9 @@ export default function CRM() {
   const [alertPos, setAlertPos] = useState({ top: 64, right: 16 });
   const [showCtr, setShowCtr] = useState<any>(null);
   const [showSettings, setShowSettings] = useState(false);
+  // Guarda o último tema realmente salvo no banco — usado pra reverter a prévia
+  // se as Configurações forem fechadas sem clicar em "Salvar aparência".
+  const temaSalvoRef = useRef<ThemeId | null>(null);
   const [ctrEdit, setCtrEdit] = useState<Record<string, string>>({});
   const [editingArtist, setEditingArtist] = useState<any>(null);
   const [segSel, setSegSel] = useState<string | null>(null);
@@ -2075,7 +2078,7 @@ export default function CRM() {
             if (campSazData) setCampSazEtapas(campSazData);
           } catch {}
           setDark(true);
-          if (cfg.tema) setTema(cfg.tema as ThemeId);
+          if (cfg.tema) { setTema(cfg.tema as ThemeId); temaSalvoRef.current = cfg.tema as ThemeId; }
           // [X2] onboarding_done from Supabase (source of truth); localStorage as cache
           if (cfg.onboarding_done) {
             setOnboardingDone(true);
@@ -2532,6 +2535,13 @@ export default function CRM() {
   }, [tab]);
 
   useMemo(() => applyTheme(dark, tema), [dark, tema]);
+  // Fechou Configurações sem clicar em "Salvar aparência"? Reverte a prévia pro
+  // último tema realmente salvo — não precisa mais dar F5 pra voltar ao padrão.
+  useEffect(() => {
+    if (!showSettings && temaSalvoRef.current && tema !== temaSalvoRef.current) {
+      setTema(temaSalvoRef.current);
+    }
+  }, [showSettings]);
   useMemo(() => {
     if (artists.length > 0) {
       const root = document.documentElement;
@@ -15372,6 +15382,7 @@ export default function CRM() {
                       const bloqueado = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro");
                       if (bloqueado) { setAvisoUpgrade("Aparência"); return; }
                       if (userId) await sb.from("configuracoes").update({ tema }).eq("user_id", userId);
+                      temaSalvoRef.current = tema;
                       addLog(`Tema do sistema alterado para "${THEMES[tema]?.nome || tema}"`);
                     }}>
                       Salvar aparência
