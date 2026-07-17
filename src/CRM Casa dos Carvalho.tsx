@@ -16,10 +16,11 @@ const API_BASE = "https://inq-saas.vercel.app";
 const PLANO_LIMITES: Record<string, { preco: number; fotosPorArtista: number; artistasInclusos: number; smsPorMes: number; emailPorMes: number; storageMb: number; coresPersonalizadas: boolean }> = {
   Bronze: { preco: 297, fotosPorArtista: 5, artistasInclusos: 2, smsPorMes: 50, emailPorMes: 120, storageMb: 1024, coresPersonalizadas: false },
   Prata: { preco: 497, fotosPorArtista: 15, artistasInclusos: 4, smsPorMes: 100, emailPorMes: 200, storageMb: 3072, coresPersonalizadas: false },
-  Ouro: { preco: 597, fotosPorArtista: 30, artistasInclusos: 6, smsPorMes: 200, emailPorMes: 400, storageMb: 5120, coresPersonalizadas: true },
+  Ouro: { preco: 597, fotosPorArtista: 30, artistasInclusos: 6, smsPorMes: 200, emailPorMes: 400, storageMb: 10240, coresPersonalizadas: true },
 };
-// Pacotes de recarga ao estourar a cota do mês — mesmos valores pra qualquer plano,
-// quantidade maior sai por um preço unitário menor.
+// Pacotes de recarga de SMS/e-mail — crédito persistente: só é consumido quando a
+// cota incluída do mês é ultrapassada, e o que sobrar não expira (acumula pro mês
+// seguinte). Mesmos valores pra qualquer plano, quantidade maior sai mais barato.
 const RECARGA_SMS_TIERS = [
   { qtd: 20, preco: 9 },
   { qtd: 30, preco: 12 },
@@ -30,12 +31,11 @@ const RECARGA_EMAIL_TIERS = [
   { qtd: 100, preco: 10 },
   { qtd: 200, preco: 15 },
 ];
-// Armazenamento é recorrente (a cota fica maior todo mês), diferente de SMS/e-mail
-// (avulso, só vale pro ciclo em que foi comprado — reseta sozinho no mês seguinte).
+// Armazenamento é recorrente (a cota fica maior todo mês, pra sempre).
 const RECARGA_STORAGE_TIERS = [
-  { qtd: 2048, preco: 15, label: "+2GB" },
-  { qtd: 5120, preco: 30, label: "+5GB" },
-  { qtd: 10240, preco: 50, label: "+10GB" },
+  { qtd: 5120, preco: 10, label: "+5GB" },
+  { qtd: 10240, preco: 15, label: "+10GB" },
+  { qtd: 25600, preco: 20, label: "+25GB" },
 ];
 const PROXIMO_PLANO: Record<string, string> = { Bronze: "Prata", Prata: "Ouro" };
 const WHATSAPP_SUPORTE_INK = "5527999598230"; // espelha ink-system-plataform/app/page.tsx (WHATSAPP_SUPORTE)
@@ -1345,6 +1345,10 @@ export default function CRM() {
   const [meuSlug, setMeuSlug] = useState<string>("");
   const [storageUsadoMb, setStorageUsadoMb] = useState<number>(0);
   const [storageExtraMb, setStorageExtraMb] = useState<number>(0);
+  // Crédito comprado de SMS/e-mail — não expira: só é consumido quando a cota
+  // incluída do mês é ultrapassada (ver logEnvio). O que sobra acumula.
+  const [smsCreditoExtra, setSmsCreditoExtra] = useState<number>(0);
+  const [emailCreditoExtra, setEmailCreditoExtra] = useState<number>(0);
   const [siteVencimento, setSiteVencimento] = useState<string>("");
   const [slugProposto, setSlugProposto] = useState<string>("");
   const [slugConfirmando, setSlugConfirmando] = useState(false);
@@ -1584,10 +1588,20 @@ export default function CRM() {
   const anoMesAtual = new Date().toISOString().slice(0, 7);
   const logEnvio = useCallback((canal: "email" | "sms", qtd: number = 1) => {
     if (!userId) return;
+    // Só consome crédito comprado na parcela que ultrapassa a cota incluída do mês
+    // — o crédito não expira, fica guardado até ser realmente usado.
+    const incluido = canal === "email" ? PLANO_LIMITES[meuPlano]?.emailPorMes : PLANO_LIMITES[meuPlano]?.smsPorMes;
+    const enviadosAntes = canal === "email" ? usoMensal.emailEnviados : usoMensal.smsEnviados;
+    const excedente = incluido !== undefined ? Math.max(0, Math.min(qtd, (enviadosAntes + qtd) - incluido)) : 0;
     setUsoMensal(p => canal === "email" ? { ...p, emailEnviados: p.emailEnviados + qtd } : { ...p, smsEnviados: p.smsEnviados + qtd });
+    if (excedente > 0) {
+      if (canal === "email") setEmailCreditoExtra(p => Math.max(0, p - excedente));
+      else setSmsCreditoExtra(p => Math.max(0, p - excedente));
+      sb.rpc("consumir_credito_mensageria", { p_user_id: userId, p_canal: canal, p_qtd: excedente }).then(() => {}, () => {});
+    }
     sb.rpc("incrementar_uso_mensageria", { p_user_id: userId, p_ano_mes: anoMesAtual, p_canal: canal, p_qtd: qtd }).then(() => {}, () => {});
     sb.rpc("incrementar_uso_diario", { p_user_id: userId, p_canal: canal, p_qtd: qtd }).then(() => {}, () => {});
-  }, [userId, anoMesAtual]);
+  }, [userId, anoMesAtual, meuPlano, usoMensal]);
   const logFalha = useCallback((canal: "email" | "sms", motivo: string) => {
     if (!userId) return;
     sb.rpc("registrar_falha_mensageria", { p_user_id: userId, p_canal: canal, p_motivo: motivo }).then(() => {}, () => {});
@@ -1608,9 +1622,11 @@ export default function CRM() {
         setShowRecargaModal(null);
         return;
       }
-      const { error } = await sb.rpc("comprar_recarga_mensageria", { p_user_id: userId, p_ano_mes: anoMesAtual, p_canal: canal, p_qtd: tier.qtd });
+      // Crédito persistente (não é por mês) — só é consumido de verdade quando a
+      // cota incluída daquele mês é ultrapassada, ver lógica em logEnvio.
+      const { error } = await sb.rpc("comprar_credito_mensageria", { p_user_id: userId, p_canal: canal, p_qtd: tier.qtd });
       if (error) { setShowAviso("Erro ao registrar a recarga: " + error.message); return; }
-      setUsoMensal(p => canal === "email" ? { ...p, emailComprado: p.emailComprado + tier.qtd } : { ...p, smsComprado: p.smsComprado + tier.qtd });
+      if (canal === "email") setEmailCreditoExtra(p => p + tier.qtd); else setSmsCreditoExtra(p => p + tier.qtd);
       addLog(`Recarga comprada: +${tier.qtd} ${canal === "email" ? "e-mails" : "SMS"} — R$${tier.preco.toFixed(2)}`);
       setShowRecargaModal(null);
     } finally {
@@ -1735,10 +1751,12 @@ export default function CRM() {
     setLicencaOk(true);
     const planoBrutoLic = (lic.plano || "").trim();
     setMeuPlano(["Bronze", "Prata", "Ouro"].find(p => p.toLowerCase() === planoBrutoLic.toLowerCase()) || planoBrutoLic);
-    const { data: inkCli } = await sb.from("ink_clientes").select("slug, storage_usado_mb, storage_extra_mb").eq("auth_user_id", uid).limit(1).maybeSingle();
+    const { data: inkCli } = await sb.from("ink_clientes").select("slug, storage_usado_mb, storage_extra_mb, sms_credito_extra, email_credito_extra").eq("auth_user_id", uid).limit(1).maybeSingle();
     setMeuSlug(inkCli?.slug || "");
     setStorageUsadoMb(Number(inkCli?.storage_usado_mb) || 0);
     setStorageExtraMb(Number(inkCli?.storage_extra_mb) || 0);
+    setSmsCreditoExtra(Number(inkCli?.sms_credito_extra) || 0);
+    setEmailCreditoExtra(Number(inkCli?.email_credito_extra) || 0);
     // Verificar perfil: artista residente com email cadastrado?
     const { data: artEncontrado } = await sb.from("artistas").select("id,email").eq("email", email).limit(1).single();
     if (artEncontrado) {
@@ -7986,7 +8004,7 @@ export default function CRM() {
                     const testado = canaisHabilitados[ch] === true;
                     const ehOwner = authEmail === OWNER_EMAIL;
                     const enviados = ch === "email" ? usoMensal.emailEnviados : ch === "sms" ? usoMensal.smsEnviados : 0;
-                    const comprado = ch === "email" ? usoMensal.emailComprado : ch === "sms" ? usoMensal.smsComprado : 0;
+                    const comprado = ch === "email" ? emailCreditoExtra : ch === "sms" ? smsCreditoExtra : 0;
                     const cota = ch === "email" ? PLANO_LIMITES[meuPlano]?.emailPorMes : ch === "sms" ? PLANO_LIMITES[meuPlano]?.smsPorMes : undefined;
                     const cotaTotal = (cota || 0) + comprado;
                     const pct = cotaTotal > 0 ? Math.min(100, (enviados / cotaTotal) * 100) : 0;
