@@ -78,18 +78,18 @@ function UpgradeBadge({ meuPlano, vencimento, minPlano, featureNome }: { meuPlan
   );
 }
 
-// Bloqueio "fosco" — mostra o recurso real por trás (escurecido, sem interação), com
-// o selo de upgrade fixo no canto superior direito, em vez de esconder o conteúdo.
+// Bloqueio "fosco" — mostra o recurso real por trás, com uma camada escura por CIMA
+// (não opacity/filter no próprio conteúdo — isso "contaminaria" até o selo, que
+// precisa ficar nítido). O selo fica fixo no canto superior direito da tela.
 function FoscoOverlay({ bloqueado, meuPlano, vencimento, minPlano, featureNome, children }: { bloqueado: boolean; meuPlano: string; vencimento: string; minPlano: string; featureNome: string; children: React.ReactNode }) {
   if (!bloqueado) return <>{children}</>;
   return (
     <div style={{ position: "relative" }}>
-      <div style={{ position: "absolute", top: 8, right: 8, zIndex: 20 }}>
+      <div style={{ position: "absolute", inset: 0, zIndex: 15, background: "rgba(0,0,0,.62)", backdropFilter: "grayscale(70%)", WebkitBackdropFilter: "grayscale(70%)" }} />
+      <div style={{ position: "fixed", top: 108, right: 20, zIndex: 100003 }}>
         <UpgradeBadge meuPlano={meuPlano} vencimento={vencimento} minPlano={minPlano} featureNome={featureNome} />
       </div>
-      <div style={{ opacity: 0.35, filter: "grayscale(.5)", pointerEvents: "none", userSelect: "none" }}>
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
@@ -8484,11 +8484,14 @@ export default function CRM() {
             return { ...o, frio, quente, conv, ultimo };
           }).sort((a, b) => b.conv - a.conv);
           return (
-              <div className="origem-portrait-scale" style={{ padding: "24px 16px", maxWidth: 740, margin: "0 auto", overflowX: "auto", WebkitOverflowScrolling: "touch" as any, position: "relative", ...(bloqueadoOrigens ? { opacity: 0.35, filter: "grayscale(.5)", pointerEvents: "none" as const, userSelect: "none" as const } : {}) }}>
+              <div className="origem-portrait-scale" style={{ padding: "24px 16px", maxWidth: 740, margin: "0 auto", overflowX: "auto", WebkitOverflowScrolling: "touch" as any, position: "relative" }}>
                 {bloqueadoOrigens && (
-                  <div style={{ position: "absolute", top: 8, right: 8, zIndex: 20, opacity: 1, filter: "none", pointerEvents: "auto" }}>
-                    <UpgradeBadge meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Origens" />
-                  </div>
+                  <>
+                    <div style={{ position: "absolute", inset: 0, zIndex: 15, background: "rgba(0,0,0,.62)", backdropFilter: "grayscale(70%)", WebkitBackdropFilter: "grayscale(70%)" }} />
+                    <div style={{ position: "fixed", top: 108, right: 20, zIndex: 100003 }}>
+                      <UpgradeBadge meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Origens" />
+                    </div>
+                  </>
                 )}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🔗 Gerenciador de Origens</div>
@@ -9155,11 +9158,14 @@ export default function CRM() {
             );
           };
           return (
-            <div style={{ padding: "24px 16px", maxWidth: 700, margin: "0 auto", position: "relative", ...(bloqueadoCampanhas ? { opacity: 0.35, filter: "grayscale(.5)", pointerEvents: "none" as const, userSelect: "none" as const } : {}) }}>
+            <div style={{ padding: "24px 16px", maxWidth: 700, margin: "0 auto", position: "relative" }}>
               {bloqueadoCampanhas && (
-                <div style={{ position: "absolute", top: 8, right: 8, zIndex: 20, opacity: 1, filter: "none", pointerEvents: "auto" }}>
-                  <UpgradeBadge meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Campanhas" />
-                </div>
+                <>
+                  <div style={{ position: "absolute", inset: 0, zIndex: 15, background: "rgba(0,0,0,.62)", backdropFilter: "grayscale(70%)", WebkitBackdropFilter: "grayscale(70%)" }} />
+                  <div style={{ position: "fixed", top: 108, right: 20, zIndex: 100003 }}>
+                    <UpgradeBadge meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Campanhas" />
+                  </div>
+                </>
               )}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                 <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🎯 Campanhas</div>
@@ -15337,9 +15343,10 @@ export default function CRM() {
                 {settingsTab === "sistema" && <>
                   <div>
                     <div className="stit">Aparência</div>
-                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 12 }}>Escolha o tema visual do sistema.</div>
-                    {/* Carrossel de temas — Bronze/Prata podem ver o preview funcionando, mas o
-                        salvamento é bloqueado com aviso de upgrade (ver onClick abaixo). */}
+                    <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 12 }}>Escolha o tema visual do sistema. Clicar só troca a prévia — fica valendo de verdade só depois de "Salvar".</div>
+                    {/* Carrossel de temas — só faz preview local (setTema). Nada é gravado até
+                        clicar em Salvar; fechar/recarregar sem salvar volta pro tema salvo,
+                        porque o próximo carregamento lê de novo do banco. */}
                     <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, scrollbarWidth: "none" }}>
                       {(Object.entries(THEMES) as [ThemeId, typeof THEMES[ThemeId]][]).map(([id, t]) => {
                         const ativo = tema === id;
@@ -15347,12 +15354,8 @@ export default function CRM() {
                         const accent = dark ? t.dark["--gold"] : t.light["--gold"];
                         const txColor = dark ? t.dark["--tx2"] : t.light["--tx2"];
                         return (
-                          <div key={id} onClick={async () => {
-                            setTema(id);
-                            const bloqueado = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro");
-                            if (bloqueado) { setAvisoUpgrade("Aparência"); return; }
-                            if (userId) await sb.from("configuracoes").update({ tema: id }).eq("user_id", userId);
-                          }} style={{ minWidth: 100, borderRadius: 8, border: `1px solid ${ativo ? accent : "var(--br)"}`, background: bg, padding: "8px 10px", cursor: "pointer", position: "relative", transition: "all .15s", flexShrink: 0 }}>
+                          <div key={id} onClick={() => setTema(id)}
+                            style={{ minWidth: 100, borderRadius: 8, border: `1px solid ${ativo ? accent : "var(--br)"}`, background: bg, padding: "8px 10px", cursor: "pointer", position: "relative", transition: "all .15s", flexShrink: 0 }}>
                             {ativo && <div style={{ position: "absolute", top: 4, right: 6, fontSize: 10, color: accent, fontWeight: 700 }}>✓</div>}
                             <div style={{ fontSize: 14, marginBottom: 4 }}>{t.emoji}</div>
                             <div style={{ fontSize: 11, fontWeight: 600, color: txColor, marginBottom: 6, whiteSpace: "nowrap" }}>{t.nome}</div>
@@ -15365,6 +15368,14 @@ export default function CRM() {
                         );
                       })}
                     </div>
+                    <button className="btn-s" style={{ marginTop: 10 }} onClick={async () => {
+                      const bloqueado = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro");
+                      if (bloqueado) { setAvisoUpgrade("Aparência"); return; }
+                      if (userId) await sb.from("configuracoes").update({ tema }).eq("user_id", userId);
+                      addLog(`Tema do sistema alterado para "${THEMES[tema]?.nome || tema}"`);
+                    }}>
+                      Salvar aparência
+                    </button>
                   </div>
                   <div>
                     <div className="stit">Tour Guiado</div>
