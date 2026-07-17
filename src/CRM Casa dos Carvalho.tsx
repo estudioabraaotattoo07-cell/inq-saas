@@ -39,6 +39,48 @@ const RECARGA_STORAGE_TIERS = [
 ];
 const PROXIMO_PLANO: Record<string, string> = { Bronze: "Prata", Prata: "Ouro" };
 const WHATSAPP_SUPORTE_INK = "5527999598230"; // espelha ink-system-plataform/app/page.tsx (WHATSAPP_SUPORTE)
+const PLANO_ORDEM_GLOBAL = ["Bronze", "Prata", "Ouro"];
+
+// Diferença proporcional até o fim do ciclo atual — mesma regra combinada com o
+// Abraão em 2026-07-13 (ver calcUpgrade, uso interno do editor do site).
+function calcUpgradeValor(planoAtual: string, vencimento: string, planoAlvo: string): { valor: number; dataFmt: string } | null {
+  if (!PLANO_LIMITES[planoAtual] || !PLANO_LIMITES[planoAlvo] || !vencimento) return null;
+  const diasRestantes = Math.max(0, Math.ceil((new Date(vencimento).getTime() - Date.now()) / 86400000));
+  const diferenca = (PLANO_LIMITES[planoAlvo].preco - PLANO_LIMITES[planoAtual].preco) / 30 * diasRestantes;
+  return { valor: Math.max(0, Math.round(diferenca * 100) / 100), dataFmt: new Date(vencimento).toLocaleDateString("pt-BR") };
+}
+
+// Bloqueio "fosco" genérico por plano — reutilizável em qualquer aba. Mostra só os
+// botões de upgrade que realmente destravam o recurso (ex.: um recurso exclusivo do
+// Ouro não mostra botão de upgrade pro Prata, já que não resolveria nada).
+function FoscoRecurso({ meuPlano, vencimento, minPlano, featureNome }: { meuPlano: string; vencimento: string; minPlano: string; featureNome: string }) {
+  const idxMin = PLANO_ORDEM_GLOBAL.indexOf(minPlano);
+  const opcoes = idxMin >= 0 ? PLANO_ORDEM_GLOBAL.slice(idxMin) : [];
+  return (
+    <div style={{ border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 10, padding: "18px 20px", background: "#0a0a0a", opacity: 0.9, filter: "grayscale(0.4)" }}>
+      <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 10 }}>
+        🔒 {featureNome} é exclusivo do plano {opcoes.length > 1 ? opcoes.join(" ou ") : minPlano}.
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {opcoes.map(planoAlvo => {
+          const upgrade = calcUpgradeValor(meuPlano, vencimento, planoAlvo);
+          return (
+            <a key={planoAlvo}
+              href={`https://wa.me/${WHATSAPP_SUPORTE_INK}?text=${encodeURIComponent(
+                `Olá! Gostaria de fazer upgrade para o plano ${planoAlvo} pra desbloquear: ${featureNome}.` +
+                (upgrade ? ` Calculei a diferença proporcional em R$${upgrade.valor.toFixed(2)} até o fim do ciclo atual (${upgrade.dataFmt}). Podemos confirmar o pagamento?` : "")
+              )}`}
+              target="_blank" rel="noopener noreferrer" className="btn-sm"
+              style={{ display: "inline-block", textDecoration: "none" }}
+            >
+              Upgrade para {planoAlvo}{upgrade ? ` por R$${upgrade.valor.toFixed(2)}` : ""} →
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // Quiz "qual plano cabe no meu bolso" — cada resposta aponta pro plano mínimo
 // que atende aquela necessidade; o resultado final é o mais "exigente" dos
@@ -1342,6 +1384,7 @@ export default function CRM() {
   const [siteSlug, setSiteSlug] = useState<string>("");
   const [sitePlano, setSitePlano] = useState<string>("");
   const [meuPlano, setMeuPlano] = useState<string>("");
+  const [meuVencimento, setMeuVencimento] = useState<string>("");
   const [meuSlug, setMeuSlug] = useState<string>("");
   const [storageUsadoMb, setStorageUsadoMb] = useState<number>(0);
   const [storageExtraMb, setStorageExtraMb] = useState<number>(0);
@@ -1751,6 +1794,7 @@ export default function CRM() {
     setLicencaOk(true);
     const planoBrutoLic = (lic.plano || "").trim();
     setMeuPlano(["Bronze", "Prata", "Ouro"].find(p => p.toLowerCase() === planoBrutoLic.toLowerCase()) || planoBrutoLic);
+    setMeuVencimento(lic.data_vencimento || "");
     const { data: inkCli } = await sb.from("ink_clientes").select("slug, storage_usado_mb, storage_extra_mb, sms_credito_extra, email_credito_extra").eq("auth_user_id", uid).limit(1).maybeSingle();
     setMeuSlug(inkCli?.slug || "");
     setStorageUsadoMb(Number(inkCli?.storage_usado_mb) || 0);
@@ -8379,6 +8423,9 @@ export default function CRM() {
         })()}
         {/* ── ORIGENS ── */}
         {tab === "posvenda" && pvSubTab === "origens" && (() => {
+          if (authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro")) {
+            return <div style={{ padding: 16, maxWidth: 780 }}><FoscoRecurso meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Origens" /></div>;
+          }
           const siteBase = (studioSite || "https://seusite.com.br").replace(/\/$/, "");
           const salvarOrigem = async (nome: string, idx: number | null, pago?: boolean, pagina?: string) => {
             const sl = slugify(nome);
@@ -8586,6 +8633,11 @@ export default function CRM() {
           })()}
         {/* ── DISPAROS ── */}
         {tab === "posvenda" && pvSubTab === "disparos" && (
+          authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata") ? (
+            <div style={{ padding: 16, maxWidth: 780 }}>
+              <FoscoRecurso meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Prata" featureNome="Disparos" />
+            </div>
+          ) : (
           <div style={{ flex: 1, padding: "16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, maxWidth: 780, width: "100%", animation: "fadeIn .15s ease" }}>
 
             {/* Cabeçalho */}
@@ -9005,9 +9057,13 @@ export default function CRM() {
             )}
 
           </div>
+          )
         )}
         {/* ── CAMPANHAS ── */}
         {tab === "posvenda" && pvSubTab === "campanhas" && (() => {
+          if (authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro")) {
+            return <div style={{ padding: 16, maxWidth: 780 }}><FoscoRecurso meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Campanhas" /></div>;
+          }
           const hoje = new Date().toISOString().split("T")[0];
           const statusCamp = (c: any) => {
             if (!c.data_inicio || !c.data_fim) return "sem data";
@@ -15591,35 +15647,17 @@ export default function CRM() {
             </div>
           );
         })()}
-        {/* ── AURA FAB BUTTON ── */}
-        <div
-          id="aura-fab-btn"
-          style={auraBtnPos
-            ? { position: "fixed", top: auraBtnPos.y, left: auraBtnPos.x, zIndex: 9999, cursor: auraDragging ? "grabbing" : "grab" }
-            : { position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", right: 16, zIndex: 9999, cursor: "grab" }}
-          onMouseDown={e => { handleAuraDragStart(e.clientX, e.clientY); }}
-          onTouchStart={e => { if (e.touches[0]) handleAuraDragStart(e.touches[0].clientX, e.touches[0].clientY); }}
-        >
-          <button
-            id="aura-fab-toggle"
-            onClick={() => { if (!auraDragRef.current?.moved) setShowAuraChat(p => !p); }}
-            style={{ background: showAuraChat ? "var(--dk3)" : "var(--gold)", color: showAuraChat ? "var(--tx2)" : "#000", border: "1px solid var(--gold)", borderRadius: 50, padding: "12px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 20px rgba(201,168,76,.4)", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap", animation: showAuraChat ? "none" : "goldPulse 2.5s infinite" }}>
-            ✦ {(auraName && !auraName.includes("@")) ? auraName : "Configura a sua agente de IA"}
-          </button>
-        </div>
-
-        {/* ── BOTÃO DE SOLICITAÇÃO: quiz de plano (demo) / suporte (cliente real) — arrastável, mesmo mecanismo da Aura ── */}
+        {/* ── BOTÃO DE SOLICITAÇÃO: quiz de plano (demo) / suporte (cliente real) — ícone
+             pequeno e fixo (não mais um pill grande arrastável; Aura removida daqui,
+             ela some do FAB por não ser mais necessária como botão solto). ── */}
         <div
           id="suporte-fab-btn"
-          style={suporteBtnPos
-            ? { position: "fixed", top: suporteBtnPos.y, left: suporteBtnPos.x, zIndex: 9999, cursor: suporteDragging ? "grabbing" : "grab" }
-            : { position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", left: 16, zIndex: 9999, cursor: "grab" }}
-          onMouseDown={e => { handleSuporteDragStart(e.clientX, e.clientY); }}
-          onTouchStart={e => { if (e.touches[0]) handleSuporteDragStart(e.touches[0].clientX, e.touches[0].clientY); }}
+          style={{ position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", left: 16, zIndex: 9999 }}
         >
-          <button onClick={() => { if (!suporteDragRef.current?.moved) { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); } }}
-            style={{ background: "var(--dk3)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: 50, padding: "12px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 20px rgba(0,0,0,.4)", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
-            {isDemoMode ? "💰 Quanto custa pro meu estúdio?" : "🛟 Suporte e assessoria"}
+          <button onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); }}
+            title={isDemoMode ? "Quanto custa pro meu estúdio?" : "Suporte e assessoria"}
+            style={{ width: 42, height: 42, background: "var(--dk3)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: "50%", fontSize: 17, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 16px rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {isDemoMode ? "💰" : "🛟"}
           </button>
         </div>
 
