@@ -141,6 +141,18 @@ function paginaSitePremium(site, cfg, artistas, slug) {
   // aqui só aplica o que já foi salvo; sem estilo salvo = visual padrão de sempre).
   const est = site.estilo || {};
   const corFundo = /^#[0-9a-f]{3,8}$/i.test(est.corFundo || "") ? est.corFundo : "#080808";
+  // Brilho de canto do fundo (superior-esquerdo + inferior-direito) — mesmo padrão
+  // visual do CRM/admin, com cor e intensidade editáveis (exclusivo Ouro).
+  const corBrilho = /^#[0-9a-f]{3,8}$/i.test(est.corBrilho || "") ? est.corBrilho : "#8B5CDE";
+  const hexToRgb = (hex) => {
+    const h = hex.replace("#", "");
+    const n = h.length === 3 ? h.split("").map(c => c + c).join("") : h.slice(0, 6);
+    const num = parseInt(n, 16);
+    return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+  };
+  const [brR, brG, brB] = hexToRgb(corBrilho);
+  const intensidadeBrilhoOpacidade = { sutil: 0.14, medio: 0.24, forte: 0.36 }[est.intensidadeBrilho] || 0.24;
+  const fundoComBrilho = `radial-gradient(700px 700px at -10% -10%, rgba(${brR},${brG},${brB},${intensidadeBrilhoOpacidade}), transparent 60%) fixed, radial-gradient(700px 700px at 110% 110%, rgba(${brR},${brG},${brB},${intensidadeBrilhoOpacidade}), transparent 60%) fixed, ${corFundo}`;
   const corBotao1 = /^#[0-9a-f]{3,8}$/i.test(est.corBotao1 || "") ? est.corBotao1 : "#E8C97A";
   const corBotao2 = /^#[0-9a-f]{3,8}$/i.test(est.corBotao2 || "") ? est.corBotao2 : "#8a6a24";
   const corTitulo = /^#[0-9a-f]{3,8}$/i.test(est.corTitulo || "") ? est.corTitulo : "#ffffff";
@@ -270,7 +282,7 @@ fbq('track', 'PageView');
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--gold:${corBotao1};--gold-2:${corBotao2};--gold-dim:rgba(201,168,76,0.35);--bg:${corFundo};--off:#e8e4dc;--dim:${corCorpo};--pad:52px;--radius:${radius};--font-titulo:${fonteTitulo};--font-corpo:${fonteCorpo};--cor-titulo:${corTitulo};--glow:${glow}}
 html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--cor-titulo);font-family:var(--font-corpo);overflow-x:hidden}
+body{background:${fundoComBrilho};color:var(--cor-titulo);font-family:var(--font-corpo);overflow-x:hidden}
 .nav{position:fixed;top:0;left:0;right:0;z-index:300;display:flex;align-items:center;justify-content:space-between;padding:14px var(--pad);background:rgba(8,8,8,0.93);backdrop-filter:blur(14px);border-bottom:0.5px solid rgba(255,255,255,0.05)}
 .nav-name{font-size:9px;font-weight:500;letter-spacing:3px;color:var(--off);text-transform:uppercase}
 .nav-cta{font-size:7.5px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold);padding:10px 22px;background:transparent;text-decoration:none;white-space:nowrap}

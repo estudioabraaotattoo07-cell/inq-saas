@@ -14482,7 +14482,9 @@ export default function CRM() {
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Cores e Estilo</div>
                 <Help>Personalize a identidade visual do seu site — cores (fundo, botão e texto), cantos, estilo de fontes, brilho e velocidade da esteira de fotos.</Help>
-                <TravaPlano minPlano="Ouro" featureNome="Cores e Estilo personalizados">
+                <FoscoOverlay
+                  bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro")}
+                  meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Cores e Estilo">
                   {(() => {
                     const est = sc.estilo || {};
                     const updEst = (patch: any) => upd({ estilo: { ...est, ...patch } });
@@ -14492,6 +14494,18 @@ export default function CRM() {
                           <div className="ff">
                             <label className="fl">Cor de fundo do site</label>
                             <input type="color" value={est.corFundo || "#080808"} onChange={e => updEst({ corFundo: e.target.value })} style={{ width: 60, height: 34, background: "none", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 6, cursor: "pointer" }} />
+                          </div>
+                          <div className="ff">
+                            <label className="fl">Cor do brilho de fundo</label>
+                            <input type="color" value={est.corBrilho || "#8B5CDE"} onChange={e => updEst({ corBrilho: e.target.value })} style={{ width: 60, height: 34, background: "none", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 6, cursor: "pointer" }} />
+                          </div>
+                          <div className="ff">
+                            <label className="fl">Intensidade do brilho de fundo</label>
+                            <select className="fi" value={est.intensidadeBrilho || "medio"} onChange={e => updEst({ intensidadeBrilho: e.target.value })}>
+                              <option value="sutil">Sutil</option>
+                              <option value="medio">Médio</option>
+                              <option value="forte">Forte</option>
+                            </select>
                           </div>
                           <div className="ff">
                             <label className="fl">Cor do botão (início do degradê)</label>
@@ -14559,7 +14573,7 @@ export default function CRM() {
                       </div>
                     );
                   })()}
-                </TravaPlano>
+                </FoscoOverlay>
               </div>
 
               <div style={cardSt}>
