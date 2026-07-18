@@ -138,6 +138,41 @@ const MENSAGENS_SISTEMA_DEF: Record<string, { label: string; etapaSlug: string; 
     padrao: "Olá, {nome}! Faz um tempo que não nos falamos. Se ainda tiver vontade de tatuar ou já estiver pensando na próxima arte, adoraríamos te receber de novo na {estudio}.",
     motivo: "Sem essa mensagem, clientes que sumiram nunca mais ouvem falar do seu estúdio, e você perde a chance de trazê-los de volta.",
   },
+  sazonal_dia_maes: {
+    label: "Dia das Mães", etapaSlug: "sazonais", gatilho: "2º domingo de maio", canalPadrao: "email", variaveis: VARS_BASICO,
+    padrao: "Olá, {nome}! O Dia das Mães está chegando 🌸 Que tal uma tatuagem em dupla com quem você mais ama? Mãe e filho(a) tatuam juntos, até 15cm cada — cada um paga a sua parte, mas o momento é só de vocês dois. Vem celebrar esse dia com a {estudio}!",
+    motivo: "Sem essa mensagem, sua base de clientes não fica sabendo da promoção de Dia das Mães.",
+  },
+  sazonal_dia_pais: {
+    label: "Dia dos Pais", etapaSlug: "sazonais", gatilho: "2º domingo de agosto", canalPadrao: "email", variaveis: VARS_BASICO,
+    padrao: "Olá, {nome}! O Dia dos Pais está chegando 👨‍👦 Que tal uma tatuagem em dupla com quem você mais ama? Pai e filho(a) tatuam juntos, até 15cm cada — cada um paga a sua parte, mas o momento é só de vocês dois. Vem celebrar esse dia com a {estudio}!",
+    motivo: "Sem essa mensagem, sua base de clientes não fica sabendo da promoção de Dia dos Pais.",
+  },
+  sazonal_dia_namorados: {
+    label: "Dia dos Namorados", etapaSlug: "sazonais", gatilho: "12 de junho", canalPadrao: "email", variaveis: VARS_BASICO,
+    padrao: "Olá, {nome}! Dia 12 de junho é Dia dos Namorados 💝 Que tal marcar esse amor com uma tatuagem-presente? Peças de até 15cm com 30% de desconto. Vem celebrar com a {estudio}!",
+    motivo: "Sem essa mensagem, sua base de clientes não fica sabendo da promoção de Dia dos Namorados.",
+  },
+  sazonal_aniversario: {
+    label: "Aniversário do Cliente", etapaSlug: "sazonais", gatilho: "Data de nascimento de cada cliente", canalPadrao: "sms", variaveis: VARS_BASICO,
+    padrao: "Parabéns, {nome}! 🎂 A equipe da {estudio} deseja tudo de bom pra você. De presente, você tem 50% de desconto em piercing, em até 3 joias com aplicação. Nos chame quando quiser aproveitar!",
+    motivo: "Sem essa mensagem, seus clientes não recebem os parabéns nem sabem do desconto de aniversário.",
+  },
+  sazonal_aniversario_artista: {
+    label: "Aniversário do Artista", etapaSlug: "sazonais", gatilho: "Data de nascimento de cada artista, divulgado pra toda a base", canalPadrao: "email", variaveis: [...VARS_BASICO, { token: "artista", label: "+ Artista", desc: "o nome do artista aniversariante" }],
+    padrao: "Olá, {nome}! Hoje é aniversário de {artista} na {estudio} 🎉 Pra comemorar, condições especiais essa semana. Chama a gente pra saber mais!",
+    motivo: "Sem essa mensagem, o aniversário do artista passa em branco pra sua base de clientes — uma oportunidade de engajamento a menos.",
+  },
+  sazonal_natal: {
+    label: "Natal", etapaSlug: "sazonais", gatilho: "25 de dezembro — só felicitação, sem venda", canalPadrao: "email", variaveis: VARS_BASICO,
+    padrao: "Feliz Natal, {nome}! 🎄 A equipe da {estudio} deseja a você e sua família um Natal cheio de paz e carinho. Obrigado por fazer parte da nossa história em 2026!",
+    motivo: "Sem essa mensagem, seus clientes não recebem os votos de Natal — um gesto simples que fortalece o relacionamento.",
+  },
+  sazonal_ano_novo: {
+    label: "Ano Novo", etapaSlug: "sazonais", gatilho: "1º de janeiro — só felicitação, sem venda", canalPadrao: "email", variaveis: VARS_BASICO,
+    padrao: "Feliz Ano Novo, {nome}! 🎆 Que o novo ano traga saúde, arte e muitas histórias novas pra contar na pele. A equipe da {estudio} deseja tudo de bom pra você!",
+    motivo: "Sem essa mensagem, seus clientes não recebem os votos de Ano Novo — um gesto simples que fortalece o relacionamento.",
+  },
 };
 
 // Diferença proporcional até o fim do ciclo atual — mesma regra combinada com o
@@ -1816,7 +1851,7 @@ export default function CRM() {
   const [sistemaEditCanal, setSistemaEditCanal] = useState("email");
   const [sistemaSalvando, setSistemaSalvando] = useState(false);
   // ── ACORDEÃO DAS RÉGUAS ──
-  const [pvAccordion, setPvAccordion] = useState<{preVenda: boolean; preSessao: boolean; posVenda: boolean; fluxo: boolean; sazonais: boolean}>({ preVenda: false, preSessao: false, posVenda: false, fluxo: true, sazonais: false });
+  const [pvAccordion, setPvAccordion] = useState<{preVenda: boolean; preSessao: boolean; posVenda: boolean; fluxo: boolean; sazonais: boolean}>({ preVenda: false, preSessao: false, posVenda: false, fluxo: true, sazonais: true });
   // ── FLUXO_ETAPAS (régua unificada) ──
   const [fluxoEtapas, setFluxoEtapas] = useState<any[]>([]);
   const [fluxoEditandoId, setFluxoEditandoId] = useState<string | null>(null);
@@ -5020,6 +5055,97 @@ export default function CRM() {
     if (proj.piercingModo === "joia") return { valorJoia: proj.valorJoia || 0, valorAplicacao: 0 };
     if (proj.piercingModo === "joia_aplicacao") return { valorJoia: proj.valorJoia || 0, valorAplicacao: proj.valorAplicacao || 0 };
     return null;
+  };
+  const CardSistemaEditavel = ({ chave }: { chave: string }) => {
+    const def = MENSAGENS_SISTEMA_DEF[chave];
+    if (!def) return null;
+    const ov = sistemaOverrides[chave];
+    const ativo = ov?.ativo !== false;
+    const mensagemEfetiva = ov?.mensagem || def.padrao;
+    const canalEfetivo = ov?.canal || def.canalPadrao;
+    const temOverride = !!ov?.mensagem;
+    const editando = sistemaEditandoChave === chave;
+    const abrirEdicao = () => {
+      setSistemaEditandoChave(chave);
+      setSistemaEditTexto(mensagemEfetiva);
+      setSistemaEditCanal(canalEfetivo);
+    };
+    const salvarOverride = async () => {
+      setSistemaSalvando(true);
+      try {
+        const row = { user_id: userId, chave, mensagem: sistemaEditTexto, canal: sistemaEditCanal, ativo: true, atualizado_em: new Date().toISOString() };
+        const { data, error } = await sb.from("mensagens_sistema_override").upsert(row, { onConflict: "user_id,chave" }).select().single();
+        if (!error && data) setSistemaOverrides(p => ({ ...p, [chave]: data }));
+      } catch {}
+      setSistemaSalvando(false);
+      setSistemaEditandoChave(null);
+    };
+    const voltarOriginal = async () => {
+      await sb.from("mensagens_sistema_override").delete().eq("user_id", userId).eq("chave", chave);
+      setSistemaOverrides(p => { const n = { ...p }; delete n[chave]; return n; });
+      setSistemaEditandoChave(null);
+    };
+    return (
+      <div style={{ background: "var(--gold-d)", border: "1px solid var(--br)", borderRadius: 9, padding: "10px 12px", opacity: ativo ? 1 : 0.5 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3, gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--tx)" }}>{def.label}</span>
+            <span style={{ fontSize: 9, background: "var(--gold-d)", color: "var(--gold)", border: "1px solid var(--brh)", borderRadius: 8, padding: "1px 6px", fontWeight: 700 }}>SISTEMA</span>
+            {temOverride && <span style={{ fontSize: 9, color: "var(--gold)", fontStyle: "italic" }}>· personalizado</span>}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <span style={{ fontSize: 9, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
+            <div
+              onClick={() => {
+                if (ativo) {
+                  setToggleConfirm({ campo: chave, novoValor: false, label: def.label, motivo: def.motivo, tipo: "override" });
+                } else {
+                  sb.from("mensagens_sistema_override").upsert({ user_id: userId, chave, ativo: true, mensagem: ov?.mensagem, canal: ov?.canal, atualizado_em: new Date().toISOString() }, { onConflict: "user_id,chave" }).select().single()
+                    .then(({ data }) => { if (data) setSistemaOverrides(p => ({ ...p, [chave]: data })); });
+                }
+              }}
+              style={{ width: 30, height: 17, borderRadius: 9, background: ativo ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", cursor: "pointer", flexShrink: 0 }}>
+              <div style={{ width: 11, height: 11, background: "#fff", borderRadius: "50%", position: "absolute", top: 3, left: ativo ? 16 : 3, transition: "left .2s" }} />
+            </div>
+          </div>
+        </div>
+        <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 4 }}>{def.gatilho} · {canalEfetivo === "sms" ? "SMS" : "E-mail"}</div>
+        {!editando ? (
+          <>
+            <div style={{ fontSize: 10, color: "var(--tx3)", fontStyle: "italic", background: "var(--dk4)", borderRadius: 4, padding: "6px 8px", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{mensagemEfetiva}</div>
+            <button onClick={abrirEdicao} style={{ marginTop: 6, fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: "pointer" }}>Editar</button>
+          </>
+        ) : (
+          <div style={{ marginTop: 6, background: "var(--dk3)", borderRadius: 7, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div>
+              <div className="fil" style={{ marginBottom: 3 }}>Canal</div>
+              <select className="ef" value={sistemaEditCanal} onChange={e => setSistemaEditCanal(e.target.value)}>
+                <option value="email">E-mail</option>
+                <option value="sms">SMS</option>
+              </select>
+            </div>
+            <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.6, background: "var(--dk4)", borderRadius: 6, padding: "8px 10px" }}>
+              Escreva sua mensagem livremente. Pra incluir informações automáticas (como o nome de quem recebe), <strong style={{ color: "var(--gold)" }}>não digite</strong> — clique nos botões abaixo. Se você digitar por conta própria, uma letra errada já é suficiente pra dar problema, e o cliente pode receber a mensagem sem essa informação, ou com o nome de outra pessoa.
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {def.variaveis.map(v => (
+                <button key={v.token} type="button" title={v.desc}
+                  onClick={() => setSistemaEditTexto(p => p + (p && !/\s$/.test(p) ? " " : "") + "{" + v.token + "}")}
+                  style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--brh)", borderRadius: 20, padding: "4px 10px", color: "var(--gold)", cursor: "pointer" }}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
+            <textarea className="ef" rows={5} value={sistemaEditTexto} onChange={e => setSistemaEditTexto(e.target.value)} style={{ resize: "vertical", width: "100%" }} />
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              {temOverride && <button className="btn-c" onClick={voltarOriginal} style={{ marginRight: "auto" }}>Voltar ao texto original</button>}
+              <button className="btn-c" onClick={() => setSistemaEditandoChave(null)}>Cancelar</button>
+              <button className="btn-s" onClick={salvarOverride} disabled={sistemaSalvando}>{sistemaSalvando ? "Salvando..." : "Salvar"}</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
   const SeletorProfissionalProjeto = ({ valor, onEscolher }: { valor: string; onEscolher: (id: string) => void }) => (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -8361,97 +8487,6 @@ export default function CRM() {
                                     <div style={{ fontSize: 10, color: "var(--tx3)", fontStyle: "italic", background: "var(--dk4)", borderRadius: 4, padding: "6px 8px", lineHeight: 1.6 }}>{preview}</div>
                                   </div>
                                 );
-                                const CardSistemaEditavel = ({ chave }: { chave: string }) => {
-                                  const def = MENSAGENS_SISTEMA_DEF[chave];
-                                  if (!def) return null;
-                                  const ov = sistemaOverrides[chave];
-                                  const ativo = ov?.ativo !== false;
-                                  const mensagemEfetiva = ov?.mensagem || def.padrao;
-                                  const canalEfetivo = ov?.canal || def.canalPadrao;
-                                  const temOverride = !!ov?.mensagem;
-                                  const editando = sistemaEditandoChave === chave;
-                                  const abrirEdicao = () => {
-                                    setSistemaEditandoChave(chave);
-                                    setSistemaEditTexto(mensagemEfetiva);
-                                    setSistemaEditCanal(canalEfetivo);
-                                  };
-                                  const salvarOverride = async () => {
-                                    setSistemaSalvando(true);
-                                    try {
-                                      const row = { user_id: userId, chave, mensagem: sistemaEditTexto, canal: sistemaEditCanal, ativo: true, atualizado_em: new Date().toISOString() };
-                                      const { data, error } = await sb.from("mensagens_sistema_override").upsert(row, { onConflict: "user_id,chave" }).select().single();
-                                      if (!error && data) setSistemaOverrides(p => ({ ...p, [chave]: data }));
-                                    } catch {}
-                                    setSistemaSalvando(false);
-                                    setSistemaEditandoChave(null);
-                                  };
-                                  const voltarOriginal = async () => {
-                                    await sb.from("mensagens_sistema_override").delete().eq("user_id", userId).eq("chave", chave);
-                                    setSistemaOverrides(p => { const n = { ...p }; delete n[chave]; return n; });
-                                    setSistemaEditandoChave(null);
-                                  };
-                                  return (
-                                    <div style={{ background: "var(--gold-d)", border: "1px solid var(--br)", borderRadius: 9, padding: "10px 12px", opacity: ativo ? 1 : 0.5 }}>
-                                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3, gap: 8 }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--tx)" }}>{def.label}</span>
-                                          <span style={{ fontSize: 9, background: "var(--gold-d)", color: "var(--gold)", border: "1px solid var(--brh)", borderRadius: 8, padding: "1px 6px", fontWeight: 700 }}>SISTEMA</span>
-                                          {temOverride && <span style={{ fontSize: 9, color: "var(--gold)", fontStyle: "italic" }}>· personalizado</span>}
-                                        </div>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                                          <span style={{ fontSize: 9, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
-                                          <div
-                                            onClick={() => {
-                                              if (ativo) {
-                                                setToggleConfirm({ campo: chave, novoValor: false, label: def.label, motivo: def.motivo, tipo: "override" });
-                                              } else {
-                                                sb.from("mensagens_sistema_override").upsert({ user_id: userId, chave, ativo: true, mensagem: ov?.mensagem, canal: ov?.canal, atualizado_em: new Date().toISOString() }, { onConflict: "user_id,chave" }).select().single()
-                                                  .then(({ data }) => { if (data) setSistemaOverrides(p => ({ ...p, [chave]: data })); });
-                                              }
-                                            }}
-                                            style={{ width: 30, height: 17, borderRadius: 9, background: ativo ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", cursor: "pointer", flexShrink: 0 }}>
-                                            <div style={{ width: 11, height: 11, background: "#fff", borderRadius: "50%", position: "absolute", top: 3, left: ativo ? 16 : 3, transition: "left .2s" }} />
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 4 }}>{def.gatilho} · {canalEfetivo === "sms" ? "SMS" : "E-mail"}</div>
-                                      {!editando ? (
-                                        <>
-                                          <div style={{ fontSize: 10, color: "var(--tx3)", fontStyle: "italic", background: "var(--dk4)", borderRadius: 4, padding: "6px 8px", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{mensagemEfetiva}</div>
-                                          <button onClick={abrirEdicao} style={{ marginTop: 6, fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: "pointer" }}>Editar</button>
-                                        </>
-                                      ) : (
-                                        <div style={{ marginTop: 6, background: "var(--dk3)", borderRadius: 7, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                                          <div>
-                                            <div className="fil" style={{ marginBottom: 3 }}>Canal</div>
-                                            <select className="ef" value={sistemaEditCanal} onChange={e => setSistemaEditCanal(e.target.value)}>
-                                              <option value="email">E-mail</option>
-                                              <option value="sms">SMS</option>
-                                            </select>
-                                          </div>
-                                          <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.6, background: "var(--dk4)", borderRadius: 6, padding: "8px 10px" }}>
-                                            Escreva sua mensagem livremente. Pra incluir informações automáticas (como o nome de quem recebe), <strong style={{ color: "var(--gold)" }}>não digite</strong> — clique nos botões abaixo. Se você digitar por conta própria, uma letra errada já é suficiente pra dar problema, e o cliente pode receber a mensagem sem essa informação, ou com o nome de outra pessoa.
-                                          </div>
-                                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                                            {def.variaveis.map(v => (
-                                              <button key={v.token} type="button" title={v.desc}
-                                                onClick={() => setSistemaEditTexto(p => p + (p && !/\s$/.test(p) ? " " : "") + "{" + v.token + "}")}
-                                                style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--brh)", borderRadius: 20, padding: "4px 10px", color: "var(--gold)", cursor: "pointer" }}>
-                                                {v.label}
-                                              </button>
-                                            ))}
-                                          </div>
-                                          <textarea className="ef" rows={5} value={sistemaEditTexto} onChange={e => setSistemaEditTexto(e.target.value)} style={{ resize: "vertical", width: "100%" }} />
-                                          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                                            {temOverride && <button className="btn-c" onClick={voltarOriginal} style={{ marginRight: "auto" }}>Voltar ao texto original</button>}
-                                            <button className="btn-c" onClick={() => setSistemaEditandoChave(null)}>Cancelar</button>
-                                            <button className="btn-s" onClick={salvarOverride} disabled={sistemaSalvando}>{sistemaSalvando ? "Salvando..." : "Salvar"}</button>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                };
                                 const sid = stage.id;
                                 const boasVindasCards = (<>
                                   <CardSistema ativo={fluxoToggles.boas_vindas_email} toggleKey="boas_vindas_email" label="E-mail de boas-vindas ao cliente" gatilho="Imediato — ao entrar no sistema (Aura Chat ou cadastro manual)" preview={"Assunto: Recebemos sua mensagem, {nome}!\n\nOlá, {nome}! Que alegria receber sua ideia aqui na {estudio}. Já registramos tudo com cuidado — em até 24h, alguém da nossa equipe vai te ligar pessoalmente. Sem formulário, sem robô — conversa de gente pra gente.\n\n+ Resumo dos dados registrados (nome, telefone, ideia, região, artista...)"} />
@@ -9164,6 +9199,7 @@ export default function CRM() {
                           {aberto && (
                             <div style={{ padding: "10px 14px 14px", borderTop: "1px solid var(--br)", display: "flex", flexDirection: "column", gap: 8 }}>
                               <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>{camp.desc}</div>
+                              <CardSistemaEditavel chave={"sazonal_" + camp.slug} />
                               {etapasDesteSlug.map((fe: any) => (
                                 campSazEditandoId === fe.id ? (
                                   <div key={fe.id} style={{ background: "var(--dk3)", borderRadius: 7, padding: "12px", display: "flex", flexDirection: "column", gap: 8 }}>

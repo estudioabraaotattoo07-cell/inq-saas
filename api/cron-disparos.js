@@ -44,6 +44,19 @@ function anchorDateForCampanha(slug, year, nascimento) {
   return null;
 }
 
+// Texto padrão das campanhas sazonais de fábrica -- mesmo texto mostrado/editável
+// no CRM (MENSAGENS_SISTEMA_DEF, chaves sazonal_*). Funciona mesmo sem nenhuma
+// linha em campanhas_sazonais_etapas -- essa tabela continua existindo só pra
+// mensagens EXTRAS que o tenant queira adicionar além da de fábrica.
+const SAZONAIS_MSG_PADRAO = {
+  dia_maes: { canal: "email", assunto: "Dia das Mães na", texto: "Olá, {nome}! O Dia das Mães está chegando 🌸 Que tal uma tatuagem em dupla com quem você mais ama? Mãe e filho(a) tatuam juntos, até 15cm cada — cada um paga a sua parte, mas o momento é só de vocês dois. Vem celebrar esse dia com a {estudio}!" },
+  dia_pais: { canal: "email", assunto: "Dia dos Pais na", texto: "Olá, {nome}! O Dia dos Pais está chegando 👨‍👦 Que tal uma tatuagem em dupla com quem você mais ama? Pai e filho(a) tatuam juntos, até 15cm cada — cada um paga a sua parte, mas o momento é só de vocês dois. Vem celebrar esse dia com a {estudio}!" },
+  dia_namorados: { canal: "email", assunto: "Dia dos Namorados na", texto: "Olá, {nome}! Dia 12 de junho é Dia dos Namorados 💝 Que tal marcar esse amor com uma tatuagem-presente? Peças de até 15cm com 30% de desconto. Vem celebrar com a {estudio}!" },
+  aniversario: { canal: "sms", assunto: "Parabéns", texto: "Parabéns, {nome}! 🎂 A equipe da {estudio} deseja tudo de bom pra você. De presente, você tem 50% de desconto em piercing, em até 3 joias com aplicação. Nos chame quando quiser aproveitar!" },
+  natal: { canal: "email", assunto: "Feliz Natal, da", texto: "Feliz Natal, {nome}! 🎄 A equipe da {estudio} deseja a você e sua família um Natal cheio de paz e carinho. Obrigado por fazer parte da nossa história!" },
+  ano_novo: { canal: "email", assunto: "Feliz Ano Novo, da", texto: "Feliz Ano Novo, {nome}! 🎆 Que o novo ano traga saúde, arte e muitas histórias novas pra contar na pele. A equipe da {estudio} deseja tudo de bom pra você!" },
+};
+
 function mesmoDia(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
@@ -379,9 +392,11 @@ export default async function handler(req, res) {
         }
       } catch {}
 
-      // 3c. Artistas com aniversário hoje (para a campanha "aniversario_artista")
+      // 3c. Artistas com aniversário hoje (para a campanha "aniversario_artista") --
+      // calculado sempre, independente de existir linha em campanhas_sazonais_etapas,
+      // porque agora também existe a mensagem de fábrica (sazonal_aniversario_artista).
       let artistasAniversarioHoje = [];
-      if (campSazEtapas["aniversario_artista"]) {
+      {
         try {
           const { data: artistasData } = await sb
             .from("artistas")
@@ -1144,6 +1159,51 @@ export default async function handler(req, res) {
           }
         }
 
+        // ── CAMPANHAS SAZONAIS DE FÁBRICA (funciona mesmo sem nada configurado
+        // em campanhas_sazonais_etapas — texto/canal vêm de mensagens_sistema_override,
+        // chave sazonal_<slug>, com fallback pro texto padrão do código) ──
+        if (cliente.etapa !== "blacklist") {
+          for (const slug of Object.keys(SAZONAIS_MSG_PADRAO)) {
+            try {
+              for (const ano of [hoje.getFullYear() - 1, hoje.getFullYear(), hoje.getFullYear() + 1]) {
+                const anchor = anchorDateForCampanha(slug, ano, cliente.nascimento);
+                if (!anchor || !mesmoDia(anchor, hoje)) continue;
+
+                const chaveSaz = "sazonal_" + slug;
+                const feIdSaz = "sazonal_fabrica__" + chaveSaz + "_" + ano;
+                if (disparosEnviados && disparosEnviados[feIdSaz]) break;
+
+                const def = SAZONAIS_MSG_PADRAO[slug];
+                const rSaz = resolverMensagemSistema(sistemaOverrides, chaveSaz, def.texto, def.canal);
+                if (!rSaz.ativo) break;
+
+                const msgSaz = substituirVars(rSaz.mensagem, cliente, studioName);
+                let okSaz = false;
+                if (rSaz.canal === "sms" && cfg.zenvia_api_key && cfg.zenvia_numero && cliente.tel) {
+                  okSaz = await dispararZenvia({ apiKey: cfg.zenvia_api_key, from: cfg.zenvia_numero, to: formatarTelBR(cliente.tel), text: msgSaz, canal: "sms" });
+                } else if (cfg.resend_api_key && cliente.email) {
+                  const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msgSaz.replace(/\n/g, "<br>") + "</div>";
+                  okSaz = await dispararEmail({ apiKey: cfg.resend_api_key, from: cfg.email_remetente, nome_remetente: cfg.nome_remetente || studioName, to: cliente.email, subject: def.assunto + " " + studioName, html });
+                }
+
+                if (okSaz) {
+                  let disparosAtuais = {};
+                  try {
+                    const { data: cliAtual } = await sb.from("clientes").select("disparos_enviados").eq("id", cliente.id).single();
+                    disparosAtuais = cliAtual?.disparos_enviados || {};
+                  } catch {}
+                  await marcarEnviado(cliente.id, feIdSaz, disparosAtuais);
+                  await registrarHistorico(userId, "Campanha sazonal (fábrica) [" + slug + "] enviada — " + cliente.nome);
+                  totalDisparos++;
+                }
+                break;
+              }
+            } catch {
+              totalErros++;
+            }
+          }
+        }
+
         // ── ANIVERSÁRIO DO ARTISTA (promoção divulgada pra base de clientes) ──
         if (cliente.etapa !== "blacklist" && artistasAniversarioHoje.length > 0 && campSazEtapas["aniversario_artista"]) {
           for (const artistaAniv of artistasAniversarioHoje) {
@@ -1197,6 +1257,44 @@ export default async function handler(req, res) {
               } catch {
                 totalErros++;
               }
+            }
+          }
+        }
+
+        // ── ANIVERSÁRIO DO ARTISTA DE FÁBRICA (mesma lógica de override das outras
+        // sazonais, funciona mesmo sem nada configurado em campanhas_sazonais_etapas) ──
+        if (cliente.etapa !== "blacklist" && artistasAniversarioHoje.length > 0) {
+          for (const artistaAniv of artistasAniversarioHoje) {
+            try {
+              const ano = hoje.getFullYear();
+              const feIdArtFab = "sazonal_artista_fabrica__" + artistaAniv.id + "_" + ano;
+              if (disparosEnviados && disparosEnviados[feIdArtFab]) continue;
+
+              const rArtFab = resolverMensagemSistema(sistemaOverrides, "sazonal_aniversario_artista",
+                "Olá, {nome}! Hoje é aniversário de {artista} na {estudio} 🎉 Pra comemorar, condições especiais essa semana. Chama a gente pra saber mais!", "email");
+              if (!rArtFab.ativo) continue;
+
+              const msgArtFab = substituirVars(rArtFab.mensagem, cliente, studioName).replace(/\{artista\}/gi, artistaAniv.nome);
+              let okArtFab = false;
+              if (rArtFab.canal === "sms" && cfg.zenvia_api_key && cfg.zenvia_numero && cliente.tel) {
+                okArtFab = await dispararZenvia({ apiKey: cfg.zenvia_api_key, from: cfg.zenvia_numero, to: formatarTelBR(cliente.tel), text: msgArtFab, canal: "sms" });
+              } else if (cfg.resend_api_key && cliente.email) {
+                const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msgArtFab.replace(/\n/g, "<br>") + "</div>";
+                okArtFab = await dispararEmail({ apiKey: cfg.resend_api_key, from: cfg.email_remetente, nome_remetente: cfg.nome_remetente || studioName, to: cliente.email, subject: "Aniversário de " + artistaAniv.nome + " — " + studioName, html });
+              }
+
+              if (okArtFab) {
+                let disparosAtuais = {};
+                try {
+                  const { data: cliAtual } = await sb.from("clientes").select("disparos_enviados").eq("id", cliente.id).single();
+                  disparosAtuais = cliAtual?.disparos_enviados || {};
+                } catch {}
+                await marcarEnviado(cliente.id, feIdArtFab, disparosAtuais);
+                await registrarHistorico(userId, "Campanha aniversário do artista (fábrica) [" + artistaAniv.nome + "] — " + cliente.nome);
+                totalDisparos++;
+              }
+            } catch {
+              totalErros++;
             }
           }
         }
