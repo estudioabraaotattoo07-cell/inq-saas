@@ -80,13 +80,18 @@ function UpgradeBadge({ meuPlano, vencimento, minPlano, featureNome }: { meuPlan
 
 // Bloqueio "fosco" — mostra o recurso real por trás, com uma camada escura por CIMA
 // (não opacity/filter no próprio conteúdo — isso "contaminaria" até o selo, que
-// precisa ficar nítido). O selo fica fixo no canto superior direito da tela.
+// precisa ficar nítido). O aviso fica DENTRO do próprio bloco escurecido (acima da
+// camada escura via z-index), não fixo na tela — evita empilhar vários avisos quando
+// há mais de um bloco bloqueado na mesma página, e deixa claro qual recurso é aquele.
 function FoscoOverlay({ bloqueado, meuPlano, vencimento, minPlano, featureNome, children }: { bloqueado: boolean; meuPlano: string; vencimento: string; minPlano: string; featureNome: string; children: React.ReactNode }) {
   if (!bloqueado) return <>{children}</>;
   return (
     <div style={{ position: "relative" }}>
       <div style={{ position: "absolute", inset: 0, zIndex: 15, background: "rgba(0,0,0,.62)", backdropFilter: "grayscale(70%)", WebkitBackdropFilter: "grayscale(70%)" }} />
-      <div style={{ position: "fixed", top: 108, right: 20, zIndex: 100003 }}>
+      <div style={{ position: "relative", zIndex: 16, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, marginBottom: 14 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", background: "rgba(10,10,10,.85)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 8, padding: "6px 12px" }}>
+          🔒 {featureNome} é recurso exclusivo do plano {minPlano}
+        </div>
         <UpgradeBadge meuPlano={meuPlano} vencimento={vencimento} minPlano={minPlano} featureNome={featureNome} />
       </div>
       {children}
@@ -8443,7 +8448,10 @@ export default function CRM() {
                 {bloqueadoOrigens && (
                   <>
                     <div style={{ position: "absolute", inset: 0, zIndex: 15, background: "rgba(0,0,0,.62)", backdropFilter: "grayscale(70%)", WebkitBackdropFilter: "grayscale(70%)" }} />
-                    <div style={{ position: "fixed", top: 108, right: 20, zIndex: 100003 }}>
+                    <div style={{ position: "relative", zIndex: 16, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", background: "rgba(10,10,10,.85)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 8, padding: "6px 12px" }}>
+                        🔒 Origens é recurso exclusivo do plano Ouro
+                      </div>
                       <UpgradeBadge meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Origens" />
                     </div>
                   </>
@@ -9188,7 +9196,10 @@ export default function CRM() {
               {bloqueadoCampanhas && (
                 <>
                   <div style={{ position: "absolute", inset: 0, zIndex: 15, background: "rgba(0,0,0,.62)", backdropFilter: "grayscale(70%)", WebkitBackdropFilter: "grayscale(70%)" }} />
-                  <div style={{ position: "fixed", top: 108, right: 20, zIndex: 100003 }}>
+                  <div style={{ position: "relative", zIndex: 16, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", background: "rgba(10,10,10,.85)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 8, padding: "6px 12px" }}>
+                      🔒 Campanhas é recurso exclusivo do plano Ouro
+                    </div>
                     <UpgradeBadge meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Campanhas" />
                   </div>
                 </>
