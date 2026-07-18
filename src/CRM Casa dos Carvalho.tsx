@@ -1382,12 +1382,12 @@ export default function CRM() {
   const [origenEditNome, setOrigenEditNome] = useState("");
   const [origenEditPago, setOrigenEditPago] = useState(false);
   const [origenEditPagina, setOrigenEditPagina] = useState("");
-  const [eventosTrafego, setEventosTrafego] = useState<{id: string; tipo_evento: string; origem: string; cliente_id: string | null; criado_em: string}[]>([]);
   const [origenConfirmDel, setOrigenConfirmDel] = useState<number | null>(null);
   // ── CAMPANHAS ──
-  const [campanhas, setCampanhas] = useState<{id: string; user_id: string; nome: string; palavra_chave: string; data_inicio: string; data_fim: string; criado_em: string}[]>([]);
+  const [campanhas, setCampanhas] = useState<{id: string; user_id: string; nome: string; palavra_chave: string; data_inicio: string; data_fim: string; criado_em: string; link_divulgacao?: string; credito_tipo?: string; credito_valor?: number; credito_prazo_dias?: number}[]>([]);
   const [campEditIdx, setCampEditIdx] = useState<number | null>(null);
-  const [campEditForm, setCampEditForm] = useState<{nome: string; palavra_chave: string; data_inicio: string; data_fim: string}>({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" });
+  const CAMP_FORM_VAZIO = { nome: "", palavra_chave: "", data_inicio: "", data_fim: "", link_divulgacao: "", credito_tipo: "fixo" as "fixo" | "percentual", credito_valor: "", credito_prazo_dias: "30" };
+  const [campEditForm, setCampEditForm] = useState<{nome: string; palavra_chave: string; data_inicio: string; data_fim: string; link_divulgacao: string; credito_tipo: "fixo" | "percentual"; credito_valor: string; credito_prazo_dias: string}>(CAMP_FORM_VAZIO);
   const [campConfirmDel, setCampConfirmDel] = useState<number | null>(null);
   // ── SITE PÚBLICO (molde Premium) ──
   const [siteConteudo, setSiteConteudo] = useState<any>(null);
@@ -1906,17 +1906,15 @@ export default function CRM() {
           return await sb.from("clientes").select("*").or(`user_id.eq.${uid},user_id.is.null`).is("excluido_em", null).then(r => r.data);
         };
         const anoMesCarga = new Date().toISOString().slice(0, 7);
-        const [cls, arts, fins, sds, ags, cfgs, eqs, orgs, camps, evts, usoMes] = await Promise.all([
+        const [cls, arts, fins, sds, ags, cfgs, eqs, orgs, camps, usoMes] = await Promise.all([
           loadClientes(), loadWithUser("artistas"), loadWithUser("financeiro"),
           loadWithUser("saidas"), loadWithUser("agenda"), loadCfg(), loadWithUser("equipamentos"),
           uid ? sb.from("origens").select("*").eq("user_id", uid).order("criado_em", { ascending: true }).then(r => r.data) : Promise.resolve([]),
           uid ? sb.from("campanhas").select("*").eq("user_id", uid).order("criado_em", { ascending: true }).then(r => r.data) : Promise.resolve([]),
-          uid ? sb.from("eventos_trafego").select("*").eq("user_id", uid).order("criado_em", { ascending: false }).then(r => r.data) : Promise.resolve([]),
           uid ? sb.from("mensageria_uso").select("*").eq("user_id", uid).eq("ano_mes", anoMesCarga).maybeSingle().then(r => r.data) : Promise.resolve(null)
         ]);
         if (orgs && orgs.length > 0) setOrigens(orgs);
         if (camps && camps.length > 0) setCampanhas(camps);
-        if (evts && evts.length >= 0) setEventosTrafego(evts || []);
         if (eqs && eqs.length > 0) setEquipamentos(eqs);
         setUsoMensal({
           emailEnviados: usoMes?.emails_enviados || 0,
@@ -2150,20 +2148,6 @@ export default function CRM() {
     const interval = setInterval(carregarAgendamentosPendentes, 30000);
     return () => clearInterval(interval);
   }, [logado, userId, carregarAgendamentosPendentes]);
-
-  // ─── POLLING EVENTOS DE TRÁFEGO (aba Origens) ────────────────────────────
-  useEffect(() => {
-    if (!logado || !userId || tab !== "posvenda" || pvSubTab !== "origens") return;
-    const recarregar = async () => {
-      try {
-        const { data } = await sb.from("eventos_trafego").select("*").eq("user_id", userId).order("criado_em", { ascending: false });
-        if (data) setEventosTrafego(data);
-      } catch {}
-    };
-    recarregar();
-    const interval = setInterval(recarregar, 60000);
-    return () => clearInterval(interval);
-  }, [logado, userId, tab, pvSubTab]);
 
   // ─── RÉGUA PÓS-VENDA ─────────────────────────────────────────────────────
   const decidirAgendamentoPendente = async (id: string, acao: "aprovar" | "recusar") => {
@@ -8476,9 +8460,9 @@ export default function CRM() {
             } catch {}
             setOrigenConfirmDel(null);
           };
-          const totalFrio = eventosTrafego.filter(e => e.tipo_evento === "LeadFrio").length;
-          const totalQuente = eventosTrafego.filter(e => e.tipo_evento === "LeadQuente").length;
-          const convGeral = totalFrio > 0 ? Math.round((totalQuente / totalFrio) * 100) : 0;
+          // Conversão calculada direto do cadastro único do cliente (orig + etapa) — sem
+          // nenhum salvamento paralelo. "Frio" = ainda na etapa inicial "lead"; "Quente" =
+          // já avançou (lead_morno, aura_agend ou além).
           const tempoRelativo = (iso: string) => {
             const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
             if (diff < 60) return "agora";
@@ -8487,12 +8471,16 @@ export default function CRM() {
             return "há " + Math.floor(diff / 86400) + "d";
           };
           const origensComMetrica = origens.map(o => {
-            const frio = eventosTrafego.filter(e => e.tipo_evento === "LeadFrio" && e.origem === o.slug).length;
-            const quente = eventosTrafego.filter(e => e.tipo_evento === "LeadQuente" && e.origem === o.slug).length;
-            const conv = frio > 0 ? Math.round((quente / frio) * 100) : 0;
-            const ultimo = eventosTrafego.find(e => e.origem === o.slug);
-            return { ...o, frio, quente, conv, ultimo };
+            const doOrigem = (clients as any[]).filter(c => c.orig === o.nome && !c.excluido_em);
+            const frio = doOrigem.filter(c => c.etapa === "lead").length;
+            const quente = doOrigem.length - frio;
+            const conv = doOrigem.length > 0 ? Math.round((quente / doOrigem.length) * 100) : 0;
+            const ultimoTs = doOrigem.reduce((max: string | null, c: any) => (c.created_at && (!max || c.created_at > max)) ? c.created_at : max, null as string | null);
+            return { ...o, frio, quente, conv, ultimoTs };
           }).sort((a, b) => b.conv - a.conv);
+          const totalFrio = origensComMetrica.reduce((s, o) => s + o.frio, 0);
+          const totalQuente = origensComMetrica.reduce((s, o) => s + o.quente, 0);
+          const convGeral = (totalFrio + totalQuente) > 0 ? Math.round((totalQuente / (totalFrio + totalQuente)) * 100) : 0;
           return (
               <div className="origem-portrait-scale" style={{ padding: "24px 16px", maxWidth: 740, margin: "0 auto", overflowX: "auto", WebkitOverflowScrolling: "touch" as any, position: "relative" }}>
                 {bloqueadoOrigens && (
@@ -8506,6 +8494,18 @@ export default function CRM() {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🔗 Gerenciador de Origens</div>
                   <button className="btn-s" onClick={() => { setOrigenEditIdx(-1); setOrigenEditNome(""); setOrigenEditPago(false); }}>+ Nova origem</button>
+                </div>
+
+                <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px", marginBottom: 20, fontSize: 12, color: "var(--tx2)", lineHeight: 1.7 }}>
+                  <div style={{ marginBottom: bloqueadoOrigens ? 0 : 10 }}>
+                    Origens mostram <strong style={{ color: "var(--tx)" }}>de onde vêm seus leads</strong>. Cada origem gera um link próprio (bio do Instagram, um vídeo, um anúncio pago) — quando alguém entra pelo seu site por esse link, o sistema já sabe de onde ela veio e guarda isso direto no cadastro do cliente, sem você precisar marcar nada na mão depois.
+                  </div>
+                  {!bloqueadoOrigens && (
+                    <div style={{ paddingTop: 10, borderTop: "1px solid var(--br)" }}>
+                      <div style={{ color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>Como usar</div>
+                      Cadastre uma origem pra cada lugar que divulga seu trabalho (ex: "Instagram", "Google Maps", "Indicação"). O sistema monta um link único pra cada uma — copie e cole esse link exatamente onde a pessoa vai clicar (na bio, na descrição do vídeo, no anúncio). Se quiser mandar pra uma página específica de um artista, preencha "Página destino". Marque como "Pago" as origens que custam algo (anúncios) pra diferenciar de orgânico. As métricas de Lead Frio/Quente e conversão de cada origem se atualizam sozinhas, direto do cadastro dos clientes que chegaram por ali — quanto mais desses leads avançam no funil, maior a conversão da origem.
+                    </div>
+                  )}
                 </div>
 
                 {/* Cards de resumo geral */}
@@ -8639,7 +8639,7 @@ export default function CRM() {
                                 { label: "Lead Frio", val: o.frio, color: "#4A9EBF", icon: "🧊" },
                                 { label: "Lead Quente", val: o.quente, color: "#C0392B", icon: "🔥" },
                                 { label: "Conversão", val: o.conv + "%", color: "var(--gold)", icon: "📈" },
-                                { label: "Último evento", val: o.ultimo ? tempoRelativo(o.ultimo.criado_em) : "—", color: "var(--tx3)", icon: "⏱" },
+                                { label: "Último lead", val: o.ultimoTs ? tempoRelativo(o.ultimoTs) : "—", color: "var(--tx3)", icon: "⏱" },
                               ].map((m, mi) => (
                                 <div key={mi} style={{ background: "var(--dk3)", borderRadius: 7, padding: "7px 9px" }}>
                                   <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{m.icon} {m.label}</div>
@@ -8665,8 +8665,8 @@ export default function CRM() {
         {/* ── DISPAROS ── */}
         {tab === "posvenda" && pvSubTab === "disparos" && (
           <FoscoOverlay
-            bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata")}
-            meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Prata" featureNome="Disparos">
+            bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro")}
+            meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Disparos">
           <div style={{ flex: 1, padding: "16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, maxWidth: 780, width: "100%", animation: "fadeIn .15s ease" }}>
 
             {/* Cabeçalho */}
@@ -9104,20 +9104,32 @@ export default function CRM() {
             return { background: "rgba(127,140,141,.15)", color: "var(--tx3)", border: "1px solid var(--br)" };
           };
           const slugPalavra = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "").trim();
-          const salvarCamp = async (form: {nome: string; palavra_chave: string; data_inicio: string; data_fim: string}, idx: number | null) => {
+          const salvarCamp = async (form: typeof campEditForm, idx: number | null) => {
             if (!form.nome.trim() || !form.palavra_chave.trim()) return;
-            const row = { ...form, palavra_chave: slugPalavra(form.palavra_chave), user_id: userId, criado_em: idx === null ? new Date().toISOString() : undefined };
+            const row = {
+              nome: form.nome,
+              palavra_chave: slugPalavra(form.palavra_chave),
+              data_inicio: form.data_inicio,
+              data_fim: form.data_fim,
+              link_divulgacao: form.link_divulgacao.trim() || null,
+              credito_tipo: form.credito_tipo,
+              credito_valor: Number(form.credito_valor) || 0,
+              credito_prazo_dias: Number(form.credito_prazo_dias) || 30,
+              user_id: userId,
+              criado_em: idx === null ? new Date().toISOString() : undefined,
+            };
             try {
               if (idx === null) {
                 const { data: nova } = await sb.from("campanhas").insert(row).select("*").single();
                 if (nova) setCampanhas(prev => [...prev, nova]);
               } else {
-                const { data: atualizada } = await sb.from("campanhas").update({ nome: row.nome, palavra_chave: row.palavra_chave, data_inicio: row.data_inicio, data_fim: row.data_fim }).eq("id", campanhas[idx].id).select("*").single();
+                const { nome, palavra_chave, data_inicio, data_fim, link_divulgacao, credito_tipo, credito_valor, credito_prazo_dias } = row;
+                const { data: atualizada } = await sb.from("campanhas").update({ nome, palavra_chave, data_inicio, data_fim, link_divulgacao, credito_tipo, credito_valor, credito_prazo_dias }).eq("id", campanhas[idx].id).select("*").single();
                 if (atualizada) setCampanhas(prev => prev.map((c, i) => i === idx ? atualizada : c));
               }
             } catch {}
             setCampEditIdx(null);
-            setCampEditForm({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" });
+            setCampEditForm(CAMP_FORM_VAZIO);
           };
           const excluirCamp = async (idx: number) => {
             try {
@@ -9143,7 +9155,7 @@ export default function CRM() {
                     <input className="ef" placeholder="Ex: Black Friday 2025" value={campEditForm.nome} onChange={e => setCampEditForm(f => ({ ...f, nome: e.target.value }))} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Palavra-chave</div>
+                    <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Palavra secreta</div>
                     <input className="ef" placeholder="Ex: blackfriday2025" value={campEditForm.palavra_chave} onChange={e => setCampEditForm(f => ({ ...f, palavra_chave: e.target.value }))} />
                   </div>
                   <div>
@@ -9160,8 +9172,33 @@ export default function CRM() {
                     Palavra salva como: <span style={{ color: "var(--gold)", fontFamily: "monospace" }}>{slugPalavra(campEditForm.palavra_chave)}</span>
                   </div>
                 )}
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Onde está rodando esta campanha? (opcional)</div>
+                  <input className="ef" placeholder="Cole aqui o link do vídeo/post/story onde você fala da palavra secreta" value={campEditForm.link_divulgacao} onChange={e => setCampEditForm(f => ({ ...f, link_divulgacao: e.target.value }))} />
+                </div>
+                <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", fontWeight: 600 }}>Crédito para quem acertar a palavra</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {(["fixo", "percentual"] as const).map(t => (
+                      <button key={t} type="button" onClick={() => setCampEditForm(f => ({ ...f, credito_tipo: t }))}
+                        style={{ flex: 1, background: campEditForm.credito_tipo === t ? "rgba(201,168,76,.15)" : "var(--dk2)", border: "1px solid " + (campEditForm.credito_tipo === t ? "var(--gold)" : "var(--br)"), borderRadius: 6, padding: "6px 10px", fontSize: 11, color: campEditForm.credito_tipo === t ? "var(--gold)" : "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: campEditForm.credito_tipo === t ? 600 : 400 }}>
+                        {t === "fixo" ? "💰 Valor fixo (R$)" : "％ Percentual"}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>{campEditForm.credito_tipo === "fixo" ? "Valor (R$)" : "Percentual (%)"}</div>
+                      <input className="ef" type="text" inputMode="numeric" placeholder={campEditForm.credito_tipo === "fixo" ? "Ex: 50" : "Ex: 20"} value={campEditForm.credito_valor} onChange={e => setCampEditForm(f => ({ ...f, credito_valor: e.target.value.replace(/[^0-9.]/g, "") }))} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 4 }}>Prazo para usar (dias)</div>
+                      <input className="ef" type="text" inputMode="numeric" placeholder="30" value={campEditForm.credito_prazo_dias} onChange={e => setCampEditForm(f => ({ ...f, credito_prazo_dias: e.target.value.replace(/[^0-9]/g, "") }))} />
+                    </div>
+                  </div>
+                </div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <button className="btn-c" onClick={() => { setCampEditIdx(null); setCampEditForm({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" }); }}>Cancelar</button>
+                  <button className="btn-c" onClick={() => { setCampEditIdx(null); setCampEditForm(CAMP_FORM_VAZIO); }}>Cancelar</button>
                   <button className="btn-s" style={{ opacity: podeSalvar ? 1 : 0.45, cursor: podeSalvar ? "pointer" : "not-allowed" }} onClick={() => { if (podeSalvar) salvarCamp(campEditForm, idx); }}>Salvar</button>
                 </div>
               </div>
@@ -9179,10 +9216,18 @@ export default function CRM() {
               )}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                 <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🎯 Campanhas</div>
-                <button className="btn-s" onClick={() => { setCampEditIdx(-1); setCampEditForm({ nome: "", palavra_chave: "", data_inicio: "", data_fim: "" }); }}>+ Nova campanha</button>
+                <button className="btn-s" onClick={() => { setCampEditIdx(-1); setCampEditForm(CAMP_FORM_VAZIO); }}>+ Nova campanha</button>
               </div>
-              <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 20, lineHeight: 1.6 }}>
-                Crie campanhas com uma palavra-chave secreta. Quando um lead mencionar a palavra na conversa com a Aura do site, ela é vinculada automaticamente à campanha.
+              <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px", marginBottom: 20, fontSize: 12, color: "var(--tx2)", lineHeight: 1.7 }}>
+                <div style={{ marginBottom: bloqueadoCampanhas ? 0 : 10 }}>
+                  Campanhas ligam uma <strong style={{ color: "var(--tx)" }}>palavra secreta</strong> a uma promoção. Você define a palavra e, por um tempo, divulga onde quiser (Instagram, vídeo, story, boca a boca). Quando um lead conversa com a Aura no seu site e diz a palavra certa, ela reconhece, confirma com ele e já vincula o cadastro àquela campanha automaticamente — sem você precisar fazer nada na hora.
+                </div>
+                {!bloqueadoCampanhas && (
+                  <div style={{ paddingTop: 10, borderTop: "1px solid var(--br)" }}>
+                    <div style={{ color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>Como usar</div>
+                    Cadastre a campanha com a palavra secreta e o período em que ela vale. Se quiser, cole o link de onde você vai divulgar (um vídeo, post ou story) — a Aura mostra esse link pro lead que disser não saber a palavra. Defina também o crédito de quem acertar: um valor fixo em reais (some direto no saldo do cliente, pronto pra usar) ou um percentual (fica marcado na ficha, pra você aplicar na hora do pagamento) — e o prazo em dias que esse benefício continua valendo a partir do cadastro. O vínculo com a campanha aparece automaticamente na ficha do cliente assim que a palavra é confirmada.
+                  </div>
+                )}
               </div>
               {/* Modal confirmação exclusão */}
               {campConfirmDel !== null && (
@@ -9225,11 +9270,16 @@ export default function CRM() {
                               <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, ...statusStyle(st) }}>{st.toUpperCase()}</span>
                             </div>
                             <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 4 }}>
-                              Palavra-chave: <span style={{ color: "var(--gold)", fontFamily: "monospace", fontWeight: 600 }}>{camp.palavra_chave}</span>
+                              Palavra secreta: <span style={{ color: "var(--gold)", fontFamily: "monospace", fontWeight: 600 }}>{camp.palavra_chave}</span>
                             </div>
                             {(camp.data_inicio || camp.data_fim) && (
                               <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 6 }}>
                                 {camp.data_inicio && camp.data_fim ? camp.data_inicio + " → " + camp.data_fim : camp.data_inicio || camp.data_fim}
+                              </div>
+                            )}
+                            {!!camp.credito_valor && (
+                              <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 6 }}>
+                                🎁 {camp.credito_tipo === "percentual" ? camp.credito_valor + "% de desconto" : "R$ " + Number(camp.credito_valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} · válido por {camp.credito_prazo_dias || 30} dias após o cadastro
                               </div>
                             )}
                             <button
@@ -9238,7 +9288,7 @@ export default function CRM() {
                               {leadsCount} lead{leadsCount !== 1 ? "s" : ""} capturado{leadsCount !== 1 ? "s" : ""}
                             </button>
                           </div>
-                          <button title="Editar" onClick={() => { setCampEditIdx(idx); setCampEditForm({ nome: camp.nome, palavra_chave: camp.palavra_chave, data_inicio: camp.data_inicio || "", data_fim: camp.data_fim || "" }); }}
+                          <button title="Editar" onClick={() => { setCampEditIdx(idx); setCampEditForm({ nome: camp.nome, palavra_chave: camp.palavra_chave, data_inicio: camp.data_inicio || "", data_fim: camp.data_fim || "", link_divulgacao: camp.link_divulgacao || "", credito_tipo: (camp.credito_tipo as "fixo" | "percentual") || "fixo", credito_valor: camp.credito_valor ? String(camp.credito_valor) : "", credito_prazo_dias: camp.credito_prazo_dias ? String(camp.credito_prazo_dias) : "30" }); }}
                             style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "var(--tx2)", flexShrink: 0 }}>✏️</button>
                           <button title="Remover" onClick={() => setCampConfirmDel(idx)}
                             style={{ background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "#C0392B", flexShrink: 0 }}>✕</button>
@@ -10401,6 +10451,34 @@ export default function CRM() {
                             <div style={{ fontSize: 16, fontWeight: 700, color: credito > 0 ? "var(--gold)" : "var(--tx3)", fontFamily: "'Cormorant Garamond',serif" }}>{credito > 0 ? "R$ " + credito.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "—"}</div>
                           </div>
                         </div>
+                        {(() => {
+                          const hojeStr = new Date().toISOString().split("T")[0];
+                          const campNome = sc.campanha_id ? (campanhas.find(c => c.id === sc.campanha_id)?.nome || "") : "";
+                          const credVence = sc.campanha_credito_valor && sc.campanha_credito_validade;
+                          const credValido = credVence && sc.campanha_credito_validade >= hojeStr;
+                          const descVence = sc.campanha_desconto_pct && sc.campanha_desconto_validade;
+                          const descValido = descVence && sc.campanha_desconto_validade >= hojeStr;
+                          if (!credVence && !descVence) return null;
+                          return (
+                            <div style={{ background: (credValido || descValido) ? "rgba(201,168,76,.08)" : "var(--dk3)", border: "1px solid " + ((credValido || descValido) ? "rgba(201,168,76,.35)" : "var(--br)"), borderRadius: 7, padding: "10px 13px", fontSize: 12, color: "var(--tx2)" }}>
+                              🎯 Veio da campanha {campNome && <strong style={{ color: "var(--tx)" }}>{campNome}</strong>}
+                              {credVence && (
+                                <div style={{ marginTop: 4, color: credValido ? "var(--gold)" : "var(--tx3)" }}>
+                                  {credValido
+                                    ? "Crédito de R$ " + Number(sc.campanha_credito_valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) + " disponível — válido até " + new Date(sc.campanha_credito_validade + "T12:00:00").toLocaleDateString("pt-BR")
+                                    : "Crédito de campanha expirado em " + new Date(sc.campanha_credito_validade + "T12:00:00").toLocaleDateString("pt-BR")}
+                                </div>
+                              )}
+                              {descVence && (
+                                <div style={{ marginTop: 4, color: descValido ? "var(--gold)" : "var(--tx3)" }}>
+                                  {descValido
+                                    ? sc.campanha_desconto_pct + "% de desconto disponível — válido até " + new Date(sc.campanha_desconto_validade + "T12:00:00").toLocaleDateString("pt-BR") + " (aplicar manualmente no pagamento)"
+                                    : "Desconto de campanha expirado em " + new Date(sc.campanha_desconto_validade + "T12:00:00").toLocaleDateString("pt-BR")}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <button
                           onClick={() => {
                             // Se há só 1 projeto ativo, já usa o profissional dele. Com 2+, deixa em

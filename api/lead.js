@@ -128,7 +128,7 @@ function paginaSiteIndisponivel() {
 // Molde "Premium" — site publico do tenant, gerado a partir de site_conteudo +
 // configuracoes + artistas (colunas foto_site_url/bio_site/portfolio_fotos).
 // Publicacao automatica: nao ha build, o HTML e montado na hora a cada visita.
-function paginaSitePremium(site, cfg, artistas, slug) {
+function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas) {
   const nomeEstudio = cfg?.studio_name || "Estúdio";
   const local = [cfg?.studio_city, cfg?.studio_estado].filter(Boolean).join(" · ");
   const tel = (cfg?.studio_tel || "").replace(/\D/g, "");
@@ -527,6 +527,13 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
   var SLUG = ${JSON.stringify(slug || "")};
   var WA_LINK = ${JSON.stringify(waLink)};
   var NOME_ESTUDIO = ${JSON.stringify(nomeEstudio)};
+  // Só a existência/link -- a palavra secreta em si nunca é exposta no HTML,
+  // fica só no banco pra validação server-side (senão qualquer um vendo o
+  // código-fonte da página descobriria a palavra sem precisar dela de verdade).
+  var CAMPANHAS_ATIVAS = ${JSON.stringify((campanhasAtivas || []).map(c => ({ link: c.link_divulgacao || "" })))};
+  var ORIGEM_SLUG = (function(){
+    try { return new URLSearchParams(window.location.search).get('origem') || ''; } catch (e) { return ''; }
+  })();
   var lead = {};
   var aberto = false;
 
@@ -607,9 +614,10 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
 
   function salvar(campos){
     Object.assign(lead, campos);
-    var payload = Object.assign({}, lead, { slug: SLUG, orig: 'Site' });
+    var payload = Object.assign({}, lead, { slug: SLUG, orig: 'Site', origem_slug: ORIGEM_SLUG });
     delete payload._jaECliente;
-    fetch('/api/lead', {
+    delete payload._temCampanha;
+    return fetch('/api/lead', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -648,6 +656,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
           if (!lead.idea && data.descricao) lead.idea = data.descricao;
           if (!lead.regiao && data.regiao) lead.regiao = data.regiao;
           if (!lead.email && data.email) lead.email = data.email;
+          lead._temCampanha = !!data.temCampanha;
         } else {
           botMsg('Não encontrei seu cadastro por aqui ainda — vamos preencher rapidinho!');
         }
@@ -691,9 +700,47 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     });
   }
   function passoEmail(){
-    if (lead.email) { salvar({ email: lead.email }); return passoFinal(); }
+    if (lead.email) { salvar({ email: lead.email }); return passoPalavraSecreta(); }
     botMsg('Por último, qual o seu melhor e-mail?');
-    mostrarInput('seu@email.com', function(email){ salvar({ email: email }); passoFinal(); });
+    mostrarInput('seu@email.com', function(email){ salvar({ email: email }); passoPalavraSecreta(); });
+  }
+  function passoPalavraSecreta(){
+    if (!CAMPANHAS_ATIVAS.length || lead._temCampanha) return passoFinal();
+    botMsg('Antes de fechar por aqui — você tem uma palavra secreta? 🔑');
+    mostrarBotoes(['Sim', 'Não'], function(op){
+      if (op === 'Sim') {
+        botMsg('Qual é a palavra secreta?');
+        pedirPalavraSecreta();
+        return;
+      }
+      var comLink = CAMPANHAS_ATIVAS.filter(function(c){ return c.link; })[0];
+      if (comLink) {
+        botMsg('Ainda não viu? Dá uma olhada aqui 👉 ' + comLink.link + '. Se descobrir, é só escrever aqui embaixo!');
+        pedirPalavraSecreta();
+      } else {
+        passoFinal();
+      }
+    });
+  }
+  function pedirPalavraSecreta(){
+    mostrarInput('Digite aqui...', function(palavra){
+      botMsg('Só um instante...');
+      salvar({ palavra_secreta: palavra })
+        .then(function(r){ return r && r.json ? r.json() : null; })
+        .then(function(data){
+          if (data && data.campanha) {
+            var dataFmt = new Date(data.campanha.validade + 'T12:00:00').toLocaleDateString('pt-BR');
+            var valorTxt = data.campanha.tipo === 'percentual'
+              ? (data.campanha.valor + '% de desconto')
+              : ('R$ ' + Number(data.campanha.valor).toFixed(2).replace('.', ',') + ' de crédito');
+            botMsg('Prontinho! Você está cadastrado(a) na campanha ' + data.campanha.nome + ' e garantiu ' + valorTxt + '. 🖤 Você tem até ' + dataFmt + ' para aproveitar — é só marcar sua sessão dentro desse prazo.');
+          } else {
+            botMsg('Não encontrei essa por aqui, mas tudo bem — vamos continuar!');
+          }
+          passoFinal();
+        })
+        .catch(function(){ passoFinal(); });
+    });
   }
   function passoFinal(){
     botMsg('Pronto! Já registramos os dados principais — nossa equipe vai entrar em contato com você em breve. Se quiser adiantar, pode chamar no WhatsApp do estúdio! 🖤');
@@ -740,6 +787,22 @@ async function registrarClique(userId) {
   await incrementarStat(userId, "cliques");
 }
 
+// Campanhas com palavra secreta que valem hoje (sem data = campanha sempre ativa).
+async function campanhasAtivasHoje(userId) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const { data } = await sb.from("campanhas")
+    .select("id, nome, palavra_chave, link_divulgacao, credito_tipo, credito_valor, credito_prazo_dias, data_inicio, data_fim")
+    .eq("user_id", userId);
+  return (data || []).filter(c =>
+    (!c.data_inicio || c.data_inicio <= hoje) && (!c.data_fim || c.data_fim >= hoje)
+  );
+}
+
+// Mesma normalização usada no CRM (slugPalavra) -- ignora maiúscula/minúscula e acento.
+function normalizarPalavra(s) {
+  return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "").trim();
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -769,7 +832,8 @@ export default async function handler(req, res) {
     // Serverless: se não esperar aqui, a função pode encerrar antes do
     // registro terminar de gravar (fire-and-forget não é confiável na Vercel).
     await registrarVisita(uid, req).catch(() => {});
-    return res.status(200).send(paginaSitePremium(site, cfg, artistas || [], slug));
+    const campanhasAtivas = await campanhasAtivasHoje(uid).catch(() => []);
+    return res.status(200).send(paginaSitePremium(site, cfg, artistas || [], slug, campanhasAtivas));
   }
 
   // ── ANALYTICS: clique no CTA principal (aberto o chat da Aura) ──────────────
@@ -820,7 +884,12 @@ export default async function handler(req, res) {
   if (acao === "preview") {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
     const { site, cfg, artistas, slug: slugPreview } = req.body || {};
-    return res.status(200).send(paginaSitePremium(site || {}, cfg || {}, artistas || [], slugPreview || ""));
+    let campanhasAtivas = [];
+    if (slugPreview) {
+      const { data: tenantPreview } = await sb.from("ink_clientes").select("auth_user_id").eq("slug", slugPreview).single();
+      if (tenantPreview) campanhasAtivas = await campanhasAtivasHoje(tenantPreview.auth_user_id).catch(() => []);
+    }
+    return res.status(200).send(paginaSitePremium(site || {}, cfg || {}, artistas || [], slugPreview || "", campanhasAtivas));
   }
 
   // ── BUSCA DE CLIENTE EXISTENTE (widget do site pergunta "já é cliente?") ────
@@ -834,7 +903,7 @@ export default async function handler(req, res) {
     const { data: tenantBusca } = await sb.from("ink_clientes").select("auth_user_id").eq("slug", slugBusca).single();
     if (!tenantBusca) return res.status(200).json({ encontrado: false });
     const { data: candidatos } = await sb.from("clientes")
-      .select("nome, tel, artista, descricao, regiao, email")
+      .select("nome, tel, artista, descricao, regiao, email, campanha_id")
       .eq("user_id", tenantBusca.auth_user_id).is("excluido_em", null);
     const match = (candidatos || []).find(c => c.tel && c.tel.replace(/\D/g, "").slice(-11) === telBusca);
     if (!match) return res.status(200).json({ encontrado: false });
@@ -842,7 +911,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       encontrado: true, completo,
       nome: match.nome, artista: match.artista || "", descricao: match.descricao || "",
-      regiao: match.regiao || "", email: match.email || "",
+      regiao: match.regiao || "", email: match.email || "", temCampanha: !!match.campanha_id,
     });
   }
 
@@ -1226,7 +1295,7 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug } = req.body;
+  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug, origem_slug: origemSlug, palavra_secreta: palavraSecreta } = req.body;
   if (!nome && !tel && !email) return res.status(400).json({ error: "pelo menos um dado obrigatorio" });
 
   const ideaFinal = idea || ideia || "";
@@ -1280,6 +1349,31 @@ export default async function handler(req, res) {
     if (tenantLead?.auth_user_id) row.user_id = tenantLead.auth_user_id;
   }
 
+  // Origem via link (?origem=slug) -- sobrepõe o default "Site" quando o slug bate
+  // com uma origem cadastrada desse tenant. Sem slug, comportamento de sempre.
+  if (origemSlug) {
+    const { data: origemRow } = await sb.from("origens").select("nome").eq("user_id", row.user_id).eq("slug", origemSlug).maybeSingle();
+    if (origemRow?.nome) row.orig = origemRow.nome;
+  }
+
+  // Palavra secreta de campanha -- revalidada aqui sempre, nunca confia no que o
+  // widget acha que bateu (evita alguém forjar um campanha_id/crédito na mão).
+  let campanhaAplicada = null;
+  let camposCampanha = null;
+  if (palavraSecreta) {
+    const ativas = await campanhasAtivasHoje(row.user_id);
+    const norm = normalizarPalavra(palavraSecreta);
+    const achada = norm ? ativas.find(c => c.palavra_chave === norm) : null;
+    if (achada) {
+      campanhaAplicada = achada;
+      const validade = new Date(Date.now() + (Number(achada.credito_prazo_dias) || 30) * 86400000).toISOString().slice(0, 10);
+      camposCampanha = achada.credito_tipo === "percentual"
+        ? { campanha_id: achada.id, campanha_desconto_pct: achada.credito_valor, campanha_desconto_validade: validade }
+        : { campanha_id: achada.id, campanha_credito_valor: achada.credito_valor, campanha_credito_validade: validade };
+    }
+  }
+  if (camposCampanha) Object.assign(row, camposCampanha);
+
   // Identificação de cliente existente por telefone — telefone bate = mesmo cliente, sempre
   // Ao atualizar, prevalece o campo com mais dados (novo só substitui se existente estiver vazio)
   function maisCompleto(existente, novo) {
@@ -1296,12 +1390,15 @@ export default async function handler(req, res) {
   {
     const telDigits = tel ? tel.replace(/[^0-9]/g, "").slice(-11) : null;
     const emailNorm = email ? email.trim().toLowerCase() : null;
-    const { data: existentes } = await sb.from("clientes").select("id,tel,nome,email,insta,descricao,nascimento,artista,regiao,etapa,projetos").eq("user_id", row.user_id);
+    const { data: existentes } = await sb.from("clientes").select("id,tel,nome,email,insta,descricao,nascimento,artista,regiao,etapa,projetos,campanha_id").eq("user_id", row.user_id);
     const match =
       (telDigits && (existentes || []).find(c => c.tel && c.tel.replace(/[^0-9]/g, "").slice(-11) === telDigits)) ||
       (emailNorm && (existentes || []).find(c => c.email && c.email.trim().toLowerCase() === emailNorm));
     if (match) {
       const updateFields = { excluido_em: null };
+      if (origemSlug && row.orig !== "Site") updateFields.orig = row.orig;
+      if (camposCampanha && !match.campanha_id) Object.assign(updateFields, camposCampanha);
+      else campanhaAplicada = null; // já tinha campanha vinculada, ou não bateu -- não reporta como aplicado
       const nomeVal = maisCompleto(match.nome, nome);
       if (nomeVal) updateFields.nome = nomeVal;
       const emailVal = maisCompleto(match.email, email);
@@ -1366,11 +1463,18 @@ export default async function handler(req, res) {
   // (intenção real de agendar) -- lead frio/morno que só passou nome+telefone e
   // sumiu não notifica, fica só visível no Pipeline quando o estúdio abrir o CRM.
   // Pensado pro modelo SaaS: cliente vai ter cota limitada de e-mail/SMS por mês.
+  const campanhaResp = campanhaAplicada ? {
+    nome: campanhaAplicada.nome,
+    tipo: campanhaAplicada.credito_tipo,
+    valor: campanhaAplicada.credito_valor,
+    validade: camposCampanha.campanha_credito_validade || camposCampanha.campanha_desconto_validade,
+  } : null;
+
   const deveNotificar = !!etapaSolicitada;
   if (!isNewClient) {
-    if (!deveNotificar) return res.status(200).json({ ok: true, clienteId, updated: true, ...matchInfo });
+    if (!deveNotificar) return res.status(200).json({ ok: true, clienteId, updated: true, campanha: campanhaResp, ...matchInfo });
   } else if (!deveNotificar) {
-    return res.status(200).json({ ok: true, clienteId });
+    return res.status(200).json({ ok: true, clienteId, campanha: campanhaResp });
   }
 
   // Buscar toggles de automação + dados do estúdio
@@ -1466,5 +1570,5 @@ export default async function handler(req, res) {
     }).catch(e => console.warn("Email boas-vindas error:", e));
   }
 
-  return res.status(200).json({ ok: true, clienteId });
+  return res.status(200).json({ ok: true, clienteId, campanha: campanhaResp });
 }
