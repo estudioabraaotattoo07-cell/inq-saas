@@ -14483,6 +14483,9 @@ export default function CRM() {
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Depoimentos</div>
                 <Help>Depoimentos reais de clientes — copie e cole de onde recebeu (WhatsApp, Instagram, Google). O print é opcional.</Help>
+                <FoscoOverlay
+                  bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro")}
+                  meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Depoimentos">
                 {(sc.depoimentos || []).map((d: any, i: number) => (
                   <div key={i} style={{ background: "#050505", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: 12, marginBottom: 8, boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}>
                     <textarea className="fta" placeholder="Escreva aqui o texto do depoimento (ou copie e cole de onde recebeu)." value={d.texto || ""} style={{ marginBottom: 6 }}
@@ -14519,13 +14522,17 @@ export default function CRM() {
                   </div>
                 ))}
                 <button className="btn-sm" onClick={() => upd({ depoimentos: [...(sc.depoimentos || []), { texto: "", autor: "", estrelas: 5, imagem_url: "" }] })}>+ Adicionar depoimento</button>
+                </FoscoOverlay>
               </div>
 
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 14 }}>História do estúdio</div>
+                <Help>Conte a história do seu estúdio — o que te trouxe até aqui, o que te diferencia.</Help>
+                <FoscoOverlay
+                  bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro")}
+                  meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="História do estúdio">
                 <ImageSlot label="Foto do banner" hint="Recomendado: 1600×900px, paisagem. Uma foto marcante do estúdio, da equipe ou de um trabalho autoral."
                   value={sc.banner_foto_url || ""} onChange={(url) => upd({ banner_foto_url: url })} />
-                <Help>Conte a história do seu estúdio — o que te trouxe até aqui, o que te diferencia.</Help>
                 <div className="ff" style={{ marginBottom: 20 }}>
                   <label className="fl">Título do banner</label>
                   <input className="fi" placeholder="Escreva aqui... Ex: Do primeiro traço até hoje." value={sc.banner_titulo || ""} onChange={e => upd({ banner_titulo: e.target.value })} />
@@ -14534,6 +14541,7 @@ export default function CRM() {
                   <label className="fl">Texto do banner</label>
                   <textarea className="fta" placeholder="Escreva aqui a história do seu estúdio — sua trajetória, o que te motiva, o que te diferencia. Ex: Começamos numa garagem, hoje somos referência no bairro." value={sc.banner_texto || ""} onChange={e => upd({ banner_texto: e.target.value })} />
                 </div>
+                </FoscoOverlay>
               </div>
 
               <div style={cardSt}>
