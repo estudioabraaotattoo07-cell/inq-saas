@@ -1734,9 +1734,6 @@ export default function CRM() {
   const [auraBtnPos, setAuraBtnPos] = useState<{ x: number; y: number } | null>(null);
   const [auraDragging, setAuraDragging] = useState(false);
   const auraDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number; moved: boolean } | null>(null);
-  const [suporteBtnPos, setSuporteBtnPos] = useState<{ x: number; y: number } | null>(null);
-  const [suporteDragging, setSuporteDragging] = useState(false);
-  const suporteDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number; moved: boolean } | null>(null);
   const [auraChatMessages, setAuraChatMessages] = useState<{role: string; content: string}[]>([]);
   const [auraChatInput, setAuraChatInput] = useState("");
   const [auraChatLoading, setAuraChatLoading] = useState(false);
@@ -4305,53 +4302,6 @@ export default function CRM() {
     };
   }, [auraDragging]);
 
-  // Mesmo mecanismo de arrastar da Aura, replicado pro botão de Suporte/Quiz —
-  // evita que ele fique preso num canto atrapalhando outros botões da tela.
-  const handleSuporteDragStart = (clientX: number, clientY: number) => {
-    const btn = document.getElementById("suporte-fab-btn");
-    if (!btn) return;
-    const rect = btn.getBoundingClientRect();
-    suporteDragRef.current = { startX: clientX, startY: clientY, origX: rect.left, origY: rect.top, moved: false };
-    setSuporteDragging(true);
-  };
-
-  const handleSuporteDragMove = (clientX: number, clientY: number) => {
-    if (!suporteDragRef.current) return;
-    const dx = clientX - suporteDragRef.current.startX;
-    const dy = clientY - suporteDragRef.current.startY;
-    if (!suporteDragRef.current.moved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
-    suporteDragRef.current.moved = true;
-    const btn = document.getElementById("suporte-fab-btn");
-    const w = btn ? btn.offsetWidth : 120;
-    const h = btn ? btn.offsetHeight : 48;
-    const newX = Math.min(Math.max(0, suporteDragRef.current.origX + dx), window.innerWidth - w);
-    const newY = Math.min(Math.max(0, suporteDragRef.current.origY + dy), window.innerHeight - h);
-    setSuporteBtnPos({ x: newX, y: newY });
-  };
-
-  const handleSuporteDragEnd = () => {
-    suporteDragRef.current = null;
-    setSuporteDragging(false);
-  };
-
-  useEffect(() => {
-    if (!suporteDragging) return;
-    const onMouseMove = (e: MouseEvent) => handleSuporteDragMove(e.clientX, e.clientY);
-    const onMouseUp = () => handleSuporteDragEnd();
-    const onTouchMove = (e: TouchEvent) => { if (e.touches[0]) handleSuporteDragMove(e.touches[0].clientX, e.touches[0].clientY); };
-    const onTouchEnd = () => handleSuporteDragEnd();
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-    window.addEventListener("touchmove", onTouchMove, { passive: false });
-    window.addEventListener("touchend", onTouchEnd);
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [suporteDragging]);
-
   const enviarMensagemAura = async (msgOverride?: string, imagemBase64?: string, imagemMediaType?: string) => {
     const userMsg = msgOverride !== undefined ? msgOverride : auraChatInput.trim();
     if (!userMsg && !imagemBase64) return;
@@ -5477,6 +5427,11 @@ export default function CRM() {
             {authEmail === OWNER_EMAIL && (
               <a href="https://inksystem.com.br/admin" target="_blank" rel="noreferrer" title="Painel Admin" className="theme-btn" style={{ fontSize: 13, textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>🛠️</a>
             )}
+            <button className="theme-btn" title={isDemoMode ? "Quanto custa pro meu estúdio?" : "Suporte e Assessoria"}
+              onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); }}
+              style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {isDemoMode ? "💰 Simular plano" : "🛟 Suporte e Assessoria"}
+            </button>
             <button className="theme-btn" title="Sair" onClick={async () => { await sb.auth.signOut(); setLogado(false); }} style={{ fontSize: 13 }}>🚪</button>
             <button className="btn-new" onClick={() => setShowForm(true)}>+ Novo Cliente</button>
           </div>
@@ -8496,7 +8451,7 @@ export default function CRM() {
                   <button className="btn-s" onClick={() => { setOrigenEditIdx(-1); setOrigenEditNome(""); setOrigenEditPago(false); }}>+ Nova origem</button>
                 </div>
 
-                <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px", marginBottom: 20, fontSize: 12, color: "var(--tx2)", lineHeight: 1.7 }}>
+                <div style={{ position: "relative", zIndex: 16, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px", marginBottom: 20, fontSize: 12, color: "var(--tx2)", lineHeight: 1.7 }}>
                   <div style={{ marginBottom: bloqueadoOrigens ? 0 : 10 }}>
                     Origens mostram <strong style={{ color: "var(--tx)" }}>de onde vêm seus leads</strong>. Cada origem gera um link próprio (bio do Instagram, um vídeo, um anúncio pago) — quando alguém entra pelo seu site por esse link, o sistema já sabe de onde ela veio e guarda isso direto no cadastro do cliente, sem você precisar marcar nada na mão depois.
                   </div>
@@ -8665,14 +8620,26 @@ export default function CRM() {
         {/* ── DISPAROS ── */}
         {tab === "posvenda" && pvSubTab === "disparos" && (
           <FoscoOverlay
-            bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro")}
-            meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Disparos">
+            bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata")}
+            meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Prata" featureNome="Disparos">
           <div style={{ flex: 1, padding: "16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, maxWidth: 780, width: "100%", animation: "fadeIn .15s ease" }}>
 
             {/* Cabeçalho */}
             <div style={{ marginBottom: 4 }}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 700, color: "var(--tx)" }}>Central de Comunicação</div>
               <div style={{ fontSize: 12, color: "var(--tx3)", marginTop: 3 }}>{"A " + (auraName || "IA") + " envia cada mensagem personalizada com os dados reais do cliente. Nenhuma mensagem é genérica."}</div>
+            </div>
+
+            <div style={{ position: "relative", zIndex: 16, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px", fontSize: 12, color: "var(--tx2)", lineHeight: 1.7 }}>
+              <div style={{ marginBottom: (authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata")) ? 0 : 10 }}>
+                Disparos são <strong style={{ color: "var(--tx)" }}>mensagens automáticas</strong> pra manter contato com quem já é seu cliente — aniversário, datas comemorativas, reativação de quem sumiu, avisos pra grupos específicos. Cada mensagem sai personalizada com os dados reais da pessoa, escrita pela {(auraName || "IA")}.
+              </div>
+              {!(authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata")) && (
+                <div style={{ paddingTop: 10, borderTop: "1px solid var(--br)" }}>
+                  <div style={{ color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>Como usar</div>
+                  Escolha um grupo de clientes (por tag, por data, ou a base toda) e o canal (e-mail ou SMS, dentro da sua cota mensal). As Campanhas Sazonais (aniversário, Natal, Dia dos Namorados etc.) já vêm com mensagens prontas e disparo automático na data certa — é só ativar e, se quiser, ajustar o texto. Fora isso, você pode montar um disparo avulso pra qualquer grupo, na hora que quiser.
+                </div>
+              )}
             </div>
 
             {/* Alerta de data comemorativa próxima */}
@@ -8899,9 +8866,15 @@ export default function CRM() {
               </div>
             </div>
 
-              {/* ── CAMPANHAS SAZONAIS (datas comemorativas — automático) ── */}
+              {/* ── CAMPANHAS SAZONAIS (datas comemorativas — automático) ──
+                  Elevada acima da camada de bloqueio de propósito: mesmo quem
+                  não tem o plano pode abrir e ver o que cada campanha oferece
+                  (desperta vontade de assinar). Só as ações que gravam no banco
+                  (editar/excluir/salvar/adicionar) ficam de fato bloqueadas. */}
+              <div style={{ position: "relative", zIndex: 16 }}>
               <AccordionHeader titulo="Campanhas Sazonais" aberto={pvAccordion.sazonais} onToggle={() => setPvAccordion(p => ({ ...p, sazonais: !p.sazonais }))} />
               {pvAccordion.sazonais && (() => {
+                const bloqueadoDisparos = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata");
                 const CAMPANHAS_SAZONAIS_DEF = [
                   { slug: "dia_maes", label: "Dia das Mães", emoji: "🌸", desc: "2º domingo de maio · tatuagem mãe + filho(a) até 15cm cada — filho(a) paga a dele, mãe ganha a dela" },
                   { slug: "dia_pais", label: "Dia dos Pais", emoji: "👨‍👦", desc: "2º domingo de agosto · tatuagem pai + filho(a) até 15cm cada — filho(a) paga a dele, pai ganha a dele" },
@@ -8912,6 +8885,7 @@ export default function CRM() {
                   { slug: "ano_novo", label: "Ano Novo", emoji: "🎆", desc: "1º de janeiro · só felicitações do casal, sem venda" },
                 ];
                 const salvarCampSazEtapa = async (etapa: any) => {
+                  if (bloqueadoDisparos) return;
                   setCampSazSalvando(true);
                   try {
                     if (etapa.id && !etapa.id.startsWith("new_")) {
@@ -8927,10 +8901,12 @@ export default function CRM() {
                   setCampSazSalvando(false);
                 };
                 const excluirCampSazEtapa = async (id: string) => {
+                  if (bloqueadoDisparos) return;
                   await sb.from("campanhas_sazonais_etapas").delete().eq("id", id);
                   setCampSazEtapas(p => p.filter((f: any) => f.id !== id));
                 };
                 const adicionarNovaCampSazEtapa = (slug: string) => {
+                  if (bloqueadoDisparos) return;
                   const tempId = "new_" + Date.now();
                   const novaEtapa = { id: tempId, campanha_slug: slug, label: "Nova mensagem", dias_offset: 0, canal: "email", mensagem: "Olá, {nome}! ...", ativo: true, ordem: campSazEtapas.filter((f: any) => f.campanha_slug === slug).length };
                   setCampSazEditandoId(tempId);
@@ -9008,8 +8984,8 @@ export default function CRM() {
                                       <div style={{ fontSize: 11, color: "var(--tx3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{stripHtmlPreview(fe.mensagem)}</div>
                                     </div>
                                     <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                                      <button onClick={() => { setCampSazEditandoId(fe.id); setCampSazEditLocal({ ...fe }); }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: "pointer" }}>Editar</button>
-                                      <button onClick={() => { if (window.confirm("Remover esta mensagem?")) excluirCampSazEtapa(fe.id); }} style={{ fontSize: 11, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "3px 8px", color: "var(--q1)", cursor: "pointer" }}>✕</button>
+                                      <button onClick={() => { if (bloqueadoDisparos) return; setCampSazEditandoId(fe.id); setCampSazEditLocal({ ...fe }); }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: bloqueadoDisparos ? "not-allowed" : "pointer", opacity: bloqueadoDisparos ? 0.5 : 1 }}>Editar</button>
+                                      <button onClick={() => { if (bloqueadoDisparos) return; if (window.confirm("Remover esta mensagem?")) excluirCampSazEtapa(fe.id); }} style={{ fontSize: 11, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "3px 8px", color: "var(--q1)", cursor: bloqueadoDisparos ? "not-allowed" : "pointer", opacity: bloqueadoDisparos ? 0.5 : 1 }}>✕</button>
                                     </div>
                                   </div>
                                 )
@@ -9049,7 +9025,7 @@ export default function CRM() {
                                 </div>
                               ) : (
                                 <button onClick={() => adicionarNovaCampSazEtapa(camp.slug)}
-                                  style={{ alignSelf: "flex-start", fontSize: 11, background: "var(--dk4)", border: "1px dashed var(--br)", borderRadius: 6, padding: "5px 12px", color: "var(--tx3)", cursor: "pointer" }}>
+                                  style={{ alignSelf: "flex-start", fontSize: 11, background: "var(--dk4)", border: "1px dashed var(--br)", borderRadius: 6, padding: "5px 12px", color: "var(--tx3)", cursor: bloqueadoDisparos ? "not-allowed" : "pointer", opacity: bloqueadoDisparos ? 0.5 : 1 }}>
                                   + Adicionar mensagem
                                 </button>
                               )}
@@ -9061,6 +9037,7 @@ export default function CRM() {
                   </div>
                 );
               })()}
+              </div>
 
             {/* Histórico de disparos */}
             {disparosHist.length > 0 && (
@@ -9218,7 +9195,7 @@ export default function CRM() {
                 <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🎯 Campanhas</div>
                 <button className="btn-s" onClick={() => { setCampEditIdx(-1); setCampEditForm(CAMP_FORM_VAZIO); }}>+ Nova campanha</button>
               </div>
-              <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px", marginBottom: 20, fontSize: 12, color: "var(--tx2)", lineHeight: 1.7 }}>
+              <div style={{ position: "relative", zIndex: 16, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px", marginBottom: 20, fontSize: 12, color: "var(--tx2)", lineHeight: 1.7 }}>
                 <div style={{ marginBottom: bloqueadoCampanhas ? 0 : 10 }}>
                   Campanhas ligam uma <strong style={{ color: "var(--tx)" }}>palavra secreta</strong> a uma promoção. Você define a palavra e, por um tempo, divulga onde quiser (Instagram, vídeo, story, boca a boca). Quando um lead conversa com a Aura no seu site e diz a palavra certa, ela reconhece, confirma com ele e já vincula o cadastro àquela campanha automaticamente — sem você precisar fazer nada na hora.
                 </div>
@@ -15797,20 +15774,6 @@ export default function CRM() {
             </div>
           );
         })()}
-        {/* ── BOTÃO DE SOLICITAÇÃO: quiz de plano (demo) / suporte (cliente real) — ícone
-             pequeno e fixo (não mais um pill grande arrastável; Aura removida daqui,
-             ela some do FAB por não ser mais necessária como botão solto). ── */}
-        <div
-          id="suporte-fab-btn"
-          style={{ position: "fixed", bottom: "max(16px, env(safe-area-inset-bottom, 16px))", left: 16, zIndex: 9999 }}
-        >
-          <button onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); }}
-            title={isDemoMode ? "Quanto custa pro meu estúdio?" : "Suporte e assessoria"}
-            style={{ width: 42, height: 42, background: "var(--dk3)", color: "var(--gold)", border: "1px solid var(--gold)", borderRadius: "50%", fontSize: 17, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 4px 16px rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {isDemoMode ? "💰" : "🛟"}
-          </button>
-        </div>
-
         {showSolicitacao && (() => {
           const perguntaAtual = QUIZ_PERGUNTAS[quizStep];
           const quizTerminou = quizStep >= QUIZ_PERGUNTAS.length;
