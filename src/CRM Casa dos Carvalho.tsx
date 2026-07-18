@@ -41,6 +41,105 @@ const PROXIMO_PLANO: Record<string, string> = { Bronze: "Prata", Prata: "Ouro" }
 const WHATSAPP_SUPORTE_INK = "5527999598230"; // espelha ink-system-plataform/app/page.tsx (WHATSAPP_SUPORTE)
 const PLANO_ORDEM_GLOBAL = ["Bronze", "Prata", "Ouro"];
 
+// ── MENSAGENS DE SISTEMA — texto/canal padrão (mesmo texto que vive em
+// cron-disparos.js) + metadados pra edição na tela. Ausência de override no
+// banco (mensagens_sistema_override) = usa o "padrao" daqui, que é o mesmo
+// enviado de verdade pelo cron. Editar aqui em cima não muda o envio sozinho
+// -- é só a fonte de verdade do texto-fábrica mostrado/editável na tela.
+const VARS_BASICO = [
+  { token: "nome", label: "+ Nome", desc: "o nome da pessoa que vai receber esta mensagem" },
+  { token: "estudio", label: "+ Estúdio", desc: "o nome do seu estúdio, do jeito que está em Configurações" },
+];
+const VARS_CONFIRMACAO = [
+  ...VARS_BASICO,
+  { token: "data", label: "+ Data", desc: "a data do agendamento" },
+  { token: "hora", label: "+ Horário", desc: "o horário do agendamento" },
+  { token: "profissional", label: "+ Profissional", desc: "o nome do artista responsável por esse agendamento" },
+  { token: "endereco", label: "+ Endereço", desc: "o endereço do seu estúdio" },
+];
+const VARS_LEMBRETE = [
+  ...VARS_BASICO,
+  { token: "link", label: "+ Link de confirmação", desc: "o link único que o cliente clica para confirmar presença" },
+];
+const VARS_DIA_CLIENTE = [
+  ...VARS_BASICO,
+  { token: "hora", label: "+ Horário", desc: "o horário do agendamento de hoje" },
+  { token: "endereco", label: "+ Endereço", desc: "o endereço do seu estúdio" },
+];
+const VARS_DIA_ARTISTA = [
+  { token: "nome", label: "+ Nome do cliente", desc: "o nome do cliente que tem o agendamento hoje" },
+  { token: "hora", label: "+ Horário", desc: "o horário do agendamento" },
+  { token: "solicitacao", label: "+ Projeto solicitado", desc: "a descrição da ideia/projeto que o cliente pediu" },
+];
+
+const MENSAGENS_SISTEMA_DEF: Record<string, { label: string; etapaSlug: string; gatilho: string; padrao: string; canalPadrao: string; motivo: string; variaveis: { token: string; label: string; desc: string }[] }> = {
+  confirmacao_sessao: {
+    label: "E-mail de confirmação de sessão", etapaSlug: "sessao_agend", gatilho: "Imediato — ao agendar a sessão", canalPadrao: "email", variaveis: VARS_CONFIRMACAO,
+    padrao: "Olá, {nome}! Sua sessão na {estudio} está marcada e a gente já está animado com o que vem por aí.\n\n📅 {data} · 🕐 {hora} · ✦ {profissional} · 📍 {endereco}\n\nAntes da sua sessão: alimente-se bem, evite álcool 24h antes, durma bem, hidrate a pele da região.",
+    motivo: "Sem essa mensagem, o cliente não recebe a confirmação com data, horário e local — pode até esquecer que agendou.",
+  },
+  confirmacao_consulta: {
+    label: "E-mail de confirmação de consulta", etapaSlug: "cons_agendada", gatilho: "Imediato — ao agendar a consulta", canalPadrao: "email", variaveis: VARS_CONFIRMACAO,
+    padrao: "Olá, {nome}! Sua consulta na {estudio} está marcada e a gente já está animado com o que vem por aí.\n\n📅 {data} · 🕐 {hora} · ✦ {profissional} · 📍 {endereco}\n\nNa consulta vamos: entender sua ideia, definir estilo/tamanho/posicionamento, tirar dúvidas e apresentar orçamento personalizado.",
+    motivo: "Sem essa mensagem, o cliente não recebe a confirmação com data, horário e local — pode até esquecer que agendou.",
+  },
+  lembrete_d1_sessao: {
+    label: "Lembrete D-1 de sessão", etapaSlug: "sessao_agend", gatilho: "Um dia antes — evento na agenda amanhã", canalPadrao: "email", variaveis: VARS_LEMBRETE,
+    padrao: "Olá {nome}! Sua sessão está marcada para amanhã.\n\nA arte está pronta, o artista está animado — mal podemos esperar para tatuar você!\n\nConfirme sua presença aqui:\n{link}\n\nLembrete carinhoso: faltas sem aviso prévio são registradas no sistema e podem resultar em restrições futuras.\n\nNos vemos amanhã! ✦\n{estudio}",
+    motivo: "Sem esse lembrete, faltas por esquecimento aumentam — é a última chance de confirmar presença antes do dia.",
+  },
+  lembrete_d1_consulta: {
+    label: "Lembrete D-1 de consulta", etapaSlug: "cons_agendada", gatilho: "Um dia antes — evento na agenda amanhã", canalPadrao: "email", variaveis: VARS_LEMBRETE,
+    padrao: "Olá {nome}! Sua consulta está marcada para amanhã.\n\nEstamos ansiosos para conhecer a sua ideia e dar vida ao seu projeto — mal podemos esperar!\n\nPor favor, confirme sua presença:\n{link}\n\nLembrete carinhoso: faltas sem aviso prévio podem resultar em restrições futuras de agendamento.\n\nAté amanhã! ✦\n{estudio}",
+    motivo: "Sem esse lembrete, faltas por esquecimento aumentam — é a última chance de confirmar presença antes do dia.",
+  },
+  dia_sessao_cliente: {
+    label: "SMS do dia — sessão (cliente)", etapaSlug: "sessao_agend", gatilho: "No dia — manhã cedo", canalPadrao: "sms", variaveis: VARS_DIA_CLIENTE,
+    padrao: "Ola, {nome}! Hoje e o dia da sua sessao de tatuagem na {estudio}. A arte esta pronta e o artista esta animado para tatuar voce! Te esperamos as {hora} em: {endereco}. Pontualidade e muito importante para nos. Ate logo! - {estudio}",
+    motivo: "Sem essa mensagem, o cliente não recebe o lembrete no próprio dia — o momento com maior chance de reduzir faltas.",
+  },
+  dia_consulta_cliente: {
+    label: "SMS do dia — consulta (cliente)", etapaSlug: "cons_agendada", gatilho: "No dia — manhã cedo", canalPadrao: "sms", variaveis: VARS_DIA_CLIENTE,
+    padrao: "Ola, {nome}! Hoje e o dia da sua consulta na {estudio}. Estamos ansiosos para ouvir a sua ideia e apresentar o projeto da sua nova arte que sera eternizada na sua pele. Te esperamos as {hora} em: {endereco}. Ate logo! - {estudio}",
+    motivo: "Sem essa mensagem, o cliente não recebe o lembrete no próprio dia — o momento com maior chance de reduzir faltas.",
+  },
+  dia_sessao_artista: {
+    label: "SMS do dia — sessão (artista)", etapaSlug: "sessao_agend", gatilho: "No dia — manhã cedo, pro artista vinculado", canalPadrao: "sms", variaveis: VARS_DIA_ARTISTA,
+    padrao: "INK SYSTEM: Voce tem uma sessao de tatuagem hoje com {nome} as {hora}. Projeto solicitado: {solicitacao}. Prepare tudo para a arte de hoje.",
+    motivo: "Sem essa mensagem, o profissional pode chegar sem saber que tem agendamento hoje ou o que foi pedido.",
+  },
+  dia_consulta_artista: {
+    label: "SMS do dia — consulta (artista)", etapaSlug: "cons_agendada", gatilho: "No dia — manhã cedo, pro artista vinculado", canalPadrao: "sms", variaveis: VARS_DIA_ARTISTA,
+    padrao: "INK SYSTEM: Voce tem uma consulta hoje com {nome} as {hora}. Projeto solicitado: {solicitacao}. Confira sua agenda e prepare-se.",
+    motivo: "Sem essa mensagem, o profissional pode chegar sem saber que tem agendamento hoje ou o que foi pedido.",
+  },
+  aguard_agend: {
+    label: "Continuar projeto em andamento", etapaSlug: "aguard_agend", gatilho: "2 dias depois de entrar nesta etapa", canalPadrao: "email", variaveis: VARS_BASICO,
+    padrao: "Olá, {nome}! Sua primeira sessão na {estudio} foi só o começo — vamos marcar a continuação? Responda este e-mail ou chame no WhatsApp pra combinarmos a próxima data.",
+    motivo: "Sem essa mensagem, projetos em andamento podem ficar parados porque ninguém lembrou de marcar a próxima sessão.",
+  },
+  tatuado_aftercare: {
+    label: "Cuidados pós-sessão", etapaSlug: "tatuado", gatilho: "Imediato — no dia da sessão realizada", canalPadrao: "sms", variaveis: VARS_BASICO,
+    padrao: "Olá, {nome}! Foi um prazer tatuar você hoje na {estudio}. Cuide bem da sua arte: mantenha limpa, hidratada e evite sol direto nos primeiros dias. Qualquer dúvida, estamos aqui!",
+    motivo: "Sem essa mensagem, o cliente não recebe as orientações de cuidado logo após a sessão, quando mais precisa delas.",
+  },
+  pos_venda_piercing: {
+    label: "Cuidados pós-piercing", etapaSlug: "pos_venda_piercing", gatilho: "Imediato — no dia da colocação", canalPadrao: "sms", variaveis: VARS_BASICO,
+    padrao: "Olá, {nome}! Seu piercing foi colocado hoje na {estudio}. Siga as orientações de higienização que passamos e evite trocar a joia antes do prazo de cicatrização. Qualquer dúvida, estamos aqui!",
+    motivo: "Sem essa mensagem, o cliente não recebe as orientações de cicatrização do piercing na hora certa.",
+  },
+  lista_espera: {
+    label: "Confirmação de lista de espera", etapaSlug: "lista_espera", gatilho: "Imediato — ao entrar na lista de espera", canalPadrao: "email", variaveis: VARS_BASICO,
+    padrao: "Olá, {nome}! Você está na nossa lista de espera na {estudio}. Assim que abrir um horário compatível, entramos em contato — seu lugar está garantido.",
+    motivo: "Sem essa mensagem, quem está esperando uma vaga não sabe se o pedido foi realmente registrado.",
+  },
+  reengajamento: {
+    label: "Reativação de clientes", etapaSlug: "reengajamento", gatilho: "30 dias depois de entrar nesta etapa", canalPadrao: "email", variaveis: VARS_BASICO,
+    padrao: "Olá, {nome}! Faz um tempo que não nos falamos. Se ainda tiver vontade de tatuar ou já estiver pensando na próxima arte, adoraríamos te receber de novo na {estudio}.",
+    motivo: "Sem essa mensagem, clientes que sumiram nunca mais ouvem falar do seu estúdio, e você perde a chance de trazê-los de volta.",
+  },
+};
+
 // Diferença proporcional até o fim do ciclo atual — mesma regra combinada com o
 // Abraão em 2026-07-13 (ver calcUpgrade, uso interno do editor do site).
 function calcUpgradeValor(planoAtual: string, vencimento: string, planoAlvo: string): { valor: number; dataFmt: string } | null {
@@ -1709,7 +1808,13 @@ export default function CRM() {
     sb.rpc("incrementar_storage_usado", { p_user_id: userId, p_mb: mb }).then(() => {}, () => {});
   };
   const [fluxoToggles, setFluxoToggles] = useState({ boas_vindas_email: true, nps: true, google_convite: true, confirmacao_presenca: true, notificacao_artista: true, confirma_consulta: true, confirma_sessao: true, sms_consulta: true, sms_sessao: true, recontato_prox_sessao: true, remarcar: true, agradecimento_1asessao: true, recontato_d30: true });
-  const [toggleConfirm, setToggleConfirm] = useState<{campo: string; novoValor: boolean; label: string} | null>(null);
+  const [toggleConfirm, setToggleConfirm] = useState<{campo: string; novoValor: boolean; label: string; motivo?: string; tipo?: "configFlag" | "override"} | null>(null);
+  // ── MENSAGENS_SISTEMA_OVERRIDE (personalização por tenant das mensagens de sistema) ──
+  const [sistemaOverrides, setSistemaOverrides] = useState<Record<string, { mensagem?: string; canal?: string; ativo?: boolean }>>({});
+  const [sistemaEditandoChave, setSistemaEditandoChave] = useState<string | null>(null);
+  const [sistemaEditTexto, setSistemaEditTexto] = useState("");
+  const [sistemaEditCanal, setSistemaEditCanal] = useState("email");
+  const [sistemaSalvando, setSistemaSalvando] = useState(false);
   // ── ACORDEÃO DAS RÉGUAS ──
   const [pvAccordion, setPvAccordion] = useState<{preVenda: boolean; preSessao: boolean; posVenda: boolean; fluxo: boolean; sazonais: boolean}>({ preVenda: false, preSessao: false, posVenda: false, fluxo: true, sazonais: false });
   // ── FLUXO_ETAPAS (régua unificada) ──
@@ -1910,15 +2015,17 @@ export default function CRM() {
           return await sb.from("clientes").select("*").or(`user_id.eq.${uid},user_id.is.null`).is("excluido_em", null).then(r => r.data);
         };
         const anoMesCarga = new Date().toISOString().slice(0, 7);
-        const [cls, arts, fins, sds, ags, cfgs, eqs, orgs, camps, usoMes] = await Promise.all([
+        const [cls, arts, fins, sds, ags, cfgs, eqs, orgs, camps, usoMes, sistOv] = await Promise.all([
           loadClientes(), loadWithUser("artistas"), loadWithUser("financeiro"),
           loadWithUser("saidas"), loadWithUser("agenda"), loadCfg(), loadWithUser("equipamentos"),
           uid ? sb.from("origens").select("*").eq("user_id", uid).order("criado_em", { ascending: true }).then(r => r.data) : Promise.resolve([]),
           uid ? sb.from("campanhas").select("*").eq("user_id", uid).order("criado_em", { ascending: true }).then(r => r.data) : Promise.resolve([]),
-          uid ? sb.from("mensageria_uso").select("*").eq("user_id", uid).eq("ano_mes", anoMesCarga).maybeSingle().then(r => r.data) : Promise.resolve(null)
+          uid ? sb.from("mensageria_uso").select("*").eq("user_id", uid).eq("ano_mes", anoMesCarga).maybeSingle().then(r => r.data) : Promise.resolve(null),
+          uid ? sb.from("mensagens_sistema_override").select("*").eq("user_id", uid).then(r => r.data) : Promise.resolve([])
         ]);
         if (orgs && orgs.length > 0) setOrigens(orgs);
         if (camps && camps.length > 0) setCampanhas(camps);
+        if (sistOv && sistOv.length > 0) setSistemaOverrides(Object.fromEntries(sistOv.map((o: any) => [o.chave, o])));
         if (eqs && eqs.length > 0) setEquipamentos(eqs);
         setUsoMensal({
           emailEnviados: usoMes?.emails_enviados || 0,
@@ -8089,13 +8196,22 @@ export default function CRM() {
                       <strong>{toggleConfirm.label}</strong><br />
                       {toggleConfirm.novoValor
                         ? "Este fluxo voltará a disparar automaticamente para novos clientes."
-                        : "Nenhum novo disparo será feito até você reativar. Clientes que já estão no meio do fluxo não serão afetados retroativamente."}
+                        : (toggleConfirm.motivo || "Nenhum novo disparo será feito até você reativar. Clientes que já estão no meio do fluxo não serão afetados retroativamente.")}
                     </div>
                     <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                       <button className="btn-c" onClick={() => setToggleConfirm(null)}>Cancelar</button>
                       <button className="btn-s" onClick={async () => {
-                        const campo = "fluxo_" + toggleConfirm.campo + "_ativa";
                         const novoValor = toggleConfirm.novoValor;
+                        if (toggleConfirm.tipo === "override") {
+                          const { data, error } = await sb.from("mensagens_sistema_override")
+                            .upsert({ user_id: userId, chave: toggleConfirm.campo, ativo: novoValor, atualizado_em: new Date().toISOString() }, { onConflict: "user_id,chave" })
+                            .select().single();
+                          if (error) { setShowAviso("Erro ao salvar. Verifique se a tabela mensagens_sistema_override existe."); setToggleConfirm(null); return; }
+                          if (data) setSistemaOverrides(p => ({ ...p, [toggleConfirm.campo]: data }));
+                          setToggleConfirm(null);
+                          return;
+                        }
+                        const campo = "fluxo_" + toggleConfirm.campo + "_ativa";
                         const { error } = await sb.from("configuracoes").upsert({ user_id: userId, [campo]: novoValor }, { onConflict: "user_id" });
                         if (error) { setShowAviso("Erro ao salvar configuração. Verifique as colunas da tabela configuracoes."); setToggleConfirm(null); return; }
                         setFluxoToggles(p => ({ ...p, [toggleConfirm.campo]: novoValor }));
@@ -8180,11 +8296,14 @@ export default function CRM() {
                       const sid = stage.id;
                       const sistemaCounts: Record<string, number> = {
                         lead: 2, lead_morno: 2, aura_agend: 2,
-                        cons_agendada: 3, sessao_agend: 3,
+                        cons_agendada: 4, sessao_agend: 4,
+                        aguard_agend: 1,
                         aguard_1a_sessao: 2,
                         precisa_remarcar: 1,
                         aguard_prox_sessao: 1,
-                        pos_venda: 2, tatuado: 2,
+                        pos_venda: 2, tatuado: 3,
+                        pos_venda_piercing: 1,
+                        lista_espera: 1,
                         reengajamento: 1,
                       };
                       const totalSistema = sistemaCounts[sid] || 0;
@@ -8242,6 +8361,97 @@ export default function CRM() {
                                     <div style={{ fontSize: 10, color: "var(--tx3)", fontStyle: "italic", background: "var(--dk4)", borderRadius: 4, padding: "6px 8px", lineHeight: 1.6 }}>{preview}</div>
                                   </div>
                                 );
+                                const CardSistemaEditavel = ({ chave }: { chave: string }) => {
+                                  const def = MENSAGENS_SISTEMA_DEF[chave];
+                                  if (!def) return null;
+                                  const ov = sistemaOverrides[chave];
+                                  const ativo = ov?.ativo !== false;
+                                  const mensagemEfetiva = ov?.mensagem || def.padrao;
+                                  const canalEfetivo = ov?.canal || def.canalPadrao;
+                                  const temOverride = !!ov?.mensagem;
+                                  const editando = sistemaEditandoChave === chave;
+                                  const abrirEdicao = () => {
+                                    setSistemaEditandoChave(chave);
+                                    setSistemaEditTexto(mensagemEfetiva);
+                                    setSistemaEditCanal(canalEfetivo);
+                                  };
+                                  const salvarOverride = async () => {
+                                    setSistemaSalvando(true);
+                                    try {
+                                      const row = { user_id: userId, chave, mensagem: sistemaEditTexto, canal: sistemaEditCanal, ativo: true, atualizado_em: new Date().toISOString() };
+                                      const { data, error } = await sb.from("mensagens_sistema_override").upsert(row, { onConflict: "user_id,chave" }).select().single();
+                                      if (!error && data) setSistemaOverrides(p => ({ ...p, [chave]: data }));
+                                    } catch {}
+                                    setSistemaSalvando(false);
+                                    setSistemaEditandoChave(null);
+                                  };
+                                  const voltarOriginal = async () => {
+                                    await sb.from("mensagens_sistema_override").delete().eq("user_id", userId).eq("chave", chave);
+                                    setSistemaOverrides(p => { const n = { ...p }; delete n[chave]; return n; });
+                                    setSistemaEditandoChave(null);
+                                  };
+                                  return (
+                                    <div style={{ background: "var(--gold-d)", border: "1px solid var(--br)", borderRadius: 9, padding: "10px 12px", opacity: ativo ? 1 : 0.5 }}>
+                                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3, gap: 8 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--tx)" }}>{def.label}</span>
+                                          <span style={{ fontSize: 9, background: "var(--gold-d)", color: "var(--gold)", border: "1px solid var(--brh)", borderRadius: 8, padding: "1px 6px", fontWeight: 700 }}>SISTEMA</span>
+                                          {temOverride && <span style={{ fontSize: 9, color: "var(--gold)", fontStyle: "italic" }}>· personalizado</span>}
+                                        </div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                                          <span style={{ fontSize: 9, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
+                                          <div
+                                            onClick={() => {
+                                              if (ativo) {
+                                                setToggleConfirm({ campo: chave, novoValor: false, label: def.label, motivo: def.motivo, tipo: "override" });
+                                              } else {
+                                                sb.from("mensagens_sistema_override").upsert({ user_id: userId, chave, ativo: true, mensagem: ov?.mensagem, canal: ov?.canal, atualizado_em: new Date().toISOString() }, { onConflict: "user_id,chave" }).select().single()
+                                                  .then(({ data }) => { if (data) setSistemaOverrides(p => ({ ...p, [chave]: data })); });
+                                              }
+                                            }}
+                                            style={{ width: 30, height: 17, borderRadius: 9, background: ativo ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", cursor: "pointer", flexShrink: 0 }}>
+                                            <div style={{ width: 11, height: 11, background: "#fff", borderRadius: "50%", position: "absolute", top: 3, left: ativo ? 16 : 3, transition: "left .2s" }} />
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 4 }}>{def.gatilho} · {canalEfetivo === "sms" ? "SMS" : "E-mail"}</div>
+                                      {!editando ? (
+                                        <>
+                                          <div style={{ fontSize: 10, color: "var(--tx3)", fontStyle: "italic", background: "var(--dk4)", borderRadius: 4, padding: "6px 8px", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{mensagemEfetiva}</div>
+                                          <button onClick={abrirEdicao} style={{ marginTop: 6, fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: "pointer" }}>Editar</button>
+                                        </>
+                                      ) : (
+                                        <div style={{ marginTop: 6, background: "var(--dk3)", borderRadius: 7, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                                          <div>
+                                            <div className="fil" style={{ marginBottom: 3 }}>Canal</div>
+                                            <select className="ef" value={sistemaEditCanal} onChange={e => setSistemaEditCanal(e.target.value)}>
+                                              <option value="email">E-mail</option>
+                                              <option value="sms">SMS</option>
+                                            </select>
+                                          </div>
+                                          <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.6, background: "var(--dk4)", borderRadius: 6, padding: "8px 10px" }}>
+                                            Escreva sua mensagem livremente. Pra incluir informações automáticas (como o nome de quem recebe), <strong style={{ color: "var(--gold)" }}>não digite</strong> — clique nos botões abaixo. Se você digitar por conta própria, uma letra errada já é suficiente pra dar problema, e o cliente pode receber a mensagem sem essa informação, ou com o nome de outra pessoa.
+                                          </div>
+                                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                            {def.variaveis.map(v => (
+                                              <button key={v.token} type="button" title={v.desc}
+                                                onClick={() => setSistemaEditTexto(p => p + (p && !/\s$/.test(p) ? " " : "") + "{" + v.token + "}")}
+                                                style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--brh)", borderRadius: 20, padding: "4px 10px", color: "var(--gold)", cursor: "pointer" }}>
+                                                {v.label}
+                                              </button>
+                                            ))}
+                                          </div>
+                                          <textarea className="ef" rows={5} value={sistemaEditTexto} onChange={e => setSistemaEditTexto(e.target.value)} style={{ resize: "vertical", width: "100%" }} />
+                                          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                                            {temOverride && <button className="btn-c" onClick={voltarOriginal} style={{ marginRight: "auto" }}>Voltar ao texto original</button>}
+                                            <button className="btn-c" onClick={() => setSistemaEditandoChave(null)}>Cancelar</button>
+                                            <button className="btn-s" onClick={salvarOverride} disabled={sistemaSalvando}>{sistemaSalvando ? "Salvando..." : "Salvar"}</button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                };
                                 const sid = stage.id;
                                 const boasVindasCards = (<>
                                   <CardSistema ativo={fluxoToggles.boas_vindas_email} toggleKey="boas_vindas_email" label="E-mail de boas-vindas ao cliente" gatilho="Imediato — ao entrar no sistema (Aura Chat ou cadastro manual)" preview={"Assunto: Recebemos sua mensagem, {nome}!\n\nOlá, {nome}! Que alegria receber sua ideia aqui na {estudio}. Já registramos tudo com cuidado — em até 24h, alguém da nossa equipe vai te ligar pessoalmente. Sem formulário, sem robô — conversa de gente pra gente.\n\n+ Resumo dos dados registrados (nome, telefone, ideia, região, artista...)"} />
@@ -8251,18 +8461,24 @@ export default function CRM() {
                                 if (sid === "lead_morno") return boasVindasCards;
                                 if (sid === "aura_agend") return boasVindasCards;
                                 if (sid === "cons_agendada") return (<>
-                                  <CardSistema ativo={fluxoToggles.confirma_consulta} toggleKey="confirma_consulta" label="E-mail de confirmação de consulta" gatilho="Imediato — ao agendar a consulta" preview={"Assunto: Sua consulta está agendada, {nome} ✦\n\nOlá, {nome}! Que bom ter você aqui. Sua consulta na {estudio} foi agendada com sucesso — esse é o primeiro passo do seu projeto de tatuagem.\n\n📅 Data · 🕐 Horário · ✦ Profissional · 📍 Local\n\nNa consulta vamos: entender sua ideia, definir estilo/tamanho/posicionamento, tirar dúvidas e apresentar orçamento personalizado."} />
-                                  <CardSistema ativo={fluxoToggles.confirmacao_presenca} toggleKey="confirmacao_presenca" label="Lembrete D-1 de consulta" gatilho="Um dia antes — evento na agenda amanhã" preview={"Assunto: Sua consulta é amanhã — {estudio}\n\nOlá, {nome}! Sua consulta está marcada para amanhã.\n\nEstamos ansiosos para conhecer a sua ideia — mal podemos esperar!\n\nConfirme sua presença aqui: [link]\n\nLembrete carinhoso: faltas sem aviso podem resultar em restrições futuras de agendamento."} />
-                                  <CardSistema ativo={fluxoToggles.sms_consulta} toggleKey="sms_consulta" label="SMS no dia da consulta — cliente e artista" gatilho="No dia — manhã cedo (cliente + artista vinculado)" preview={"Cliente: Olá, {nome}! Hoje é o dia da sua consulta na {estudio}. Estamos ansiosos para ouvir a sua ideia e apresentar o projeto da sua nova arte que será eternizada na sua pele. Te esperamos às {hora} em: {endereco}. Até logo! — {estudio}\n\nArtista: INK SYSTEM: Você tem uma consulta hoje com {nome} às {hora}. Projeto solicitado: {solicitacao}. Confira sua agenda e prepare-se."} />
+                                  <CardSistemaEditavel chave="confirmacao_consulta" />
+                                  <CardSistemaEditavel chave="lembrete_d1_consulta" />
+                                  <CardSistemaEditavel chave="dia_consulta_cliente" />
+                                  <CardSistemaEditavel chave="dia_consulta_artista" />
                                 </>);
                                 if (sid === "sessao_agend") return (<>
-                                  <CardSistema ativo={fluxoToggles.confirma_sessao} toggleKey="confirma_sessao" label="E-mail de confirmação de sessão" gatilho="Imediato — ao agendar a sessão" preview={"Assunto: Sua sessão está confirmada, {nome} ✦\n\nOlá, {nome}! Sua sessão na {estudio} está marcada e a gente já está animado com o que vem por aí.\n\n📅 Data · 🕐 Horário · ✦ Profissional · 📍 Local\n\nAntes da sua sessão: alimente-se bem, evite álcool 24h antes, durma bem, hidrate a pele da região."} />
-                                  <CardSistema ativo={fluxoToggles.confirmacao_presenca} toggleKey="confirmacao_presenca" label="Lembrete D-1 de sessão" gatilho="Um dia antes — evento na agenda amanhã" preview={"Assunto: Sua sessão é amanhã — {estudio}\n\nOlá, {nome}! A arte está pronta, o artista está animado — mal podemos esperar para tatuar você!\n\nConfirme sua presença: [link]\n\nLembrete carinhoso: faltas sem aviso são registradas e podem resultar em restrições futuras."} />
-                                  <CardSistema ativo={fluxoToggles.sms_sessao} toggleKey="sms_sessao" label="SMS no dia da sessão — cliente e artista" gatilho="No dia — manhã cedo (cliente + artista vinculado)" preview={"Cliente: Olá, {nome}! Hoje é o dia da sua sessão de tatuagem na {estudio}. A arte está pronta e o artista está animado para tatuar você! Te esperamos às {hora} em: {endereco}. Pontualidade é muito importante para nós. Até logo! — {estudio}\n\nArtista: INK SYSTEM: Você tem uma sessão de tatuagem hoje com {nome} às {hora}. Projeto solicitado: {solicitacao}. Prepare tudo para a arte de hoje."} />
+                                  <CardSistemaEditavel chave="confirmacao_sessao" />
+                                  <CardSistemaEditavel chave="lembrete_d1_sessao" />
+                                  <CardSistemaEditavel chave="dia_sessao_cliente" />
+                                  <CardSistemaEditavel chave="dia_sessao_artista" />
                                 </>);
+                                if (sid === "aguard_agend") return <CardSistemaEditavel chave="aguard_agend" />;
+                                if (sid === "pos_venda_piercing") return <CardSistemaEditavel chave="pos_venda_piercing" />;
+                                if (sid === "lista_espera") return <CardSistemaEditavel chave="lista_espera" />;
                                 if (sid === "pos_venda" || sid === "tatuado") return (<>
                                   <CardSistema ativo={fluxoToggles.nps} toggleKey="nps" label="Avaliação NPS pós-sessão" gatilho="D+1 — após entrada no Pós-venda" preview={"Assunto: Como foi sua sessão, {nome}?\n\nFoi uma alegria ter você no estúdio. Como você avalia sua experiência? [escala 0–10]\n\nNota e comentário salvos na ficha automaticamente."} />
                                   <CardSistema ativo={fluxoToggles.google_convite} toggleKey="google_convite" label="Convite ao Google" gatilho="D+2 — após avaliação positiva (nota ≥ 7)" preview={"Assunto: Uma última coisa, {nome} — leva 1 minuto\n\nSua opinião no Google faz uma diferença enorme para nós. Clique para avaliar — o seu comentário já aparece pré-preenchido."} />
+                                  {sid === "tatuado" && <CardSistemaEditavel chave="tatuado_aftercare" />}
                                 </>);
                                 if (sid === "aguard_prox_sessao") return (
                                   <CardSistema ativo={fluxoToggles.recontato_prox_sessao} toggleKey="recontato_prox_sessao" label="E-mail de recontato + link WhatsApp" gatilho="D+60 — sem nova solicitação. Move para Hibernação em D+90 se não houver retorno" preview={"Assunto: A próxima ideia já nasceu, {nome}?\n\nOlá, {nome}! Faz um tempo desde a sua última sessão. Esperamos que sua arte esteja linda e bem cicatrizada.\n\nSabemos que uma boa ideia não tem pressa para nascer. Mas quando ela chegar, queremos ser os primeiros a saber.\n\n[ Tenho uma nova ideia ] → abre WhatsApp\n\nRespeitoso abraço, {estudio}"} />
@@ -8274,9 +8490,7 @@ export default function CRM() {
                                   <CardSistema ativo={fluxoToggles.agradecimento_1asessao} toggleKey="agradecimento_1asessao" label="E-mail de agradecimento pela consulta" gatilho="Imediato — ao entrar em Aguardando 1ª Sessão" preview={"Assunto: Obrigado pela sua visita, {nome}\n\nOlá, {nome}! Queremos te agradecer por ter vindo até a gente. Sua pontualidade e compromisso dizem muito sobre quem você é.\n\nSeu projeto está registrado com carinho. Daqui a 30 dias vamos entrar em contato para saber se já chegou a sua hora!\n\nRespeitoso abraço, {estudio}"} />
                                   <CardSistema ativo={fluxoToggles.recontato_d30} toggleKey="recontato_d30" label="E-mail de recontato D+30 — Sim / Não" gatilho="30 dias após entrar na etapa — repete a cada 30 dias enquanto clicar Não" preview={"Assunto: Já chegou a sua hora, {nome}?\n\nFaz 30 dias desde a sua consulta. Seu projeto continua guardado com o mesmo cuidado de sempre.\n\n{artista} criou algo pensado exclusivamente para você.\n\n[ Sim, quero agendar! ] → abre WhatsApp\n[ Ainda não ] → recontato em mais 30 dias"} />
                                 </>);
-                                if (sid === "reengajamento") return (
-                                  <CardSistema label="Reativação de clientes" gatilho="A cada 180 dias — cliente em Reengajamento" preview={"Olá, {nome}! Espero que sua arte esteja linda e bem cuidada. Se a próxima ideia já está nascendo, você sabe onde nos encontrar."} />
-                                );
+                                if (sid === "reengajamento") return <CardSistemaEditavel chave="reengajamento" />;
                                 return null;
                               })()}
                               {etapasDesteSlug.map((fe: any) => (

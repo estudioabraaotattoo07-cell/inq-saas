@@ -66,7 +66,54 @@ function substituirVars(msg, cliente, studioName, extra) {
     .replace(/\{estudio\}/gi, studioName || "INK SYSTEM")
     .replace(/\[ESTUDIO\]/gi, studioName || "INK SYSTEM");
   if (extra?.link) r = r.replace(/\{link\}/gi, extra.link);
+  if (extra?.hora) r = r.replace(/\{hora\}/gi, extra.hora);
+  if (extra?.endereco) r = r.replace(/\{endereco\}/gi, extra.endereco);
+  if (extra?.solicitacao) r = r.replace(/\{solicitacao\}/gi, extra.solicitacao);
+  if (extra?.data) r = r.replace(/\{data\}/gi, extra.data);
+  if (extra?.profissional) r = r.replace(/\{profissional\}/gi, extra.profissional);
   return r;
+}
+
+// Resolve o texto/canal de uma mensagem de sistema: usa a personalização do
+// tenant se existir, senão cai no texto padrão do código -- e nunca dispara
+// se o tenant desligou essa mensagem especificamente.
+function resolverMensagemSistema(overrides, chave, mensagemPadrao, canalPadrao) {
+  const ov = overrides && overrides[chave];
+  if (ov && ov.ativo === false) return { ativo: false };
+  return { ativo: true, mensagem: (ov && ov.mensagem) || mensagemPadrao, canal: (ov && ov.canal) || canalPadrao };
+}
+
+// Dispara uma mensagem simples de etapa (dias desde etapa_desde, texto plano com
+// {nome}/{estudio}, canal e-mail ou sms) -- usada pelas etapas que não têm regra
+// especial (data de agenda, repetição, etc.), reaproveitando o mesmo texto/canal
+// que o tenant configurou em mensagens_sistema_override, com fallback pro padrão.
+async function dispararMensagemEtapaSimples({ userId, cliente, cfg, studioName, sistemaOverrides, chave, diasMinimos, msgPadrao, canalPadrao, hoje, tituloEmail }) {
+  if (!cliente.etapa_desde) return false;
+  const diasEtapa = diasEntre(cliente.etapa_desde, hoje);
+  if (diasEtapa < diasMinimos) return false;
+  const dedupKey = "__" + chave + "__" + cliente.etapa_desde;
+  const disparosEnviados = cliente.disparos_enviados || {};
+  if (disparosEnviados[dedupKey]) return false;
+  const r = resolverMensagemSistema(sistemaOverrides, chave, msgPadrao, canalPadrao);
+  if (!r.ativo) return false;
+  const msg = substituirVars(r.mensagem, cliente, studioName);
+  let ok = false;
+  try {
+    if (r.canal === "sms" && cfg.zenvia_api_key && cfg.zenvia_numero && cliente.tel) {
+      ok = await dispararZenvia({ apiKey: cfg.zenvia_api_key, from: cfg.zenvia_numero, to: formatarTelBR(cliente.tel), text: msg, canal: "sms" });
+    } else if (cfg.resend_api_key && cliente.email) {
+      const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
+      ok = await dispararEmail({ apiKey: cfg.resend_api_key, from: cfg.email_remetente, nome_remetente: cfg.nome_remetente || studioName, to: cliente.email, subject: tituloEmail, html });
+    }
+  } catch { return false; }
+  if (ok) {
+    try {
+      const { data: cliAtual } = await sb.from("clientes").select("disparos_enviados").eq("id", cliente.id).single();
+      await marcarEnviado(cliente.id, dedupKey, cliAtual?.disparos_enviados || {});
+    } catch {}
+    await registrarHistorico(userId, tituloEmail + " enviado — " + cliente.nome);
+  }
+  return ok;
 }
 
 // ─── DISPARAR EMAIL direto via API da Resend ─────────────────────────────────
@@ -316,6 +363,19 @@ export default async function handler(req, res) {
             if (!campSazEtapas[fe.campanha_slug]) campSazEtapas[fe.campanha_slug] = [];
             campSazEtapas[fe.campanha_slug].push(fe);
           }
+        }
+      } catch {}
+
+      // 3b2. Overrides das mensagens de sistema (texto/canal/ativo personalizados por
+      // tenant) -- agrupado por chave. Ausência de linha = usa o texto padrão do código.
+      let sistemaOverrides = {};
+      try {
+        const { data: overrideData } = await sb
+          .from("mensagens_sistema_override")
+          .select("chave, mensagem, canal, ativo")
+          .eq("user_id", userId);
+        if (overrideData) {
+          for (const ov of overrideData) sistemaOverrides[ov.chave] = ov;
         }
       } catch {}
 
@@ -629,7 +689,7 @@ export default async function handler(req, res) {
         }
 
         // ── E-MAIL DE CONFIRMAÇÃO IMEDIATA (sessão ou consulta agendada) ────────
-        if ((cliente.etapa === "sessao_agend" || cliente.etapa === "cons_agendada") && cliente.etapa_desde && cfg.resend_api_key && cliente.email) {
+        if ((cliente.etapa === "sessao_agend" || cliente.etapa === "cons_agendada") && cliente.etapa_desde && ((cfg.resend_api_key && cliente.email) || (cfg.zenvia_api_key && cliente.tel))) {
           const ehConsultaImediata = cliente.etapa === "cons_agendada";
           const flagAtivoImediata = ehConsultaImediata ? (cfg.fluxo_confirma_consulta_ativa !== false) : (cfg.fluxo_confirma_sessao_ativa !== false);
           if (flagAtivoImediata) {
@@ -661,23 +721,35 @@ export default async function handler(req, res) {
                   const enderecoStudio = [cfg.studio_rua, cfg.studio_numero, cfg.studio_bairro, cfg.studio_city].filter(Boolean).join(", ") || "nosso estúdio";
                   const tipoLabel = ehConsultaImediata ? "consulta" : "sessão";
 
-                  const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" +
-                    "<p>Olá, <strong>" + (cliente.nome || "") + "</strong>!</p>" +
-                    "<p>Sua " + tipoLabel + " na " + studioName + " está marcada e a gente já está animado com o que vem por aí.</p>" +
-                    "<p>📅 " + dataFormatadaConfirma + (evProximo.hora ? " · 🕐 " + evProximo.hora : "") + (profissionalNome ? " · ✦ " + profissionalNome : "") + " · 📍 " + enderecoStudio + "</p>" +
-                    (ehConsultaImediata
-                      ? "<p>Na consulta vamos: entender sua ideia, definir estilo/tamanho/posicionamento, tirar dúvidas e apresentar orçamento personalizado.</p>"
-                      : "<p>Antes da sua sessão: alimente-se bem, evite álcool 24h antes, durma bem, hidrate a pele da região.</p>") +
-                    "</div>";
+                  const chaveConfirma = ehConsultaImediata ? "confirmacao_consulta" : "confirmacao_sessao";
+                  const msgPadraoConfirma = ehConsultaImediata
+                    ? `Olá, {nome}! Sua consulta na {estudio} está marcada e a gente já está animado com o que vem por aí.\n\n📅 {data} · 🕐 {hora} · ✦ {profissional} · 📍 {endereco}\n\nNa consulta vamos: entender sua ideia, definir estilo/tamanho/posicionamento, tirar dúvidas e apresentar orçamento personalizado.`
+                    : `Olá, {nome}! Sua sessão na {estudio} está marcada e a gente já está animado com o que vem por aí.\n\n📅 {data} · 🕐 {hora} · ✦ {profissional} · 📍 {endereco}\n\nAntes da sua sessão: alimente-se bem, evite álcool 24h antes, durma bem, hidrate a pele da região.`;
+                  const rConfirma = resolverMensagemSistema(sistemaOverrides, chaveConfirma, msgPadraoConfirma, "email");
 
-                  const okConfirma = await dispararEmail({
-                    apiKey: cfg.resend_api_key,
-                    from: cfg.email_remetente,
-                    nome_remetente: cfg.nome_remetente || studioName,
-                    to: cliente.email,
-                    subject: "Sua " + tipoLabel + " está confirmada, " + (cliente.nome || "") + " ✦",
-                    html
-                  });
+                  let okConfirma = false;
+                  if (rConfirma.ativo) {
+                    const corpoConfirma = substituirVars(rConfirma.mensagem, cliente, studioName, {
+                      data: dataFormatadaConfirma,
+                      hora: evProximo.hora || "a combinar",
+                      profissional: profissionalNome || "nossa equipe",
+                      endereco: enderecoStudio,
+                    });
+                    if (rConfirma.canal === "sms" && cfg.zenvia_api_key && cfg.zenvia_numero && cliente.tel) {
+                      okConfirma = await dispararZenvia({ apiKey: cfg.zenvia_api_key, from: cfg.zenvia_numero, to: formatarTelBR(cliente.tel), text: corpoConfirma, canal: "sms" });
+                    } else {
+                      const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" +
+                        corpoConfirma.replace(/\n/g, "<br>") + "</div>";
+                      okConfirma = await dispararEmail({
+                        apiKey: cfg.resend_api_key,
+                        from: cfg.email_remetente,
+                        nome_remetente: cfg.nome_remetente || studioName,
+                        to: cliente.email,
+                        subject: "Sua " + tipoLabel + " está confirmada, " + (cliente.nome || "") + " ✦",
+                        html
+                      });
+                    }
+                  }
 
                   if (okConfirma) {
                     let disparosAtuais = {};
@@ -726,24 +798,41 @@ export default async function handler(req, res) {
 
                 // SMS para o cliente
                 if (cliente.tel) {
-                  const telCliente = formatarTelBR(cliente.tel);
-                  const msgCliente = ehConsulta
-                    ? `Ola, ${cliente.nome}! Hoje e o dia da sua consulta na ${studioName}. Estamos ansiosos para ouvir a sua ideia e apresentar o projeto da sua nova arte que sera eternizada na sua pele. Te esperamos as ${horaEv} em: ${enderecoStudio}. Ate logo! - ${studioName}`
-                    : `Ola, ${cliente.nome}! Hoje e o dia da sua sessao de tatuagem na ${studioName}. A arte esta pronta e o artista esta animado para tatuar voce! Te esperamos as ${horaEv} em: ${enderecoStudio}. Pontualidade e muito importante para nos. Ate logo! - ${studioName}`;
-                  const okCliente = await dispararZenvia({ apiKey: cfg.zenvia_api_key, from: cfg.zenvia_numero, to: telCliente, text: msgCliente, canal: "sms" });
-                  if (okCliente) enviouD0 = true;
+                  const chaveDiaCliente = ehConsulta ? "dia_consulta_cliente" : "dia_sessao_cliente";
+                  const msgPadraoCliente = ehConsulta
+                    ? `Ola, {nome}! Hoje e o dia da sua consulta na {estudio}. Estamos ansiosos para ouvir a sua ideia e apresentar o projeto da sua nova arte que sera eternizada na sua pele. Te esperamos as {hora} em: {endereco}. Ate logo! - {estudio}`
+                    : `Ola, {nome}! Hoje e o dia da sua sessao de tatuagem na {estudio}. A arte esta pronta e o artista esta animado para tatuar voce! Te esperamos as {hora} em: {endereco}. Pontualidade e muito importante para nos. Ate logo! - {estudio}`;
+                  const rDiaCliente = resolverMensagemSistema(sistemaOverrides, chaveDiaCliente, msgPadraoCliente, "sms");
+                  if (rDiaCliente.ativo) {
+                    const msgCliente = substituirVars(rDiaCliente.mensagem, cliente, studioName, { hora: horaEv, endereco: enderecoStudio });
+                    if (rDiaCliente.canal === "email" && cfg.resend_api_key && cliente.email) {
+                      const okCliente = await dispararEmail({ apiKey: cfg.resend_api_key, from: cfg.email_remetente, nome_remetente: cfg.nome_remetente || studioName, to: cliente.email, subject: (ehConsulta ? "Hoje é o dia da sua consulta" : "Hoje é o dia da sua sessão") + " — " + studioName, html: "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msgCliente.replace(/\n/g, "<br>") + "</div>" });
+                      if (okCliente) enviouD0 = true;
+                    } else if (cliente.tel) {
+                      const telCliente = formatarTelBR(cliente.tel);
+                      const okCliente = await dispararZenvia({ apiKey: cfg.zenvia_api_key, from: cfg.zenvia_numero, to: telCliente, text: msgCliente, canal: "sms" });
+                      if (okCliente) enviouD0 = true;
+                    }
+                  }
                 }
 
                 // SMS para o artista (busca tel na tabela de artistas do studio)
                 if (cliente.artista) {
                   try {
-                    const { data: art } = await sb.from("artistas").select("nome, tel").eq("id", cliente.artista).single();
-                    if (art?.tel) {
-                      const telArtista = formatarTelBR(art.tel);
-                      const msgArtista = ehConsulta
-                        ? `INK SYSTEM: Voce tem uma consulta hoje com ${cliente.nome} as ${horaEv}.${solicitacao ? " Projeto solicitado: " + solicitacao + "." : ""} Confira sua agenda e prepare-se.`
-                        : `INK SYSTEM: Voce tem uma sessao de tatuagem hoje com ${cliente.nome} as ${horaEv}.${solicitacao ? " Projeto solicitado: " + solicitacao + "." : ""} Prepare tudo para a arte de hoje.`;
-                      await dispararZenvia({ apiKey: cfg.zenvia_api_key, from: cfg.zenvia_numero, to: telArtista, text: msgArtista, canal: "sms" });
+                    const chaveDiaArtista = ehConsulta ? "dia_consulta_artista" : "dia_sessao_artista";
+                    const msgPadraoArtista = ehConsulta
+                      ? `INK SYSTEM: Voce tem uma consulta hoje com {nome} as {hora}. Projeto solicitado: {solicitacao}. Confira sua agenda e prepare-se.`
+                      : `INK SYSTEM: Voce tem uma sessao de tatuagem hoje com {nome} as {hora}. Projeto solicitado: {solicitacao}. Prepare tudo para a arte de hoje.`;
+                    const rDiaArtista = resolverMensagemSistema(sistemaOverrides, chaveDiaArtista, msgPadraoArtista, "sms");
+                    if (rDiaArtista.ativo) {
+                      const { data: art } = await sb.from("artistas").select("nome, tel, email").eq("id", cliente.artista).single();
+                      const msgArtista = substituirVars(rDiaArtista.mensagem, cliente, studioName, { hora: horaEv, solicitacao: solicitacao || "não informado" });
+                      if (rDiaArtista.canal === "email" && cfg.resend_api_key && art?.email) {
+                        await dispararEmail({ apiKey: cfg.resend_api_key, from: cfg.email_remetente, nome_remetente: studioName, to: art.email, subject: (ehConsulta ? "Consulta hoje" : "Sessão hoje") + " com " + cliente.nome, html: "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msgArtista.replace(/\n/g, "<br>") + "</div>" });
+                      } else if (art?.tel) {
+                        const telArtista = formatarTelBR(art.tel);
+                        await dispararZenvia({ apiKey: cfg.zenvia_api_key, from: cfg.zenvia_numero, to: telArtista, text: msgArtista, canal: "sms" });
+                      }
                     }
                   } catch {}
                 }
@@ -820,16 +909,21 @@ export default async function handler(req, res) {
                   ? `Olá {nome}! Sua consulta está marcada para amanhã, ${dataEvFormatada}${horaEv}.\n\nEstamos ansiosos para conhecer a sua ideia e dar vida ao seu projeto — mal podemos esperar!\n\nPor favor, confirme sua presença para garantirmos tudo preparado para você:\n{link}\n\nLembrete carinhoso: faltas sem aviso prévio podem resultar em restrições futuras de agendamento. Sua pontualidade é muito importante para nós.\n\nAté amanhã! ✦\n{estudio}`
                   : `Olá {nome}! Sua sessão está marcada para amanhã, ${dataEvFormatada}${horaEv}.\n\nA arte está pronta, o artista está animado — mal podemos esperar para tatuar você!\n\nConfirme sua presença aqui:\n{link}\n\nLembrete carinhoso: faltas sem aviso prévio são registradas no sistema e podem resultar em restrições futuras. Pontualidade e respeito fazem parte do nosso ritual.\n\nNos vemos amanhã! ✦\n{estudio}`;
 
-                // Verificar se existe mensagem personalizada em fluxo_etapas do slug da etapa
+                // Prioridade: override explícito (mensagens_sistema_override) > fluxo_etapas
+                // legado (compatibilidade com quem já tinha criado por lá) > texto padrão.
+                const chaveLembrete = ehConsulta ? "lembrete_d1_consulta" : "lembrete_d1_sessao";
+                const rLembrete = resolverMensagemSistema(sistemaOverrides, chaveLembrete, null, null);
+                if (!rLembrete.ativo) { /* mensagem desativada pelo tenant -- não envia */ } else {
                 const slugEtapaD1 = ehConsulta ? "cons_agendada" : "sessao_agend";
                 const fluxoSessao = (fluxoEtapas[slugEtapaD1] || []);
                 const feConfirm = fluxoSessao.find(fe => fe.dias <= 0 || fe.label?.toLowerCase().includes("confirm") || fe.label?.toLowerCase().includes("d-1") || fe.label?.toLowerCase().includes("lembrete"));
-                const msgFinal = substituirVars(feConfirm?.mensagem || msgPadrao, cliente, studioName, { link: linkConfirmacao });
+                const msgFinal = substituirVars(rLembrete.mensagem || feConfirm?.mensagem || msgPadrao, cliente, studioName, { link: linkConfirmacao });
 
-                const canaisParaEnviar = feConfirm?.canal === "ambos"
+                const canalEscolhido = rLembrete.canal || feConfirm?.canal;
+                const canaisParaEnviar = canalEscolhido === "ambos"
                   ? ["email", "sms"]
-                  : feConfirm?.canal
-                    ? [feConfirm.canal]
+                  : canalEscolhido
+                    ? [canalEscolhido]
                     : Object.entries(canaisHabilitados).filter(([, v]) => v).map(([k]) => k).filter(k => k !== "whatsapp" || canaisHabilitados.whatsapp);
 
                 let enviou = false;
@@ -863,9 +957,52 @@ export default async function handler(req, res) {
                   await registrarHistorico(userId, (ehConsulta ? "Lembrete D-1 de consulta enviado" : "Confirmação de presença D-1 enviada") + " — " + cliente.nome);
                   totalDisparos++;
                 }
+                } // fecha o else de rLembrete.ativo
               }
             }
           } catch {}
+        }
+
+        // ── NOVAS ETAPAS SEM AUTOMAÇÃO (adicionadas 2026-07-18) ─────────────
+        if (cliente.etapa === "aguard_agend") {
+          await dispararMensagemEtapaSimples({
+            userId, cliente, cfg, studioName, sistemaOverrides, hoje,
+            chave: "aguard_agend", diasMinimos: 2, canalPadrao: "email",
+            tituloEmail: "Vamos marcar sua próxima sessão?",
+            msgPadrao: `Olá, {nome}! Sua primeira sessão na {estudio} foi só o começo — vamos marcar a continuação? Responda este e-mail ou chame no WhatsApp pra combinarmos a próxima data.`,
+          });
+        }
+        if (cliente.etapa === "tatuado") {
+          await dispararMensagemEtapaSimples({
+            userId, cliente, cfg, studioName, sistemaOverrides, hoje,
+            chave: "tatuado_aftercare", diasMinimos: 0, canalPadrao: "sms",
+            tituloEmail: "Cuidados com sua nova arte",
+            msgPadrao: `Olá, {nome}! Foi um prazer tatuar você hoje na {estudio}. Cuide bem da sua arte: mantenha limpa, hidratada e evite sol direto nos primeiros dias. Qualquer dúvida, estamos aqui!`,
+          });
+        }
+        if (cliente.etapa === "pos_venda_piercing") {
+          await dispararMensagemEtapaSimples({
+            userId, cliente, cfg, studioName, sistemaOverrides, hoje,
+            chave: "pos_venda_piercing", diasMinimos: 0, canalPadrao: "sms",
+            tituloEmail: "Cuidados com seu piercing",
+            msgPadrao: `Olá, {nome}! Seu piercing foi colocado hoje na {estudio}. Siga as orientações de higienização que passamos e evite trocar a joia antes do prazo de cicatrização. Qualquer dúvida, estamos aqui!`,
+          });
+        }
+        if (cliente.etapa === "lista_espera") {
+          await dispararMensagemEtapaSimples({
+            userId, cliente, cfg, studioName, sistemaOverrides, hoje,
+            chave: "lista_espera", diasMinimos: 0, canalPadrao: "email",
+            tituloEmail: "Você está na nossa lista de espera",
+            msgPadrao: `Olá, {nome}! Você está na nossa lista de espera na {estudio}. Assim que abrir um horário compatível, entramos em contato — seu lugar está garantido.`,
+          });
+        }
+        if (cliente.etapa === "reengajamento") {
+          await dispararMensagemEtapaSimples({
+            userId, cliente, cfg, studioName, sistemaOverrides, hoje,
+            chave: "reengajamento", diasMinimos: 30, canalPadrao: "email",
+            tituloEmail: "Sentimos sua falta",
+            msgPadrao: `Olá, {nome}! Faz um tempo que não nos falamos. Se ainda tiver vontade de tatuar ou já estiver pensando na próxima arte, adoraríamos te receber de novo na {estudio}.`,
+          });
         }
 
         // ── FLUXO_ETAPAS (régua unificada por slug de etapa) ────────────────
