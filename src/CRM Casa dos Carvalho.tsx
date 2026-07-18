@@ -318,8 +318,10 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
 .tbr::-webkit-scrollbar{display:none;}
 .tbr>*{flex-shrink:0;}
 .theme-btn{background:var(--dk3);border:1px solid var(--br);border-radius:20px;padding:5px 11px;cursor:pointer;font-size:12px;color:var(--tx2);}
-.btn-new{background:var(--gold);color:#000;border:none;border-radius:9px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;}
-.btn-new:hover{background:var(--gold-l);}
+.btn-copper{background:linear-gradient(135deg,#E0A878,#C9814C 45%,#8B5628);color:#1F1208;border:1px solid rgba(255,200,150,0.5);border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;box-shadow:0 3px 12px rgba(201,129,76,.3),inset 0 1px 0 rgba(255,255,255,0.3);transition:transform .15s,box-shadow .15s;}
+.btn-copper:hover{transform:translateY(-1px);box-shadow:0 5px 16px rgba(201,129,76,.4),inset 0 1px 0 rgba(255,255,255,0.3);}
+.btn-new{background:linear-gradient(135deg,#E8C97A,#C9A84C 45%,#8a6a24);color:#17140A;border:1px solid rgba(255,224,160,0.6);border-radius:999px;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;box-shadow:0 4px 16px rgba(201,168,76,0.3),inset 0 1px 0 rgba(255,255,255,0.35);transition:transform .15s,box-shadow .15s;}
+.btn-new:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(201,168,76,0.4),inset 0 1px 0 rgba(255,255,255,0.35);}
 .alert-btn{background:rgba(212,130,10,.15);border:1px solid rgba(212,130,10,.3);border-radius:6px;padding:4px 10px;font-size:11px;color:#D4820A;font-weight:600;cursor:pointer;}
 .alert-drop{position:fixed;top:64px;right:16px;width:min(360px,calc(100vw - 16px));background:var(--dk2);border:1px solid var(--br);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:9999;}
 .ad-hdr{padding:10px 14px;background:var(--dk3);border-bottom:1px solid var(--br);border-radius:10px 10px 0 0;font-size:12px;font-weight:600;color:var(--tx);}
@@ -5427,10 +5429,10 @@ export default function CRM() {
             {authEmail === OWNER_EMAIL && (
               <a href="https://inksystem.com.br/admin" target="_blank" rel="noreferrer" title="Painel Admin" className="theme-btn" style={{ fontSize: 13, textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>🛠️</a>
             )}
-            <button className="theme-btn" title={isDemoMode ? "Quanto custa pro meu estúdio?" : "Suporte e Assessoria"}
+            <button className="btn-copper" title={isDemoMode ? "Quanto custa pro meu estúdio?" : "Suporte e Assessoria"}
               onClick={() => { setShowSolicitacao(true); setQuizStep(0); setQuizRespostas({}); setQuizVendoComparativo(false); setQuizPlanoEscolhido(null); setSolicEnviada(false); }}
-              style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
-              {isDemoMode ? "💰 Simular plano" : "🛟 Suporte e Assessoria"}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {isDemoMode ? "💰 Simular plano" : "🤝 Suporte e Assessoria"}
             </button>
             <button className="theme-btn" title="Sair" onClick={async () => { await sb.auth.signOut(); setLogado(false); }} style={{ fontSize: 13 }}>🚪</button>
             <button className="btn-new" onClick={() => setShowForm(true)}>+ Novo Cliente</button>
