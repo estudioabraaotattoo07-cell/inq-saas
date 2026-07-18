@@ -14624,7 +14624,12 @@ export default function CRM() {
                             value={a.botao_social_label || ""} onChange={e => updArtistSite(a.id, { botao_social_label: e.target.value })} />
                         </div>
                       )}
-                      <Help>Fotos do portfólio dele — aparecem numa esteira rolante embaixo do bloco.{limiteFotos !== undefined ? ` (${fotos.length}/${limiteFotos} do plano ${sitePlano})` : ""}</Help>
+                      <Help>Fotos do portfólio dele — aparecem numa esteira embaixo do bloco.{limiteFotos !== undefined ? ` (${fotos.length}/${limiteFotos} do plano ${sitePlano})` : ""}</Help>
+                      {sitePlano !== "Ouro" && (
+                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>
+                          🔒 O carrossel em movimento automático é recurso do plano Ouro. No seu plano, os visitantes avançam manualmente pelas setas ao lado das fotos.
+                        </div>
+                      )}
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
                         {fotos.map((f, i) => (
                           <div key={i} style={{ position: "relative", width: 80, height: 100 }}>

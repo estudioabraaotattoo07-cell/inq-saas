@@ -128,7 +128,8 @@ function paginaSiteIndisponivel() {
 // Molde "Premium" — site publico do tenant, gerado a partir de site_conteudo +
 // configuracoes + artistas (colunas foto_site_url/bio_site/portfolio_fotos).
 // Publicacao automatica: nao ha build, o HTML e montado na hora a cada visita.
-function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas) {
+function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas, plano) {
+  const carrosselAutomatico = plano === "Ouro";
   const nomeEstudio = cfg?.studio_name || "Estúdio";
   const local = [cfg?.studio_city, cfg?.studio_estado].filter(Boolean).join(" · ");
   const tel = (cfg?.studio_tel || "").replace(/\D/g, "");
@@ -198,7 +199,7 @@ function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas) {
     // por velocidade constante (~70px/s, mesmo ritmo do site real) em vez de um
     // tempo fixo — senão poucas fotos ficam lentas e muitas fotos ficam rápidas.
     // Todas as esteiras andam pro mesmo lado (decisão 2026-07-13).
-    const dir = "go-right";
+    const dir = carrosselAutomatico ? "go-right" : "";
     const largItem = 204; // 200px de foto + 4px de gap
     const duracaoSeg = Math.max(12, Math.round((fotos.length * largItem) / 70 * velocidadeMult));
     const fotosStrip = fotos.length > 0
@@ -818,7 +819,7 @@ export default async function handler(req, res) {
   if (acao === "site") {
     const slug = (req.query?.slug || "").trim();
     if (!slug) return res.status(400).send(paginaSiteIndisponivel());
-    const { data: tenant } = await sb.from("ink_clientes").select("auth_user_id, status").eq("slug", slug).single();
+    const { data: tenant } = await sb.from("ink_clientes").select("auth_user_id, status, plano").eq("slug", slug).single();
     if (!tenant || tenant.status !== "ativo") return res.status(404).send(paginaSiteIndisponivel());
     const uid = tenant.auth_user_id;
     // Conta demo nunca publica de verdade, mesmo com "Publicado" ligado no CRM.
@@ -833,7 +834,7 @@ export default async function handler(req, res) {
     // registro terminar de gravar (fire-and-forget não é confiável na Vercel).
     await registrarVisita(uid, req).catch(() => {});
     const campanhasAtivas = await campanhasAtivasHoje(uid).catch(() => []);
-    return res.status(200).send(paginaSitePremium(site, cfg, artistas || [], slug, campanhasAtivas));
+    return res.status(200).send(paginaSitePremium(site, cfg, artistas || [], slug, campanhasAtivas, tenant.plano));
   }
 
   // ── ANALYTICS: clique no CTA principal (aberto o chat da Aura) ──────────────
@@ -885,11 +886,15 @@ export default async function handler(req, res) {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
     const { site, cfg, artistas, slug: slugPreview } = req.body || {};
     let campanhasAtivas = [];
+    let planoPreview = null;
     if (slugPreview) {
-      const { data: tenantPreview } = await sb.from("ink_clientes").select("auth_user_id").eq("slug", slugPreview).single();
-      if (tenantPreview) campanhasAtivas = await campanhasAtivasHoje(tenantPreview.auth_user_id).catch(() => []);
+      const { data: tenantPreview } = await sb.from("ink_clientes").select("auth_user_id, plano").eq("slug", slugPreview).single();
+      if (tenantPreview) {
+        campanhasAtivas = await campanhasAtivasHoje(tenantPreview.auth_user_id).catch(() => []);
+        planoPreview = tenantPreview.plano;
+      }
     }
-    return res.status(200).send(paginaSitePremium(site || {}, cfg || {}, artistas || [], slugPreview || "", campanhasAtivas));
+    return res.status(200).send(paginaSitePremium(site || {}, cfg || {}, artistas || [], slugPreview || "", campanhasAtivas, planoPreview));
   }
 
   // ── BUSCA DE CLIENTE EXISTENTE (widget do site pergunta "já é cliente?") ────
