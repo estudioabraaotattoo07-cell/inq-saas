@@ -524,6 +524,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
 </script>
 <script>
 (function(){
+  var API_BASE = 'https://inq-saas.vercel.app';
   var ARTISTAS = ${JSON.stringify((artistas || []).map(a => a.nome))};
   var SLUG = ${JSON.stringify(slug || "")};
   var WA_LINK = ${JSON.stringify(waLink)};
@@ -549,7 +550,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     }
     if (!cliqueContado) {
       cliqueContado = true;
-      if (SLUG) fetch('/api/lead?acao=track_click&slug=' + encodeURIComponent(SLUG), { method: 'POST', keepalive: true }).catch(function(){});
+      if (SLUG) fetch(API_BASE + '/api/lead?acao=track_click&slug=' + encodeURIComponent(SLUG), { method: 'POST', keepalive: true }).catch(function(){});
     }
     if ($('aura-msgs').children.length === 0) {
       if (artistaPreEscolhido) lead.artista = artistaPreEscolhido;
@@ -618,7 +619,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     var payload = Object.assign({}, lead, { slug: SLUG, orig: 'Site', origem_slug: ORIGEM_SLUG });
     delete payload._jaECliente;
     delete payload._temCampanha;
-    return fetch('/api/lead', {
+    return fetch(API_BASE + '/api/lead', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -648,7 +649,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
   }
   function buscarCliente(tel){
     botMsg('Só um instante, deixa eu conferir seu cadastro...');
-    fetch('/api/lead?acao=lead_busca&slug=' + encodeURIComponent(SLUG) + '&tel=' + encodeURIComponent(tel))
+    fetch(API_BASE + '/api/lead?acao=lead_busca&slug=' + encodeURIComponent(SLUG) + '&tel=' + encodeURIComponent(tel))
       .then(function(r){ return r.json(); })
       .then(function(data){
         if (data.encontrado) {
