@@ -14560,12 +14560,23 @@ export default function CRM() {
                   )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div onClick={() => upd({ publicado: !sc.publicado })} title={sc.publicado ? "Site publicado — clique para despublicar" : "Site em rascunho — clique para publicar"}
-                    style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}>
-                    <div style={{ width: 34, height: 19, borderRadius: 10, background: sc.publicado ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", flexShrink: 0 }}>
-                      <div style={{ width: 15, height: 15, background: "#fff", borderRadius: "50%", position: "absolute", top: 2, left: sc.publicado ? 17 : 2, transition: "left .2s" }} />
+                  <div onClick={() => upd({ publicado: !sc.publicado })} title={sc.publicado ? "Site publicado — clique para voltar a rascunho" : "Site em rascunho — clique para publicar"}
+                    style={{ display: "flex", borderRadius: 999, overflow: "hidden", border: "1px solid var(--br)", cursor: "pointer", userSelect: "none",
+                      boxShadow: sc.publicado ? "0 0 10px rgba(39,174,96,.4)" : "0 0 10px rgba(201,168,76,.4)" }}>
+                    <div style={{ padding: "7px 14px", fontSize: 11, fontWeight: 700, letterSpacing: ".02em",
+                      background: sc.publicado ? "rgba(39,174,96,.18)" : "transparent",
+                      color: sc.publicado ? "#27AE60" : "var(--tx3)",
+                      textShadow: sc.publicado ? "0 0 6px rgba(39,174,96,.6)" : "none",
+                      opacity: sc.publicado ? 1 : 0.4 }}>
+                      ● Publicado
                     </div>
-                    <span style={{ fontSize: 11, color: sc.publicado ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{sc.publicado ? "Publicado" : "Rascunho"}</span>
+                    <div style={{ padding: "7px 14px", fontSize: 11, fontWeight: 700, letterSpacing: ".02em",
+                      background: !sc.publicado ? "rgba(201,168,76,.18)" : "transparent",
+                      color: !sc.publicado ? "var(--gold)" : "var(--tx3)",
+                      textShadow: !sc.publicado ? "0 0 6px rgba(201,168,76,.6)" : "none",
+                      opacity: !sc.publicado ? 1 : 0.4 }}>
+                      ○ Rascunho
+                    </div>
                   </div>
                   {previewUrl && <a href={previewUrl} target="_blank" rel="noreferrer" className="btn-s" style={{ textDecoration: "none" }}>👁 Ver site</a>}
                 </div>
