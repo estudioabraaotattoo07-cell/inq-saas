@@ -12086,19 +12086,12 @@ export default function CRM() {
                         <div style={{ display: "flex", gap: 6, alignItems: "center", background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 8, padding: "6px 12px" }}>
                           <span style={{ fontSize: 12, color: "var(--tx2)" }}>Confirmar alterações?</span>
                           <button onClick={() => setFichaSaveStep(0)} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "4px 10px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>Cancelar</button>
-                          <button onClick={() => setFichaSaveStep(2)} style={{ background: "var(--gold)", border: "none", borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>Confirmar</button>
-                        </div>
-                      )}
-                      {fichaSaveStep === 2 && (
-                        <div style={{ display: "flex", gap: 6, alignItems: "center", background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 8, padding: "6px 12px" }}>
-                          <span style={{ fontSize: 12, color: "var(--q1)", fontWeight: 600 }}>Esta ação é definitiva. Prosseguir?</span>
-                          <button onClick={() => setFichaSaveStep(1)} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "4px 10px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>Voltar</button>
                           <button onClick={async () => {
                             const updated = clients.find(c => c.id === sc.id);
                             if (updated) { await saveClientDb(updated); }
                             setFichaEditada(false);
                             setFichaSaveStep(0);
-                          }} style={{ background: "var(--q1)", border: "none", borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 700 }}>Salvar definitivamente</button>
+                          }} style={{ background: "var(--gold)", border: "none", borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>Confirmar</button>
                         </div>
                       )}
                     </div>
