@@ -4857,7 +4857,7 @@ export default function CRM() {
       el.style.transform = dir === 1 ? `translateX(-${AG_MID * 2}%)` : "translateX(0%)";
     }
     if (d.edgeNavTimeout) clearTimeout(d.edgeNavTimeout);
-    d.edgeNavTimeout = window.setTimeout(() => { const dd = dragRef2.current; if (dd) dd.edgeNavTimeout = null; agNav(dir); }, 285);
+    d.edgeNavTimeout = window.setTimeout(() => { const dd = dragRef2.current; if (dd) dd.edgeNavTimeout = null; agNav(dir); }, 1000);
   };
   const finalizarReagendamento = async (ev: any, newDate: string, newHour: number) => {
     if (!newDate) return;
