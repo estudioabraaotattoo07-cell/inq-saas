@@ -2440,6 +2440,19 @@ export default function CRM() {
 
   // ─── SALVAR CLIENTE NO SUPABASE ──────────────────────────────────────────
   const saveClientDb = useCallback(async (c: any) => {
+    if (c.nascimento) {
+      try {
+        const { data: cliAtual } = await sb.from("clientes").select("nascimento, disparos_enviados").eq("id", c.id).single();
+        if (cliAtual && cliAtual.nascimento !== c.nascimento) {
+          const novoDisparos = { ...(cliAtual.disparos_enviados || {}) };
+          let limpou = false;
+          Object.keys(novoDisparos).forEach(k => {
+            if (k.includes("aniversario") && !k.includes("artista")) { delete novoDisparos[k]; limpou = true; }
+          });
+          if (limpou) await sb.from("clientes").update({ disparos_enviados: novoDisparos }).eq("id", c.id);
+        }
+      } catch {}
+    }
     await dbUpsert("clientes", {
       id: typeof c.id === "number" ? undefined : c.id,
       nome: c.nome, insta: c.insta || "", tel: c.tel || "",
