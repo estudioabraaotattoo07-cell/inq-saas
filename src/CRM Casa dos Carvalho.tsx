@@ -3592,6 +3592,43 @@ export default function CRM() {
     } catch (e: any) { logFalha("email", e?.message || "erro na confirmação de agendamento"); }
   };
 
+  const enviarEmailReagendamento = async (cliente: any, data: string, horaInicio: number, artistaNome: string) => {
+    if (!cliente?.email) return;
+    const studioNomeF = (studioName || "seu estúdio").replace(/_/g, " ");
+    const dataFmt = data ? data.split("-").reverse().join("/") : "—";
+    const horaFmt = String(horaInicio).padStart(2, "0") + ":00";
+    const enderecoFmt = [studioRua, studioNumero, studioBairro, studioCity].filter(Boolean).join(", ") || "nosso estúdio";
+    const whatsappFmt = studioTel ? maskTel(studioTel) : "nosso WhatsApp";
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;">
+        <div style="background:#1a1a1a;padding:24px 32px;text-align:center;">
+          <span style="color:#c9a84c;font-size:22px;font-weight:700;letter-spacing:.05em;">${studioNomeF}</span>
+        </div>
+        <div style="padding:32px;">
+          <p style="font-size:15px;">Olá, <strong>${cliente.nome}</strong>!</p>
+          <p style="font-size:14px;color:#333;">Seu agendamento na <strong>${studioNomeF}</strong> foi remarcado.</p>
+          <div style="background:#f9f6f0;border-left:3px solid #c9a84c;border-radius:4px;padding:16px 20px;margin:20px 0;font-size:13px;line-height:2.2;">
+            <div><strong>📅 Nova data:</strong> ${dataFmt}</div>
+            <div><strong>🕐 Horário:</strong> ${horaFmt}</div>
+            ${artistaNome ? `<div><strong>✦ Profissional:</strong> ${artistaNome}</div>` : ""}
+            <div><strong>📍 Local:</strong> ${enderecoFmt}</div>
+          </div>
+          <p style="font-size:13px;color:#555;">Qualquer dúvida, fale com a gente no WhatsApp: <strong>${whatsappFmt}</strong></p>
+        </div>
+        <div style="background:#f7f7f7;padding:12px 32px;font-size:11px;color:#aaa;text-align:center;">
+          Com carinho, ${studioNomeF}
+        </div>
+      </div>`;
+    try {
+      await fetch(API_BASE + "/api/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Seu agendamento foi alterado, ${cliente.nome} ✦`, html }),
+      });
+      logEnvio("email");
+    } catch (e: any) { logFalha("email", e?.message || "erro no e-mail de reagendamento"); }
+  };
+
   const saveAgEvent = async (forceRetroativo = false) => {
     if (savingAgRef.current) return;
     savingAgRef.current = true;
@@ -4884,7 +4921,12 @@ export default function CRM() {
     addLog(`Agenda: "${ev.title || "evento"}" reagendado para ${newDate.split("-").reverse().join("/")} às ${finalHour}h — fluxo de aviso reiniciado`);
     if (undoReagTimer.current) clearTimeout(undoReagTimer.current);
     setUndoReag({ ...oldSnap, oldDisparos, novoTexto: `${newDate.split("-").reverse().join("/")} às ${finalHour}h` });
-    undoReagTimer.current = setTimeout(() => setUndoReag(null), 8000);
+    const clienteReag = ev.cliente_id ? clients.find((c: any) => c.id === ev.cliente_id) : null;
+    const artistaNomeReag = artists.find((a: any) => a.id === ev.artista)?.nome || "";
+    undoReagTimer.current = setTimeout(() => {
+      setUndoReag(null);
+      if (clienteReag) enviarEmailReagendamento(clienteReag, newDate, finalHour, artistaNomeReag);
+    }, 8000);
   };
   const desfazerReag = async () => {
     const u = undoReag; if (!u) return;
