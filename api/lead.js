@@ -657,7 +657,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     botMsg('Muito prazer, ' + lead.nome.split(' ')[0] + '! Por gentileza, você pode me informar o seu número de WhatsApp?');
     function pedirTelefone(){
       mostrarInput('(99) 99999-9999', function(tel){
-        if (tel.replace(/\D/g, '').length < 10) {
+        if (tel.replace(/[^0-9]/g, '').length < 10) {
           botMsg('Esse número não parece completo — pode digitar de novo, com DDD? Ex: (27) 99999-9999');
           return pedirTelefone();
         }
@@ -794,7 +794,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
       } else if (item === 'Telefone') {
         botMsg('Qual é o número de WhatsApp certo?');
         mostrarInput('(99) 99999-9999', function(v){
-          if (v.replace(/\D/g, '').length < 10) {
+          if (v.replace(/[^0-9]/g, '').length < 10) {
             botMsg('Esse número não parece completo — com DDD, só números.');
             return passoEscolherCorrecao();
           }
