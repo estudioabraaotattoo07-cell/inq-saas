@@ -14554,7 +14554,7 @@ export default function CRM() {
               <div style={{ ...cardSt, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                 <div>
                   <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 600, color: "var(--gold)" }}>✦ Meu Site</h2>
-                  <div style={{ fontSize: 11, color: "var(--tx3)" }}>Edite o conteúdo do seu site público — ao salvar, já publica sozinho.</div>
+                  <div style={{ fontSize: 11, color: "var(--tx3)" }}>Edite o conteúdo do seu site público.</div>
                   {siteSlug && (
                     <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 4 }}>Seu endereço: <b style={{ color: "var(--gold)" }}>inksystem.com.br/{siteSlug}</b></div>
                   )}
@@ -14581,6 +14581,9 @@ export default function CRM() {
                   </div>
                   {previewUrl && <a href={previewUrl} target="_blank" rel="noreferrer" className="btn-s" style={{ textDecoration: "none" }}>👁 Ver site</a>}
                 </div>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: -8, marginBottom: 8 }}>
+                ⚠ Publicado/Rascunho muda na hora. Mas fotos e textos que você editar aqui só aparecem no site depois de clicar em <b style={{ color: "var(--gold)" }}>Salvar</b>, lá embaixo.
               </div>
               {siteStats && (
                 <div style={{ display: "flex", gap: 20, fontSize: 11, color: "var(--tx3)", marginBottom: 16, marginTop: -8 }}>
