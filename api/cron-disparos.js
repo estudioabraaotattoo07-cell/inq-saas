@@ -10,6 +10,11 @@ const sb = createClient(
   process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY
 );
 
+// Dono do sistema tem acesso irrestrito, igual já acontece no CRM (mesmo
+// e-mail usado lá em OWNER_EMAIL) -- disparos de Disparos/Sazonais não ficam
+// bloqueados pro próprio Abraão mesmo se o plano dele não estiver "Ouro".
+const OWNER_EMAIL = "estudioabraaotattoo07@gmail.com";
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 function diasEntre(dataISO, hoje) {
@@ -300,9 +305,20 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Erro ao buscar configuracoes" });
     }
 
+    // Plano de cada tenant -- usado pra bloquear disparo de Disparos/Sazonais
+    // pra quem não tem Prata/Ouro, igual já bloqueia no CRM (dono sempre livre).
+    const inkClientesMap = {};
+    try {
+      const { data: inkClientesData } = await sb.from("ink_clientes").select("auth_user_id, plano, email");
+      for (const ic of inkClientesData || []) inkClientesMap[ic.auth_user_id] = ic;
+    } catch {}
+
     for (const cfg of configs) {
       const userId = cfg.user_id;
       if (!userId) continue;
+
+      const inkCliente = inkClientesMap[userId];
+      const temDisparosPrata = inkCliente?.email === OWNER_EMAIL || inkCliente?.plano === "Prata" || inkCliente?.plano === "Ouro";
 
       // Exclusão definitiva: clientes na lixeira há mais de 30 dias
       const limite30 = new Date(hoje);
@@ -783,7 +799,9 @@ export default async function handler(req, res) {
         }
 
         // ── SMS D-0 (dia da sessão ou consulta — cliente + artista) ────────────
-        if (cfg.zenvia_api_key && cfg.zenvia_numero && (cliente.etapa === "sessao_agend" || cliente.etapa === "cons_agendada")) {
+        // "Disparos" (lembrete/aviso do dia) é recurso Prata+ -- confirmação
+        // imediata (mais abaixo) continua liberada pro Bronze.
+        if (temDisparosPrata && cfg.zenvia_api_key && cfg.zenvia_numero && (cliente.etapa === "sessao_agend" || cliente.etapa === "cons_agendada")) {
           const ehConsulta = cliente.etapa === "cons_agendada";
           const smsAtivo = ehConsulta ? (cfg.fluxo_sms_consulta_ativa !== false) : (cfg.fluxo_sms_sessao_ativa !== false);
           if (!smsAtivo) { /* fluxo pausado */ } else
@@ -868,7 +886,7 @@ export default async function handler(req, res) {
         }
 
         // ── LEMBRETE D-1 (sessão ou consulta) ───────────────────────────────
-        if (cfg.fluxo_confirmacao_presenca_ativa !== false && (cliente.etapa === "sessao_agend" || cliente.etapa === "cons_agendada")) {
+        if (temDisparosPrata && cfg.fluxo_confirmacao_presenca_ativa !== false && (cliente.etapa === "sessao_agend" || cliente.etapa === "cons_agendada")) {
           const ehConsulta = cliente.etapa === "cons_agendada";
           try {
             // Calcular amanhã em horário de Brasília (UTC-3)
@@ -978,7 +996,8 @@ export default async function handler(req, res) {
           } catch {}
         }
 
-        // ── NOVAS ETAPAS SEM AUTOMAÇÃO (adicionadas 2026-07-18) ─────────────
+        // ── NOVAS ETAPAS SEM AUTOMAÇÃO (adicionadas 2026-07-18) — Disparos, Prata+ ──
+        if (temDisparosPrata) {
         if (cliente.etapa === "aguard_agend") {
           await dispararMensagemEtapaSimples({
             userId, cliente, cfg, studioName, sistemaOverrides, hoje,
@@ -1019,12 +1038,13 @@ export default async function handler(req, res) {
             msgPadrao: `Olá, {nome}! Faz um tempo que não nos falamos. Se ainda tiver vontade de tatuar ou já estiver pensando na próxima arte, adoraríamos te receber de novo na {estudio}.`,
           });
         }
+        }
 
         // ── FLUXO_ETAPAS (régua unificada por slug de etapa) ────────────────
         const etapaSlug = cliente.etapa || "";
         const etapasDoFluxo = fluxoEtapas[etapaSlug] || [];
 
-        if (etapasDoFluxo.length > 0 && cliente.etapa_desde) {
+        if (temDisparosPrata && etapasDoFluxo.length > 0 && cliente.etapa_desde) {
           const diasEtapa = diasEntre(cliente.etapa_desde, hoje);
           if (diasEtapa >= 0) {
             for (const fe of etapasDoFluxo) {
@@ -1093,8 +1113,8 @@ export default async function handler(req, res) {
           }
         }
 
-        // ── CAMPANHAS SAZONAIS (Mães/Pais/Namorados/Aniversário/Natal/Ano Novo) ──
-        if (cliente.etapa !== "blacklist") {
+        // ── CAMPANHAS SAZONAIS (Mães/Pais/Namorados/Aniversário/Natal/Ano Novo) ── Disparos, Prata+
+        if (temDisparosPrata && cliente.etapa !== "blacklist") {
           for (const slug of Object.keys(campSazEtapas)) {
             if (slug === "aniversario_artista") continue; // tratado à parte, abaixo — não é por data do cliente
             for (const fe of campSazEtapas[slug]) {
@@ -1161,8 +1181,8 @@ export default async function handler(req, res) {
 
         // ── CAMPANHAS SAZONAIS DE FÁBRICA (funciona mesmo sem nada configurado
         // em campanhas_sazonais_etapas — texto/canal vêm de mensagens_sistema_override,
-        // chave sazonal_<slug>, com fallback pro texto padrão do código) ──
-        if (cliente.etapa !== "blacklist") {
+        // chave sazonal_<slug>, com fallback pro texto padrão do código) — Disparos, Prata+
+        if (temDisparosPrata && cliente.etapa !== "blacklist") {
           for (const slug of Object.keys(SAZONAIS_MSG_PADRAO)) {
             try {
               for (const ano of [hoje.getFullYear() - 1, hoje.getFullYear(), hoje.getFullYear() + 1]) {
@@ -1204,8 +1224,8 @@ export default async function handler(req, res) {
           }
         }
 
-        // ── ANIVERSÁRIO DO ARTISTA (promoção divulgada pra base de clientes) ──
-        if (cliente.etapa !== "blacklist" && artistasAniversarioHoje.length > 0 && campSazEtapas["aniversario_artista"]) {
+        // ── ANIVERSÁRIO DO ARTISTA (promoção divulgada pra base de clientes) ── Disparos, Prata+
+        if (temDisparosPrata && cliente.etapa !== "blacklist" && artistasAniversarioHoje.length > 0 && campSazEtapas["aniversario_artista"]) {
           for (const artistaAniv of artistasAniversarioHoje) {
             for (const fe of campSazEtapas["aniversario_artista"]) {
               try {
@@ -1262,8 +1282,8 @@ export default async function handler(req, res) {
         }
 
         // ── ANIVERSÁRIO DO ARTISTA DE FÁBRICA (mesma lógica de override das outras
-        // sazonais, funciona mesmo sem nada configurado em campanhas_sazonais_etapas) ──
-        if (cliente.etapa !== "blacklist" && artistasAniversarioHoje.length > 0) {
+        // sazonais, funciona mesmo sem nada configurado em campanhas_sazonais_etapas) — Disparos, Prata+
+        if (temDisparosPrata && cliente.etapa !== "blacklist" && artistasAniversarioHoje.length > 0) {
           for (const artistaAniv of artistasAniversarioHoje) {
             try {
               const ano = hoje.getFullYear();
