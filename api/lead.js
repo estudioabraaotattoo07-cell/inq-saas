@@ -128,8 +128,14 @@ function paginaSiteIndisponivel() {
 // Molde "Premium" — site publico do tenant, gerado a partir de site_conteudo +
 // configuracoes + artistas (colunas foto_site_url/bio_site/portfolio_fotos).
 // Publicacao automatica: nao ha build, o HTML e montado na hora a cada visita.
+// Mesmos limites de PLANO_LIMITES.fotosPorArtista no CRM -- serve de segunda
+// trava aqui na exibição do site, caso o cadastro tenha mais fotos do que o
+// plano atual permite (ex: fotos antigas de antes do limite existir, ou
+// downgrade de plano depois de já ter subido mais fotos).
+const FOTOS_POR_ARTISTA_PLANO = { Bronze: 5, Prata: 15, Ouro: 30 };
 function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas, plano) {
   const carrosselAutomatico = plano === "Ouro";
+  const limiteFotosPlano = FOTOS_POR_ARTISTA_PLANO[plano];
   const nomeEstudio = cfg?.studio_name || "Estúdio";
   const local = [cfg?.studio_city, cfg?.studio_estado].filter(Boolean).join(" · ");
   const tel = (cfg?.studio_tel || "").replace(/\D/g, "");
@@ -188,7 +194,8 @@ function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas, plano) {
   const EXPAND_ICON = `<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
   const stripIdsComFotos = [];
   const artistasHtml = (artistas || []).map((a, artIdx) => {
-    const fotos = Array.isArray(a.portfolio_fotos) ? a.portfolio_fotos : [];
+    const fotosCadastradas = Array.isArray(a.portfolio_fotos) ? a.portfolio_fotos : [];
+    const fotos = limiteFotosPlano !== undefined ? fotosCadastradas.slice(0, limiteFotosPlano) : fotosCadastradas;
     const stripId = `strip-${artIdx}`;
     if (fotos.length > 0) stripIdsComFotos.push(stripId);
     const igHandle = (a.insta || "").replace(/^@/, "");
