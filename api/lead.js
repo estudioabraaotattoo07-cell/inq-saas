@@ -200,7 +200,7 @@ function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas, plano) {
     if (fotos.length > 0) stripIdsComFotos.push(stripId);
     const igHandle = (a.insta || "").replace(/^@/, "");
     const bioLen = (a.bio_site || "").length;
-    const bioFontSize = bioLen > 350 ? 8.5 : bioLen > 220 ? 9.5 : 10;
+    const bioFontSize = bioLen > 350 ? 11.5 : bioLen > 220 ? 12.5 : 13.5;
     // Esteira roda sozinha: a lista de fotos é duplicada e anda -50% em loop,
     // criando a ilusão de rolagem infinita sem salto no fim. Duração calculada
     // por velocidade constante (~70px/s, mesmo ritmo do site real) em vez de um
@@ -484,6 +484,15 @@ var CLICK_THRESH = 10;
 var stripArrowFns = {};
 function getStripOffset(track) { return new DOMMatrix(getComputedStyle(track).transform).m41; }
 function setStripOffset(track, x) { track.style.transform = "translateX(" + x + "px)"; }
+// Trava o arraste/seta na ultima e primeira foto pras esteiras estaticas
+// (Bronze/Prata) -- sem isso, dava pra continuar "andando" pra fundo preto
+// mesmo sem mais fotos. O Ouro tem animacao propria (classe go-right) e nao
+// usa essa trava, porque a lista la ja vem duplicada de proposito pro loop.
+function clampStripOffset(track, outer, x) {
+  if (track.classList.contains("go-right")) return x;
+  var min = Math.min(0, outer.clientWidth - track.scrollWidth);
+  return Math.max(min, Math.min(0, x));
+}
 function stripArrow(trackId, dir) {
   var fn = stripArrowFns[trackId];
   if (fn) fn(dir);
@@ -501,14 +510,18 @@ function setupStrip(trackId) {
   function moveDrag(x) {
     if (!isDrag) return;
     dragDist = Math.abs(x - startX); velX = (x - lastX) / (Date.now() - lastT || 1) * 16;
-    lastX = x; lastT = Date.now(); setStripOffset(track, startOffset + (x - startX));
+    lastX = x; lastT = Date.now(); setStripOffset(track, clampStripOffset(track, outer, startOffset + (x - startX)));
   }
   function endDrag() {
     if (!isDrag) return; isDrag = false; track.style.transition = "";
     var vel = velX;
     function inertia() {
       if (Math.abs(vel) < 0.5) { track.classList.remove("paused"); return; }
-      vel *= 0.92; setStripOffset(track, getStripOffset(track) + vel); animFrame = requestAnimationFrame(inertia);
+      vel *= 0.92;
+      var alvo = clampStripOffset(track, outer, getStripOffset(track) + vel);
+      setStripOffset(track, alvo);
+      if (alvo === 0 || alvo <= outer.clientWidth - track.scrollWidth) { track.classList.remove("paused"); return; }
+      animFrame = requestAnimationFrame(inertia);
     }
     if (Math.abs(vel) > 1) inertia(); else track.classList.remove("paused");
   }
@@ -528,7 +541,7 @@ function setupStrip(trackId) {
   });
   stripArrowFns[trackId] = function (dir) {
     track.classList.add("paused"); track.style.transition = "transform .4s ease";
-    setStripOffset(track, getStripOffset(track) + (dir === "next" ? -204 : 204));
+    setStripOffset(track, clampStripOffset(track, outer, getStripOffset(track) + (dir === "next" ? -204 : 204)));
     setTimeout(function () { track.style.transition = ""; }, 400);
   };
 }
