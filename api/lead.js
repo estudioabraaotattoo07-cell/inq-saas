@@ -768,12 +768,18 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
   // pra pessoa confirmar ou corrigir algum campo. Evita cadastro com dado
   // errado (ex: telefone digitado errado) chegando sem chance de conserto.
   function passoConfirmacao(){
+    var quebra = String.fromCharCode(10);
     var ideiaFinal = lead.idea || lead.ideia || '';
-    botMsg('Só confirmando antes de finalizar:\n📋 Nome: ' + (lead.nome || '—') +
-      '\n📱 WhatsApp: ' + (lead.tel || '—') +
-      '\n✉️ E-mail: ' + (lead.email || '—') +
-      '\n🎨 Projeto: ' + (ideiaFinal || '—') + (lead.regiao ? ' — ' + lead.regiao : '') +
-      '\n\nEstá tudo certo?');
+    var linhas = [
+      'Só confirmando antes de finalizar:',
+      '📋 Nome: ' + (lead.nome || '—'),
+      '📱 WhatsApp: ' + (lead.tel || '—'),
+      '✉️ E-mail: ' + (lead.email || '—'),
+      '🎨 Projeto: ' + (ideiaFinal || '—') + (lead.regiao ? ' — ' + lead.regiao : ''),
+      '',
+      'Está tudo certo?'
+    ];
+    botMsg(linhas.join(quebra));
     mostrarBotoes(['✅ Sim, está certo', '✏️ Preciso corrigir algo'], function(op){
       if (op.indexOf('certo') !== -1) return passoFinal();
       passoEscolherCorrecao();
