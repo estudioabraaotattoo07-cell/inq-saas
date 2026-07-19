@@ -369,7 +369,7 @@ footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28p
 .aura-close{cursor:pointer;color:var(--dim);font-size:14px}
 .aura-msgs{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
 .aura-msgs>div:first-child{margin-top:auto}
-.aura-msg-bot{background:rgba(255,255,255,0.06);color:#f0ede8;padding:9px 12px;border-radius:10px 10px 10px 2px;font-size:12.5px;line-height:1.5;max-width:85%;align-self:flex-start}
+.aura-msg-bot{background:rgba(255,255,255,0.06);color:#f0ede8;padding:9px 12px;border-radius:10px 10px 10px 2px;font-size:12.5px;line-height:1.5;max-width:85%;align-self:flex-start;white-space:pre-line}
 .aura-msg-user{background:var(--gold);color:#17140A;padding:9px 12px;border-radius:10px 10px 2px 10px;font-size:12.5px;line-height:1.5;max-width:85%;align-self:flex-end;font-weight:600}
 .aura-input-area{padding:12px 14px;border-top:1px solid rgba(201,168,76,0.15);display:flex;gap:8px;flex-wrap:wrap}
 .aura-btns{display:flex;gap:8px;flex-wrap:wrap;width:100%}
@@ -620,11 +620,23 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     var payload = Object.assign({}, lead, { slug: SLUG, orig: 'Site', origem_slug: ORIGEM_SLUG });
     delete payload._jaECliente;
     delete payload._temCampanha;
+    delete payload._clienteId;
+    if (lead._clienteId) payload.clienteId = lead._clienteId;
+    // Depois do primeiro salvamento bem-sucedido, todas as respostas seguintes
+    // dessa mesma conversa mandam o clienteId junto -- sem isso, uma resposta
+    // com telefone/e-mail ainda incompletos (ex: nao digitou nada valido ainda)
+    // nao encontra o registro que acabou de ser criado e cria um cliente novo
+    // a cada pergunta, em vez de ir completando o mesmo.
     return fetch(API_BASE + '/api/lead', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
-    }).catch(function(){});
+    }).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(data){
+        if (data && data.clienteId) lead._clienteId = data.clienteId;
+        return { json: function(){ return Promise.resolve(data); } };
+      })
+      .catch(function(){ return { json: function(){ return Promise.resolve(null); } }; });
   }
   function waBtnHtml(){
     return '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.65-.6-2.9-1.25-4.79-4.17-4.94-4.36-.14-.2-1.18-1.56-1.18-2.98s.75-2.11 1.02-2.4c.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.19-.28.37-.23.62-.14.26.09 1.63.77 1.91.91.28.14.47.21.54.33.07.12.07.68-.17 1.36Z"/></svg>';
@@ -643,10 +655,17 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
   }
   function passoTelefone(){
     botMsg('Muito prazer, ' + lead.nome.split(' ')[0] + '! Por gentileza, você pode me informar o seu número de WhatsApp?');
-    mostrarInput('(99) 99999-9999', function(tel){
-      salvar({ nome: lead.nome, tel: tel });
-      if (lead._jaECliente) buscarCliente(tel); else passoArtista();
-    });
+    function pedirTelefone(){
+      mostrarInput('(99) 99999-9999', function(tel){
+        if (tel.replace(/\D/g, '').length < 10) {
+          botMsg('Esse número não parece completo — pode digitar de novo, com DDD? Ex: (27) 99999-9999');
+          return pedirTelefone();
+        }
+        salvar({ nome: lead.nome, tel: tel });
+        if (lead._jaECliente) buscarCliente(tel); else passoArtista();
+      });
+    }
+    pedirTelefone();
   }
   function buscarCliente(tel){
     botMsg('Só um instante, deixa eu conferir seu cadastro...');
@@ -708,7 +727,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     mostrarInput('seu@email.com', function(email){ salvar({ email: email }); passoPalavraSecreta(); });
   }
   function passoPalavraSecreta(){
-    if (!CAMPANHAS_ATIVAS.length || lead._temCampanha) return passoFinal();
+    if (!CAMPANHAS_ATIVAS.length || lead._temCampanha) return passoConfirmacao();
     botMsg('Antes de fechar por aqui — você tem uma palavra secreta? 🔑');
     mostrarBotoes(['Sim', 'Não'], function(op){
       if (op === 'Sim') {
@@ -721,7 +740,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
         botMsg('Ainda não viu? Dá uma olhada aqui 👉 ' + comLink.link + '. Se descobrir, é só escrever aqui embaixo!');
         pedirPalavraSecreta();
       } else {
-        passoFinal();
+        passoConfirmacao();
       }
     });
   }
@@ -740,17 +759,66 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
           } else {
             botMsg('Não encontrei essa por aqui, mas tudo bem — vamos continuar!');
           }
-          passoFinal();
+          passoConfirmacao();
         })
-        .catch(function(){ passoFinal(); });
+        .catch(function(){ passoConfirmacao(); });
     });
+  }
+  // Revisão final -- mostra um resumo do que foi coletado antes de encerrar,
+  // pra pessoa confirmar ou corrigir algum campo. Evita cadastro com dado
+  // errado (ex: telefone digitado errado) chegando sem chance de conserto.
+  function passoConfirmacao(){
+    var ideiaFinal = lead.idea || lead.ideia || '';
+    botMsg('Só confirmando antes de finalizar:\n📋 Nome: ' + (lead.nome || '—') +
+      '\n📱 WhatsApp: ' + (lead.tel || '—') +
+      '\n✉️ E-mail: ' + (lead.email || '—') +
+      '\n🎨 Projeto: ' + (ideiaFinal || '—') + (lead.regiao ? ' — ' + lead.regiao : '') +
+      '\n\nEstá tudo certo?');
+    mostrarBotoes(['✅ Sim, está certo', '✏️ Preciso corrigir algo'], function(op){
+      if (op.indexOf('certo') !== -1) return passoFinal();
+      passoEscolherCorrecao();
+    });
+  }
+  function passoEscolherCorrecao(){
+    botMsg('Qual item você quer corrigir?');
+    mostrarBotoes(['Nome', 'Telefone', 'E-mail', 'Projeto'], function(item){
+      if (item === 'Nome') {
+        botMsg('Qual é o nome completo certo?');
+        mostrarInput('Seu nome completo', function(v){ lead.nome = v; salvar({ nome: v }); passoConfirmacao(); });
+      } else if (item === 'Telefone') {
+        botMsg('Qual é o número de WhatsApp certo?');
+        mostrarInput('(99) 99999-9999', function(v){
+          if (v.replace(/\D/g, '').length < 10) {
+            botMsg('Esse número não parece completo — com DDD, só números.');
+            return passoEscolherCorrecao();
+          }
+          lead.tel = v; salvar({ tel: v }); passoConfirmacao();
+        });
+      } else if (item === 'E-mail') {
+        botMsg('Qual é o e-mail certo?');
+        mostrarInput('seu@email.com', function(v){ lead.email = v; salvar({ email: v }); passoConfirmacao(); });
+      } else {
+        botMsg('Me conta de novo a ideia:');
+        mostrarInput('Sua ideia...', function(v){ lead.idea = v; salvar({ idea: v }); passoConfirmacao(); });
+      }
+    });
+  }
+  function montarTextoWhatsApp(){
+    var ideiaFinal = lead.idea || lead.ideia || '';
+    var partes = ['Olá! Sou ' + (lead.nome || '')];
+    if (ideiaFinal) partes.push('conversei com a Aura sobre uma tatuagem de ' + ideiaFinal);
+    if (lead.regiao) partes.push('na região: ' + lead.regiao);
+    if (lead.artista) partes.push('Artista de interesse: ' + lead.artista);
+    if (lead.email) partes.push('Meu e-mail: ' + lead.email);
+    return partes.join('. ') + '.';
   }
   function passoFinal(){
     botMsg('Pronto! Já registramos os dados principais — nossa equipe vai entrar em contato com você em breve. Se quiser adiantar, pode chamar no WhatsApp do estúdio! 🖤');
     var area = $('aura-input-area');
     area.innerHTML = '';
     var a = document.createElement('a');
-    a.href = WA_LINK; a.target = '_blank'; a.className = 'aura-wa-btn';
+    a.href = WA_LINK !== '#' ? WA_LINK + '?text=' + encodeURIComponent(montarTextoWhatsApp()) : WA_LINK;
+    a.target = '_blank'; a.className = 'aura-wa-btn';
     a.innerHTML = waBtnHtml() + 'Falar agora no WhatsApp';
     area.appendChild(a);
   }
@@ -1302,7 +1370,7 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug, origem_slug: origemSlug, palavra_secreta: palavraSecreta } = req.body;
+  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody } = req.body;
   if (!nome && !tel && !email) return res.status(400).json({ error: "pelo menos um dado obrigatorio" });
 
   const ideaFinal = idea || ideia || "";
@@ -1398,18 +1466,28 @@ export default async function handler(req, res) {
   let isNewClient = true;
   let matchInfo = null;
   let telefoneCompartilhadoCom = null;
+  let etapaMudouAgora = false;
   {
     const telDigits = tel ? tel.replace(/[^0-9]/g, "").slice(-11) : null;
     const emailNorm = email ? email.trim().toLowerCase() : null;
     const { data: existentes } = await sb.from("clientes").select("id,tel,nome,email,insta,descricao,nascimento,artista,regiao,etapa,projetos,campanha_id").eq("user_id", row.user_id);
-    let match =
-      (telDigits && (existentes || []).find(c => c.tel && c.tel.replace(/[^0-9]/g, "").slice(-11) === telDigits)) ||
-      (emailNorm && (existentes || []).find(c => c.email && c.email.trim().toLowerCase() === emailNorm));
+    // Uma mesma conversa do chat manda várias respostas em sequência (nome,
+    // depois ideia, depois região...). Enquanto telefone/e-mail ainda não
+    // foram digitados (ou vieram inválidos), não tem como reconhecer "é a
+    // mesma pessoa conversando" só por esses dois campos -- por isso, a
+    // partir do primeiro salvamento bem-sucedido, o clienteId já resolvido
+    // manda direto pra esse registro, sem depender de telefone/e-mail.
+    let match = clienteIdBody ? (existentes || []).find(c => String(c.id) === String(clienteIdBody)) : null;
+    if (!match) {
+      match =
+        (telDigits && (existentes || []).find(c => c.tel && c.tel.replace(/[^0-9]/g, "").slice(-11) === telDigits)) ||
+        (emailNorm && (existentes || []).find(c => c.email && c.email.trim().toLowerCase() === emailNorm));
+    }
     // Telefone/e-mail em comum não garante que é a mesma pessoa (ex: casal
     // dividindo o mesmo número) -- só trata como o mesmo cliente se o primeiro
     // nome bater. Nome diferente = pessoa diferente: vira cadastro novo, com
     // aviso na ficha pra não confundir com erro de duplicidade.
-    if (match && nome && match.nome && primeiroNome(nome) !== primeiroNome(match.nome)) {
+    if (match && !clienteIdBody && nome && match.nome && primeiroNome(nome) !== primeiroNome(match.nome)) {
       telefoneCompartilhadoCom = match.nome;
       match = null;
     }
@@ -1442,6 +1520,7 @@ export default async function handler(req, res) {
       if (etapaSolicitada && (!match.etapa || ETAPAS_INICIAIS.includes(match.etapa))) {
         updateFields.etapa = etapaSolicitada;
         updateFields.etapa_desde = new Date().toISOString();
+        etapaMudouAgora = true;
       }
       await sb.from("clientes").update(updateFields).eq("id", match.id);
       clienteId = match.id;
@@ -1492,7 +1571,11 @@ export default async function handler(req, res) {
     validade: camposCampanha.campanha_credito_validade || camposCampanha.campanha_desconto_validade,
   } : null;
 
-  const deveNotificar = !!etapaSolicitada;
+  // deveNotificar so pode olhar se a etapa REALMENTE mudou agora (etapaMudouAgora) --
+  // nao basta checar se etapaSolicitada veio no payload, porque o lead acumulado
+  // manda esse campo em toda resposta seguinte da mesma conversa (idea, regiao,
+  // e-mail, correcoes...), o que disparava o aviso de novo a cada passo.
+  const deveNotificar = isNewClient ? !!etapaSolicitada : etapaMudouAgora;
   if (!isNewClient) {
     if (!deveNotificar) return res.status(200).json({ ok: true, clienteId, updated: true, campanha: campanhaResp, ...matchInfo });
   } else if (!deveNotificar) {
