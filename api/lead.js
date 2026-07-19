@@ -202,8 +202,12 @@ function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas, plano) {
     const dir = carrosselAutomatico ? "go-right" : "";
     const largItem = 204; // 200px de foto + 4px de gap
     const duracaoSeg = Math.max(12, Math.round((fotos.length * largItem) / 70 * velocidadeMult));
+    // A duplicação da lista só faz sentido pro plano Ouro, onde a esteira anda
+    // sozinha e precisa do "loop" pra não dar salto no fim. Nos outros planos
+    // (esteira estática, só setas manuais) duplicar só repete as mesmas fotos
+    // à toa.
     const fotosStrip = fotos.length > 0
-      ? [...fotos, ...fotos].map(f => `<div class="strip-item" data-src="${esc(f)}"><img src="${esc(f)}" alt=""><div class="strip-ov"><div class="strip-exp">${EXPAND_ICON}</div></div></div>`).join("")
+      ? (carrosselAutomatico ? [...fotos, ...fotos] : fotos).map(f => `<div class="strip-item" data-src="${esc(f)}"><img src="${esc(f)}" alt=""><div class="strip-ov"><div class="strip-exp">${EXPAND_ICON}</div></div></div>`).join("")
       : "";
     return `
     <div class="artist-row">
