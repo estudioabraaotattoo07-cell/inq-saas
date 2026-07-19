@@ -1390,17 +1390,29 @@ export default async function handler(req, res) {
     if (!n) return undefined; // mantém existente, não sobrescreve
     return n.length > e.length ? n : undefined; // novo mais longo = mais completo
   }
+  function primeiroNome(s) {
+    return (s || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(" ")[0] || "";
+  }
 
   let clienteId = null;
   let isNewClient = true;
   let matchInfo = null;
+  let telefoneCompartilhadoCom = null;
   {
     const telDigits = tel ? tel.replace(/[^0-9]/g, "").slice(-11) : null;
     const emailNorm = email ? email.trim().toLowerCase() : null;
     const { data: existentes } = await sb.from("clientes").select("id,tel,nome,email,insta,descricao,nascimento,artista,regiao,etapa,projetos,campanha_id").eq("user_id", row.user_id);
-    const match =
+    let match =
       (telDigits && (existentes || []).find(c => c.tel && c.tel.replace(/[^0-9]/g, "").slice(-11) === telDigits)) ||
       (emailNorm && (existentes || []).find(c => c.email && c.email.trim().toLowerCase() === emailNorm));
+    // Telefone/e-mail em comum não garante que é a mesma pessoa (ex: casal
+    // dividindo o mesmo número) -- só trata como o mesmo cliente se o primeiro
+    // nome bater. Nome diferente = pessoa diferente: vira cadastro novo, com
+    // aviso na ficha pra não confundir com erro de duplicidade.
+    if (match && nome && match.nome && primeiroNome(nome) !== primeiroNome(match.nome)) {
+      telefoneCompartilhadoCom = match.nome;
+      match = null;
+    }
     if (match) {
       const updateFields = { excluido_em: null };
       if (origemSlug && row.orig !== "Site") updateFields.orig = row.orig;
@@ -1443,6 +1455,9 @@ export default async function handler(req, res) {
   }
 
   if (!clienteId) {
+    if (telefoneCompartilhadoCom) {
+      row.obs = `${row.obs} ⚠️ Mesmo telefone/e-mail de outro cliente cadastrado: ${telefoneCompartilhadoCom}.`;
+    }
     const { data: inserted, error } = await sb.from("clientes").insert(row).select("id").single();
     if (error) {
       console.error("Supabase insert error:", error);
