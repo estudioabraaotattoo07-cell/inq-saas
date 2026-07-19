@@ -394,7 +394,7 @@ footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28p
     <h1 class="hero-headline">${heroHeadline}</h1>
   </div>
 </section>
-<div class="cta-zone"><a class="btn-gold" href="javascript:void(0)" onclick="AuraChat.abrir()">✦ Quero tatuar com vocês!</a></div>
+<div class="cta-zone"><a class="btn-gold" href="javascript:void(0)" onclick="AuraChat.abrir()">✦ ${esc(site.hero_botao_texto || "Quero tatuar com vocês!")}</a></div>
 ${site.manifesto_frase ? `<section class="manifesto"><blockquote class="manifesto-quote">"${esc(site.manifesto_frase)}"</blockquote></section>` : ""}
 <section class="portfolio-block">${artistasHtml}</section>
 <section class="como">

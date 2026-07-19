@@ -14677,9 +14677,14 @@ export default function CRM() {
                   <textarea className="fta" placeholder={"Escreva aqui...\nEx: Onde sua ideia vira\narte pra sempre."} value={sc.hero_frase || ""} onChange={e => upd({ hero_frase: e.target.value })} />
                 </div>
                 <Help>Uma frase curta e marcante — funciona como um lema do seu estúdio.</Help>
-                <div className="ff">
+                <div className="ff" style={{ marginBottom: 20 }}>
                   <label className="fl">Frase do manifesto</label>
                   <input className="fi" placeholder="Escreva aqui... Ex: Tatuagem não é moda. É memória." value={sc.manifesto_frase || ""} onChange={e => upd({ manifesto_frase: e.target.value })} />
+                </div>
+                <Help>Texto do botão principal, logo abaixo da foto de capa — é ele que abre a conversa com a Aura.</Help>
+                <div className="ff">
+                  <label className="fl">Texto do botão principal</label>
+                  <input className="fi" placeholder="Escreva aqui... Ex: Quero tatuar com vocês!" value={sc.hero_botao_texto || ""} onChange={e => upd({ hero_botao_texto: e.target.value })} />
                 </div>
               </div>
 
