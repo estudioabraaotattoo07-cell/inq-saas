@@ -14529,7 +14529,7 @@ export default function CRM() {
             </div>
           );
 
-          const ImageSlot = ({ label, hint, value, onChange, profile = "full" }: { label: string; hint: string; value: string; onChange: (url: string) => void; profile?: "full" | "thumb" }) => (
+          const ImageSlot = ({ label, hint, value, onChange, profile = "full", aspect }: { label: string; hint: string; value: string; onChange: (url: string) => void; profile?: "full" | "thumb"; aspect?: string }) => (
             <div style={{ marginBottom: 22 }}>
               <Help>{hint}</Help>
               <label className="fl">{label}</label>
@@ -14538,10 +14538,12 @@ export default function CRM() {
                 border: value ? "1.5px solid rgba(201,168,76,0.4)" : "1.5px dashed rgba(201,168,76,0.3)",
                 borderRadius: 10, overflow: "hidden", background: "#050505", position: "relative",
                 minHeight: value ? undefined : 110,
+                aspectRatio: aspect,
+                maxWidth: aspect ? 280 : undefined,
               }}>
                 {value ? (
                   <>
-                    <img src={value} style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }} />
+                    <img src={value} style={aspect ? { width: "100%", height: "100%", objectFit: "cover", display: "block" } : { width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }} />
                     <div className="img-slot-ov" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.5)", opacity: 0, transition: "opacity .15s", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gold)", fontSize: 12, fontWeight: 700 }}
                       onMouseEnter={e => (e.currentTarget.style.opacity = "1")} onMouseLeave={e => (e.currentTarget.style.opacity = "0")}>
                       📷 Trocar foto
@@ -14659,7 +14661,7 @@ export default function CRM() {
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 14 }}>Identidade</div>
                 <ImageSlot label="Foto de capa (Hero)" hint="Recomendado: 1600×900px, paisagem. É a primeira imagem que o visitante vê, em tela cheia. Ideal: a fachada do seu estúdio, ou uma foto sua (ou com a equipe) com sua marca aparecendo."
-                  value={sc.hero_foto_url || ""} onChange={(url) => upd({ hero_foto_url: url })} />
+                  value={sc.hero_foto_url || ""} onChange={(url) => upd({ hero_foto_url: url })} aspect="16/9" />
                 <Help>Aparecem embaixo da foto de capa e no rodapé do site, pra mostrar onde fica o estúdio. Já vêm preenchidos automaticamente do que está em Configurações, mas pode alterar aqui.</Help>
                 <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
                   <div className="ff" style={{ flex: 2 }}>
@@ -14722,7 +14724,7 @@ export default function CRM() {
                         </div>
                       </div>
                       <ImageSlot label="Foto do artista" hint="Recomendado: 800×1000px, retrato." profile="thumb"
-                        value={a.foto_site_url || ""} onChange={(url) => updArtistSite(a.id, { foto_site_url: url })} />
+                        value={a.foto_site_url || ""} onChange={(url) => updArtistSite(a.id, { foto_site_url: url })} aspect="4/5" />
                       <Help>Descrição que aparece ao lado da foto (máx. 500 caracteres) — quanto mais texto, menor a letra, pra sempre caber.</Help>
                       <textarea className="fta" maxLength={500} placeholder="Escreva aqui... Ex: Traço fino, cores vivas e um cuidado enorme com cada detalhe."
                         value={a.bio_site || ""} onChange={e => updArtistSite(a.id, { bio_site: e.target.value })} />
@@ -14873,7 +14875,7 @@ export default function CRM() {
                   bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro")}
                   meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="História do estúdio">
                 <ImageSlot label="Foto do banner" hint="Recomendado: 1600×900px, paisagem. Uma foto marcante do estúdio, da equipe ou de um trabalho autoral."
-                  value={sc.banner_foto_url || ""} onChange={(url) => upd({ banner_foto_url: url })} />
+                  value={sc.banner_foto_url || ""} onChange={(url) => upd({ banner_foto_url: url })} aspect="16/9" />
                 <div className="ff" style={{ marginBottom: 20 }}>
                   <label className="fl">Título do banner</label>
                   <input className="fi" placeholder="Escreva aqui... Ex: Do primeiro traço até hoje." value={sc.banner_titulo || ""} onChange={e => upd({ banner_titulo: e.target.value })} />
