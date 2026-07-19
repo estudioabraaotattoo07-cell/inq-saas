@@ -5056,7 +5056,7 @@ export default function CRM() {
     if (proj.piercingModo === "joia_aplicacao") return { valorJoia: proj.valorJoia || 0, valorAplicacao: proj.valorAplicacao || 0 };
     return null;
   };
-  const CardSistemaEditavel = ({ chave }: { chave: string }) => {
+  const CardSistemaEditavel = ({ chave, bloqueado }: { chave: string; bloqueado?: boolean }) => {
     const def = MENSAGENS_SISTEMA_DEF[chave];
     if (!def) return null;
     const ov = sistemaOverrides[chave];
@@ -5066,11 +5066,13 @@ export default function CRM() {
     const temOverride = !!ov?.mensagem;
     const editando = sistemaEditandoChave === chave;
     const abrirEdicao = () => {
+      if (bloqueado) return;
       setSistemaEditandoChave(chave);
       setSistemaEditTexto(mensagemEfetiva);
       setSistemaEditCanal(canalEfetivo);
     };
     const salvarOverride = async () => {
+      if (bloqueado) return;
       setSistemaSalvando(true);
       try {
         const row = { user_id: userId, chave, mensagem: sistemaEditTexto, canal: sistemaEditCanal, ativo: true, atualizado_em: new Date().toISOString() };
@@ -5081,6 +5083,7 @@ export default function CRM() {
       setSistemaEditandoChave(null);
     };
     const voltarOriginal = async () => {
+      if (bloqueado) return;
       await sb.from("mensagens_sistema_override").delete().eq("user_id", userId).eq("chave", chave);
       setSistemaOverrides(p => { const n = { ...p }; delete n[chave]; return n; });
       setSistemaEditandoChave(null);
@@ -5097,6 +5100,7 @@ export default function CRM() {
             <span style={{ fontSize: 9, color: ativo ? "var(--q3)" : "var(--tx3)", fontWeight: 600 }}>{ativo ? "● Ativo" : "○ Pausado"}</span>
             <div
               onClick={() => {
+                if (bloqueado) return;
                 if (ativo) {
                   setToggleConfirm({ campo: chave, novoValor: false, label: def.label, motivo: def.motivo, tipo: "override" });
                 } else {
@@ -5104,7 +5108,7 @@ export default function CRM() {
                     .then(({ data }) => { if (data) setSistemaOverrides(p => ({ ...p, [chave]: data })); });
                 }
               }}
-              style={{ width: 30, height: 17, borderRadius: 9, background: ativo ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", cursor: "pointer", flexShrink: 0 }}>
+              style={{ width: 30, height: 17, borderRadius: 9, background: ativo ? "var(--q3)" : "var(--dk5)", position: "relative", transition: "background .2s", cursor: bloqueado ? "not-allowed" : "pointer", flexShrink: 0 }}>
               <div style={{ width: 11, height: 11, background: "#fff", borderRadius: "50%", position: "absolute", top: 3, left: ativo ? 16 : 3, transition: "left .2s" }} />
             </div>
           </div>
@@ -5113,7 +5117,9 @@ export default function CRM() {
         {!editando ? (
           <>
             <div style={{ fontSize: 10, color: "var(--tx3)", fontStyle: "italic", background: "var(--dk4)", borderRadius: 4, padding: "6px 8px", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{mensagemEfetiva}</div>
-            <button onClick={abrirEdicao} style={{ marginTop: 6, fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: "pointer" }}>Editar</button>
+            {!bloqueado && (
+              <button onClick={abrirEdicao} style={{ marginTop: 6, fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: "pointer" }}>Editar</button>
+            )}
           </>
         ) : (
           <div style={{ marginTop: 6, background: "var(--dk3)", borderRadius: 7, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -8384,6 +8390,7 @@ export default function CRM() {
               {/* ── FLUXO UNIFICADO POR ETAPA ── */}
               <AccordionHeader titulo="Fluxo de Relacionamento por Etapa" aberto={pvAccordion.fluxo} onToggle={() => setPvAccordion(p => ({ ...p, fluxo: !p.fluxo }))} />
               {pvAccordion.fluxo && (() => {
+                const bloqueadoDisparos = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata");
                 const slugsComFluxo = Array.from(new Set(fluxoEtapas.map((f: any) => f.etapa_slug)));
                 const salvarFluxoEtapa = async (etapa: any) => {
                   setFluxoSalvando(true);
@@ -8496,24 +8503,24 @@ export default function CRM() {
                                 if (sid === "lead_morno") return boasVindasCards;
                                 if (sid === "aura_agend") return boasVindasCards;
                                 if (sid === "cons_agendada") return (<>
-                                  <CardSistemaEditavel chave="confirmacao_consulta" />
-                                  <CardSistemaEditavel chave="lembrete_d1_consulta" />
-                                  <CardSistemaEditavel chave="dia_consulta_cliente" />
-                                  <CardSistemaEditavel chave="dia_consulta_artista" />
+                                  <CardSistemaEditavel chave="confirmacao_consulta" bloqueado={bloqueadoDisparos} />
+                                  <CardSistemaEditavel chave="lembrete_d1_consulta" bloqueado={bloqueadoDisparos} />
+                                  <CardSistemaEditavel chave="dia_consulta_cliente" bloqueado={bloqueadoDisparos} />
+                                  <CardSistemaEditavel chave="dia_consulta_artista" bloqueado={bloqueadoDisparos} />
                                 </>);
                                 if (sid === "sessao_agend") return (<>
-                                  <CardSistemaEditavel chave="confirmacao_sessao" />
-                                  <CardSistemaEditavel chave="lembrete_d1_sessao" />
-                                  <CardSistemaEditavel chave="dia_sessao_cliente" />
-                                  <CardSistemaEditavel chave="dia_sessao_artista" />
+                                  <CardSistemaEditavel chave="confirmacao_sessao" bloqueado={bloqueadoDisparos} />
+                                  <CardSistemaEditavel chave="lembrete_d1_sessao" bloqueado={bloqueadoDisparos} />
+                                  <CardSistemaEditavel chave="dia_sessao_cliente" bloqueado={bloqueadoDisparos} />
+                                  <CardSistemaEditavel chave="dia_sessao_artista" bloqueado={bloqueadoDisparos} />
                                 </>);
-                                if (sid === "aguard_agend") return <CardSistemaEditavel chave="aguard_agend" />;
-                                if (sid === "pos_venda_piercing") return <CardSistemaEditavel chave="pos_venda_piercing" />;
-                                if (sid === "lista_espera") return <CardSistemaEditavel chave="lista_espera" />;
+                                if (sid === "aguard_agend") return <CardSistemaEditavel chave="aguard_agend" bloqueado={bloqueadoDisparos} />;
+                                if (sid === "pos_venda_piercing") return <CardSistemaEditavel chave="pos_venda_piercing" bloqueado={bloqueadoDisparos} />;
+                                if (sid === "lista_espera") return <CardSistemaEditavel chave="lista_espera" bloqueado={bloqueadoDisparos} />;
                                 if (sid === "pos_venda" || sid === "tatuado") return (<>
                                   <CardSistema ativo={fluxoToggles.nps} toggleKey="nps" label="Avaliação NPS pós-sessão" gatilho="D+1 — após entrada no Pós-venda" preview={"Assunto: Como foi sua sessão, {nome}?\n\nFoi uma alegria ter você no estúdio. Como você avalia sua experiência? [escala 0–10]\n\nNota e comentário salvos na ficha automaticamente."} />
                                   <CardSistema ativo={fluxoToggles.google_convite} toggleKey="google_convite" label="Convite ao Google" gatilho="D+2 — após avaliação positiva (nota ≥ 7)" preview={"Assunto: Uma última coisa, {nome} — leva 1 minuto\n\nSua opinião no Google faz uma diferença enorme para nós. Clique para avaliar — o seu comentário já aparece pré-preenchido."} />
-                                  {sid === "tatuado" && <CardSistemaEditavel chave="tatuado_aftercare" />}
+                                  {sid === "tatuado" && <CardSistemaEditavel chave="tatuado_aftercare" bloqueado={bloqueadoDisparos} />}
                                 </>);
                                 if (sid === "aguard_prox_sessao") return (
                                   <CardSistema ativo={fluxoToggles.recontato_prox_sessao} toggleKey="recontato_prox_sessao" label="E-mail de recontato + link WhatsApp" gatilho="D+60 — sem nova solicitação. Move para Hibernação em D+90 se não houver retorno" preview={"Assunto: A próxima ideia já nasceu, {nome}?\n\nOlá, {nome}! Faz um tempo desde a sua última sessão. Esperamos que sua arte esteja linda e bem cicatrizada.\n\nSabemos que uma boa ideia não tem pressa para nascer. Mas quando ela chegar, queremos ser os primeiros a saber.\n\n[ Tenho uma nova ideia ] → abre WhatsApp\n\nRespeitoso abraço, {estudio}"} />
@@ -8525,7 +8532,7 @@ export default function CRM() {
                                   <CardSistema ativo={fluxoToggles.agradecimento_1asessao} toggleKey="agradecimento_1asessao" label="E-mail de agradecimento pela consulta" gatilho="Imediato — ao entrar em Aguardando 1ª Sessão" preview={"Assunto: Obrigado pela sua visita, {nome}\n\nOlá, {nome}! Queremos te agradecer por ter vindo até a gente. Sua pontualidade e compromisso dizem muito sobre quem você é.\n\nSeu projeto está registrado com carinho. Daqui a 30 dias vamos entrar em contato para saber se já chegou a sua hora!\n\nRespeitoso abraço, {estudio}"} />
                                   <CardSistema ativo={fluxoToggles.recontato_d30} toggleKey="recontato_d30" label="E-mail de recontato D+30 — Sim / Não" gatilho="30 dias após entrar na etapa — repete a cada 30 dias enquanto clicar Não" preview={"Assunto: Já chegou a sua hora, {nome}?\n\nFaz 30 dias desde a sua consulta. Seu projeto continua guardado com o mesmo cuidado de sempre.\n\n{artista} criou algo pensado exclusivamente para você.\n\n[ Sim, quero agendar! ] → abre WhatsApp\n[ Ainda não ] → recontato em mais 30 dias"} />
                                 </>);
-                                if (sid === "reengajamento") return <CardSistemaEditavel chave="reengajamento" />;
+                                if (sid === "reengajamento") return <CardSistemaEditavel chave="reengajamento" bloqueado={bloqueadoDisparos} />;
                                 return null;
                               })()}
                               {etapasDesteSlug.map((fe: any) => (
@@ -9199,7 +9206,7 @@ export default function CRM() {
                           {aberto && (
                             <div style={{ padding: "10px 14px 14px", borderTop: "1px solid var(--br)", display: "flex", flexDirection: "column", gap: 8 }}>
                               <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>{camp.desc}</div>
-                              <CardSistemaEditavel chave={"sazonal_" + camp.slug} />
+                              <CardSistemaEditavel chave={"sazonal_" + camp.slug} bloqueado={bloqueadoDisparos} />
                               {etapasDesteSlug.map((fe: any) => (
                                 campSazEditandoId === fe.id ? (
                                   <div key={fe.id} style={{ background: "var(--dk3)", borderRadius: 7, padding: "12px", display: "flex", flexDirection: "column", gap: 8 }}>
