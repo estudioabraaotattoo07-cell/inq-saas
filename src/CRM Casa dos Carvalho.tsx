@@ -14560,7 +14560,8 @@ export default function CRM() {
                   )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div onClick={() => upd({ publicado: !sc.publicado })} title={sc.publicado ? "Site publicado — clique para voltar a rascunho" : "Site em rascunho — clique para publicar"}
+                  <div onClick={() => { const novoValor = !sc.publicado; upd({ publicado: novoValor }); sb.from("site_conteudo").upsert({ user_id: userId, publicado: novoValor }, { onConflict: "user_id" }); }}
+                    title={sc.publicado ? "Site publicado — clique para voltar a rascunho" : "Site em rascunho — clique para publicar"}
                     style={{ display: "flex", borderRadius: 999, overflow: "hidden", border: "1px solid var(--br)", cursor: "pointer", userSelect: "none",
                       boxShadow: sc.publicado ? "0 0 10px rgba(39,174,96,.4)" : "0 0 10px rgba(201,168,76,.4)" }}>
                     <div style={{ padding: "7px 14px", fontSize: 11, fontWeight: 700, letterSpacing: ".02em",
