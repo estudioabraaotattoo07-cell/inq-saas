@@ -14632,8 +14632,8 @@ export default function CRM() {
                   {previewUrl && <a href={previewUrl} target="_blank" rel="noreferrer" className="btn-s" style={{ textDecoration: "none" }}>👁 Ver site</a>}
                 </div>
               </div>
-              <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: -8, marginBottom: 8 }}>
-                ⚠ Publicado/Rascunho muda na hora. Mas fotos e textos que você editar aqui só aparecem no site depois de clicar em <b style={{ color: "var(--gold)" }}>Salvar</b>, lá embaixo.
+              <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: -8, marginBottom: 8, lineHeight: 1.6 }}>
+                ⚠ Atenção: os textos e fotos que você editar aqui só ficam salvos quando você clica em <b style={{ color: "var(--gold)" }}>Salvar</b>, lá embaixo — se sair da página ou atualizar (F5) antes disso, as edições se perdem. Já o botão <b style={{ color: "var(--gold)" }}>Publicado/Rascunho</b> funciona na hora, independente do Salvar. Por isso, o caminho ideal é: termine as edições → clique em Salvar → só depois marque como Publicado, garantindo que o site vai ao ar já com tudo certo.
               </div>
               {siteStats && (
                 <div style={{ display: "flex", gap: 20, fontSize: 11, color: "var(--tx3)", marginBottom: 16, marginTop: -8 }}>
