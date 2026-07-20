@@ -932,9 +932,34 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     linhas.push('Está tudo certo?');
     botMsg(linhas.join(quebra));
     mostrarBotoes(['✅ Sim, está certo', '✏️ Preciso corrigir algo'], function(op){
-      if (op.indexOf('certo') !== -1) return passoFinal();
-      passoEscolherCorrecao();
+      if (op.indexOf('certo') === -1) return passoEscolherCorrecao();
+      // Confere de verdade se o cadastro foi salvo antes de comemorar --
+      // salvar() engolia erro de rede/servidor silenciosamente, e a
+      // conversa terminava com "Pronto!" mesmo sem nada ter sido salvo.
+      botMsg('Só um instante...');
+      salvar({}).then(function(r){ return r.json(); }).then(function(data){
+        if (data && data.ok) return passoFinal();
+        passoErroSalvar();
+      });
     });
+  }
+  function passoErroSalvar(){
+    var area = $('aura-input-area');
+    botMsg('Hmm, tivemos um problema técnico agora e não consegui confirmar se seus dados foram salvos. Pode tentar de novo, ou já chamar a gente direto no WhatsApp pra não perder seu lugar:');
+    area.innerHTML = '';
+    var wrap = document.createElement('div');
+    wrap.className = 'aura-btns';
+    var btnTentar = document.createElement('button');
+    btnTentar.className = 'aura-btn';
+    btnTentar.textContent = '🔁 Tentar de novo';
+    btnTentar.onclick = function(){ area.innerHTML = ''; passoConfirmacao(); };
+    wrap.appendChild(btnTentar);
+    area.appendChild(wrap);
+    var a = document.createElement('a');
+    a.href = WA_LINK !== '#' ? WA_LINK + '?text=' + encodeURIComponent(montarTextoWhatsApp()) : WA_LINK;
+    a.target = '_blank'; a.className = 'aura-wa-btn';
+    a.innerHTML = waBtnHtml() + 'Falar agora no WhatsApp';
+    area.appendChild(a);
   }
   function passoEscolherCorrecao(){
     botMsg('Qual item você quer corrigir?');
