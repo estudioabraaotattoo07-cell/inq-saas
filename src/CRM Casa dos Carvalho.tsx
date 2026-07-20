@@ -2556,7 +2556,15 @@ export default function CRM() {
     setOnbSlugSalvando(true);
     const { error } = await sb.from("ink_clientes").update({ slug: onbSlugProposto }).eq("auth_user_id", userId);
     setOnbSlugSalvando(false);
-    if (error) { setShowAviso("❌ Erro ao definir o endereço: " + error.message); return; }
+    if (error) {
+      if (error.message.includes("duplicate key") || error.message.includes("unique constraint")) {
+        setShowAviso("Esse endereço acabou de ficar indisponível (outra conta usou primeiro). Já gerei uma nova sugestão pra você.");
+        gerarSlugUnico(studioName).then(setOnbSlugProposto);
+      } else {
+        setShowAviso("❌ Erro ao definir o endereço: " + error.message);
+      }
+      return;
+    }
     setSiteSlug(onbSlugProposto);
     setOnbSlugConfirmado(onbSlugProposto);
   };
@@ -2566,7 +2574,15 @@ export default function CRM() {
     setSlugConfirmando(true);
     const { error } = await sb.from("ink_clientes").update({ slug: slugProposto }).eq("auth_user_id", userId);
     setSlugConfirmando(false);
-    if (error) { setShowAviso("❌ Erro ao definir o endereço: " + error.message); return; }
+    if (error) {
+      if (error.message.includes("duplicate key") || error.message.includes("unique constraint")) {
+        setShowAviso("Esse endereço acabou de ficar indisponível (outra conta usou primeiro). Já gerei uma nova sugestão pra você.");
+        gerarSlugUnico(studioName).then(setSlugProposto);
+      } else {
+        setShowAviso("❌ Erro ao definir o endereço: " + error.message);
+      }
+      return;
+    }
     setSiteSlug(slugProposto);
     setShowAviso("✅ Endereço definido: inksystem.com.br/" + slugProposto);
   };
