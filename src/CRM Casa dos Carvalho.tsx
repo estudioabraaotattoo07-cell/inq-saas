@@ -8434,19 +8434,6 @@ export default function CRM() {
                 </div>
               )}
 
-              {confirmAcao && (
-                <div className="ov" style={{ zIndex: 9999 }} onClick={() => setConfirmAcao(null)}>
-                  <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(400px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>{confirmAcao.titulo}</div>
-                    <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>{confirmAcao.mensagem}</div>
-                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                      <button className="btn-c" onClick={() => setConfirmAcao(null)}>Cancelar</button>
-                      <button className="btn-s" onClick={() => { const fn = confirmAcao.onConfirmar; setConfirmAcao(null); fn(); }}>Remover</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* ── PRÉ-VENDA: clientes em follow-up de pós-venda ── */}
               {pvC.length === 0
                 ? <div className="empty">Nenhum cliente em pós-venda.</div>
@@ -13833,6 +13820,19 @@ export default function CRM() {
               <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>{showAviso}</div>
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <button className="btn-s" onClick={() => setShowAviso(null)}>Entendido</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmAcao && (
+          <div className="ov" style={{ zIndex: 9999 }} onClick={() => setConfirmAcao(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(400px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>{confirmAcao.titulo}</div>
+              <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>{confirmAcao.mensagem}</div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button className="btn-c" onClick={() => setConfirmAcao(null)}>Cancelar</button>
+                <button className="btn-s" onClick={() => { const fn = confirmAcao.onConfirmar; setConfirmAcao(null); fn(); }}>Remover</button>
               </div>
             </div>
           </div>
