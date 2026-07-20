@@ -1661,7 +1661,7 @@ export default function CRM() {
     funcao: "", atendeCliente: true, nascimento: "",
     piercingComissaoTipo: "" as "" | "percentual" | "fixo", piercingComissaoValor: "",
     remuneracaoTipo: "" as "" | "salario_fixo" | "por_hora" | "outro", remuneracaoValor: "",
-    formaRecebimento: ""
+    formaRecebimento: "", servicosAtendidos: [] as string[]
   });
   const [agForm, setAgForm] = useState({
     title: "", tipo: "cons_" + (artists[0]?.id || ""), date: new Date().toISOString().split("T")[0], start: 9, end: 11, desc: "", servico: ""
@@ -3433,6 +3433,7 @@ export default function CRM() {
       remuneracao_tipo: artForm.remuneracaoTipo || null,
       remuneracao_valor: artForm.remuneracaoValor ? Number(artForm.remuneracaoValor) : null,
       forma_recebimento: artForm.formaRecebimento || null,
+      servicos_atendidos: artForm.servicosAtendidos,
       user_id: userId
     };
     const { data: artData, error: artError } = await sb.from("artistas").insert(row).select().single();
@@ -3442,7 +3443,7 @@ export default function CRM() {
     }
     setArtists(p => [...p, { ...row, id: artData.id }]);
     setShowArtForm(false);
-    setArtForm({ nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "@", email: "", tel: "", funcao: "", atendeCliente: true, nascimento: "", piercingComissaoTipo: "", piercingComissaoValor: "", remuneracaoTipo: "", remuneracaoValor: "", formaRecebimento: "" });
+    setArtForm({ nome: "", role: "guest", com: 50, cor: "#C9A84C", insta: "@", email: "", tel: "", funcao: "", atendeCliente: true, nascimento: "", piercingComissaoTipo: "", piercingComissaoValor: "", remuneracaoTipo: "", remuneracaoValor: "", formaRecebimento: "", servicosAtendidos: [] });
     addLog(`Profissional "${artForm.nome}" cadastrado`);
     if (!onboardingDone) { setOnbStep(s => s + 1); }
   };
@@ -7883,6 +7884,25 @@ export default function CRM() {
                     {Array.from(new Set(artists.map((a: any) => a.funcao).filter(Boolean))).map((f: any) => <option key={f} value={f} />)}
                   </datalist>
                 </div>
+                <div className="ff">
+                  <label className="fl" title="Usado pra filtrar quem aparece no chat do site conforme o serviço escolhido pelo lead.">Quais serviços atende</label>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {servicoOpts.map(svc => {
+                      const checked = (editingArtist.servicos_atendidos || []).includes(svc.nome);
+                      return (
+                        <label key={svc.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, cursor: "pointer", background: checked ? "rgba(201,168,76,.12)" : "var(--dk3)", border: "1px solid " + (checked ? "var(--gold)" : "var(--br)"), borderRadius: 6, padding: "4px 10px" }}>
+                          <input type="checkbox" checked={checked} onChange={e => {
+                            const atuais: string[] = editingArtist.servicos_atendidos || [];
+                            const novos = e.target.checked ? [...atuais, svc.nome] : atuais.filter((s: string) => s !== svc.nome);
+                            setEditingArtist({ ...editingArtist, servicos_atendidos: novos });
+                          }} />
+                          {svc.nome}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 4 }}>Nenhum selecionado = atende todos os serviços.</div>
+                </div>
                 <div className="ff" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <input type="checkbox" checked={editingArtist.atende_cliente !== false} onChange={e => setEditingArtist({ ...editingArtist, atende_cliente: e.target.checked })} />
                   <label className="fl" style={{ margin: 0 }}>Atende cliente diretamente (aparece na Agenda e no Pipeline)</label>
@@ -7963,7 +7983,8 @@ export default function CRM() {
                     piercing_comissao_valor: editingArtist.piercing_comissao_valor ? Number(String(editingArtist.piercing_comissao_valor).replace(",", ".")) : null,
                     remuneracao_tipo: editingArtist.remuneracao_tipo || null,
                     remuneracao_valor: editingArtist.remuneracao_valor ? Number(String(editingArtist.remuneracao_valor).replace(",", ".")) : null,
-                    forma_recebimento: editingArtist.forma_recebimento || null
+                    forma_recebimento: editingArtist.forma_recebimento || null,
+                    servicos_atendidos: editingArtist.servicos_atendidos || []
                   }).eq("id", editingArtist.id);
                   if (error) { console.error("Erro ao salvar artista:", error); alert("Erro ao salvar artista."); return; }
                   setEditingArtist(null);
@@ -12521,6 +12542,24 @@ export default function CRM() {
                   <datalist id="funcao-opts">
                     {Array.from(new Set(artists.map((a: any) => a.funcao).filter(Boolean))).map((f: any) => <option key={f} value={f} />)}
                   </datalist>
+                </div>
+                <div className="ff">
+                  <label className="fl" title="Usado pra filtrar quem aparece no chat do site conforme o serviço escolhido pelo lead.">Quais serviços atende</label>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {servicoOpts.map(svc => {
+                      const checked = artForm.servicosAtendidos.includes(svc.nome);
+                      return (
+                        <label key={svc.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, cursor: "pointer", background: checked ? "rgba(201,168,76,.12)" : "var(--dk3)", border: "1px solid " + (checked ? "var(--gold)" : "var(--br)"), borderRadius: 6, padding: "4px 10px" }}>
+                          <input type="checkbox" checked={checked} onChange={e => {
+                            const novos = e.target.checked ? [...artForm.servicosAtendidos, svc.nome] : artForm.servicosAtendidos.filter(s => s !== svc.nome);
+                            setArtForm({ ...artForm, servicosAtendidos: novos });
+                          }} />
+                          {svc.nome}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--tx3)", marginTop: 4 }}>Nenhum selecionado = atende todos os serviços.</div>
                 </div>
                 <div className="ff" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <input type="checkbox" checked={artForm.atendeCliente} onChange={e => setArtForm({ ...artForm, atendeCliente: e.target.checked })} />

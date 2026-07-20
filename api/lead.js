@@ -550,7 +550,8 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
 <script>
 (function(){
   var API_BASE = 'https://inq-saas.vercel.app';
-  var ARTISTAS = ${JSON.stringify((artistas || []).map(a => a.nome))};
+  var ARTISTAS = ${JSON.stringify((artistas || []).map(a => ({ nome: a.nome, servicos: Array.isArray(a.servicos_atendidos) ? a.servicos_atendidos : [] })))};
+  var SERVICOS = ${JSON.stringify((cfg?.servico_opts || []))};
   var SLUG = ${JSON.stringify(slug || "")};
   var WA_LINK = ${JSON.stringify(waLink)};
   var NOME_ESTUDIO = ${JSON.stringify(nomeEstudio)};
@@ -686,7 +687,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
           return pedirTelefone();
         }
         salvar({ nome: lead.nome, tel: tel });
-        if (lead._jaECliente) buscarCliente(tel); else passoArtista();
+        if (lead._jaECliente) buscarCliente(tel); else passoServico();
       });
     }
     pedirTelefone();
@@ -706,42 +707,142 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
         } else {
           botMsg('Não encontrei seu cadastro por aqui ainda — vamos preencher rapidinho!');
         }
-        passoArtista();
+        passoServico();
       })
-      .catch(function(){ passoArtista(); });
+      .catch(function(){ passoServico(); });
   }
+  // Qual serviço o lead procura -- vem da lista que o estúdio configurou em
+  // Configurações > Serviços. Sem servico cadastrado, pula (compatibilidade
+  // com estúdios que ainda não usaram essa lista).
+  function passoServico(){
+    if (lead.servico) { salvar({ servico: lead.servico }); return passoArtista(); }
+    if (!SERVICOS.length) return passoArtista();
+    botMsg('Qual serviço você procura?');
+    mostrarBotoes(SERVICOS.map(function(s){ return s.nome; }), function(op){
+      lead.servico = op;
+      salvar({ servico: op });
+      passoArtista();
+    });
+  }
+  // Só oferece profissionais que atendem o serviço escolhido. Profissional
+  // sem nenhum serviço marcado = atende todos (compatibilidade com cadastros
+  // antigos). Se o filtro zerar a lista por engano, mostra todo mundo em vez
+  // de travar o fluxo sem nenhuma opção.
   function passoArtista(){
     if (lead.artista) { salvar({ artista: lead.artista }); return passoIdeia(); }
-    if (ARTISTAS.length <= 1) { salvar({ artista: ARTISTAS[0] || '' }); return passoIdeia(); }
+    var candidatos = ARTISTAS;
+    if (lead.servico) {
+      var filtrados = ARTISTAS.filter(function(a){ return !a.servicos.length || a.servicos.indexOf(lead.servico) !== -1; });
+      if (filtrados.length) candidatos = filtrados;
+    }
+    if (candidatos.length <= 1) { salvar({ artista: (candidatos[0] && candidatos[0].nome) || '' }); return passoIdeia(); }
     botMsg('Vendo os trabalhos dos profissionais, com qual você se identificou mais?');
     var area = $('aura-input-area');
     area.innerHTML = '';
     var wrap = document.createElement('div');
     wrap.className = 'aura-btns';
-    ARTISTAS.forEach(function(art, i){
+    candidatos.forEach(function(a, i){
       var b = document.createElement('button');
       b.className = 'aura-btn';
-      b.textContent = '(' + (i + 1) + ') ' + art;
-      b.onclick = function(){ userMsg(art); area.innerHTML = ''; salvar({ artista: art }); passoIdeia(); };
+      b.textContent = '(' + (i + 1) + ') ' + a.nome;
+      b.onclick = function(){ userMsg(a.nome); area.innerHTML = ''; salvar({ artista: a.nome }); passoIdeia(); };
       wrap.appendChild(b);
     });
     area.appendChild(wrap);
   }
   function passoIdeia(){
-    if (lead.idea) { salvar({ idea: lead.idea }); return passoRegiao(); }
-    botMsg('Me conta um pouco sobre a ideia que você tem em mente:');
-    mostrarInput('Sua ideia...', function(idea){ salvar({ idea: idea }); passoRegiao(); });
+    if (lead.idea) { salvar({ idea: lead.idea }); return passoReferencia(); }
+    var pergunta = lead.servico === 'Piercing'
+      ? 'Me conta um pouco sobre o piercing que você tem em mente:'
+      : 'Me conta um pouco sobre a ideia que você tem em mente:';
+    botMsg(pergunta);
+    mostrarInput('Sua ideia...', function(idea){ salvar({ idea: idea }); passoReferencia(); });
+  }
+  // Upload de imagem de referência -- abre o seletor nativo (câmera ou
+  // galeria) e sobe direto pro cliente já criado nessa conversa, sem exigir
+  // login (mesmo endpoint público já usado no site da Casa dos Carvalho).
+  function enviarReferencia(onDone){
+    var inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = function(){
+      var file = inp.files && inp.files[0];
+      if (!file) return onDone(false);
+      botMsg('Enviando imagem...');
+      var reader = new FileReader();
+      reader.onload = function(ev){
+        var img = new Image();
+        img.onload = function(){
+          var w = img.width, h = img.height, maxPx = 900;
+          if (w > maxPx || h > maxPx) { if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; } else { w = Math.round(w * maxPx / h); h = maxPx; } }
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          var base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+          fetch(API_BASE + '/api/upload', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ base64: base64, mimeType: 'image/jpeg', clienteId: lead._clienteId })
+          }).then(function(r){ return r.json(); }).then(function(d){ onDone(!!(d && d.url)); }).catch(function(){ onDone(false); });
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+    inp.click();
+  }
+  function passoReferencia(){
+    var pergunta = lead.servico === 'Piercing'
+      ? 'Você tem uma imagem que possa me mandar do piercing que você quer aplicar?'
+      : 'Você tem uma imagem de referência?';
+    botMsg(pergunta);
+    mostrarBotoes(['Sim', 'Não'], function(op){
+      if (op === 'Não') return passoRegiao();
+      enviarReferencia(function(sucesso){
+        if (!sucesso) { botMsg('Não consegui enviar essa imagem — mas sem problema, seguimos!'); return passoRegiao(); }
+        passoMaisReferencias();
+      });
+    });
+  }
+  function passoMaisReferencias(){
+    var pergunta = lead.servico === 'Piercing'
+      ? 'Tem mais imagens de joias que você gostou?'
+      : 'Tem mais referências da arte que você gostou?';
+    botMsg(pergunta);
+    mostrarBotoes(['Sim', 'Não'], function(op){
+      if (op === 'Não') return passoRegiao();
+      enviarReferencia(function(sucesso){
+        if (!sucesso) { botMsg('Não consegui enviar essa imagem — mas sem problema, seguimos!'); return passoRegiao(); }
+        passoMaisReferencias();
+      });
+    });
   }
   function passoRegiao(){
+    if (lead.servico === 'Consulta') return passoClassificacao();
     if (lead.regiao) { salvar({ regiao: lead.regiao }); return passoClassificacao(); }
     botMsg('Em qual região do corpo?');
     mostrarInput('Ex: braço, costas...', function(regiao){ salvar({ regiao: regiao }); passoClassificacao(); });
   }
+  // Consulta já É o pedido de conversa -- escolher esse serviço já responde
+  // a pergunta sozinho, então pula direto pra classificação certa.
   function passoClassificacao(){
-    botMsg('Você já está pronto pra tatuar ou prefere conversar antes?');
+    if (lead.servico === 'Consulta') {
+      salvar({ etapa: 'lead_morno' });
+      return passoPeriodo();
+    }
+    var pergunta = lead.servico === 'Piercing'
+      ? 'Você já decidiu e quer agendar a aplicação, ou prefere conversar com o profissional antes?'
+      : 'Você já decidiu e quer agendar, ou prefere conversar antes?';
+    botMsg(pergunta);
     mostrarBotoes(['🎯 Já decidi, quero agendar', '💬 Quero conversar antes'], function(op){
       var etapa = op.indexOf('conversar') !== -1 ? 'lead_morno' : 'aura_agend';
       salvar({ etapa: etapa });
+      passoPeriodo();
+    });
+  }
+  function passoPeriodo(){
+    botMsg('Você prefere receber uma ligação em qual período do dia?');
+    mostrarBotoes(['Manhã', 'Tarde', 'Noite'], function(op){
+      lead.periodo_ligacao = op;
+      salvar({ periodo_ligacao: op });
       passoEmail();
     });
   }
@@ -798,11 +899,13 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
       'Só confirmando antes de finalizar:',
       '📋 Nome: ' + (lead.nome || '—'),
       '📱 WhatsApp: ' + (lead.tel || '—'),
-      '✉️ E-mail: ' + (lead.email || '—'),
-      '🎨 Projeto: ' + (ideiaFinal || '—') + (lead.regiao ? ' — ' + lead.regiao : ''),
-      '',
-      'Está tudo certo?'
+      '✉️ E-mail: ' + (lead.email || '—')
     ];
+    if (lead.servico) linhas.push('🛠️ Serviço: ' + lead.servico);
+    linhas.push('🎨 Projeto: ' + (ideiaFinal || '—') + (lead.regiao ? ' — ' + lead.regiao : ''));
+    if (lead.periodo_ligacao) linhas.push('🕐 Período preferido pra ligação: ' + lead.periodo_ligacao);
+    linhas.push('');
+    linhas.push('Está tudo certo?');
     botMsg(linhas.join(quebra));
     mostrarBotoes(['✅ Sim, está certo', '✏️ Preciso corrigir algo'], function(op){
       if (op.indexOf('certo') !== -1) return passoFinal();
@@ -811,7 +914,8 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
   }
   function passoEscolherCorrecao(){
     botMsg('Qual item você quer corrigir?');
-    mostrarBotoes(['Nome', 'Telefone', 'E-mail', 'Projeto'], function(item){
+    var opcoes = ['Nome', 'Telefone', 'E-mail'].concat(SERVICOS.length ? ['Serviço'] : []).concat(['Projeto', 'Período da ligação']);
+    mostrarBotoes(opcoes, function(item){
       if (item === 'Nome') {
         botMsg('Qual é o nome completo certo?');
         mostrarInput('Seu nome completo', function(v){ lead.nome = v; salvar({ nome: v }); passoConfirmacao(); });
@@ -827,6 +931,12 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
       } else if (item === 'E-mail') {
         botMsg('Qual é o e-mail certo?');
         mostrarInput('seu@email.com', function(v){ lead.email = v; salvar({ email: v }); passoConfirmacao(); });
+      } else if (item === 'Serviço') {
+        botMsg('Qual é o serviço certo?');
+        mostrarBotoes(SERVICOS.map(function(s){ return s.nome; }), function(v){ lead.servico = v; salvar({ servico: v }); passoConfirmacao(); });
+      } else if (item === 'Período da ligação') {
+        botMsg('Prefere receber a ligação em qual período?');
+        mostrarBotoes(['Manhã', 'Tarde', 'Noite'], function(v){ lead.periodo_ligacao = v; salvar({ periodo_ligacao: v }); passoConfirmacao(); });
       } else {
         botMsg('Me conta de novo a ideia:');
         mostrarInput('Sua ideia...', function(v){ lead.idea = v; salvar({ idea: v }); passoConfirmacao(); });
@@ -836,9 +946,10 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
   function montarTextoWhatsApp(){
     var ideiaFinal = lead.idea || lead.ideia || '';
     var partes = ['Olá! Sou ' + (lead.nome || '')];
-    if (ideiaFinal) partes.push('conversei com a Aura sobre uma tatuagem de ' + ideiaFinal);
+    if (lead.servico) partes.push('procurando ' + lead.servico.toLowerCase());
+    if (ideiaFinal) partes.push('conversei com a Aura sobre ' + ideiaFinal);
     if (lead.regiao) partes.push('na região: ' + lead.regiao);
-    if (lead.artista) partes.push('Artista de interesse: ' + lead.artista);
+    if (lead.artista) partes.push('Profissional de interesse: ' + lead.artista);
     if (lead.email) partes.push('Meu e-mail: ' + lead.email);
     return partes.join('. ') + '.';
   }
@@ -926,8 +1037,8 @@ export default async function handler(req, res) {
     if (uid === process.env.DEMO_USER_ID) return res.status(404).send(paginaSiteIndisponivel());
     const [{ data: site }, { data: cfg }, { data: artistas }] = await Promise.all([
       sb.from("site_conteudo").select("*").eq("user_id", uid).single(),
-      sb.from("configuracoes").select("studio_name, studio_tel, studio_city, studio_estado, categoria_negocio, meta_pixel_id").eq("user_id", uid).single(),
-      sb.from("artistas").select("nome, insta, foto_site_url, bio_site, portfolio_fotos, botao_social_label, ordem_site").eq("user_id", uid).eq("ativo", true).order("ordem_site", { ascending: true, nullsFirst: false }).order("nome"),
+      sb.from("configuracoes").select("studio_name, studio_tel, studio_city, studio_estado, categoria_negocio, meta_pixel_id, servico_opts").eq("user_id", uid).single(),
+      sb.from("artistas").select("nome, insta, foto_site_url, bio_site, portfolio_fotos, botao_social_label, ordem_site, servicos_atendidos").eq("user_id", uid).eq("ativo", true).order("ordem_site", { ascending: true, nullsFirst: false }).order("nome"),
     ]);
     if (!site || !site.publicado) return res.status(404).send(paginaSiteIndisponivel());
     // Serverless: se não esperar aqui, a função pode encerrar antes do
@@ -1400,7 +1511,7 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody } = req.body;
+  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao } = req.body;
   if (!nome && !tel && !email) return res.status(400).json({ error: "pelo menos um dado obrigatorio" });
 
   const ideaFinal = idea || ideia || "";
@@ -1427,6 +1538,8 @@ export default async function handler(req, res) {
     artista: artista || null,
     estilo: "",
     regiao: regiao || "",
+    servico: servico || null,
+    periodo_ligacao: periodoLigacao || null,
     tam: "Medio",
     intencao: "",
     cob: false,
@@ -1540,6 +1653,8 @@ export default async function handler(req, res) {
       if (artistaVal) updateFields.artista = artistaVal;
       const regiaoVal = maisCompleto(match.regiao, regiao);
       if (regiaoVal) updateFields.regiao = regiaoVal;
+      if (servico) updateFields.servico = servico;
+      if (periodoLigacao) updateFields.periodo_ligacao = periodoLigacao;
       if (obsExtra) updateFields.obs = `Lead captado via Aura Chat no site. ${obsExtra}`;
       // Classificação (Sessão/Consulta/Aguardando nova solicitação) só move a etapa
       // quando o chat explicitamente pedir — e só se o cliente ainda estiver numa
