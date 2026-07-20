@@ -946,7 +946,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
       // salvar() engolia erro de rede/servidor silenciosamente, e a
       // conversa terminava com "Pronto!" mesmo sem nada ter sido salvo.
       botMsg('Só um instante...');
-      salvar({}).then(function(r){ return r.json(); }).then(function(data){
+      salvar({ finalizado: true }).then(function(r){ return r.json(); }).then(function(data){
         if (data && data.ok) return passoFinal();
         passoErroSalvar();
       });
@@ -1569,7 +1569,7 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao } = req.body;
+  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao, finalizado } = req.body;
   if (!nome && !tel && !email) return res.status(400).json({ error: "pelo menos um dado obrigatorio" });
 
   const ideaFinal = idea || ideia || "";
@@ -1725,11 +1725,12 @@ export default async function handler(req, res) {
         updateFields.etapa_desde = new Date().toISOString();
         etapaMudouAgora = true;
       }
-      // Mesmo momento da classificação -- gera o Parecer da Aura (resumo
-      // corrido pra ficha, ao lado do CPF). A Solicitação de Serviço na aba
-      // Projeto continua 100% manual, feita presencialmente pelo estúdio --
-      // o chat não abre nada lá sozinho.
-      if (etapaMudouAgora && (ideaFinal || servico)) {
+      // Gera o Parecer da Aura (resumo corrido pra ficha, ao lado do CPF) só
+      // quando a conversa termina de verdade (finalizado) -- gerar já na
+      // classificação perdia dados que só vêm depois (período, e-mail). A
+      // Solicitação de Serviço na aba Projeto continua 100% manual, feita
+      // presencialmente pelo estúdio -- o chat não abre nada lá sozinho.
+      if (finalizado && (ideaFinal || servico)) {
         const partesParecer = ["Cliente entrou em contato buscando " + (servico || "atendimento") + "."];
         if (ideaFinal) partesParecer.push("Relatou interesse em: " + ideaFinal + ".");
         if (regiao) partesParecer.push("Região: " + regiao + ".");
@@ -1786,11 +1787,13 @@ export default async function handler(req, res) {
     validade: camposCampanha.campanha_credito_validade || camposCampanha.campanha_desconto_validade,
   } : null;
 
-  // deveNotificar so pode olhar se a etapa REALMENTE mudou agora (etapaMudouAgora) --
-  // nao basta checar se etapaSolicitada veio no payload, porque o lead acumulado
-  // manda esse campo em toda resposta seguinte da mesma conversa (idea, regiao,
-  // e-mail, correcoes...), o que disparava o aviso de novo a cada passo.
-  const deveNotificar = isNewClient ? !!etapaSolicitada : etapaMudouAgora;
+  // deveNotificar so dispara quando a conversa termina de verdade (finalizado,
+  // mandado so pela ultima confirmacao). Antes usava a mudanca de etapa como
+  // gatilho, mas isso acontece no MEIO da conversa -- e-mail e periodo de
+  // ligacao ainda nao tinham sido perguntados, entao o aviso e o e-mail de
+  // boas-vindas ao cliente saiam incompletos (as vezes nem enviavam, por
+  // faltar e-mail nesse ponto especifico).
+  const deveNotificar = !!finalizado;
   if (!isNewClient) {
     if (!deveNotificar) return res.status(200).json({ ok: true, clienteId, updated: true, campanha: campanhaResp, ...matchInfo });
   } else if (!deveNotificar) {
