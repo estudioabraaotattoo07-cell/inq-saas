@@ -563,6 +563,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     try { return new URLSearchParams(window.location.search).get('origem') || ''; } catch (e) { return ''; }
   })();
   var lead = {};
+  var history = [];
   var aberto = false;
 
   function $(id){ return document.getElementById(id); }
@@ -589,12 +590,16 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     $('aura-fab').style.display = 'flex';
   }
 
+  // Toda mensagem exibida passa por aqui -- então capturar a transcrição
+  // completa (pra aparecer na aba Histórico da ficha) é só empilhar em cada
+  // uma dessas duas funções, sem precisar duplicar em cada pergunta do fluxo.
   function botMsg(texto){
     var d = document.createElement('div');
     d.className = 'aura-msg-bot';
     d.textContent = texto;
     $('aura-msgs').appendChild(d);
     $('aura-msgs').scrollTop = $('aura-msgs').scrollHeight;
+    history.push({ role: 'assistant', content: texto });
   }
   function userMsg(texto){
     var d = document.createElement('div');
@@ -602,6 +607,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     d.textContent = texto;
     $('aura-msgs').appendChild(d);
     $('aura-msgs').scrollTop = $('aura-msgs').scrollHeight;
+    history.push({ role: 'user', content: texto });
   }
   function mostrarBotoes(opcoes, onEscolher){
     var area = $('aura-input-area');
@@ -642,7 +648,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
 
   function salvar(campos){
     Object.assign(lead, campos);
-    var payload = Object.assign({}, lead, { slug: SLUG, orig: 'Site', origem_slug: ORIGEM_SLUG });
+    var payload = Object.assign({}, lead, { slug: SLUG, orig: 'Site', origem_slug: ORIGEM_SLUG, chat_log: history });
     delete payload._jaECliente;
     delete payload._temCampanha;
     delete payload._clienteId;
@@ -792,6 +798,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
       var files = Array.prototype.slice.call(inp.files || []);
       if (!files.length) return;
       area.innerHTML = '';
+      history.push({ role: 'user', content: files.length > 1 ? ('[O cliente enviou ' + files.length + ' imagens de referência]') : '[O cliente enviou uma imagem de referência]' });
       botMsg(files.length > 1 ? ('Enviando ' + files.length + ' imagens...') : 'Enviando imagem...');
       var todasOk = true;
       (function enviarUma(i){

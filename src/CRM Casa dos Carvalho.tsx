@@ -1844,6 +1844,10 @@ export default function CRM() {
   };
   const [fluxoToggles, setFluxoToggles] = useState({ boas_vindas_email: true, nps: true, google_convite: true, confirmacao_presenca: true, notificacao_artista: true, confirma_consulta: true, confirma_sessao: true, sms_consulta: true, sms_sessao: true, recontato_prox_sessao: true, remarcar: true, agradecimento_1asessao: true, recontato_d30: true });
   const [toggleConfirm, setToggleConfirm] = useState<{campo: string; novoValor: boolean; label: string; motivo?: string; tipo?: "configFlag" | "override"} | null>(null);
+  // Confirmação genérica premium (cápsula, mesmo padrão do toggleConfirm) --
+  // pra substituir window.confirm() nativo (feio, fora do padrão visual) em
+  // ações destrutivas pontuais, sem precisar de um estado dedicado por caso.
+  const [confirmAcao, setConfirmAcao] = useState<{ titulo: string; mensagem: string; onConfirmar: () => void } | null>(null);
   // ── MENSAGENS_SISTEMA_OVERRIDE (personalização por tenant das mensagens de sistema) ──
   const [sistemaOverrides, setSistemaOverrides] = useState<Record<string, { mensagem?: string; canal?: string; ativo?: boolean }>>({});
   const [sistemaEditandoChave, setSistemaEditandoChave] = useState<string | null>(null);
@@ -8430,6 +8434,19 @@ export default function CRM() {
                 </div>
               )}
 
+              {confirmAcao && (
+                <div className="ov" style={{ zIndex: 9999 }} onClick={() => setConfirmAcao(null)}>
+                  <div onClick={e => e.stopPropagation()} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 12, width: "min(400px, 92vw)", padding: "24px 24px 20px", display: "flex", flexDirection: "column", gap: 14, animation: "slideInRight .25s ease" }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>{confirmAcao.titulo}</div>
+                    <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>{confirmAcao.mensagem}</div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button className="btn-c" onClick={() => setConfirmAcao(null)}>Cancelar</button>
+                      <button className="btn-s" onClick={() => { const fn = confirmAcao.onConfirmar; setConfirmAcao(null); fn(); }}>Remover</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* ── PRÉ-VENDA: clientes em follow-up de pós-venda ── */}
               {pvC.length === 0
                 ? <div className="empty">Nenhum cliente em pós-venda.</div>
@@ -10841,12 +10858,15 @@ export default function CRM() {
                             style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid var(--br)", cursor: "pointer" }}
                             onClick={() => window.open(url, "_blank")} />
                           <button
-                            onClick={async () => {
-                              if (!window.confirm("Remover esta foto de referência? Essa ação não pode ser desfeita.")) return;
-                              const refs: string[] = ((sc as any).referencias || []).filter((_: string, j: number) => j !== i);
-                              upC(sc.id, "referencias", refs);
-                              await sb.from("clientes").update({ referencias: refs }).eq("id", sc.id);
-                            }}
+                            onClick={() => setConfirmAcao({
+                              titulo: "Remover foto de referência?",
+                              mensagem: "Essa ação não pode ser desfeita.",
+                              onConfirmar: async () => {
+                                const refs: string[] = ((sc as any).referencias || []).filter((_: string, j: number) => j !== i);
+                                upC(sc.id, "referencias", refs);
+                                await sb.from("clientes").update({ referencias: refs }).eq("id", sc.id);
+                              }
+                            })}
                             style={{ position: "absolute", top: -6, right: -6, background: "#c0392b", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
                             title="Remover">✕</button>
                         </div>
