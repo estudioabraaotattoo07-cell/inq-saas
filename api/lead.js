@@ -758,36 +758,53 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     botMsg(pergunta);
     mostrarInput('Sua ideia...', function(idea){ salvar({ idea: idea }); passoReferencia(); });
   }
-  // Upload de imagem de referência -- abre o seletor nativo (câmera ou
-  // galeria) e sobe direto pro cliente já criado nessa conversa, sem exigir
-  // login (mesmo endpoint público já usado no site da Casa dos Carvalho).
-  function enviarReferencia(onDone){
-    var inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = 'image/*';
-    inp.onchange = function(){
-      var file = inp.files && inp.files[0];
-      if (!file) return onDone(false);
-      botMsg('Enviando imagem...');
-      var reader = new FileReader();
-      reader.onload = function(ev){
-        var img = new Image();
-        img.onload = function(){
-          var w = img.width, h = img.height, maxPx = 900;
-          if (w > maxPx || h > maxPx) { if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; } else { w = Math.round(w * maxPx / h); h = maxPx; } }
-          var canvas = document.createElement('canvas');
-          canvas.width = w; canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          var base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
-          fetch(API_BASE + '/api/upload', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ base64: base64, mimeType: 'image/jpeg', clienteId: lead._clienteId })
-          }).then(function(r){ return r.json(); }).then(function(d){ onDone(!!(d && d.url)); }).catch(function(){ onDone(false); });
-        };
-        img.src = ev.target.result;
+  // Comprime e sobe uma imagem pro cliente já criado nessa conversa, sem
+  // exigir login (mesmo endpoint público já usado no site da Casa dos Carvalho).
+  function comprimirEEnviar(file, cb){
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      var img = new Image();
+      img.onload = function(){
+        var w = img.width, h = img.height, maxPx = 900;
+        if (w > maxPx || h > maxPx) { if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; } else { w = Math.round(w * maxPx / h); h = maxPx; } }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        var base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+        fetch(API_BASE + '/api/upload', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64: base64, mimeType: 'image/jpeg', clienteId: lead._clienteId })
+        }).then(function(r){ return r.json(); }).then(function(d){ cb(!!(d && d.url)); }).catch(function(){ cb(false); });
       };
-      reader.readAsDataURL(file);
+      img.src = ev.target.result;
     };
-    inp.click();
+    reader.readAsDataURL(file);
+  }
+  // Botão explícito (em vez de abrir o seletor sozinho) -- deixa claro que é
+  // uma ação da pessoa, e permite escolher várias fotos de uma vez (câmera
+  // ou galeria, o próprio celular decide) em vez de uma por vez.
+  function botaoEnviarImagem(onDone){
+    var area = $('aura-input-area');
+    area.innerHTML = '';
+    var inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true; inp.style.display = 'none';
+    inp.onchange = function(){
+      var files = Array.prototype.slice.call(inp.files || []);
+      if (!files.length) return;
+      area.innerHTML = '';
+      botMsg(files.length > 1 ? ('Enviando ' + files.length + ' imagens...') : 'Enviando imagem...');
+      var todasOk = true;
+      (function enviarUma(i){
+        if (i >= files.length) return onDone(todasOk);
+        comprimirEEnviar(files[i], function(ok){ if (!ok) todasOk = false; enviarUma(i + 1); });
+      })(0);
+    };
+    var btn = document.createElement('button');
+    btn.className = 'aura-btn';
+    btn.innerHTML = '📷 Escolher imagens';
+    btn.onclick = function(){ inp.click(); };
+    area.appendChild(btn);
+    area.appendChild(inp);
   }
   function passoReferencia(){
     var pergunta = lead.servico === 'Piercing'
@@ -796,8 +813,8 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     botMsg(pergunta);
     mostrarBotoes(['Sim', 'Não'], function(op){
       if (op === 'Não') return passoRegiao();
-      enviarReferencia(function(sucesso){
-        if (!sucesso) { botMsg('Não consegui enviar essa imagem — mas sem problema, seguimos!'); return passoRegiao(); }
+      botaoEnviarImagem(function(sucesso){
+        if (!sucesso) { botMsg('Não consegui enviar uma ou mais imagens — mas sem problema, seguimos!'); return passoRegiao(); }
         passoMaisReferencias();
       });
     });
@@ -809,8 +826,8 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     botMsg(pergunta);
     mostrarBotoes(['Sim', 'Não'], function(op){
       if (op === 'Não') return passoRegiao();
-      enviarReferencia(function(sucesso){
-        if (!sucesso) { botMsg('Não consegui enviar essa imagem — mas sem problema, seguimos!'); return passoRegiao(); }
+      botaoEnviarImagem(function(sucesso){
+        if (!sucesso) { botMsg('Não consegui enviar uma ou mais imagens — mas sem problema, seguimos!'); return passoRegiao(); }
         passoMaisReferencias();
       });
     });
