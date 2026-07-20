@@ -1679,10 +1679,30 @@ export default async function handler(req, res) {
       // Marcada ou está em Pós-venda voltaria pra "Solicitação de Consulta" só
       // por reabrir o chat e responder a pergunta de classificação de novo.
       const ETAPAS_INICIAIS = ["lead", "lead_morno", "aura_agend", "precisa_remarcar"];
-      if (etapaSolicitada && (!match.etapa || ETAPAS_INICIAIS.includes(match.etapa))) {
+      if (etapaSolicitada && etapaSolicitada !== match.etapa && (!match.etapa || ETAPAS_INICIAIS.includes(match.etapa))) {
         updateFields.etapa = etapaSolicitada;
         updateFields.etapa_desde = new Date().toISOString();
         etapaMudouAgora = true;
+      }
+      // Mesmo momento da classificação -- cria de vez a solicitação na aba
+      // Projeto (lista separada das colunas soltas do cliente, usada de
+      // verdade no dia a dia). Sem isso, a conversa inteira do chat some e
+      // o estúdio tem que digitar tudo de novo na mão.
+      if (etapaMudouAgora && (ideaFinal || servico)) {
+        const novoProjeto = {
+          id: Date.now(),
+          estilo: (ideaFinal || servico || "Solicitação via chat").slice(0, 60),
+          tam: "Medio",
+          primeira: false,
+          desc: ideaFinal || "",
+          servico: servico || "",
+          artista: (updateFields.artista || match.artista || artista || ""),
+          valorTotal: 0,
+          status: "ativo",
+          criadoEm: new Date().toLocaleDateString("pt-BR"),
+          pagamentos: [],
+        };
+        updateFields.projetos = [...(match.projetos || []), novoProjeto];
       }
       await sb.from("clientes").update(updateFields).eq("id", match.id);
       clienteId = match.id;
