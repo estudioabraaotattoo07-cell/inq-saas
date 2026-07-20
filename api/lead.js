@@ -971,7 +971,7 @@ export default async function handler(req, res) {
         await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
-          body: JSON.stringify({ from: remetente, to: email, subject: assunto, html: corpo }),
+          body: JSON.stringify({ from: "INK SYSTEM <" + remetente + ">", to: email, subject: assunto, html: corpo }),
         });
       }
     } catch { /* confirmação por e-mail é um extra -- não deve travar o envio do pedido */ }
@@ -1633,7 +1633,8 @@ export default async function handler(req, res) {
         if (artRow?.email) emailArtista = artRow.email;
       } catch {}
     }
-    const emailFrom2 = process.env.EMAIL_REMETENTE || "";
+    const emailFrom2Raw = process.env.EMAIL_REMETENTE || "";
+    const emailFrom2 = emailFrom2Raw ? nomeEstudioLead + " <" + emailFrom2Raw + ">" : emailFrom2Raw;
     if (emailArtista) {
     const htmlAlerta =
       "<div style='font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#222;padding:28px'>" +
@@ -1657,10 +1658,14 @@ export default async function handler(req, res) {
     }
   }
   if (cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {
-    const emailFrom = process.env.EMAIL_REMETENTE || "";
+    const emailFromRaw = process.env.EMAIL_REMETENTE || "";
+    const emailFrom = emailFromRaw ? nomeEstudioLead + " <" + emailFromRaw + ">" : emailFromRaw;
     const artistaNome = artista || null;
     const waNumero = cfgDisparos?.studio_tel ? "55" + cfgDisparos.studio_tel.replace(/\D/g, "") : "";
-    const waLink = waNumero ? "https://wa.me/" + waNumero : "";
+    const waTexto = "Olá! Recebi agora o e-mail confirmando meu cadastro na " + nomeEstudioLead + ". Meus dados: " + nome +
+      (ideaFinal ? ", projeto de " + ideaFinal : "") + (regiao ? " na região " + regiao : "") + (artista ? ", com " + artista : "") +
+      ". Se for possível, vocês conseguem adiantar meu atendimento? Agradeço desde já!";
+    const waLink = waNumero ? "https://wa.me/" + waNumero + "?text=" + encodeURIComponent(waTexto) : "";
     const cidadeLead = [cfgDisparos?.studio_city, cfgDisparos?.studio_estado].filter(Boolean).join(", ");
     const ni = "Não informado";
     const nascFormatado = nascimentoISO
@@ -1686,7 +1691,7 @@ export default async function handler(req, res) {
       "<p style='line-height:1.8;color:#333'>Que alegria receber sua ideia aqui na " + nomeEstudioLead + ". Já registramos tudo com cuidado" +
       (artistaNome ? " — e vimos que você tem interesse em tatuar com <strong>" + artistaNome + "</strong>!" : "!") + "</p>" +
       "<p style='line-height:1.8;color:#333'>Em até 24h, alguém da nossa equipe vai te ligar pessoalmente para conversar sobre os detalhes do seu projeto. Sem formulário, sem robô — conversa de gente pra gente.</p>" +
-      (waLink ? "<p style='line-height:1.8;color:#333'>Se preferir adiantar por WhatsApp, é só chamar a gente aqui:</p><p><a href='" + waLink + "' style='display:inline-block;background:#d4a84b;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:14px;font-weight:bold'>💬 Chamar no WhatsApp</a></p>" : "") +
+      (waLink ? "<p style='line-height:1.8;color:#333'>Se preferir adiantar por WhatsApp, é só chamar a gente aqui:</p><p><a href='" + waLink + "' style='display:inline-block;background:linear-gradient(135deg,#2CE370,#1DA851);color:#fff;text-decoration:none;padding:13px 28px;border-radius:50px;font-size:14px;font-weight:bold;box-shadow:0 4px 14px rgba(29,168,81,0.35)'><span style='display:inline-block;vertical-align:middle;margin-right:8px;width:16px;height:16px'><svg width='16' height='16' viewBox='0 0 24 24' fill='#fff' style='display:block'><path d='M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.65-.6-2.9-1.25-4.79-4.17-4.94-4.36-.14-.2-1.18-1.56-1.18-2.98s.75-2.11 1.02-2.4c.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.19-.28.37-.23.62-.14.26.09 1.63.77 1.91.91.28.14.47.21.54.33.07.12.07.68-.17 1.36Z'/></svg></span><span style='display:inline-block;vertical-align:middle'>Chamar no WhatsApp</span></a></p>" : "") +
       "<p style='line-height:1.8;color:#333;margin-top:20px'>Trabalhamos só com hora marcada, então cada projeto recebe atenção total — do primeiro traço ao último detalhe.</p>" +
       "<p style='margin-top:8px;line-height:1.8;color:#333'><strong>Resumo do que registramos:</strong></p>" +
       resumoDados +
