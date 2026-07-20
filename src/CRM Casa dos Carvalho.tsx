@@ -2558,7 +2558,8 @@ export default function CRM() {
     setOnbSlugSalvando(false);
     if (error) {
       if (error.message.includes("duplicate key") || error.message.includes("unique constraint")) {
-        setShowAviso("Esse endereço acabou de ficar indisponível (outra conta usou primeiro). Já gerei uma nova sugestão pra você.");
+        setShowAviso("Esse endereço acabou de ficar indisponível (outra conta usou primeiro). Já estou gerando uma nova sugestão pra você.");
+        setOnbSlugProposto(""); // some o botão até a nova sugestão chegar, pra não reenviar a antiga
         gerarSlugUnico(studioName).then(setOnbSlugProposto);
       } else {
         setShowAviso("❌ Erro ao definir o endereço: " + error.message);
@@ -2576,7 +2577,8 @@ export default function CRM() {
     setSlugConfirmando(false);
     if (error) {
       if (error.message.includes("duplicate key") || error.message.includes("unique constraint")) {
-        setShowAviso("Esse endereço acabou de ficar indisponível (outra conta usou primeiro). Já gerei uma nova sugestão pra você.");
+        setShowAviso("Esse endereço acabou de ficar indisponível (outra conta usou primeiro). Já estou gerando uma nova sugestão pra você.");
+        setSlugProposto(""); // some o botão até a nova sugestão chegar, pra não reenviar a antiga
         gerarSlugUnico(studioName).then(setSlugProposto);
       } else {
         setShowAviso("❌ Erro ao definir o endereço: " + error.message);
