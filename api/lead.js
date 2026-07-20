@@ -224,7 +224,7 @@ function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas, plano) {
         <div class="artist-name">${esc(a.nome)}</div>
         ${a.bio_site ? `<div class="artist-tagline" style="font-size:${bioFontSize}px">${esc(a.bio_site)}</div>` : ""}
         ${igHandle ? `<a class="ig-link" href="https://instagram.com/${esc(igHandle)}" target="_blank">${IG_ICON}${esc(a.botao_social_label || ("@" + igHandle))}</a>` : ""}
-        <a class="btn-gold" href="javascript:void(0)" onclick="AuraChat.abrir('${esc(a.nome).replace(/'/g, "\\'")}')" style="margin-top:18px">✦ Quero tatuar com ${esc((a.nome || "").split(" ")[0])}</a>
+        <a class="btn-gold" href="javascript:void(0)" onclick="AuraChat.abrir('${esc(a.id)}')" style="margin-top:18px">✦ Quero tatuar com ${esc((a.nome || "").split(" ")[0])}</a>
       </div>
     </div>
     ${fotos.length > 0 ? `<div class="strip-outer">
@@ -550,7 +550,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
 <script>
 (function(){
   var API_BASE = 'https://inq-saas.vercel.app';
-  var ARTISTAS = ${JSON.stringify((artistas || []).map(a => ({ nome: a.nome, servicos: Array.isArray(a.servicos_atendidos) ? a.servicos_atendidos : [] })))};
+  var ARTISTAS = ${JSON.stringify((artistas || []).map(a => ({ id: a.id, nome: a.nome, servicos: Array.isArray(a.servicos_atendidos) ? a.servicos_atendidos : [] })))};
   var SERVICOS = ${JSON.stringify((cfg?.servico_opts || []))};
   var SLUG = ${JSON.stringify(slug || "")};
   var WA_LINK = ${JSON.stringify(waLink)};
@@ -580,7 +580,11 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
       if (SLUG) fetch(API_BASE + '/api/lead?acao=track_click&slug=' + encodeURIComponent(SLUG), { method: 'POST', keepalive: true }).catch(function(){});
     }
     if ($('aura-msgs').children.length === 0) {
-      if (artistaPreEscolhido) lead.artista = artistaPreEscolhido;
+      if (artistaPreEscolhido) {
+        lead.artista = artistaPreEscolhido;
+        var artPre = ARTISTAS.filter(function(a){ return a.id === artistaPreEscolhido; })[0];
+        if (artPre) lead.artistaNome = artPre.nome;
+      }
       passoBoasVindas();
     }
   }
@@ -741,7 +745,12 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
       var filtrados = ARTISTAS.filter(function(a){ return !a.servicos.length || a.servicos.indexOf(lead.servico) !== -1; });
       if (filtrados.length) candidatos = filtrados;
     }
-    if (candidatos.length <= 1) { salvar({ artista: (candidatos[0] && candidatos[0].nome) || '' }); return passoIdeia(); }
+    if (candidatos.length <= 1) {
+      var unico = candidatos[0];
+      if (unico) lead.artistaNome = unico.nome;
+      salvar({ artista: (unico && unico.id) || '' });
+      return passoIdeia();
+    }
     botMsg('Vendo os trabalhos dos profissionais, com qual você se identificou mais?');
     var area = $('aura-input-area');
     area.innerHTML = '';
@@ -751,7 +760,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
       var b = document.createElement('button');
       b.className = 'aura-btn';
       b.textContent = '(' + (i + 1) + ') ' + a.nome;
-      b.onclick = function(){ userMsg(a.nome); area.innerHTML = ''; salvar({ artista: a.nome }); passoIdeia(); };
+      b.onclick = function(){ userMsg(a.nome); area.innerHTML = ''; lead.artistaNome = a.nome; salvar({ artista: a.id }); passoIdeia(); };
       wrap.appendChild(b);
     });
     area.appendChild(wrap);
@@ -998,7 +1007,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     if (lead.servico) partes.push('procurando ' + lead.servico.toLowerCase());
     if (ideiaFinal) partes.push('conversei com a Aura sobre ' + ideiaFinal);
     if (lead.regiao) partes.push('na região: ' + lead.regiao);
-    if (lead.artista) partes.push('Profissional de interesse: ' + lead.artista);
+    if (lead.artistaNome) partes.push('Profissional de interesse: ' + lead.artistaNome);
     if (lead.email) partes.push('Meu e-mail: ' + lead.email);
     return partes.join('. ') + '.';
   }
@@ -1087,7 +1096,7 @@ export default async function handler(req, res) {
     const [{ data: site }, { data: cfg }, { data: artistas }] = await Promise.all([
       sb.from("site_conteudo").select("*").eq("user_id", uid).single(),
       sb.from("configuracoes").select("studio_name, studio_tel, studio_city, studio_estado, categoria_negocio, meta_pixel_id, servico_opts").eq("user_id", uid).single(),
-      sb.from("artistas").select("nome, insta, foto_site_url, bio_site, portfolio_fotos, botao_social_label, ordem_site, servicos_atendidos").eq("user_id", uid).eq("ativo", true).order("ordem_site", { ascending: true, nullsFirst: false }).order("nome"),
+      sb.from("artistas").select("id, nome, insta, foto_site_url, bio_site, portfolio_fotos, botao_social_label, ordem_site, servicos_atendidos").eq("user_id", uid).eq("ativo", true).order("ordem_site", { ascending: true, nullsFirst: false }).order("nome"),
     ]);
     if (!site || !site.publicado) return res.status(404).send(paginaSiteIndisponivel());
     // Serverless: se não esperar aqui, a função pode encerrar antes do
@@ -1797,18 +1806,24 @@ export default async function handler(req, res) {
   const zenviaKey = process.env.ZENVIA_API_KEY;
   const fn = (nome || "").trim().split(" ")[0] || "Cliente";
 
+  // artista chega como ID (não mais texto) -- resolve nome/e-mail uma vez só,
+  // reaproveitado no alerta interno e no e-mail do cliente.
+  let artistaNomeResolvido = null;
+  let artistaEmailResolvido = null;
+  if (artista) {
+    try {
+      const { data: artRow } = await sb.from("artistas").select("email, nome").eq("id", artista).eq("user_id", row.user_id).maybeSingle();
+      if (artRow?.nome) artistaNomeResolvido = artRow.nome;
+      if (artRow?.email) artistaEmailResolvido = artRow.email;
+    } catch {}
+  }
+
   // E-mail de boas-vindas ao cliente (controlado por fluxo_boas_vindas_email_ativa)
   const resendKey = process.env.RESEND_API_KEY;
 
   // E-mail de alerta interno ao profissional responsável
   if (cfgDisparos?.fluxo_notificacao_artista_ativa !== false && resendKey) {
-    let emailArtista = cfgDisparos?.studio_email || null;
-    if (artista) {
-      try {
-        const { data: artRow } = await sb.from("artistas").select("email").ilike("nome", "%" + artista.split(" ")[0] + "%").eq("user_id", row.user_id).limit(1).single();
-        if (artRow?.email) emailArtista = artRow.email;
-      } catch {}
-    }
+    let emailArtista = artistaEmailResolvido || cfgDisparos?.studio_email || null;
     const emailFrom2Raw = process.env.EMAIL_REMETENTE || "";
     const emailFrom2 = emailFrom2Raw ? nomeEstudioLead + " <" + emailFrom2Raw + ">" : emailFrom2Raw;
     if (emailArtista) {
@@ -1823,7 +1838,7 @@ export default async function handler(req, res) {
       "<tr><td style='padding:7px 0;color:#888'>Ideia / projeto</td><td style='color:#222'>" + (ideaFinal || "—") + "</td></tr>" +
       "<tr><td style='padding:7px 0;color:#888'>Região</td><td style='color:#222'>" + (regiao || "—") + "</td></tr>" +
       "<tr><td style='padding:7px 0;color:#888'>Instagram</td><td style='color:#222'>" + (insta || "—") + "</td></tr>" +
-      "<tr><td style='padding:7px 0;color:#888'>Artista</td><td style='color:#222'>" + (artista || "A definir") + "</td></tr>" +
+      "<tr><td style='padding:7px 0;color:#888'>Artista</td><td style='color:#222'>" + (artistaNomeResolvido || "A definir") + "</td></tr>" +
       "</table>" +
       "<p style='margin-top:20px;font-size:12px;color:#aaa'>Entre no INK SYSTEM para dar andamento.</p></div>";
     fetch("https://api.resend.com/emails", {
@@ -1836,10 +1851,10 @@ export default async function handler(req, res) {
   if (cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {
     const emailFromRaw = process.env.EMAIL_REMETENTE || "";
     const emailFrom = emailFromRaw ? nomeEstudioLead + " <" + emailFromRaw + ">" : emailFromRaw;
-    const artistaNome = artista || null;
+    const artistaNome = artistaNomeResolvido;
     const waNumero = cfgDisparos?.studio_tel ? "55" + cfgDisparos.studio_tel.replace(/\D/g, "") : "";
     const waTexto = "Olá! Recebi agora o e-mail confirmando meu cadastro na " + nomeEstudioLead + ". Meus dados: " + nome +
-      (ideaFinal ? ", projeto de " + ideaFinal : "") + (regiao ? " na região " + regiao : "") + (artista ? ", com " + artista : "") +
+      (ideaFinal ? ", projeto de " + ideaFinal : "") + (regiao ? " na região " + regiao : "") + (artistaNomeResolvido ? ", com " + artistaNomeResolvido : "") +
       ". Se for possível, vocês conseguem adiantar meu atendimento? Agradeço desde já!";
     const waLink = waNumero ? "https://wa.me/" + waNumero + "?text=" + encodeURIComponent(waTexto) : "";
     const cidadeLead = [cfgDisparos?.studio_city, cfgDisparos?.studio_estado].filter(Boolean).join(", ");
@@ -1852,7 +1867,7 @@ export default async function handler(req, res) {
       "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555;width:140px'>Nome</td><td style='padding:8px 12px;color:#222'>" + nome + "</td></tr>" +
       "<tr><td style='padding:8px 12px;color:#555'>Telefone</td><td style='padding:8px 12px;color:#222'>" + (tel || ni) + "</td></tr>" +
       "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>E-mail</td><td style='padding:8px 12px;color:#222'>" + (email || ni) + "</td></tr>" +
-      "<tr><td style='padding:8px 12px;color:#555'>Artista</td><td style='padding:8px 12px;color:#222'>" + (artista || ni) + "</td></tr>" +
+      "<tr><td style='padding:8px 12px;color:#555'>Artista</td><td style='padding:8px 12px;color:#222'>" + (artistaNomeResolvido || ni) + "</td></tr>" +
       "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Ideia / projeto</td><td style='padding:8px 12px;color:#222'>" + (ideaFinal || ni) + "</td></tr>" +
       "<tr><td style='padding:8px 12px;color:#555'>Região do corpo</td><td style='padding:8px 12px;color:#222'>" + (regiao || ni) + "</td></tr>" +
       "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Instagram</td><td style='padding:8px 12px;color:#222'>" + (insta || ni) + "</td></tr>" +
