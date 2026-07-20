@@ -9827,6 +9827,16 @@ export default function CRM() {
                           upCFicha(sc.id, "documento", fmt);
                         }} />
                     </div>
+                    <div className="fi2">
+                      <div className="fil">✨ Parecer da Aura</div>
+                      {(sc as any).parecer_aura ? (
+                        <div style={{ background: "var(--dk3)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "var(--tx2)", lineHeight: 1.6, fontStyle: "italic" }}>
+                          {(sc as any).parecer_aura}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>Nenhum parecer gerado ainda — aparece automaticamente quando o cliente chega pelo chat do site.</div>
+                      )}
+                    </div>
                   </div>
                 </div>}
 

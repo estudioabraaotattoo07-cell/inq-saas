@@ -1637,7 +1637,7 @@ export default async function handler(req, res) {
   {
     const telDigits = tel ? tel.replace(/[^0-9]/g, "").slice(-11) : null;
     const emailNorm = email ? email.trim().toLowerCase() : null;
-    const { data: existentes } = await sb.from("clientes").select("id,tel,nome,email,insta,descricao,nascimento,artista,regiao,etapa,projetos,campanha_id").eq("user_id", row.user_id);
+    const { data: existentes } = await sb.from("clientes").select("id,tel,nome,email,insta,descricao,nascimento,artista,regiao,etapa,projetos,campanha_id,referencias").eq("user_id", row.user_id);
     // Uma mesma conversa do chat manda várias respostas em sequência (nome,
     // depois ideia, depois região...). Enquanto telefone/e-mail ainda não
     // foram digitados (ou vieram inválidos), não tem como reconhecer "é a
@@ -1691,25 +1691,17 @@ export default async function handler(req, res) {
         updateFields.etapa_desde = new Date().toISOString();
         etapaMudouAgora = true;
       }
-      // Mesmo momento da classificação -- cria de vez a solicitação na aba
-      // Projeto (lista separada das colunas soltas do cliente, usada de
-      // verdade no dia a dia). Sem isso, a conversa inteira do chat some e
-      // o estúdio tem que digitar tudo de novo na mão.
+      // Mesmo momento da classificação -- gera o Parecer da Aura (resumo
+      // corrido pra ficha, ao lado do CPF). A Solicitação de Serviço na aba
+      // Projeto continua 100% manual, feita presencialmente pelo estúdio --
+      // o chat não abre nada lá sozinho.
       if (etapaMudouAgora && (ideaFinal || servico)) {
-        const novoProjeto = {
-          id: Date.now(),
-          estilo: (ideaFinal || servico || "Solicitação via chat").slice(0, 60),
-          tam: "Medio",
-          primeira: false,
-          desc: ideaFinal || "",
-          servico: servico || "",
-          artista: (updateFields.artista || match.artista || artista || ""),
-          valorTotal: 0,
-          status: "ativo",
-          criadoEm: new Date().toLocaleDateString("pt-BR"),
-          pagamentos: [],
-        };
-        updateFields.projetos = [...(match.projetos || []), novoProjeto];
+        const partesParecer = ["Cliente entrou em contato buscando " + (servico || "atendimento") + "."];
+        if (ideaFinal) partesParecer.push("Relatou interesse em: " + ideaFinal + ".");
+        if (regiao) partesParecer.push("Região: " + regiao + ".");
+        if ((match.referencias || []).length > 0) partesParecer.push("Enviou imagem(ns) de referência.");
+        if (periodoLigacao) partesParecer.push("Prefere retorno no período da " + periodoLigacao.toLowerCase() + ".");
+        updateFields.parecer_aura = partesParecer.join(" ");
       }
       await sb.from("clientes").update(updateFields).eq("id", match.id);
       clienteId = match.id;
