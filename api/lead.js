@@ -1115,19 +1115,38 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
-  // ── SOLICITAÇÕES (quiz de plano da demo + suporte/assessoria dentro do CRM) ─
-  // Sem WhatsApp de propósito — cai numa fila no /admin, revisada manualmente.
+  // ── SOLICITAÇÕES (quiz de plano da demo + suporte/assessoria dentro do CRM +
+  // fluxo Aura do site de vendas) ── Sem WhatsApp de propósito — cai numa fila
+  // no /admin, revisada manualmente.
+  // Suporta salvar progressivamente: sem "id" no corpo, cria a linha (email
+  // ainda pode ser vazio); com "id", atualiza a mesma linha em vez de criar
+  // outra. E-mail de confirmação só dispara quando "finalizado:true" chega,
+  // pro visitante não abandonar recebendo e-mail de algo que nem terminou.
   if (acao === "criarSolicitacao") {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-    const { tipo, nome, email, telefone, estudio, mensagem, plano_sugerido, respostas, user_id } = req.body || {};
-    if (!email || !String(email).includes("@")) return res.status(400).json({ error: "E-mail inválido" });
-    const { error: errInsert } = await sb.from("ink_leads").insert({
+    const { id: leadIdBody, tipo, nome, email, telefone, estudio, mensagem, plano_sugerido, respostas, user_id, finalizado } = req.body || {};
+    if (finalizado && (!email || !String(email).includes("@"))) return res.status(400).json({ error: "E-mail inválido" });
+
+    const campos = {
       tipo: tipo === "suporte" ? "suporte" : "plano",
-      nome: nome || null, email, telefone: telefone || null, estudio: estudio || null,
+      nome: nome || null, email: email || null, telefone: telefone || null, estudio: estudio || null,
       mensagem: mensagem || null, plano_sugerido: plano_sugerido || null,
       respostas: respostas || null, user_id: user_id || null,
-    });
-    if (errInsert) return res.status(500).json({ error: errInsert.message });
+      ...(finalizado ? { finalizado: true } : {}),
+    };
+
+    let leadId = leadIdBody;
+    if (leadId) {
+      const { error: errUpdate } = await sb.from("ink_leads").update(campos).eq("id", leadId);
+      if (errUpdate) return res.status(500).json({ error: errUpdate.message });
+    } else {
+      const { data: inserted, error: errInsert } = await sb.from("ink_leads").insert(campos).select("id").single();
+      if (errInsert) return res.status(500).json({ error: errInsert.message });
+      leadId = inserted.id;
+    }
+
+    if (!finalizado) return res.status(200).json({ ok: true, id: leadId });
+
     // E-mail de confirmação — reusa a mesma infra do resend.js, sem outro round-trip.
     try {
       const key = process.env.RESEND_API_KEY;
@@ -1144,7 +1163,7 @@ export default async function handler(req, res) {
         });
       }
     } catch { /* confirmação por e-mail é um extra -- não deve travar o envio do pedido */ }
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, id: leadId });
   }
 
   // ── PRÉVIA AO VIVO (aba "Meu Site" do CRM) ──────────────────────────────────
