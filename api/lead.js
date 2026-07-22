@@ -1124,7 +1124,7 @@ export default async function handler(req, res) {
   // pro visitante não abandonar recebendo e-mail de algo que nem terminou.
   if (acao === "criarSolicitacao") {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-    const { id: leadIdBody, tipo, nome, email, telefone, estudio, mensagem, plano_sugerido, respostas, user_id, finalizado } = req.body || {};
+    const { id: leadIdBody, tipo, nome, email, telefone, estudio, mensagem, plano_sugerido, respostas, user_id, finalizado, origem_trafego } = req.body || {};
     if (finalizado && (!email || !String(email).includes("@"))) return res.status(400).json({ error: "E-mail inválido" });
 
     const campos = {
@@ -1132,6 +1132,7 @@ export default async function handler(req, res) {
       nome: nome || null, email: email || null, telefone: telefone || null, estudio: estudio || null,
       mensagem: mensagem || null, plano_sugerido: plano_sugerido || null,
       respostas: respostas || null, user_id: user_id || null,
+      origem_trafego: origem_trafego || null,
       ...(finalizado ? { finalizado: true } : {}),
     };
 
