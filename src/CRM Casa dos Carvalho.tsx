@@ -2496,6 +2496,34 @@ export default function CRM() {
     try { await sb.from("historico").insert(row); } catch(e) { console.warn("log error", e); }
   }, [userId]);
 
+  // Evento de Auditoria — registro estruturado e imutável (sem policy de update/delete,
+  // o RLS bloqueia as duas por padrão) de alterações financeiras. Convive com addLog/
+  // historico, que continua existindo sem mudanças; este é aditivo, começando pelo
+  // pagamento de sessão (Etapa 1 do plano de migração financeira).
+  const registrarEventoAuditoria = useCallback(async (evento: {
+    tabela: string;
+    registroId?: string | number | null;
+    acao: "criacao" | "edicao" | "exclusao" | "estorno";
+    valorAnterior?: unknown;
+    valorNovo?: unknown;
+    motivo?: string;
+  }) => {
+    try {
+      await sb.from("eventos_auditoria").insert({
+        user_id: userId,
+        ator_artista_id: userArtistId || null,
+        ator_papel: userRole,
+        tabela: evento.tabela,
+        registro_id: evento.registroId != null ? String(evento.registroId) : null,
+        acao: evento.acao,
+        valor_anterior: evento.valorAnterior ?? null,
+        valor_novo: evento.valorNovo ?? null,
+        motivo: evento.motivo || null,
+        user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+      });
+    } catch (e) { console.warn("evento_auditoria error", e); }
+  }, [userId, userArtistId, userRole]);
+
   useEffect(() => {
     if (!userId) return;
     sb.from("historico").select("*").eq("user_id", userId).order("id", { ascending: false }).limit(500)
@@ -3123,7 +3151,10 @@ export default function CRM() {
         if (projVinculado?.id) finRowPag.projeto_id = String(projVinculado.id);
         const { data: fdPag, error } = await sb.from("financeiro").insert(finRowPag).select().single();
         if (error) { console.error("financeiro insert (sessão):", error); setShowAviso("Erro ao registrar pagamento no financeiro. Verifique sua conexão e tente novamente."); return; }
-        if (fdPag) setFin(p => [...p, { ...finRowPag, id: fdPag.id, cliente: cliente?.nome || "" }]);
+        if (fdPag) {
+          setFin(p => [...p, { ...finRowPag, id: fdPag.id, cliente: cliente?.nome || "" }]);
+          registrarEventoAuditoria({ tabela: "financeiro", registroId: fdPag.id, acao: "criacao", valorNovo: finRowPag });
+        }
       }
     }
     // Registrar no histórico do cliente
