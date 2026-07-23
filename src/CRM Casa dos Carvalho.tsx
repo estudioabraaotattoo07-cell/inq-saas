@@ -2496,14 +2496,17 @@ export default function CRM() {
     try { await sb.from("historico").insert(row); } catch(e) { console.warn("log error", e); }
   }, [userId]);
 
-  // Evento de Auditoria — registro estruturado e imutável (sem policy de update/delete,
-  // o RLS bloqueia as duas por padrão) de alterações financeiras. Convive com addLog/
-  // historico, que continua existindo sem mudanças; este é aditivo, começando pelo
-  // pagamento de sessão (Etapa 1 do plano de migração financeira).
+  // Evento de Auditoria — API oficial e única de auditoria do Ink System, usada por
+  // qualquer módulo (financeiro, agenda, clientes, colaboradores, estoque, configurações,
+  // permissões, IA...). Registro imutável (sem policy de update/delete, o RLS bloqueia as
+  // duas por padrão). Convive com addLog/historico, que continua existindo sem mudanças.
+  // "acao" é texto livre de propósito — cada módulo usa o verbo que fizer sentido pra ele
+  // ("estorno" no financeiro, "cancelamento" na agenda, "concessao"/"revogacao" em
+  // permissões...); "criacao"/"edicao"/"exclusao" são só a convenção mais comum.
   const registrarEventoAuditoria = useCallback(async (evento: {
     tabela: string;
     registroId?: string | number | null;
-    acao: "criacao" | "edicao" | "exclusao" | "estorno";
+    acao: string;
     valorAnterior?: unknown;
     valorNovo?: unknown;
     motivo?: string;
@@ -2521,7 +2524,12 @@ export default function CRM() {
         motivo: evento.motivo || null,
         user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
       });
-    } catch (e) { console.warn("evento_auditoria error", e); }
+    } catch (e) {
+      // Auditoria nunca pode bloquear a operação real (pagamento, edição, etc). Falha
+      // aqui é console.error (não warn) de propósito -- deve ser visível/pesquisável
+      // até existir um mecanismo de observabilidade dedicado.
+      console.error("registrarEventoAuditoria falhou", e);
+    }
   }, [userId, userArtistId, userRole]);
 
   useEffect(() => {
