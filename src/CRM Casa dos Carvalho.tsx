@@ -8,6 +8,37 @@ const SUPA_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPA_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const sb = createClient(SUPA_URL, SUPA_KEY);
 const OWNER_EMAIL = "estudioabraaotattoo07@gmail.com";
+
+// Taxonomias financeiras (Etapa 2 do plano de migração) — defaults do sistema,
+// semeados por tenant via upsert idempotente (ver useEffect de seed). Baseados
+// nos valores já usados de fato hoje pelo financeiro/saidas, não inventados.
+// "Repasse de Comissão" é saída (dinheiro do estúdio para o colaborador), igual
+// já é gravado hoje em financeiro (tipo:"saida", categoria:"repasse_comissao").
+const DEFAULT_CATEGORIAS_FINANCEIRAS: { chave_sistema: string; nome: string; tipo: "entrada" | "saida" }[] = [
+  { chave_sistema: "sessao", nome: "Sessão", tipo: "entrada" },
+  { chave_sistema: "sinal", nome: "Sinal", tipo: "entrada" },
+  { chave_sistema: "venda_avulsa", nome: "Venda Avulsa", tipo: "entrada" },
+  { chave_sistema: "outro", nome: "Outro", tipo: "entrada" },
+  { chave_sistema: "repasse_comissao", nome: "Repasse de Comissão", tipo: "saida" },
+  { chave_sistema: "material", nome: "Material", tipo: "saida" },
+  { chave_sistema: "energia", nome: "Energia", tipo: "saida" },
+  { chave_sistema: "internet", nome: "Internet", tipo: "saida" },
+  { chave_sistema: "manutencao", nome: "Manutenção", tipo: "saida" },
+  { chave_sistema: "marketing", nome: "Marketing", tipo: "saida" },
+  { chave_sistema: "pro_labore", nome: "Pró-labore", tipo: "saida" },
+  { chave_sistema: "aluguel", nome: "Aluguel", tipo: "saida" },
+  { chave_sistema: "outro", nome: "Outro", tipo: "saida" },
+];
+
+const DEFAULT_FORMAS_PAGAMENTO: { chave_sistema: string; nome: string }[] = [
+  { chave_sistema: "pix", nome: "Pix" },
+  { chave_sistema: "dinheiro", nome: "Dinheiro" },
+  { chave_sistema: "cartao_debito", nome: "Cartão de Débito" },
+  { chave_sistema: "cartao_credito", nome: "Cartão de Crédito" },
+  { chave_sistema: "transferencia", nome: "Transferência" },
+  { chave_sistema: "permuta", nome: "Permuta" },
+  { chave_sistema: "outro", nome: "Outro" },
+];
 // As funções de servidor (/api/*) só existem no deploy do inq-saas — usar URL absoluta
 // garante que funcionem mesmo quando o CRM é acessado por outro domínio (ex: inksystem.com.br).
 const API_BASE = "https://inq-saas.vercel.app";
@@ -2536,6 +2567,28 @@ export default function CRM() {
     if (!userId) return;
     sb.from("historico").select("*").eq("user_id", userId).order("id", { ascending: false }).limit(500)
       .then(({ data }) => { if (data) setHistorico(data); });
+  }, [userId]);
+
+  // Seed idempotente das taxonomias financeiras (Etapa 2) -- roda em todo login,
+  // não só na primeira vez. ignoreDuplicates faz o upsert virar "ON CONFLICT DO
+  // NOTHING": o que já existe (inclusive editado pelo estúdio) nunca é sobrescrito;
+  // só padrões ainda ausentes são inseridos. Isso é o que permite uma atualização
+  // futura acrescentar categoria/forma nova ao array acima e ela chegar sozinha em
+  // todo tenant já existente, sem tocar no que cada um já personalizou.
+  useEffect(() => {
+    if (!userId) return;
+    sb.from("categorias_financeiras")
+      .upsert(
+        DEFAULT_CATEGORIAS_FINANCEIRAS.map(c => ({ ...c, user_id: userId, origem: "sistema" })),
+        { onConflict: "user_id,tipo,chave_sistema", ignoreDuplicates: true }
+      )
+      .then(({ error }) => { if (error) console.error("seed categorias_financeiras falhou", error); });
+    sb.from("formas_pagamento")
+      .upsert(
+        DEFAULT_FORMAS_PAGAMENTO.map(f => ({ ...f, user_id: userId, origem: "sistema" })),
+        { onConflict: "user_id,chave_sistema", ignoreDuplicates: true }
+      )
+      .then(({ error }) => { if (error) console.error("seed formas_pagamento falhou", error); });
   }, [userId]);
 
   useEffect(() => {
