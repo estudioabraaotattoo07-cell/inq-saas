@@ -1682,11 +1682,39 @@ export default async function handler(req, res) {
   function primeiroNome(s) {
     return (s || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(" ")[0] || "";
   }
+  // E-mail/telefone não são chave única de propósito (comum em estúdio: casal,
+  // pai/filho, família dividindo uma conta) -- isso só monta o texto de aviso
+  // pro Parecer da Aura quando o mesmo dado aparece em outro cadastro com nome
+  // diferente. Reexecutado a cada chamada (inclusive na finalização), pra não
+  // se perder quando o Parecer é reconstruído do zero no passo final.
+  function detectarCompartilhamento(nomeAtual, telAtual, emailAtual, existentesLista, idExcluir) {
+    const telDigitsAtual = telAtual ? String(telAtual).replace(/[^0-9]/g, "").slice(-11) : null;
+    const emailNormAtual = emailAtual ? String(emailAtual).trim().toLowerCase() : null;
+    const primeiroNomeAtual = primeiroNome(nomeAtual);
+    const outroTel = telDigitsAtual
+      ? (existentesLista || []).find(c => String(c.id) !== String(idExcluir) && c.tel && c.tel.replace(/[^0-9]/g, "").slice(-11) === telDigitsAtual && primeiroNome(c.nome) !== primeiroNomeAtual)
+      : null;
+    const outroEmail = emailNormAtual
+      ? (existentesLista || []).find(c => String(c.id) !== String(idExcluir) && c.email && c.email.trim().toLowerCase() === emailNormAtual && primeiroNome(c.nome) !== primeiroNomeAtual)
+      : null;
+    if (!outroTel && !outroEmail) return null;
+    if (outroTel && outroEmail && outroTel.id === outroEmail.id) {
+      return `⚠️ E-mail e telefone compartilhados: os dados informados também aparecem no cadastro de ${outroTel.nome}. Os registros foram mantidos separadamente.`;
+    }
+    if (outroTel && outroEmail) {
+      return `⚠️ Telefone compartilhado com o cadastro de ${outroTel.nome} e e-mail compartilhado com o cadastro de ${outroEmail.nome}. Os registros foram mantidos separadamente.`;
+    }
+    if (outroEmail) {
+      return `⚠️ E-mail compartilhado: o endereço informado também aparece no cadastro de ${outroEmail.nome}. Os registros foram mantidos separadamente.`;
+    }
+    return `⚠️ Telefone compartilhado: o número informado também aparece no cadastro de ${outroTel.nome}. Os registros foram mantidos separadamente.`;
+  }
 
   let clienteId = null;
   let isNewClient = true;
   let matchInfo = null;
   let telefoneCompartilhadoCom = null;
+  let avisoCompartilhamento = null;
   let etapaMudouAgora = false;
   {
     const telDigits = tel ? tel.replace(/[^0-9]/g, "").slice(-11) : null;
@@ -1712,6 +1740,7 @@ export default async function handler(req, res) {
       telefoneCompartilhadoCom = match.nome;
       match = null;
     }
+    avisoCompartilhamento = detectarCompartilhamento(nome, tel, email, existentes, match ? match.id : null);
     if (match) {
       const updateFields = { excluido_em: null };
       if (origemSlug && row.orig !== "Site") updateFields.orig = row.orig;
@@ -1751,7 +1780,9 @@ export default async function handler(req, res) {
       // Solicitação de Serviço na aba Projeto continua 100% manual, feita
       // presencialmente pelo estúdio -- o chat não abre nada lá sozinho.
       if (finalizado && (ideaFinal || servico)) {
-        const partesParecer = ["Cliente entrou em contato buscando " + (servico || "atendimento") + "."];
+        const partesParecer = [];
+        if (avisoCompartilhamento) partesParecer.push(avisoCompartilhamento);
+        partesParecer.push("Cliente entrou em contato buscando " + (servico || "atendimento") + ".");
         if (ideaFinal) partesParecer.push("Relatou interesse em: " + ideaFinal + ".");
         if (regiao) partesParecer.push("Região: " + regiao + ".");
         if ((match.referencias || []).length > 0) partesParecer.push("Enviou imagem(ns) de referência.");
@@ -1772,6 +1803,9 @@ export default async function handler(req, res) {
   if (!clienteId) {
     if (telefoneCompartilhadoCom) {
       row.obs = `${row.obs} ⚠️ Mesmo telefone/e-mail de outro cliente cadastrado: ${telefoneCompartilhadoCom}.`;
+    }
+    if (avisoCompartilhamento) {
+      row.parecer_aura = avisoCompartilhamento;
     }
     const { data: inserted, error } = await sb.from("clientes").insert(row).select("id").single();
     if (error) {
@@ -1844,6 +1878,27 @@ export default async function handler(req, res) {
   // E-mail de boas-vindas ao cliente (controlado por fluxo_boas_vindas_email_ativa)
   const resendKey = process.env.RESEND_API_KEY;
 
+  // Serverless: sem await aqui a função pode encerrar antes do Resend responder
+  // (fire-and-forget não é confiável na Vercel) -- por isso ambos os envios
+  // abaixo são aguardados. Falha de e-mail nunca derruba o lead: o cadastro já
+  // foi persistido antes deste ponto, então só registramos e seguimos.
+  async function enviarEmailLead(tipo, payload) {
+    try {
+      const resp = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + resendKey, "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        let corpo = "";
+        try { corpo = (await resp.text()).slice(0, 300); } catch {}
+        console.error(`Falha ao enviar e-mail (${tipo}) via Resend: status ${resp.status} — ${corpo}`);
+      }
+    } catch (e) {
+      console.error(`Erro ao enviar e-mail (${tipo}) via Resend:`, e && e.message);
+    }
+  }
+
   // E-mail de alerta interno ao profissional responsável
   if (cfgDisparos?.fluxo_notificacao_artista_ativa !== false && resendKey) {
     let emailArtista = artistaEmailResolvido || cfgDisparos?.studio_email || null;
@@ -1864,11 +1919,7 @@ export default async function handler(req, res) {
       "<tr><td style='padding:7px 0;color:#888'>Artista</td><td style='color:#222'>" + (artistaNomeResolvido || "A definir") + "</td></tr>" +
       "</table>" +
       "<p style='margin-top:20px;font-size:12px;color:#aaa'>Entre no INK SYSTEM para dar andamento.</p></div>";
-    fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Authorization": "Bearer " + resendKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: emailFrom2, to: [emailArtista], subject: "✦ Novo lead — " + nome, html: htmlAlerta })
-    }).catch(e => console.warn("Email artista error:", e));
+    await enviarEmailLead("alerta ao artista", { from: emailFrom2, to: [emailArtista], subject: "✦ Novo lead — " + nome, html: htmlAlerta });
     }
   }
   if (cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {
@@ -1912,16 +1963,12 @@ export default async function handler(req, res) {
       "<p style='line-height:1.8;color:#333;margin-top:16px'>Obrigado por escolher fazer parte da nossa família. Já estamos ansiosos para te conhecer. 🖤</p>" +
       "<p style='margin-top:32px;font-size:12px;color:#999'>Com carinho,<br><strong>" + nomeEstudioLead + "</strong>" + (cidadeLead ? " — " + cidadeLead : "") + "</p>" +
       "</div>";
-    fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Authorization": "Bearer " + resendKey, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: emailFrom,
-        to: [email],
-        subject: "Recebemos sua mensagem, " + fn + "! 🖤",
-        html: htmlBoasVindas
-      })
-    }).catch(e => console.warn("Email boas-vindas error:", e));
+    await enviarEmailLead("boas-vindas ao cliente", {
+      from: emailFrom,
+      to: [email],
+      subject: "Recebemos sua mensagem, " + fn + "! 🖤",
+      html: htmlBoasVindas
+    });
   }
 
   return res.status(200).json({ ok: true, clienteId, campanha: campanhaResp });
