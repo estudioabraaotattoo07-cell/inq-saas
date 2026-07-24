@@ -1,5 +1,7 @@
 // api/chat.js — Aura IA + persistência de histórico de conversa por cliente
 import { createClient } from "@supabase/supabase-js";
+import { ALLOWED_ORIGINS } from "./_lib/allowedOrigins.js";
+import { verificarRateLimit, identificadorPorIp } from "./_lib/rateLimit.js";
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const STUDIO_USER_ID = "2d366d35-1cae-40d5-ba92-06fe2ab8a763";
@@ -614,16 +616,36 @@ async function executarFerramenta(nome, input) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const origin = req.headers.origin || "";
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
+  // Bloco 1 -- hardening: allowlist real (antes era "*", sem checagem
+  // nenhuma). Widget público não tem login -- não dá pra exigir sessão aqui
+  // sem criar um fluxo de autenticação novo para o visitante, o que está
+  // fora do escopo deste bloco. A allowlist + rate limit abaixo são o teto
+  // de proteção possível dentro dessa restrição.
+  if (!ALLOWED_ORIGINS.includes(origin)) {
+    return res.status(403).json({ error: "Origem não permitida" });
+  }
+
+  const { permitido } = await verificarRateLimit("chat", identificadorPorIp(req));
+  if (!permitido) {
+    return res.status(429).json({ error: "Muitas mensagens em pouco tempo. Aguarde um instante." });
+  }
+
   const { messages, campanhas, contexto } = req.body;
-  if (!messages || !Array.isArray(messages)) {
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "messages array required" });
+  }
+  if (JSON.stringify(messages).length > 20000) {
+    return res.status(400).json({ error: "Conversa muito longa para esta requisição" });
   }
 
   if (!ANTHROPIC_API_KEY) {

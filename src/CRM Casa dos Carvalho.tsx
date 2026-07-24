@@ -9,6 +9,16 @@ const SUPA_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 const sb = createClient(SUPA_URL, SUPA_KEY);
 const OWNER_EMAIL = "estudioabraaotattoo07@gmail.com";
 
+// Bloco 1 de hardening -- resend.js/zenvia.js agora exigem prova de identidade
+// (sessão Supabase ou segredo de serviço). Este helper injeta o token da
+// sessão já existente do usuário logado; não é um fluxo de login novo, só
+// passa a enviar uma credencial que o navegador já tinha.
+async function authHeaderMensageria(): Promise<Record<string, string>> {
+  const { data } = await sb.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: "Bearer " + token } : {};
+}
+
 // Taxonomias financeiras (Etapa 2 do plano de migração) — defaults do sistema,
 // semeados por tenant via upsert idempotente (ver useEffect de seed). Baseados
 // nos valores já usados de fato hoje pelo financeiro/saidas, não inventados.
@@ -2347,7 +2357,7 @@ export default function CRM() {
         try {
           await fetch(API_BASE + "/api/resend", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
             body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: pendente.cliente_email, subject: acao === "aprovar" ? "Agendamento confirmado — " + (studioName || "INK SYSTEM") : "Sobre seu agendamento — " + (studioName || "INK SYSTEM"), html })
           });
           logEnvio("email");
@@ -2391,7 +2401,7 @@ export default function CRM() {
           const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
           await fetch(API_BASE + "/api/resend", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
             body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: cliente.email, subject: etapa.label + " — " + (studioName || "INK SYSTEM"), html })
           });
           logEnvio("email");
@@ -2399,7 +2409,7 @@ export default function CRM() {
         } else if ((canal === "whatsapp" || canal === "sms") && zenviaApiKey && zenviaNumero && cliente.tel) {
           await fetch(API_BASE + "/api/zenvia", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
             body: JSON.stringify({ from: zenviaNumero, to: cliente.tel, text: msg, canal })
           });
           if (canal === "sms") logEnvio("sms");
@@ -2458,7 +2468,7 @@ export default function CRM() {
         "<p style='margin-top:24px;font-size:12px;color:#999'>Gerado pelo INK SYSTEM · " + new Date().toLocaleString("pt-BR") + "</p></div>";
       await fetch(API_BASE + "/api/resend", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
         body: JSON.stringify({
           apiKey: resendApiKey,
           from: remetenteFrom(),
@@ -3605,7 +3615,7 @@ export default function CRM() {
     try {
       await fetch(API_BASE + "/api/resend", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
         body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Seu piercing foi feito, ${cliente.nome}! Cuidados importantes 🖤`, html }),
       });
       logEnvio("email");
@@ -3646,7 +3656,7 @@ export default function CRM() {
     try {
       await fetch(API_BASE + "/api/resend", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
         body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Bem-vindo(a) à ${studioNomeF}, ${cliente.nome}! 🖤`, html }),
       });
       logEnvio("email");
@@ -3713,7 +3723,7 @@ export default function CRM() {
     try {
       await fetch(API_BASE + "/api/resend", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
         body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: assunto, html }),
       });
       logEnvio("email");
@@ -3750,7 +3760,7 @@ export default function CRM() {
     try {
       await fetch(API_BASE + "/api/resend", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
         body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Seu agendamento foi alterado, ${cliente.nome} ✦`, html }),
       });
       logEnvio("email");
@@ -4000,7 +4010,7 @@ export default function CRM() {
         try {
           await fetch(API_BASE + "/api/resend", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
             body: JSON.stringify({
               apiKey: resendApiKey,
               from: remetenteFrom(),
@@ -4018,7 +4028,7 @@ export default function CRM() {
           const smsBody = mensagem.slice(0, 160);
           await fetch(API_BASE + "/api/zenvia", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
             body: JSON.stringify({
               from: zenviaNumero,
               to: cliente.tel,
@@ -4326,7 +4336,7 @@ export default function CRM() {
       if (tool === "disparar_email") {
         await fetch(API_BASE + "/api/resend", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
           body: JSON.stringify({
             apiKey: resendApiKey,
             from: remetenteFrom(),
@@ -4455,7 +4465,7 @@ export default function CRM() {
           }
           const smsResp = await fetch(API_BASE + "/api/zenvia", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
             body: JSON.stringify({
               from: zenviaNumero,
               to: params.cliente_tel,
@@ -4484,7 +4494,7 @@ export default function CRM() {
         try {
           await fetch(API_BASE + "/api/resend", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
             body: JSON.stringify({
               apiKey: resendApiKey,
               from: remetenteFrom(),
@@ -6347,10 +6357,10 @@ export default function CRM() {
               try {
                 if (disparoMassa!.canal === "email" && c.email) {
                   const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
-                  const r = await fetch(API_BASE + "/api/resend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: c.email, subject: "Mensagem de " + (studioName || "INK SYSTEM"), html }) });
+                  const r = await fetch(API_BASE + "/api/resend", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) }, body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: c.email, subject: "Mensagem de " + (studioName || "INK SYSTEM"), html }) });
                   if (r.ok) { ok++; logEnvio("email"); } else { logFalha("email", "HTTP " + r.status + " no disparo em massa"); }
                 } else if (disparoMassa!.canal === "sms" && c.tel && zenviaApiKey && zenviaNumero) {
-                  const r = await fetch(API_BASE + "/api/zenvia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: zenviaNumero, to: c.tel, text: msg, canal: "sms" }) });
+                  const r = await fetch(API_BASE + "/api/zenvia", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) }, body: JSON.stringify({ from: zenviaNumero, to: c.tel, text: msg, canal: "sms" }) });
                   if (r.ok) { ok++; logEnvio("sms"); } else { logFalha("sms", "HTTP " + r.status + " no disparo em massa"); }
                 }
               } catch (e: any) { logFalha(disparoMassa!.canal === "sms" ? "sms" : "email", e?.message || "erro no disparo em massa"); }
@@ -10248,7 +10258,7 @@ export default function CRM() {
                     try {
                       const r = await fetch(API_BASE + "/api/resend", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
                         body: JSON.stringify({
                           apiKey: resendApiKey,
                           from: remetenteFrom(studioNomeFormatado),
@@ -10347,7 +10357,7 @@ export default function CRM() {
 
                       const r = await fetch(API_BASE + "/api/resend", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
                         body: JSON.stringify({
                           apiKey: resendApiKey,
                           from: remetenteFrom(studioNomeFormatado),

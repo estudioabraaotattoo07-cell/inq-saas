@@ -285,14 +285,25 @@ async function processarEtapa({
 // ─── HANDLER PRINCIPAL ────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
-  // Vercel Cron envia GET com header authorization
+  // Vercel Cron envia GET com header authorization: "Bearer " + CRON_SECRET
+  // (convenção da própria Vercel -- não dá pra trocar por outro header aqui,
+  // quem gera essa chamada é a plataforma, não este código). Bloco 1 --
+  // hardening: antes, se CRON_SECRET estivesse vazio, a checagem inteira era
+  // pulada (falha aberta). Agora falha fechada por padrão.
   const auth = req.headers.authorization || "";
   const cronSecret = process.env.CRON_SECRET || "";
-  if (cronSecret && auth !== "Bearer " + cronSecret) {
+  if (!cronSecret || auth !== "Bearer " + cronSecret) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-
+  // Limpeza diária da tabela de rate limit (Bloco 1) -- reaproveita este cron
+  // já existente em vez de criar função nova. Best-effort: nunca deve
+  // impedir os disparos reais de rodar se falhar.
+  try {
+    await sb.from("api_rate_limits").delete().lt("janela_inicio", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+  } catch (e) {
+    console.error("limpeza de api_rate_limits falhou:", e);
+  }
 
   const hoje = new Date();
   let totalDisparos = 0;

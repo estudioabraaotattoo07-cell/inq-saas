@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { verificarRateLimit, identificadorPorIp } from "./_lib/rateLimit.js";
 
 const sb = createClient(
   "https://zkzsykmnhrkwmvgekshh.supabase.co",
@@ -8,6 +9,25 @@ const sb = createClient(
 
 const STUDIO_USER_ID = "2d366d35-1cae-40d5-ba92-06fe2ab8a763";
 
+// Escapa valores antes de montar HTML de e-mail -- sem isso, projeto/regiao/
+// orcamento/instagram entravam sem escape no corpo do e-mail interno (achado
+// da auditoria pré-implementação: injeção de HTML na notificação da equipe).
+function escapeHtml(v) {
+  return String(v ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+// Limita tamanho de campo de texto livre -- consumidor legítimo não foi
+// confirmado (ver auditoria pré-implementação), então validar formato/
+// tamanho é a única proteção viável neste bloco além de rate limit.
+function limitar(v, max) {
+  return String(v || "").slice(0, max);
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DATA_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -15,7 +35,16 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const {
+  // Bloco 1 -- hardening: sem allowlist de origem aqui de propósito (nenhum
+  // consumidor legítimo foi confirmado na auditoria pré-implementação --
+  // restringir origem sem saber quem chama arriscaria quebrar uma integração
+  // que não conseguimos ver). Rate limit por IP não depende dessa resposta.
+  const { permitido } = await verificarRateLimit("agendar", identificadorPorIp(req));
+  if (!permitido) {
+    return res.status(429).json({ error: "Muitas solicitações em pouco tempo. Tente novamente em instantes." });
+  }
+
+  let {
     cliente_id, cliente_nome, cliente_email, cliente_tel, cliente_insta,
     artista, tipo, data_solicitada, hora_solicitada, projeto, regiao, orcamento
   } = req.body;
@@ -23,6 +52,25 @@ export default async function handler(req, res) {
   if (!cliente_nome || !artista || !data_solicitada || !tipo) {
     return res.status(400).json({ error: "Dados obrigatórios: cliente_nome, artista, tipo, data_solicitada" });
   }
+  if (cliente_email && !EMAIL_RE.test(String(cliente_email))) {
+    return res.status(400).json({ error: "E-mail inválido" });
+  }
+  if (!["sessao", "consulta"].includes(String(tipo))) {
+    return res.status(400).json({ error: "Tipo inválido" });
+  }
+  if (!DATA_RE.test(String(data_solicitada))) {
+    return res.status(400).json({ error: "Data inválida (formato esperado: AAAA-MM-DD)" });
+  }
+
+  cliente_nome = limitar(cliente_nome, 120);
+  cliente_email = limitar(cliente_email, 160);
+  cliente_tel = limitar(cliente_tel, 20);
+  cliente_insta = limitar(cliente_insta, 60);
+  artista = limitar(artista, 120);
+  projeto = limitar(projeto, 500);
+  regiao = limitar(regiao, 120);
+  orcamento = limitar(orcamento, 60);
+  hora_solicitada = limitar(hora_solicitada, 40);
 
   const descricao = [
     projeto ? "Projeto: " + projeto : "",
@@ -102,18 +150,18 @@ export default async function handler(req, res) {
       "<table style='width:100%;border-collapse:collapse;font-size:14px'>" +
       sec("Agendamento") +
       row("Tipo", "<strong>" + tipoLabel + "</strong>") +
-      row("Artista", artista) +
+      row("Artista", escapeHtml(artista)) +
       row("Data solicitada", "<strong>" + dataFmt + "</strong>") +
-      row("Horário", hora_solicitada || "A combinar") +
+      row("Horário", escapeHtml(hora_solicitada) || "A combinar") +
       sec("Cliente") +
-      row("Nome", "<strong>" + cliente_nome + "</strong>") +
-      row("WhatsApp", cliente_tel ? "<a href='https://wa.me/55" + (cliente_tel).replace(/\D/g,"").replace(/^55/,"") + "' style='color:#25D366'>" + cliente_tel + "</a>" : "—") +
-      row("E-mail", cliente_email || "—") +
-      row("Instagram", cliente_insta ? "<a href='https://instagram.com/" + cliente_insta.replace("@","") + "' style='color:#C9A84C'>@" + cliente_insta.replace("@","") + "</a>" : "—") +
+      row("Nome", "<strong>" + escapeHtml(cliente_nome) + "</strong>") +
+      row("WhatsApp", cliente_tel ? "<a href='https://wa.me/55" + (cliente_tel).replace(/\D/g,"").replace(/^55/,"") + "' style='color:#25D366'>" + escapeHtml(cliente_tel) + "</a>" : "—") +
+      row("E-mail", escapeHtml(cliente_email) || "—") +
+      row("Instagram", cliente_insta ? "<a href='https://instagram.com/" + encodeURIComponent(cliente_insta.replace("@","")) + "' style='color:#C9A84C'>@" + escapeHtml(cliente_insta.replace("@","")) + "</a>" : "—") +
       sec("Projeto") +
-      row("Descrição / Ideia", projeto || "—") +
-      row("Região do corpo", regiao || "—") +
-      row("Orçamento informado", orcamento ? "<strong style='color:#2d8a4e;font-size:15px'>" + orcamento + "</strong>" : "—") +
+      row("Descrição / Ideia", escapeHtml(projeto) || "—") +
+      row("Região do corpo", escapeHtml(regiao) || "—") +
+      row("Orçamento informado", orcamento ? "<strong style='color:#2d8a4e;font-size:15px'>" + escapeHtml(orcamento) + "</strong>" : "—") +
       "</table>" +
       "<p style='margin:20px 0 0;font-size:11px;color:#bbb;border-top:1px solid #eee;padding-top:12px'>Solicitado via Aura Chat · " + nomeEstudio + " · Confirme pelo WhatsApp do cliente.</p>" +
       "</div>";
@@ -129,18 +177,18 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           from: nomeEstudio + " <" + emailRem + ">",
           to: destsPro,
-          subject: "✦ " + tipoLabel + " | " + cliente_nome + " | " + dataFmt + (orcamento ? " | " + orcamento : ""),
+          subject: "✦ " + tipoLabel + " | " + escapeHtml(cliente_nome) + " | " + dataFmt + (orcamento ? " | " + orcamento : ""),
           html: htmlRico
         })
       }).catch(e => console.warn("Email profissional error:", e));
     }
 
     if (cliente_email) {
-      const fn = cliente_nome.trim().split(" ")[0];
+      const fn = escapeHtml(cliente_nome.trim().split(" ")[0]);
       const htmlCli = "<div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222'>" +
         "<p>Olá, <strong>" + fn + "</strong>! 🖤</p>" +
-        "<p>Sua solicitação de <strong>" + tipoLabel.toLowerCase() + "</strong> com <strong>" + artista + "</strong> foi recebida com sucesso.</p>" +
-        "<p><strong>Data solicitada:</strong> " + dataFmt + (hora_solicitada ? " às " + hora_solicitada : "") + "</p>" +
+        "<p>Sua solicitação de <strong>" + tipoLabel.toLowerCase() + "</strong> com <strong>" + escapeHtml(artista) + "</strong> foi recebida com sucesso.</p>" +
+        "<p><strong>Data solicitada:</strong> " + dataFmt + (hora_solicitada ? " às " + escapeHtml(hora_solicitada) : "") + "</p>" +
         "<p>Nossa equipe vai entrar em contato pelo seu WhatsApp em breve para confirmar o horário.</p>" +
         "<p style='margin-top:24px;font-size:12px;color:#999'>" + nomeEstudio + (cidadeEstudio ? " · " + cidadeEstudio : "") + "</p>" +
         "</div>";

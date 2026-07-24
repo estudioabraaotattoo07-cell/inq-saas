@@ -1,10 +1,6 @@
-const ALLOWED_ORIGINS = [
-  "https://inq-saas.vercel.app",
-  "https://acasadoscarvalhotattoo.com.br",
-  "https://www.acasadoscarvalhotattoo.com.br",
-  "https://inksystem.com.br",
-  "https://www.inksystem.com.br",
-];
+import { ALLOWED_ORIGINS } from "./_lib/allowedOrigins.js";
+import { autenticarChamador } from "./_lib/auth.js";
+import { verificarRateLimit } from "./_lib/rateLimit.js";
 
 export default async function handler(req, res) {
   const origin = req.headers.origin || "";
@@ -12,7 +8,7 @@ export default async function handler(req, res) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Internal-Service-Key");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
@@ -20,6 +16,18 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Bloco 1 -- hardening: exige sessão Supabase válida ou segredo de serviço.
+  // user_id isolado no corpo nunca é aceito como prova de identidade.
+  const auth = await autenticarChamador(req);
+  if (!auth.ok) {
+    return res.status(401).json({ error: "Não autenticado" });
+  }
+
+  const { permitido } = await verificarRateLimit("resend", auth.identificador);
+  if (!permitido) {
+    return res.status(429).json({ error: "Limite de envios excedido. Tente novamente em instantes." });
   }
 
   const { apiKey, from, to, subject, html } = req.body;
