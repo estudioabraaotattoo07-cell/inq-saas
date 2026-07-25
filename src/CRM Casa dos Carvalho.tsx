@@ -6965,7 +6965,7 @@ export default function CRM() {
               <div className="fsum">
                 {(() => {
                   const totalAReceber = clients.reduce((acc: number, c: any) => {
-                    const projs = (c.projetos || []).filter((p: any) => p.status !== "concluido" && p.status !== "cancelado");
+                    const projs = (c.projetos || []).filter((p: any) => p.status !== "cancelado");
                     const totalProj = projs.reduce((s: number, p: any) => s + (Number(p.valorTotal) || 0), 0);
                     const totalPago = fin.filter((f: any) => f.cliente_id === c.id && (!f.tipo || f.tipo === "entrada") && !f.is_permuta).reduce((s: number, f: any) => s + (Number(f.val_a) || 0), 0);
                     return acc + Math.max(totalProj - totalPago, 0);
