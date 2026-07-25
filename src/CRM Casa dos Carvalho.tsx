@@ -7488,7 +7488,7 @@ export default function CRM() {
                 const entradasCount = fin.filter((f: any) => !f.tipo || f.tipo === "entrada").length;
                 const ticket = entradasCount > 0 ? Math.round(totalEntradas / entradasCount) : 0;
                 const saldosAbertos = clients.reduce((s, c) => {
-                  const projs = (c.projetos || []).filter((p: any) => p.status === "ativo" && p.valorTotal > 0);
+                  const projs = (c.projetos || []).filter((p: any) => p.status !== "cancelado" && p.valorTotal > 0);
                   const pago = fin.filter((f: any) => f.cliente_id === c.id && (!f.tipo || f.tipo === "entrada")).reduce((ss: number, f: any) => ss + (Number(f.val_a) || 0), 0);
                   const total = projs.reduce((ss: number, p: any) => ss + (Number(p.valorTotal) || 0), 0);
                   return s + Math.max(total - pago, 0);
