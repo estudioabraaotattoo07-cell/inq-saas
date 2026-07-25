@@ -3473,7 +3473,7 @@ export default function CRM() {
       val_a: 0, val_c: 0, pgto: "", cri: "", orcamento: false,
       hist: [{ t: "Cadastro manual criado", d: new Date().toLocaleString("pt-BR") }], pv: [],
       projetos: [{
-        id: 1, status: "andamento",
+        id: 1, status: "ativo",
         etapa: "lead", etapa_desde: new Date().toISOString(),
         estilo: (form as any).estilo || "",
         tam: (form as any).tam || "Medio",
