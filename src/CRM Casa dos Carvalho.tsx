@@ -9817,7 +9817,7 @@ export default function CRM() {
                     <span style={{ color: "var(--tx3)", fontSize: 11 }}>Entrou em {sc.data}</span>
                     {(() => { const s = calcScore(sc); return <span style={{ fontSize: 10, fontWeight: 700, color: s.cor, background: s.cor + "22", border: "1px solid " + s.cor + "44", borderRadius: 4, padding: "1px 6px", letterSpacing: ".04em" }}>⭐ {s.label} {s.score}</span>; })()}
                     {(() => {
-                      const projs = (sc.projetos || []).filter((p: any) => p.status !== "concluido" && p.status !== "cancelado" && p.valorTotal > 0);
+                      const projs = (sc.projetos || []).filter((p: any) => p.status !== "cancelado" && p.valorTotal > 0);
                       const totalProj = projs.reduce((acc: number, p: any) => acc + (Number(p.valorTotal) || 0), 0);
                       const totalPago = fin.filter((f: any) => f.cliente_id === sc.id && f.tipo !== "saida" && !f.is_permuta).reduce((acc: number, f: any) => acc + (Number(f.val_a) || 0), 0);
                       const saldo = totalProj - totalPago;
