@@ -1764,7 +1764,7 @@ export default function CRM() {
   const [proximaSessaoModal, setProximaSessaoModal] = useState<{cid: any; agEvent: any} | null>(null);
   const [editandoProjConc, setEditandoProjConc] = useState<{clienteId: any; projetoId: any} | null>(null);
   const [pgAvulso, setPgAvulso] = useState<{clienteId: any; clienteNome: string; artistaId: string; projetos?: any[]; projetoId?: any; fase: "form"|"confirm"; valor: string; forma: string; obs: string} | null>(null);
-  const [agendarProximaModal, setAgendarProximaModal] = useState<{cid: any} | null>(null);
+  const [agendarProximaModal, setAgendarProximaModal] = useState<{cid: any, projetoId?: any} | null>(null);
   const [repasseModal, setRepasseModal] = useState<{artistaId: string; pendente: number; valor: string; forma: string; vale: boolean} | null>(null);
   const [instrucaoDisparo, setInstrucaoDisparo] = useState<Record<string, string>>({});
   const [gerandoDisparo, setGerandoDisparo] = useState<string | null>(null);
@@ -3017,14 +3017,26 @@ export default function CRM() {
     executarMove(cid, ns);
   };
 
-  const executarMove = (cid: number, ns: string, extra?: any) => {
+  // Fundação do Domínio Operacional (ADR-001): executarMove é a autoridade única de
+  // domínio para transição de Jornada. projetoId é opcional e aditivo — quando informado
+  // (e só quando o chamador já sabe, sem ambiguidade, qual Projeto está sendo afetado),
+  // a Jornada daquele Projeto específico também é atualizada, além da etapa do Cliente.
+  // Nunca "adivinha" o projeto quando não for passado — isso é proibido pelo Princípio 9
+  // da Constituição de Domínio (nunca fundir Projetos diferentes num único estado).
+  const executarMove = (cid: number, ns: string, extra?: any, projetoId?: any) => {
     const lbl = stages.find(s => s.id === ns)?.label || ns;
     const orq = ns === "sessao_agend";
     const tatuado = ns === "tatuado";
     const posVenda = ns === "pos_venda";
+    const etapaDesdeNova = new Date().toISOString();
     setClients(p => {
       const updated = p.map(c => c.id !== cid ? c : {
-        ...c, ...extra, etapa: ns, etapa_desde: new Date().toISOString(), orcamento: orq,
+        ...c, ...extra, etapa: ns, etapa_desde: etapaDesdeNova, orcamento: orq,
+        ...(projetoId != null ? {
+          projetos: (c.projetos || []).map((proj: any) =>
+            proj.id === projetoId ? { ...proj, etapa: ns, etapa_desde: etapaDesdeNova } : proj
+          )
+        } : {}),
         pv: tatuado ? [] : c.pv,
         // Reset de avaliação se entrar em pos_venda com ciclo incompleto (aguardando = nunca respondeu)
         avaliacao_fluxo_status: posVenda && (c as any).avaliacao_fluxo_status === "aguardando" ? null : (c as any).avaliacao_fluxo_status,
@@ -3060,7 +3072,7 @@ export default function CRM() {
     if (!cliente) return;
     if (cliente.etapa !== "cons_agendada" && cliente.etapa !== "sessao_agend") return;
     const etapaAlvo = (cliente as any).etapa_antes_agenda || "lead";
-    executarMove(cliente.id, etapaAlvo, { etapa_antes_agenda: null });
+    executarMove(cliente.id, etapaAlvo, { etapa_antes_agenda: null }, (evento as any).projeto_id);
   };
   // Rascunho de edição de uma solicitação: enquanto existir draft, a tela mostra ele (não o dado salvo).
   // Nada grava no banco até chamar salvarProjDraft — evita autosave campo a campo.
@@ -3271,10 +3283,10 @@ export default function CRM() {
       setProjPagamentoAtual(null);
       if (ehPiercingConcluido) {
         // Piercing tem régua própria de pós-venda — pula o "e agora?" e já dispara o e-mail do dia 0
-        executarMove(cid, "pos_venda_piercing");
+        executarMove(cid, "pos_venda_piercing", undefined, projConcluidoServ?.id);
         enviarEmailPosVendaPiercingDia0(cid);
       } else {
-        setAgendarProximaModal({ cid });
+        setAgendarProximaModal({ cid, projetoId: projVinculado?.id ?? projConcluidoServ?.id ?? null });
       }
     }
   };
@@ -3328,7 +3340,7 @@ export default function CRM() {
         setClients(p => p.map(c => c.id !== ev.cliente_id ? c : { ...c, hist: novoHist }));
         await sb.from("clientes").update({ hist: novoHist }).eq("id", ev.cliente_id);
       }
-      executarMove(ev.cliente_id, "precisa_remarcar");
+      executarMove(ev.cliente_id, "precisa_remarcar", undefined, (ev as any).projeto_id);
       addLog(`Agenda: não compareceu (vai remarcar) — "${ev.title}"` + (motivo ? ` — ${motivo}` : ""));
     } else {
       const novasFaltas = (cliAtual?.faltas || 0) + 1;
@@ -3462,6 +3474,7 @@ export default function CRM() {
       hist: [{ t: "Cadastro manual criado", d: new Date().toLocaleString("pt-BR") }], pv: [],
       projetos: [{
         id: 1, status: "andamento",
+        etapa: "lead", etapa_desde: new Date().toISOString(),
         estilo: (form as any).estilo || "",
         tam: (form as any).tam || "Medio",
         regiao: (form as any).regiao || "",
@@ -3844,9 +3857,9 @@ export default function CRM() {
         const tipoKey = (agForm.tipo || "").split("_")[0];
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
         if (tipoKey === "cons" && cli && AUTO_MOVE_ORIGENS.includes(cli.etapa)) {
-          executarMove(agClientVinc.id, "cons_agendada");
+          executarMove(agClientVinc.id, "cons_agendada", undefined, (agForm as any).projetoId);
         } else if ((tipoKey === "sess" || tipoKey === "piercing") && cli && AUTO_MOVE_ORIGENS.includes(cli.etapa)) {
-          executarMove(agClientVinc.id, "sessao_agend");
+          executarMove(agClientVinc.id, "sessao_agend", undefined, (agForm as any).projetoId);
         }
       }
       // Lançar sinal no financeiro se foi marcado como pago agora e não havia antes
@@ -3932,7 +3945,7 @@ export default function CRM() {
         const cli = clients.find((c: any) => c.id === agClientVinc.id);
         if (cli && AUTO_MOVE_ORIGENS.includes(cli.etapa)) {
           // Guarda a etapa de origem só se ainda não houver uma guardada (evita perder o valor original em agendamentos em sequência)
-          executarMove(agClientVinc.id, "cons_agendada", { etapa_antes_agenda: (cli as any).etapa_antes_agenda ?? cli.etapa });
+          executarMove(agClientVinc.id, "cons_agendada", { etapa_antes_agenda: (cli as any).etapa_antes_agenda ?? cli.etapa }, (agForm as any).projetoId);
         }
         enviarEmailAgendamento("cons", agClientVinc, agForm.date, agForm.start, artistaNome);
       } else if (tipoKey === "sess" || tipoKey === "piercing") {
@@ -3941,7 +3954,7 @@ export default function CRM() {
           if (cli.etapa === "hibernacao" && (cli.faltas || 0) > 0) {
             setTimeout(() => setShowAviso(`⚠️ ${cli.nome} estava em hibernação por desmarcação. Lembre de cobrar R$100,00 de taxa — conforme política do estúdio.`), 500);
           }
-          executarMove(agClientVinc.id, "sessao_agend", { etapa_antes_agenda: (cli as any).etapa_antes_agenda ?? cli.etapa });
+          executarMove(agClientVinc.id, "sessao_agend", { etapa_antes_agenda: (cli as any).etapa_antes_agenda ?? cli.etapa }, (agForm as any).projetoId);
         }
         enviarEmailAgendamento("sess", agClientVinc, agForm.date, agForm.start, artistaNome);
       }
@@ -3968,7 +3981,7 @@ export default function CRM() {
       }
       // Piercing — mover pipeline para sessao_agend automaticamente
       if (agForm.tipo === "piercing" && agClientVinc) {
-        executarMove(agClientVinc.id, "sessao_agend");
+        executarMove(agClientVinc.id, "sessao_agend", undefined, (agForm as any).projetoId);
       }
       // Salvar sessões extras (2ª, 3ª...)
       if (sessoesExtras.length > 0) {
@@ -4361,6 +4374,7 @@ export default function CRM() {
             tam: params.tamanho || "Medio",
             valorTotal: params.valor_total || 0,
             status: "ativo",
+            etapa: "lead", etapa_desde: new Date().toISOString(),
             primeira: false,
             sessoes: []
           };
@@ -4845,8 +4859,8 @@ export default function CRM() {
           // O evento voltou — se o pipeline já tinha sido revertido, empurra o cliente de volta pra agendado.
           if (undoEvento.cliente_id && undoEvento.tipo && !undoEvento.tipo.startsWith("bloq")) {
             const tipoKeyUndo = undoEvento.tipo.split("_")[0];
-            if (tipoKeyUndo === "cons") executarMove(undoEvento.cliente_id, "cons_agendada");
-            else if (tipoKeyUndo === "sess" || tipoKeyUndo === "piercing") executarMove(undoEvento.cliente_id, "sessao_agend");
+            if (tipoKeyUndo === "cons") executarMove(undoEvento.cliente_id, "cons_agendada", undefined, (undoEvento as any).projeto_id);
+            else if (tipoKeyUndo === "sess" || tipoKeyUndo === "piercing") executarMove(undoEvento.cliente_id, "sessao_agend", undefined, (undoEvento as any).projeto_id);
           }
         }
       } catch(err: any) {
@@ -11784,13 +11798,13 @@ export default function CRM() {
                         <button onClick={() => {
                           if (!novoProjetoForm.estilo.trim()) { setShowAviso("Preencha o nome/identificação do projeto."); return; }
                           const val = parseFloat(novoProjetoForm.valorTotal.replace(/\./g,"").replace(",",".")) || 0;
-                          const proj: any = { id: Date.now(), estilo: novoProjetoForm.estilo, tam: novoProjetoForm.tam, primeira: novoProjetoForm.primeira, desc: novoProjetoForm.desc, servico: (novoProjetoForm as any).servico || "", artista: novoProjetoForm.artista || sc.artista || "", valorTotal: val, status: "ativo", criadoEm: new Date().toLocaleDateString("pt-BR"), pagamentos: [] };
+                          const proj: any = { id: Date.now(), estilo: novoProjetoForm.estilo, tam: novoProjetoForm.tam, primeira: novoProjetoForm.primeira, desc: novoProjetoForm.desc, servico: (novoProjetoForm as any).servico || "", artista: novoProjetoForm.artista || sc.artista || "", valorTotal: val, status: "ativo", etapa: "lead", etapa_desde: new Date().toISOString(), criadoEm: new Date().toLocaleDateString("pt-BR"), pagamentos: [] };
                           if (novoProjetoForm.piercingItens.length > 0) {
                             proj.piercingItens = novoProjetoForm.piercingItens;
                           }
                           const projs = [...(sc.projetos || [])];
                           if (projs.length === 0 && (sc.estilo || sc.desc)) {
-                            projs.push({ id: Date.now()-1, estilo: sc.estilo||"", tam: sc.tam||"Medio", primeira: sc.primeira||false, desc: sc.desc||"", valorTotal: 0, status: "ativo", criadoEm: "—", pagamentos: [] });
+                            projs.push({ id: Date.now()-1, estilo: sc.estilo||"", tam: sc.tam||"Medio", primeira: sc.primeira||false, desc: sc.desc||"", valorTotal: 0, status: "ativo", etapa: (sc.etapa || "lead"), etapa_desde: new Date().toISOString(), criadoEm: "—", pagamentos: [] });
                           }
                           projs.push(proj);
                           upC(sc.id, "projetos", projs);
@@ -13162,7 +13176,7 @@ export default function CRM() {
                                 await sb.from("clientes").update({ hist: novoHist }).eq("id", ev.cliente_id);
                               }
                               addLog("✅ Consulta cumprida: " + ev.title + (ev.date ? " em " + ev.date.split("-").reverse().join("/") : "") + (arNome ? " — " + arNome : ""));
-                              executarMove(ev.cliente_id, op.destino);
+                              executarMove(ev.cliente_id, op.destino, undefined, (ev as any).projeto_id);
                               setConsultaCumpridaExpanded(false);
                               setShowAgForm(false); setEditingEvent(null); setAgClientVinc(null);
                               if (op.sessao) {
@@ -13473,7 +13487,7 @@ export default function CRM() {
                           { t: (auraName || "Agente") + ": recontato sugerido em 30 dias", d: new Date().toLocaleDateString("pt-BR") },
                         ]
                       }));
-                      executarMove(agClientVinc.id, "hibernacao");
+                      executarMove(agClientVinc.id, "hibernacao", undefined, (event as any).projeto_id);
                     }
                     const quemDesmarcou = (confirmCancelarEvento as any).quem === "profissional" ? "Profissional desmarcou" : "Cliente desmarcou";
                     addLog(`Agenda: ${quemDesmarcou} — "${event.title}" — ${motivo}`);
@@ -13532,7 +13546,7 @@ export default function CRM() {
                               await sb.from("clientes").update({ hist: novoHist }).eq("id", ev.cliente_id);
                             }
                             addLog("✅ Consulta cumprida: " + ev.title + (ev.date ? " em " + ev.date.split("-").reverse().join("/") : "") + (arNome ? " — " + arNome : ""));
-                            executarMove(ev.cliente_id, op.destino);
+                            executarMove(ev.cliente_id, op.destino, undefined, (ev as any).projeto_id);
                             setConfirmPresenca(null); setPresencaMotivo("");
                             if (op.sessao) {
                               const cli = clients.find(c => c.id === ev.cliente_id);
@@ -16679,17 +16693,19 @@ export default function CRM() {
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button onClick={() => {
                   const cid = agendarProximaModal.cid;
+                  const projetoId = agendarProximaModal.projetoId;
                   setAgendarProximaModal(null);
-                  executarMove(cid, "reengajamento");
+                  executarMove(cid, "reengajamento", undefined, projetoId);
                 }} style={{ background: "rgba(22,160,133,.12)", border: "1px solid rgba(22,160,133,.4)", borderRadius: 8, padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#16A085", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", textAlign: "left" }}>
                   💎 Projeto encerrado → Reengajamento
                   <div style={{ fontSize: 11, fontWeight: 400, color: "rgba(22,160,133,.8)", marginTop: 3 }}>Régua de pós-venda (D+1/D+7/D+30/D+37) + reativação a cada 180 dias</div>
                 </button>
                 <button onClick={() => {
                   const cid = agendarProximaModal.cid;
+                  const projetoId = agendarProximaModal.projetoId;
                   const cliLocal = clients.find(c => c.id === cid);
                   setAgendarProximaModal(null);
-                  executarMove(cid, "sessao_agend");
+                  executarMove(cid, "sessao_agend", undefined, projetoId);
                   changeTab("agenda");
                   if (cliLocal) {
                     setTimeout(() => {
@@ -16708,8 +16724,9 @@ export default function CRM() {
                 </button>
                 <button onClick={() => {
                   const cid = agendarProximaModal.cid;
+                  const projetoId = agendarProximaModal.projetoId;
                   setAgendarProximaModal(null);
-                  executarMove(cid, "aguard_prox_sessao");
+                  executarMove(cid, "aguard_prox_sessao", undefined, projetoId);
                 }} style={{ background: "rgba(232,168,56,.12)", border: "1px solid rgba(232,168,56,.4)", borderRadius: 8, padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#E8A838", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", textAlign: "left" }}>
                   🔄 Mais sessões, sem data ainda → Aguardando Próxima Sessão
                   <div style={{ fontSize: 11, fontWeight: 400, color: "rgba(232,168,56,.8)", marginTop: 3 }}>Projeto continua, data a definir — recebe convite recorrente para remarcar</div>
