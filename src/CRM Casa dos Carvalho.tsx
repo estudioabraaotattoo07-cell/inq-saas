@@ -9819,7 +9819,7 @@ export default function CRM() {
                     {(() => {
                       const projs = (sc.projetos || []).filter((p: any) => p.status !== "cancelado" && p.valorTotal > 0);
                       const totalProj = projs.reduce((acc: number, p: any) => acc + (Number(p.valorTotal) || 0), 0);
-                      const totalPago = fin.filter((f: any) => f.cliente_id === sc.id && f.tipo !== "saida" && !f.is_permuta).reduce((acc: number, f: any) => acc + (Number(f.val_a) || 0), 0);
+                      const totalPago = fin.filter((f: any) => f.cliente_id === sc.id && f.tipo !== "saida").reduce((acc: number, f: any) => acc + (Number(f.val_a) || 0), 0);
                       const saldo = totalProj - totalPago;
                       if (totalProj <= 0) return null;
                       return saldo > 0
