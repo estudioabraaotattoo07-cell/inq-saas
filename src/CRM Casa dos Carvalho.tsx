@@ -7507,7 +7507,7 @@ export default function CRM() {
                         ))}
                       </div>
                       <div style={{ background: "rgba(74,158,191,.08)", border: "1px solid rgba(74,158,191,.2)", borderRadius: 6, padding: "8px 12px", fontSize: 11, color: "var(--tx2)" }}>
-                        💰 Saldo devedor em aberto: <strong style={{ color: saldosAbertos > 0 ? "var(--q2)" : "var(--tx)" }}>{fmtR(saldosAbertos)}</strong>
+                        💰 Saldo devedor em aberto: <strong style={{ color: saldosAbertos > 0 ? "#E74C3C" : "var(--tx)" }}>{fmtR(saldosAbertos)}</strong>
                         {ticket > 0 && <span style={{ marginLeft: 12 }}>· Ticket médio: <strong style={{ color: "var(--tx)" }}>{fmtR(ticket)}</strong></span>}
                       </div>
                     </div>
@@ -10915,7 +10915,7 @@ export default function CRM() {
                           </div>
                           <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", textAlign: "center" }}>
                             <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Saldo Devedor</div>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: totalDevedor > 0 ? "var(--gold)" : "#27AE60", fontFamily: "'Cormorant Garamond',serif" }}>{totalDevedor > 0 ? "R$ " + totalDevedor.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "Quitado"}</div>
+                            <div style={{ fontSize: 16, fontWeight: 700, color: totalDevedor > 0 ? "#E74C3C" : "#27AE60", fontFamily: "'Cormorant Garamond',serif" }}>{totalDevedor > 0 ? "R$ " + totalDevedor.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "Quitado"}</div>
                           </div>
                           <div style={{ background: "var(--dk3)", border: credito > 0 ? "1px solid rgba(201,168,76,.4)" : "1px solid var(--br)", borderRadius: 7, padding: "10px 12px", textAlign: "center" }}>
                             <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Crédito</div>
@@ -14019,7 +14019,7 @@ export default function CRM() {
                     <span>💰 Projeto: <strong style={{ color: "var(--tx)" }}>R$ {valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
                     <span>Já pago: <strong style={{ color: "#27AE60" }}>R$ {pagoAntes.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>
                     {pagandoAgora > 0 && <span>Esta sessão: <strong style={{ color: "var(--ab)" }}>R$ {pagandoAgora.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
-                    {saldo > 0 && <span>Saldo restante: <strong style={{ color: "var(--gold)" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
+                    {saldo > 0 && <span>Saldo restante: <strong style={{ color: "#E74C3C" }}>R$ {saldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></span>}
                     {saldo <= 0 && totalPago > 0 && <span style={{ color: "#27AE60", fontWeight: 700 }}>✅ Quitado</span>}
                   </div>
                 );
@@ -14065,7 +14065,7 @@ export default function CRM() {
                 const saldoDevPag = Math.max(valorTotalPag - totalPagoAntes, 0);
                 if (saldoDevPag <= 0 || valorTotalPag <= 0) return null;
                 return (
-                  <div style={{ background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "var(--gold)", fontWeight: 700 }}>
+                  <div style={{ background: "rgba(231,76,60,.1)", border: "1px solid rgba(231,76,60,.3)", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#E74C3C", fontWeight: 700 }}>
                     💰 Saldo em aberto: R$ {saldoDevPag.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </div>
                 );
