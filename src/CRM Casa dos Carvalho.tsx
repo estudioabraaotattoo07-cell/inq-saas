@@ -7334,8 +7334,8 @@ export default function CRM() {
                   <div className="fth">Margem por Profissional</div>
                   <div style={{ padding: "13px 15px" }}>
                     {artists.filter(a => a.ativo).map(a => {
-                      const fat = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada")).reduce((s, f) => s + (Number(f.val_a)||0), 0);
-                      const rep = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada")).reduce((s, f) => s + ((Number(f.val_a)||0) * (Number(f.com_sess)||0) / 100), 0);
+                      const fat = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada") && !f.is_permuta).reduce((s, f) => s + (Number(f.val_a)||0), 0);
+                      const rep = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada") && !f.is_permuta).reduce((s, f) => s + ((Number(f.val_a)||0) * (Number(f.com_sess)||0) / 100), 0);
                       const margem = fat > 0 ? Math.round(((fat - rep) / fat) * 100) : 0;
                       return (
                         <div key={a.id} className="br-row">
@@ -7450,8 +7450,8 @@ export default function CRM() {
                   <div className="fth">Margem por Profissional</div>
                   <div style={{ padding: "13px 15px" }}>
                     {artists.filter(a => a.ativo).map(a => {
-                      const fat = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada")).reduce((s, f) => s + (Number(f.val_a)||0), 0);
-                      const rep = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada")).reduce((s, f) => s + ((Number(f.val_a)||0) * (Number(f.com_sess)||0) / 100), 0);
+                      const fat = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada") && !f.is_permuta).reduce((s, f) => s + (Number(f.val_a)||0), 0);
+                      const rep = finFiltrado.filter(f => (f.artista === a.id || f.artista_id === a.id) && (!f.tipo || f.tipo === "entrada") && !f.is_permuta).reduce((s, f) => s + ((Number(f.val_a)||0) * (Number(f.com_sess)||0) / 100), 0);
                       const margem = fat > 0 ? Math.round(((fat - rep) / fat) * 100) : 0;
                       return (
                         <div key={a.id} className="br-row">
