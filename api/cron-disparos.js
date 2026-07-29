@@ -12,8 +12,24 @@ const sb = createClient(
 
 // Dono do sistema tem acesso irrestrito, igual já acontece no CRM (mesmo
 // e-mail usado lá em OWNER_EMAIL) -- disparos de Disparos/Sazonais não ficam
-// bloqueados pro próprio Abraão mesmo se o plano dele não estiver "Ouro".
+// bloqueados pro próprio Abraão, o Laboratório, independente de versão.
 const OWNER_EMAIL = "estudioabraaotattoo07@gmail.com";
+
+// ============================================================
+// ARQUITETURA DE VERSÕES DO INK SYSTEM (réplica mínima)
+//
+// Mesma regra usada em src/CRM Casa dos Carvalho.tsx -- os dois arquivos
+// não compartilham import (frontend Vite vs. função serverless), por
+// isso esta réplica. Se a matriz de permissões mudar lá, replicar aqui.
+//
+// "Bronze" é o identificador legado de plano que hoje equivale à versão
+// comercial "1.0". Prata/Ouro são legado técnico, sem versão comercial
+// ativa -- não devem mais autorizar nenhum disparo automático.
+// ============================================================
+const VERSAO_1_0_TEM_DISPAROS = false;
+function versaoComercialDoTenant(planoLegado) {
+  return (planoLegado || "").trim().toLowerCase() === "bronze" ? "1.0" : null;
+}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -316,8 +332,9 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Erro ao buscar configuracoes" });
     }
 
-    // Plano de cada tenant -- usado pra bloquear disparo de Disparos/Sazonais
-    // pra quem não tem Prata/Ouro, igual já bloqueia no CRM (dono sempre livre).
+    // Plano de cada tenant -- usado pra resolver a versão comercial e decidir
+    // se os disparos automáticos de Relacionamento estão liberados (dono/
+    // Laboratório sempre livre, independente de versão).
     const inkClientesMap = {};
     try {
       const { data: inkClientesData } = await sb.from("ink_clientes").select("auth_user_id, plano, email");
@@ -329,7 +346,8 @@ export default async function handler(req, res) {
       if (!userId) continue;
 
       const inkCliente = inkClientesMap[userId];
-      const temDisparosPrata = inkCliente?.email === OWNER_EMAIL || inkCliente?.plano === "Prata" || inkCliente?.plano === "Ouro";
+      const temDisparosPrata = inkCliente?.email === OWNER_EMAIL ||
+        (versaoComercialDoTenant(inkCliente?.plano) === "1.0" && VERSAO_1_0_TEM_DISPAROS);
 
       // Exclusão definitiva: clientes na lixeira há mais de 30 dias
       const limite30 = new Date(hoje);
