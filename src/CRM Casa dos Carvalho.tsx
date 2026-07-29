@@ -82,6 +82,67 @@ const PROXIMO_PLANO: Record<string, string> = { Bronze: "Prata", Prata: "Ouro" }
 const WHATSAPP_SUPORTE_INK = "5527999598230"; // espelha ink-system-plataform/app/page.tsx (WHATSAPP_SUPORTE)
 const PLANO_ORDEM_GLOBAL = ["Bronze", "Prata", "Ouro"];
 
+// ============================================================
+// ARQUITETURA DE VERSÕES DO INK SYSTEM
+//
+// Define quais funcionalidades pertencem a cada versão comercial.
+//
+// O Laboratório da Casa dos Carvalho não depende desta matriz.
+// O Laboratório sempre possui acesso irrestrito.
+//
+// Os valores Bronze, Prata e Ouro são identificadores legados.
+// Novas versões comerciais devem ser adicionadas nesta matriz,
+// preservando a compatibilidade das versões anteriores.
+// ============================================================
+const VERSAO_PADRAO_COMERCIAL = "1.0";
+const VERSOES_PERMISSOES: Record<string, Record<string, boolean>> = {
+  "1.0": {
+    disparos: false,
+    origens: false,
+    campanhas: false,
+    depoimentos: false,
+    historiaDoEstudio: false,
+    coresEstilo: false,
+    aparenciaCrm: false,
+  },
+};
+// Compatibilidade temporária com o modelo legado de planos (Bronze/Prata/Ouro).
+// Ainda não existe uma coluna própria de "versão" no tenant -- enquanto ela não
+// existir, esta é a única função que sabe que "Bronze" já equivale à versão
+// comercial "1.0". Nenhum outro ponto do código deve comparar com "Bronze"
+// diretamente -- só chamar resolverVersaoComercial() (ou obterAcessoTenant()).
+function resolverVersaoComercial(planoLegado: string): string | null {
+  const normalizado = (planoLegado || "").trim().toLowerCase();
+  if (normalizado === "bronze") return VERSAO_PADRAO_COMERCIAL;
+  return null; // Prata/Ouro (legado) e planos não reconhecidos não têm versão comercial ativa
+}
+// Autoridade única de acesso -- a interface consulta isto em vez de comparar
+// plano/versão diretamente. O Laboratório (OWNER_EMAIL) é resolvido aqui mesmo
+// e nunca consulta a matriz de permissões -- acesso irrestrito, sempre.
+function obterAcessoTenant({ authEmail, planoLegado }: { authEmail: string; planoLegado: string }) {
+  const ehLaboratorio = authEmail === OWNER_EMAIL;
+  const versao = ehLaboratorio ? null : resolverVersaoComercial(planoLegado);
+  const permissoes = versao ? VERSOES_PERMISSOES[versao] : undefined;
+  const tem = (recurso: string) => ehLaboratorio || !!permissoes?.[recurso];
+  return {
+    ehLaboratorio,
+    versao,
+    temDisparos: tem("disparos"),
+    temOrigens: tem("origens"),
+    temCampanhas: tem("campanhas"),
+    temDepoimentos: tem("depoimentos"),
+    temHistoriaDoEstudio: tem("historiaDoEstudio"),
+    temCoresEstilo: tem("coresEstilo"),
+    temAparenciaCrm: tem("aparenciaCrm"),
+  };
+}
+// Nome comercial exibido ao usuário -- nunca "Bronze" na interface. Prata/Ouro
+// seguem exibindo o nome técnico (identificadores legados, sem oferta comercial ativa).
+function nomeComercialPlano(planoLegado: string): string {
+  const versao = resolverVersaoComercial(planoLegado);
+  return versao ? "Ink System " + versao : planoLegado;
+}
+
 // ── MENSAGENS DE SISTEMA — texto/canal padrão (mesmo texto que vive em
 // cron-disparos.js) + metadados pra edição na tela. Ausência de override no
 // banco (mensagens_sistema_override) = usa o "padrao" daqui, que é o mesmo
