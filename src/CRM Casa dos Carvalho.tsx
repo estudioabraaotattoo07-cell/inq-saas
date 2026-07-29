@@ -1640,6 +1640,9 @@ export default function CRM() {
   const [sitePlano, setSitePlano] = useState<string>("");
   const [meuPlano, setMeuPlano] = useState<string>("");
   const [meuVencimento, setMeuVencimento] = useState<string>("");
+  // Autoridade única de acesso por versão comercial (ver ARQUITETURA DE VERSÕES,
+  // topo do arquivo) -- resolve Laboratório vs. Ink System 1.0 uma vez só.
+  const acessoTenant = useMemo(() => obterAcessoTenant({ authEmail, planoLegado: meuPlano }), [authEmail, meuPlano]);
   const [meuSlug, setMeuSlug] = useState<string>("");
   const [storageUsadoMb, setStorageUsadoMb] = useState<number>(0);
   const [storageExtraMb, setStorageExtraMb] = useState<number>(0);
@@ -8464,7 +8467,12 @@ export default function CRM() {
             <div className="pvw">
               {/* ── SUB-ABAS: Relacionamento / Disparos / Campanhas / Origens ── */}
               <div style={{ display: "flex", borderBottom: "1px solid var(--br)", marginBottom: 12, overflowX: "auto", flexShrink: 0, WebkitOverflowScrolling: "touch" as any }}>
-                {([["relacionamento","💬 Relacionamento"],["disparos","📣 Disparos"],["campanhas","🎯 Campanhas"],["origens","🔗 Origens"]] as [any,string][]).map(([id, lbl]) => (
+                {([
+                  ["relacionamento","💬 Relacionamento"],
+                  ...(acessoTenant.temDisparos ? [["disparos","📣 Disparos"]] : []),
+                  ...(acessoTenant.temCampanhas ? [["campanhas","🎯 Campanhas"]] : []),
+                  ...(acessoTenant.temOrigens ? [["origens","🔗 Origens"]] : []),
+                ] as [any,string][]).map(([id, lbl]) => (
                   <button key={id} onClick={() => setPvSubTab(id)}
                     style={{ padding: "9px 14px", fontSize: 12, fontWeight: 500, color: pvSubTab === id ? "var(--gold)" : "var(--tx2)", background: "none", border: "none", borderBottom: pvSubTab === id ? "2px solid var(--gold)" : "2px solid transparent", cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'DM Sans',sans-serif" }}>
                     {lbl}
@@ -8924,7 +8932,7 @@ export default function CRM() {
           );
         })()}
         {/* ── ORIGENS ── */}
-        {tab === "posvenda" && pvSubTab === "origens" && (() => {
+        {tab === "posvenda" && pvSubTab === "origens" && acessoTenant.temOrigens && (() => {
           const bloqueadoOrigens = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro");
           const siteBase = (studioSite || "https://seusite.com.br").replace(/\/$/, "");
           const salvarOrigem = async (nome: string, idx: number | null, pago?: boolean, pagina?: string) => {
@@ -9159,7 +9167,7 @@ export default function CRM() {
             );
           })()}
         {/* ── DISPAROS ── */}
-        {tab === "posvenda" && pvSubTab === "disparos" && (
+        {tab === "posvenda" && pvSubTab === "disparos" && acessoTenant.temDisparos && (
           <FoscoOverlay
             bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata")}
             meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Prata" featureNome="Disparos">
@@ -9608,7 +9616,7 @@ export default function CRM() {
           </FoscoOverlay>
         )}
         {/* ── CAMPANHAS ── */}
-        {tab === "posvenda" && pvSubTab === "campanhas" && (() => {
+        {tab === "posvenda" && pvSubTab === "campanhas" && acessoTenant.temCampanhas && (() => {
           const bloqueadoCampanhas = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro");
           const hoje = new Date().toISOString().split("T")[0];
           const statusCamp = (c: any) => {
