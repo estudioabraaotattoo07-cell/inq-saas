@@ -15095,6 +15095,7 @@ export default function CRM() {
                 })()}
               </div>
 
+              {acessoTenant.temDepoimentos && (
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Depoimentos</div>
                 <Help>Depoimentos reais de clientes — copie e cole de onde recebeu (WhatsApp, Instagram, Google). O print é opcional.</Help>
@@ -15139,7 +15140,9 @@ export default function CRM() {
                 <button className="btn-sm" onClick={() => upd({ depoimentos: [...(sc.depoimentos || []), { texto: "", autor: "", estrelas: 5, imagem_url: "" }] })}>+ Adicionar depoimento</button>
                 </FoscoOverlay>
               </div>
+              )}
 
+              {acessoTenant.temHistoriaDoEstudio && (
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 14 }}>História do estúdio</div>
                 <Help>Conte a história do seu estúdio — o que te trouxe até aqui, o que te diferencia.</Help>
@@ -15158,7 +15161,9 @@ export default function CRM() {
                 </div>
                 </FoscoOverlay>
               </div>
+              )}
 
+              {acessoTenant.temCoresEstilo && (
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Cores e Estilo</div>
                 <Help>Personalize a identidade visual do seu site — cores (fundo, botão e texto), cantos, estilo de fontes, brilho e velocidade da esteira de fotos.</Help>
@@ -15255,6 +15260,7 @@ export default function CRM() {
                   })()}
                 </FoscoOverlay>
               </div>
+              )}
 
               <div style={cardSt}>
                 <button className="btn-sm" onClick={() => setSiteAdvOpen(o => !o)} style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -16045,6 +16051,7 @@ export default function CRM() {
 
                 {/* ── ABA SISTEMA ── */}
                 {settingsTab === "sistema" && <>
+                  {acessoTenant.temAparenciaCrm && (
                   <div>
                     <div className="stit">Aparência</div>
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 12 }}>Escolha o tema visual do sistema. Clicar só troca a prévia — fica valendo de verdade só depois de "Salvar".</div>
@@ -16082,6 +16089,7 @@ export default function CRM() {
                       Salvar aparência
                     </button>
                   </div>
+                  )}
                   <div>
                     <div className="stit">Tour Guiado</div>
                     <div style={{ fontSize: 12, color: "var(--tx2)", marginBottom: 10 }}>Refaça o tour de apresentação do sistema a qualquer momento.</div>
