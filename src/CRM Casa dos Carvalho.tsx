@@ -15009,10 +15009,10 @@ export default function CRM() {
                             value={a.botao_social_label || ""} onChange={e => updArtistSite(a.id, { botao_social_label: e.target.value })} />
                         </div>
                       )}
-                      <Help>Fotos do portfólio dele — aparecem numa esteira embaixo do bloco.{limiteFotos !== undefined ? ` (${fotos.length}/${limiteFotos} do plano ${sitePlano})` : ""}</Help>
+                      <Help>Fotos do portfólio dele — aparecem numa esteira embaixo do bloco.{limiteFotos !== undefined ? ` (${fotos.length}/${limiteFotos})` : ""}</Help>
                       {sitePlano !== "Ouro" && (
                         <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>
-                          🔒 O carrossel em movimento automático é recurso do plano Ouro. No seu plano, os visitantes avançam manualmente pelas setas ao lado das fotos.
+                          No site, os visitantes avançam pelas fotos manualmente, usando as setas ao lado.
                         </div>
                       )}
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
@@ -15038,20 +15038,20 @@ export default function CRM() {
                       {limiteAtingido && (
                         <div style={{ width: "100%", border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 6, padding: "10px 12px", background: "#0a0a0a", opacity: 0.85, filter: "grayscale(0.4)" }}>
                           <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>
-                            🔒 Limite de {limiteFotos} fotos do plano {sitePlano} atingido para {a.nome}.
+                            🔒 Limite de {limiteFotos} fotos atingido para {a.nome}.
                           </div>
                           {upgrade ? (
                             <a
                               href={`https://wa.me/${WHATSAPP_SUPORTE_INK}?text=${encodeURIComponent(
-                                `Olá! Meu estúdio atingiu o limite de fotos do plano ${sitePlano} e gostaria de fazer upgrade para o ${upgrade.planoNovo}. Calculei a diferença proporcional em R$${upgrade.valor.toFixed(2)} até o fim do ciclo atual (${upgrade.dataFmt}). Podemos confirmar o pagamento?`
+                                `Olá! Meu estúdio atingiu o limite de fotos por artista e eu gostaria de aumentar essa capacidade. Podemos conversar?`
                               )}`}
                               target="_blank" rel="noopener noreferrer" className="btn-sm"
                               style={{ display: "inline-block", textDecoration: "none" }}
                             >
-                              Fazer upgrade para {upgrade.planoNovo} por R${upgrade.valor.toFixed(2)} →
+                              Falar com a gente pra aumentar o limite →
                             </a>
                           ) : (
-                            <div style={{ fontSize: 11, color: "var(--tx3)" }}>Você já está no plano mais completo ({sitePlano}) — esse é o limite máximo de fotos por artista.</div>
+                            <div style={{ fontSize: 11, color: "var(--tx3)" }}>Esse é o limite máximo de fotos por artista disponível no momento.</div>
                           )}
                         </div>
                       )}
