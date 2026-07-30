@@ -1857,8 +1857,6 @@ export default function CRM() {
   const [orcamentoModal, setOrcamentoModal] = useState<{cid: any; valor: string} | null>(null);
   const [undoEvento, setUndoEvento] = useState<any>(null);
   const [undoTimer, setUndoTimer] = useState<any>(null);
-  const [undoSessao, setUndoSessao] = useState<{cid: any; etapaAnterior: string; finIds: any[]} | null>(null);
-  const [undoSessaoTimer, setUndoSessaoTimer] = useState<any>(null);
   const [confirmAgForm, setConfirmAgForm] = useState(false);
   const savingAgRef = useRef(false); // trava contra duplo clique/toque no "Confirmar" do agendamento
   const [confirmPresenca, setConfirmPresenca] = useState<{event: any} | null>(null);
@@ -1952,7 +1950,7 @@ export default function CRM() {
   // Confirmação genérica premium (cápsula, mesmo padrão do toggleConfirm) --
   // pra substituir window.confirm() nativo (feio, fora do padrão visual) em
   // ações destrutivas pontuais, sem precisar de um estado dedicado por caso.
-  const [confirmAcao, setConfirmAcao] = useState<{ titulo: string; mensagem: string; onConfirmar: () => void } | null>(null);
+  const [confirmAcao, setConfirmAcao] = useState<{ titulo: string; mensagem: string; onConfirmar: () => void; confirmar?: string } | null>(null);
   // ── MENSAGENS_SISTEMA_OVERRIDE (personalização por tenant das mensagens de sistema) ──
   const [sistemaOverrides, setSistemaOverrides] = useState<Record<string, { mensagem?: string; canal?: string; ativo?: boolean }>>({});
   const [sistemaEditandoChave, setSistemaEditandoChave] = useState<string | null>(null);
@@ -7202,11 +7200,15 @@ export default function CRM() {
                           <td>
                             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                               <span className="dok">OK</span>
-                              <button onClick={async () => {
-                                if (!window.confirm("Excluir este lançamento do financeiro? Essa ação não pode ser desfeita.")) return;
-                                setFin(p => p.filter((x: any) => x.id !== f.id));
-                                await dbDelete("financeiro", f.id);
-                              }} style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 13, padding: "0 2px" }} title="Excluir">✕</button>
+                              <button onClick={() => setConfirmAcao({
+                                titulo: "Excluir lançamento",
+                                mensagem: "Excluir este lançamento do financeiro? Essa ação não pode ser desfeita.",
+                                confirmar: "Excluir",
+                                onConfirmar: async () => {
+                                  setFin(p => p.filter((x: any) => x.id !== f.id));
+                                  await dbDelete("financeiro", f.id);
+                                }
+                              })} style={{ background: "none", border: "none", color: "var(--q1)", cursor: "pointer", fontSize: 13, padding: "0 2px" }} title="Excluir">✕</button>
                             </div>
                           </td>
                         </tr>
@@ -7891,7 +7893,7 @@ export default function CRM() {
                     <button className="btn-s" disabled={!equipForm.nome || !equipForm.valor_aquisicao || !equipForm.data_compra} onClick={async () => {
                       const val = parseFloat(String(equipForm.valor_aquisicao).replace(/\./g,"").replace(",",".")) || 0;
                       const row = { nome: equipForm.nome, valor: val, data_compra: equipForm.data_compra, vida_util_meses: equipForm.vida_util_meses, categoria: equipForm.categoria, artista_id: equipForm.artista_id || null, user_id: userId };
-                      const saved = await dbInsert("equipamentos", row, msg => alert("Erro ao salvar equipamento: " + msg));
+                      const saved = await dbInsert("equipamentos", row, msg => setShowAviso("Erro ao salvar equipamento: " + msg));
                       if (!saved) return;
                       setEquipamentos(p => [...p, saved]);
                       setShowEquipForm(false);
@@ -7919,7 +7921,7 @@ export default function CRM() {
                     <button className="btn-c" onClick={() => setShowSaidaForm(false)}>Cancelar</button>
                     <button className="btn-s" disabled={!saidaForm.desc || saidaForm.valor <= 0} onClick={async () => {
                       const row = { descricao: saidaForm.desc, categoria: saidaForm.categoria, valor: saidaForm.valor, data: saidaForm.data, user_id: userId };
-                      const saved = await dbInsert("saidas", row, msg => alert("Erro ao salvar saída: " + msg));
+                      const saved = await dbInsert("saidas", row, msg => setShowAviso("Erro ao salvar saída: " + msg));
                       if (!saved) return;
                       setSaidas(p => [...p, { ...saved, desc: saved.descricao }]);
                       setShowSaidaForm(false);
@@ -8188,7 +8190,7 @@ export default function CRM() {
                     forma_recebimento: editingArtist.forma_recebimento || null,
                     servicos_atendidos: editingArtist.servicos_atendidos || []
                   }).eq("id", editingArtist.id);
-                  if (error) { console.error("Erro ao salvar artista:", error); alert("Erro ao salvar artista."); return; }
+                  if (error) { console.error("Erro ao salvar artista:", error); setShowAviso("Erro ao salvar artista."); return; }
                   setEditingArtist(null);
                 }}>Salvar</button>
               </div>
@@ -8872,7 +8874,7 @@ export default function CRM() {
                                     </div>
                                     <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                                       <button onClick={() => { setFluxoEditandoId(fe.id); setFluxoEditLocal({ ...fe }); }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: "pointer" }}>Editar</button>
-                                      <button onClick={() => { if (window.confirm("Remover esta mensagem?")) excluirFluxoEtapa(fe.id); }} style={{ fontSize: 11, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "3px 8px", color: "var(--q1)", cursor: "pointer" }}>✕</button>
+                                      <button onClick={() => setConfirmAcao({ titulo: "Remover mensagem", mensagem: "Remover esta mensagem?", confirmar: "Remover", onConfirmar: () => excluirFluxoEtapa(fe.id) })} style={{ fontSize: 11, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "3px 8px", color: "var(--q1)", cursor: "pointer" }}>✕</button>
                                     </div>
                                   </div>
                                 )
@@ -9535,7 +9537,7 @@ export default function CRM() {
                                     </div>
                                     <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                                       <button onClick={() => { if (bloqueadoDisparos) return; setCampSazEditandoId(fe.id); setCampSazEditLocal({ ...fe }); }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: bloqueadoDisparos ? "not-allowed" : "pointer", opacity: bloqueadoDisparos ? 0.5 : 1 }}>Editar</button>
-                                      <button onClick={() => { if (bloqueadoDisparos) return; if (window.confirm("Remover esta mensagem?")) excluirCampSazEtapa(fe.id); }} style={{ fontSize: 11, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "3px 8px", color: "var(--q1)", cursor: bloqueadoDisparos ? "not-allowed" : "pointer", opacity: bloqueadoDisparos ? 0.5 : 1 }}>✕</button>
+                                      <button onClick={() => { if (bloqueadoDisparos) return; setConfirmAcao({ titulo: "Remover mensagem", mensagem: "Remover esta mensagem?", confirmar: "Remover", onConfirmar: () => excluirCampSazEtapa(fe.id) }); }} style={{ fontSize: 11, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "3px 8px", color: "var(--q1)", cursor: bloqueadoDisparos ? "not-allowed" : "pointer", opacity: bloqueadoDisparos ? 0.5 : 1 }}>✕</button>
                                     </div>
                                   </div>
                                 )
@@ -10221,9 +10223,9 @@ export default function CRM() {
                           await sb.from("clientes").update({docs_arquivos:arquivosAtuais}).eq("id",sc.id);
                           upCFicha(sc.id,"docs_arquivos",arquivosAtuais);
                           setFichaEditada(false);
-                          alert(`${gerados} PDF(s) gerado(s) e salvo(s) em Documentos Salvos!`);
+                          setShowAviso(`${gerados} PDF(s) gerado(s) e salvo(s) em Documentos Salvos!`);
                         } else {
-                          alert("Nenhum responsavel assinou ainda. Nao ha PDF para gerar.");
+                          setShowAviso("Nenhum responsavel assinou ainda. Nao ha PDF para gerar.");
                         }
                       } else {
                       // anamnese e contrato — PDF único
@@ -10251,9 +10253,9 @@ export default function CRM() {
                       await sb.from("clientes").update({ docs_arquivos: novos }).eq("id", sc.id);
                       upCFicha(sc.id, "docs_arquivos", novos);
                       setFichaEditada(false);
-                      alert("PDF gerado e salvo em Documentos Salvos!");
+                      setShowAviso("PDF gerado e salvo em Documentos Salvos!");
                       }
-                    } catch(e) { alert("Erro ao gerar PDF."); }
+                    } catch(e) { setShowAviso("Erro ao gerar PDF."); }
                     setDocsGerandoPdf(false);
                   };
 
@@ -10271,7 +10273,7 @@ export default function CRM() {
 
                   const enviarEmail = async (docId: string) => {
                     if (!sc.email) {
-                      alert("Este cliente nao tem email cadastrado.");
+                      setShowAviso("Este cliente nao tem email cadastrado.");
                       return;
                     }
                     const titulos: Record<string,string> = {
@@ -10354,14 +10356,14 @@ export default function CRM() {
                       if (r.ok) {
                         logEnvio("email");
                         await salvarDocsStatus(docId, "enviado");
-                        alert(`Email enviado para ${sc.email}`);
+                        setShowAviso(`Email enviado para ${sc.email}`);
                       } else {
                         logFalha("email", rData?.message || rData?.error || `HTTP ${r.status}`);
-                        alert(`Erro ao enviar email: ${rData?.message || rData?.error || r.status}`);
+                        setShowAviso(`Erro ao enviar email: ${rData?.message || rData?.error || r.status}`);
                       }
                     } catch {
                       logFalha("email", "erro de conexão ao enviar documento");
-                      alert("Erro de conexao ao enviar email.");
+                      setShowAviso("Erro de conexao ao enviar email.");
                     }
                   };
 
@@ -10375,14 +10377,14 @@ export default function CRM() {
                       : docId === "menor_resp2" ? (respDadosMae.resp_email || sc.email)
                       : sc.email;
                     if (!emailDestino) {
-                      alert(docId === "menor_resp1" ? "Cadastre o email do Responsavel 1 antes de enviar."
+                      setShowAviso(docId === "menor_resp1" ? "Cadastre o email do Responsavel 1 antes de enviar."
                         : docId === "menor_resp2" ? "Cadastre o email do Responsavel 2 antes de enviar."
                         : "Este cliente nao tem email cadastrado.");
                       return;
                     }
                     const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailDestino) && !emailDestino.includes("..");
                     if (!emailValido) {
-                      alert("O e-mail informado parece invalido:\n" + emailDestino + "\n\nCorrija o endereco (ex.: ponto duplicado, faltando @ ou dominio) antes de enviar.");
+                      setShowAviso("O e-mail informado parece invalido: " + emailDestino + ". Corrija o endereco (ex.: ponto duplicado, faltando @ ou dominio) antes de enviar.");
                       return;
                     }
                     setDocsEnviandoLink(docId);
@@ -10451,16 +10453,16 @@ export default function CRM() {
                       });
                       if (r.ok) {
                         logEnvio("email");
-                        alert(`Link de assinatura enviado para ${emailDestino}. Valido por 7 dias.`);
+                        setShowAviso(`Link de assinatura enviado para ${emailDestino}. Valido por 7 dias.`);
                       } else {
                         let motivo = "";
                         try { const err = await r.json(); motivo = err?.message || err?.error || ""; } catch {}
                         logFalha("email", motivo || "erro ao enviar link de assinatura");
-                        alert("Nao foi possivel enviar para " + emailDestino + (motivo ? "\n\nMotivo: " + motivo : "\n\nVerifique se o endereco de e-mail esta correto e tente novamente."));
+                        setShowAviso("Nao foi possivel enviar para " + emailDestino + (motivo ? ". Motivo: " + motivo : ". Verifique se o endereco de e-mail esta correto e tente novamente."));
                       }
                     } catch {
                       logFalha("email", "erro de conexão ao gerar link de assinatura");
-                      alert("Erro ao gerar link de assinatura.");
+                      setShowAviso("Erro ao gerar link de assinatura.");
                     }
                     setDocsEnviandoLink(null);
                   };
@@ -10846,12 +10848,15 @@ export default function CRM() {
                                         return assin ? (
                                           <div>
                                             <img src={assin} alt="Assinatura" style={{ maxWidth: "100%", height: 80, border: "1px solid var(--br)", borderRadius: 5, background: "#fff", display: "block" }} />
-                                            <button onClick={async () => {
-                                              if (window.confirm("Remover assinatura?")) {
+                                            <button onClick={() => setConfirmAcao({
+                                              titulo: "Remover assinatura",
+                                              mensagem: "Remover assinatura?",
+                                              confirmar: "Remover",
+                                              onConfirmar: async () => {
                                                 await salvarAssinatura(campoAssin, "");
                                                 await salvarDocsStatus(doc.id, "pendente");
                                               }
-                                            }} style={{ marginTop: 5, background: "none", border: "none", fontSize: 10, color: "var(--tx3)", cursor: "pointer" }}>Remover assinatura</button>
+                                            })} style={{ marginTop: 5, background: "none", border: "none", fontSize: 10, color: "var(--tx3)", cursor: "pointer" }}>Remover assinatura</button>
                                           </div>
                                         ) : (
                                           <button onClick={() => setDocsAssinando(doc.id)}
@@ -11144,12 +11149,16 @@ export default function CRM() {
                             }}
                             style={{ width: "100%", marginTop: 4, fontSize: 10, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 4, color: "var(--tx)", padding: "2px 4px" }} />
                           <button
-                            onClick={async () => {
-                              if (!window.confirm("Remover esta foto de acompanhamento? Essa ação não pode ser desfeita.")) return;
-                              const atual = (((sc as any).cicatrizacao_fotos) || []).filter((_: any, j: number) => j !== i);
-                              await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
-                              upCFicha(sc.id, "cicatrizacao_fotos", atual);
-                            }}
+                            onClick={() => setConfirmAcao({
+                              titulo: "Remover foto",
+                              mensagem: "Remover esta foto de acompanhamento? Essa ação não pode ser desfeita.",
+                              confirmar: "Remover",
+                              onConfirmar: async () => {
+                                const atual = (((sc as any).cicatrizacao_fotos) || []).filter((_: any, j: number) => j !== i);
+                                await sb.from("clientes").update({ cicatrizacao_fotos: atual }).eq("id", sc.id);
+                                upCFicha(sc.id, "cicatrizacao_fotos", atual);
+                              }
+                            })}
                             style={{ position: "absolute", top: -6, right: -6, background: "#c0392b", border: "none", borderRadius: "50%", width: 18, height: 18, fontSize: 10, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
                             title="Remover">✕</button>
                         </div>
@@ -11257,13 +11266,19 @@ export default function CRM() {
                           </div>
                           <div style={{ fontSize: 9, color: "var(--tx3)", marginTop: 3, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }} title={arq.nome}>{arq.nome}</div>
                           <div style={{ fontSize: 9, color: "var(--tx3)", textAlign: "center" }}>{arq.criado_em ? new Date(arq.criado_em).toLocaleDateString("pt-BR") : ""}</div>
-                          <button onClick={async e => {
+                          <button onClick={e => {
                             e.stopPropagation();
-                            if (!window.confirm(`Excluir "${arq.nome}"? Essa ação não pode ser desfeita — se for um documento assinado ou de autorização, ele será perdido.`)) return;
-                            const novos = ((sc as any).docs_arquivos || []).filter((_: any, idx: number) => idx !== i);
-                            await sb.from("clientes").update({ docs_arquivos: novos }).eq("id", sc.id);
-                            upCFicha(sc.id, "docs_arquivos", novos);
-                            setFichaEditada(false);
+                            setConfirmAcao({
+                              titulo: "Excluir documento",
+                              mensagem: `Excluir "${arq.nome}"? Essa ação não pode ser desfeita — se for um documento assinado ou de autorização, ele será perdido.`,
+                              confirmar: "Excluir",
+                              onConfirmar: async () => {
+                                const novos = ((sc as any).docs_arquivos || []).filter((_: any, idx: number) => idx !== i);
+                                await sb.from("clientes").update({ docs_arquivos: novos }).eq("id", sc.id);
+                                upCFicha(sc.id, "docs_arquivos", novos);
+                                setFichaEditada(false);
+                              }
+                            });
                           }} style={{ position: "absolute", top: 3, right: 3, background: "rgba(0,0,0,.6)", border: "none", color: "#fff", cursor: "pointer", fontSize: 10, width: 16, height: 16, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>✕</button>
                         </div>
                       ))}
@@ -11384,7 +11399,7 @@ export default function CRM() {
                     const telWa = telCliente.startsWith("55") ? telCliente : "55" + telCliente;
                     const msg = `Olá! Confirme sua presença na sua sessão${evFuturo?.date ? " do dia " + new Date(evFuturo.date + "T12:00:00").toLocaleDateString("pt-BR") : ""}: ${link}`;
                     if (telCliente.length >= 10) window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(msg)}`, "_blank");
-                    else { alert("Link copiado!\n" + link); }
+                    else { setShowAviso("Link copiado! " + link); }
                   };
                   return (
                     <div>
@@ -11905,7 +11920,7 @@ export default function CRM() {
                           <div key={proj.id} style={{ background: "var(--dk3)", border: "1px solid " + (dirty ? "var(--gold)" : "var(--br)"), borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                               <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                                <span style={{ fontSize: 9, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em" }}>Solicitação {pi + 1} — Em andamento</span>
+                                <span style={{ fontSize: 9, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em" }}>Solicitação {pi + 1} — Ativo</span>
                                 <span style={{ fontSize: 13, color: "var(--gold)", fontWeight: 700 }}>{draft.estilo || "(sem título)"}</span>
                               </div>
                       {(draft as any).servico && <span style={{ fontSize: 10, background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 10, padding: "1px 8px", color: "var(--gold)", marginLeft: 6 }}>{(draft as any).servico}</span>}
@@ -12214,13 +12229,16 @@ export default function CRM() {
                                           style={{ fontSize: 10, fontWeight: 600, background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 5, padding: "3px 9px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                                           ✏️ Editar
                                         </button>
-                                        <button onClick={() => {
-                                          if (window.confirm("Reabrir esta solicitação? Ela voltará para Em andamento.")) {
+                                        <button onClick={() => setConfirmAcao({
+                                          titulo: "Reabrir solicitação",
+                                          mensagem: "Reabrir esta solicitação? Ela voltará para Ativo.",
+                                          confirmar: "Reabrir",
+                                          onConfirmar: () => {
                                             const projs = [...(sc.projetos || [])];
                                             const idx = projs.findIndex((p: any) => p.id === proj.id);
                                             if (idx >= 0) { projs[idx] = { ...projs[idx], status: "ativo", concluidoEm: undefined }; upC(sc.id, "projetos", projs); }
                                           }
-                                        }} style={{ fontSize: 10, fontWeight: 600, background: "rgba(52,152,219,.1)", border: "1px solid rgba(52,152,219,.3)", borderRadius: 5, padding: "3px 9px", color: "#3498DB", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                                        })} style={{ fontSize: 10, fontWeight: 600, background: "rgba(52,152,219,.1)", border: "1px solid rgba(52,152,219,.3)", borderRadius: 5, padding: "3px 9px", color: "#3498DB", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                                           ↩️ Reabrir
                                         </button>
                                       </div>
@@ -14045,7 +14063,7 @@ export default function CRM() {
               <div style={{ fontSize: 13, color: "var(--tx)", lineHeight: 1.6 }}>{confirmAcao.mensagem}</div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button className="btn-c" onClick={() => setConfirmAcao(null)}>Cancelar</button>
-                <button className="btn-s" onClick={() => { const fn = confirmAcao.onConfirmar; setConfirmAcao(null); fn(); }}>Remover</button>
+                <button className="btn-s" onClick={() => { const fn = confirmAcao.onConfirmar; setConfirmAcao(null); fn(); }}>{confirmAcao.confirmar || "Remover"}</button>
               </div>
             </div>
           </div>
@@ -14206,12 +14224,7 @@ export default function CRM() {
                       <div style={{ display: "flex", gap: 8 }}>
                         <button title="A tatuagem terá mais sessões. Abre o formulário para agendar a próxima." onClick={() => {
                           const cliLocal = clients.find(c => c.id === confirmPagamento?.cid);
-                          const etapaAnterior = cliLocal?.etapa || "sessao_agend";
                           confirmarPagamento();
-                          if (undoSessaoTimer) clearTimeout(undoSessaoTimer);
-                          const t = setTimeout(() => { setUndoSessao(null); setUndoSessaoTimer(null); }, 8000);
-                          setUndoSessaoTimer(t);
-                          setUndoSessao({ cid: confirmPagamento?.cid, etapaAnterior, finIds: [] });
                           if (cliLocal) {
                             setTimeout(() => {
                               const artistaId = cliLocal.artista || (artists[0]?.id || "");
@@ -14227,11 +14240,6 @@ export default function CRM() {
                           📅 Agendar Nova Sessão
                         </button>
                         <button title="Encerra o projeto mesmo com saldo pendente." onClick={() => {
-                          const etapaAnterior = clients.find(c => c.id === confirmPagamento?.cid)?.etapa || "sessao_agend";
-                          if (undoSessaoTimer) clearTimeout(undoSessaoTimer);
-                          const t = setTimeout(() => { setUndoSessao(null); setUndoSessaoTimer(null); }, 8000);
-                          setUndoSessaoTimer(t);
-                          setUndoSessao({ cid: confirmPagamento?.cid, etapaAnterior, finIds: [] });
                           confirmarPagamento();
                         }} style={{ flex: 1, background: "rgba(39,174,96,.15)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 7, padding: "9px 12px", fontSize: 12, fontWeight: 600, color: "#27AE60", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                           ✅ Finalizar mesmo assim
@@ -14242,11 +14250,6 @@ export default function CRM() {
                     <>
                       <div style={{ fontSize: 12, fontWeight: 600, color: "#27AE60" }}>✅ Pagamento registrado — pronto para finalizar!</div>
                       <button onClick={() => {
-                        const etapaAnterior = clients.find(c => c.id === confirmPagamento?.cid)?.etapa || "sessao_agend";
-                        if (undoSessaoTimer) clearTimeout(undoSessaoTimer);
-                        const t = setTimeout(() => { setUndoSessao(null); setUndoSessaoTimer(null); }, 8000);
-                        setUndoSessaoTimer(t);
-                        setUndoSessao({ cid: confirmPagamento?.cid, etapaAnterior, finIds: [] });
                         confirmarPagamento();
                       }} style={{ background: "rgba(39,174,96,.15)", border: "1px solid rgba(39,174,96,.3)", borderRadius: 7, padding: "9px 12px", fontSize: 12, fontWeight: 700, color: "#27AE60", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                         ✅ Confirmar Pagamento
@@ -14259,38 +14262,6 @@ export default function CRM() {
                 <button className="btn-c" onClick={() => setConfirmPagamento(null)}>Cancelar</button>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* ── BARRA UNDO SESSÃO REALIZADA ── */}
-        {undoSessao && (
-          <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 9999, background: "var(--dk2)", border: "1px solid var(--gold)", borderRadius: 10, padding: "12px 20px", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 24px rgba(0,0,0,.5)", minWidth: 320 }}>
-            <span style={{ fontSize: 13, color: "var(--tx)", flex: 1 }}>✅ Sessão registrada</span>
-            <button onClick={async () => {
-              if (undoSessaoTimer) clearTimeout(undoSessaoTimer);
-              // Reverter etapa do cliente
-              setClients(p => p.map(c => {
-                if (c.id !== undoSessao.cid) return c;
-                const updated = { ...c, etapa: undoSessao.etapaAnterior };
-                setTimeout(() => saveClientDb(updated), 100);
-                return updated;
-              }));
-              // Reverter lançamentos financeiros desta sessão (últimos inseridos para este cliente)
-              const ultimosLanc = fin.filter((f: any) => f.cliente_id === undoSessao.cid).slice(-pagFormas.length);
-              for (const f of ultimosLanc) {
-                await dbDelete("financeiro", f.id);
-              }
-              setFin(p => {
-                const ids = ultimosLanc.map((f: any) => f.id);
-                return p.filter((f: any) => !ids.includes(f.id));
-              });
-              setUndoSessao(null);
-              setUndoSessaoTimer(null);
-              setShowAviso("Ação desfeita. O cliente voltou para o estágio anterior.");
-            }} style={{ background: "var(--gold)", color: "#000", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-              Desfazer
-            </button>
-            <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, borderRadius: "0 0 10px 10px", background: "var(--gold)", animation: "resetBar 8s linear forwards" }} />
           </div>
         )}
 
