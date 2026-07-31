@@ -1,4 +1,4 @@
-// api/provisionar.test.js
+// api/_tests/provisionar.test.js
 //
 // Primeiro arquivo de teste para api/ neste projeto (confirmado na auditoria
 // da Etapa 0: não havia convenção herdada). Segue a mesma filosofia dos
@@ -7,7 +7,12 @@
 // registro de domínios real), não um motor falso, para garantir que a
 // integração ponta a ponta continua correta.
 //
-// Rodar com: node --test api/provisionar.test.js
+// Movido de api/provisionar.test.js para api/_tests/ no Bloco 4.2 (correção
+// emergencial): a Vercel detecta qualquer .js direto em api/ como Serverless
+// Function, e este arquivo nunca foi um endpoint -- mesma convenção de
+// exclusão já usada por api/_lib/ (pasta com "_" no início do nome).
+//
+// Rodar com: node --test api/_tests/provisionar.test.js
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -20,7 +25,7 @@ process.env.VITE_SUPABASE_URL ||= "https://fake-para-teste.supabase.co";
 process.env.SUPABASE_SERVICE_KEY ||= "fake-para-teste";
 process.env.PROVISIONING_SERVICE_SECRET = "segredo-de-teste-fake";
 
-const { processarProvisionamento } = await import("./provisionar.js");
+const { processarProvisionamento } = await import("../provisionar.js");
 const CHAVE_CORRETA = process.env.PROVISIONING_SERVICE_SECRET;
 
 const AUTH_USER_ID = "11111111-1111-1111-1111-111111111111";
