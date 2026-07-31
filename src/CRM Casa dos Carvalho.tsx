@@ -1433,6 +1433,18 @@ function maskCNPJ(v: string) {
 function slugify(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
+// Bloco 3.5 — reconhece o slug técnico provisório que o motor de
+// provisionamento grava automaticamente (gerarSlugProvisorio(), em
+// inq-saas/api/provisionar.js: "tenant-" + authUserId). Único ponto do
+// repositório responsável por essa detecção — se o formato de geração
+// mudar lá, este padrão precisa mudar junto, nunca duplicado em outro
+// lugar. Um slug técnico nunca deve ser tratado como escolha definitiva
+// do humano, mesmo já estando gravado no banco.
+const SLUG_TECNICO_REGEX = /^tenant-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function ehSlugTecnico(slug: string): boolean {
+  return SLUG_TECNICO_REGEX.test(slug);
+}
+
 // Endereço público do site: propõe um slug único a partir do nome do estúdio,
 // acrescentando -2/-3... se já existir outra conta com o mesmo nome. Usado
 // tanto no onboarding quanto na aba Meu Site — mesma regra nos dois lugares.
@@ -2698,10 +2710,14 @@ export default function CRM() {
   }, [tab, userId]);
 
   // Endereço público (slug): gerado a partir do Nome do Estúdio na primeira
-  // vez que a conta abre a aba Meu Site sem ter um definido ainda. Só propõe
-  // — a gravação de verdade só acontece quando o usuário confirma.
+  // vez que a conta abre a aba Meu Site sem ter um definido ainda -- ou
+  // enquanto o único slug existente for o técnico provisório do motor de
+  // provisionamento (Bloco 3.5: "vazio" deixou de ser o único sinal de
+  // "ainda não decidido pelo humano"). Só propõe — a gravação de verdade só
+  // acontece quando o usuário confirma.
   useEffect(() => {
-    if (tab !== "site" || !siteLoaded || siteSlug || !studioName || !userId) return;
+    if (tab !== "site" || !siteLoaded || !studioName || !userId) return;
+    if (siteSlug && !ehSlugTecnico(siteSlug)) return;
     gerarSlugUnico(studioName).then(setSlugProposto);
   }, [tab, siteLoaded, siteSlug, studioName, userId]);
 
@@ -14848,7 +14864,7 @@ export default function CRM() {
                 <div>
                   <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 600, color: "var(--gold)" }}>✦ Meu Site</h2>
                   <div style={{ fontSize: 11, color: "var(--tx3)" }}>Edite o conteúdo do seu site público.</div>
-                  {siteSlug && (
+                  {siteSlug && !ehSlugTecnico(siteSlug) && (
                     <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 4 }}>Seu endereço: <b style={{ color: "var(--gold)" }}>inksystem.com.br/{siteSlug}</b></div>
                   )}
                 </div>
@@ -14884,7 +14900,7 @@ export default function CRM() {
                   <span>✦ <b style={{ color: "var(--gold)" }}>{siteStats.cliques}</b> cliques em "Marque agora"</span>
                 </div>
               )}
-              {!siteSlug && (
+              {(!siteSlug || ehSlugTecnico(siteSlug)) && (
                 <div style={{ fontSize: 12, color: "var(--tx2)", background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 8, padding: "14px 16px", marginBottom: 16, lineHeight: 1.6 }}>
                   {slugProposto ? (
                     <>
