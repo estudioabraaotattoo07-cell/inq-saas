@@ -1587,6 +1587,70 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  // ── ENDPOINTS LEGADOS CONSOLIDADOS (Bloco 4.6) ──────────────────────────────
+  // Portados verbatim de api/campanhas-ativas.js, api/registrar-evento.js e
+  // api/vincular-campanha.js -- mesma query, mesmo formato de resposta,
+  // inclusive as inconsistências de status HTTP entre eles (preservadas de
+  // propósito, não uniformizadas). Uso exclusivo do site legado da Casa dos
+  // Carvalho -- hardcoded a STUDIO_USER_ID, igual aos arquivos originais.
+
+  if (acao === "campanhas-ativas") {
+    if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+    const hojeCA = new Date().toISOString().split("T")[0];
+    const studioUserIdCA = process.env.STUDIO_USER_ID || "2d366d35-1cae-40d5-ba92-06fe2ab8a763";
+    try {
+      const { data, error } = await sb.from("campanhas")
+        .select("id, nome, palavra_chave, data_inicio, data_fim")
+        .eq("user_id", studioUserIdCA)
+        .lte("data_inicio", hojeCA)
+        .gte("data_fim", hojeCA);
+      if (error) { console.error("campanhas-ativas error:", error); return res.status(200).json({ campanhas: [] }); }
+      return res.status(200).json({ campanhas: data || [] });
+    } catch (err) {
+      console.error("campanhas-ativas exception:", err.message);
+      return res.status(200).json({ campanhas: [] });
+    }
+  }
+
+  if (acao === "registrar-evento") {
+    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+    const studioUserIdRE = process.env.STUDIO_USER_ID || "2d366d35-1cae-40d5-ba92-06fe2ab8a763";
+    const { tipo_evento, origem, cliente_id } = req.body || {};
+    if (!tipo_evento) return res.status(400).json({ error: "tipo_evento obrigatorio" });
+    try {
+      const { error } = await sb.from("eventos_trafego").insert({
+        user_id: studioUserIdRE,
+        tipo_evento,
+        origem: origem || "",
+        cliente_id: cliente_id || null,
+        criado_em: new Date().toISOString()
+      });
+      if (error) {
+        console.error("registrar-evento error:", error);
+        return res.status(200).json({ ok: false });
+      }
+      return res.status(200).json({ ok: true });
+    } catch (e) {
+      console.error("registrar-evento exception:", e.message);
+      return res.status(200).json({ ok: false });
+    }
+  }
+
+  if (acao === "vincular-campanha") {
+    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+    const { clienteId, campanhaId } = req.body;
+    if (!clienteId || !campanhaId) {
+      return res.status(400).json({ error: "clienteId e campanhaId obrigatórios" });
+    }
+    try {
+      const { error } = await sb.from("clientes").update({ campanha_id: campanhaId }).eq("id", clienteId);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ ok: true });
+    } catch (err) {
+      return res.status(500).json({ error: "Erro interno", detail: err.message });
+    }
+  }
+
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao, finalizado } = req.body;
