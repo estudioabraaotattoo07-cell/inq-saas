@@ -1,3 +1,0 @@
-{
-  "crons": [{ "path": "/api/cron-disparos", "schedule": "0 9 * * *" }]
-}
