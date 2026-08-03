@@ -1653,7 +1653,7 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao, finalizado } = req.body;
+  const { nome, tel, email, idea, ideia, artista, artistaNome, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao, faixaInvestimento, finalizado } = req.body;
   if (!nome && !tel && !email) return res.status(400).json({ error: "pelo menos um dado obrigatorio" });
 
   const ideaFinal = idea || ideia || "";
@@ -1843,15 +1843,34 @@ export default async function handler(req, res) {
       // classificação perdia dados que só vêm depois (período, e-mail). A
       // Solicitação de Serviço na aba Projeto continua 100% manual, feita
       // presencialmente pelo estúdio -- o chat não abre nada lá sozinho.
+      // Resumo em tópicos (Bloco 1 — Aura 1.0): mesmo contrato de dado (string
+      // em parecer_aura, sempre sobrescrito, sem histórico/versionamento) --
+      // só muda a organização do texto pra facilitar a leitura do tatuador.
+      // "Estágio de decisão" e "Próxima ação sugerida" derivam da etapa já
+      // calculada acima; nenhum dado novo é persistido em coluna própria.
       if (finalizado && (ideaFinal || servico)) {
-        const partesParecer = [];
-        if (avisoCompartilhamento) partesParecer.push(avisoCompartilhamento);
-        partesParecer.push("Cliente entrou em contato buscando " + (servico || "atendimento") + ".");
-        if (ideaFinal) partesParecer.push("Relatou interesse em: " + ideaFinal + ".");
-        if (regiao) partesParecer.push("Região: " + regiao + ".");
-        if ((match.referencias || []).length > 0) partesParecer.push("Enviou imagem(ns) de referência.");
-        if (periodoLigacao) partesParecer.push("Prefere retorno no período da " + periodoLigacao.toLowerCase() + ".");
-        updateFields.parecer_aura = partesParecer.join(" ");
+        const nomeParecer = updateFields.nome || match.nome || nome || "";
+        const telParecer = tel || match.tel || "";
+        const regiaoParecer = updateFields.regiao || match.regiao || regiao || "";
+        const qtdReferencias = (match.referencias || []).length;
+        const etapaFinal = updateFields.etapa || match.etapa || "";
+        const ESTAGIO_TEXTO = { aura_agend: "Já decidiu, quer agendar", lead_morno: "Prefere conversar antes de decidir" };
+        const PROXIMA_ACAO = { aura_agend: "Entrar em contato para confirmar o agendamento", lead_morno: "Ligar para esclarecer dúvidas e apresentar orçamento" };
+
+        const bullets = [];
+        if (nomeParecer) bullets.push("Nome: " + nomeParecer);
+        if (telParecer) bullets.push("Telefone: " + telParecer);
+        if (ideaFinal) bullets.push("Projeto: " + ideaFinal);
+        if (regiaoParecer) bullets.push("Região do corpo: " + regiaoParecer);
+        bullets.push("Referências enviadas: " + (qtdReferencias > 0 ? (qtdReferencias + (qtdReferencias === 1 ? " imagem" : " imagens")) : "Nenhuma"));
+        if (faixaInvestimento) bullets.push("Faixa de investimento: " + faixaInvestimento);
+        if (etapaFinal) bullets.push("Estágio de decisão: " + (ESTAGIO_TEXTO[etapaFinal] || etapaFinal));
+        if (periodoLigacao) bullets.push("Melhor período para contato: " + periodoLigacao);
+        if (artistaNome) bullets.push("Artista escolhido: " + artistaNome);
+        bullets.push("Próxima ação sugerida: " + (PROXIMA_ACAO[etapaFinal] || "Avaliar contato e dar retorno ao cliente"));
+
+        const cabecalho = avisoCompartilhamento ? avisoCompartilhamento + "\n\n" : "";
+        updateFields.parecer_aura = cabecalho + "Resumo do atendimento\n" + bullets.map(b => "• " + b).join("\n");
       }
       await sb.from("clientes").update(updateFields).eq("id", match.id);
       clienteId = match.id;

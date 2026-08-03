@@ -2685,7 +2685,7 @@ export default function CRM() {
       setSiteConteudo(site || {
         user_id: userId, molde: "premium", publicado: false,
         hero_foto_url: "", hero_frase: "", manifesto_frase: "",
-        banner_foto_url: "", banner_titulo: "", banner_texto: "", depoimentos: [],
+        banner_foto_url: "", banner_titulo: "", banner_texto: "", banner_botao_texto: "", depoimentos: [],
       });
       setSiteSlug(tenant?.slug || "");
       // "plano" é texto livre digitado manualmente em ink_clientes (não é enum) —
@@ -10051,7 +10051,7 @@ export default function CRM() {
                     <div className="fi2">
                       <div className="fil">✨ Parecer da Aura</div>
                       {(sc as any).parecer_aura ? (
-                        <div style={{ background: "var(--dk3)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "var(--tx2)", lineHeight: 1.6, fontStyle: "italic" }}>
+                        <div style={{ background: "var(--dk3)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "var(--tx2)", lineHeight: 1.6, fontStyle: "italic", whiteSpace: "pre-line" }}>
                           {(sc as any).parecer_aura}
                         </div>
                       ) : (
@@ -15142,9 +15142,13 @@ export default function CRM() {
                   <label className="fl">Título do banner</label>
                   <input className="fi" placeholder="Escreva aqui... Ex: Do primeiro traço até hoje." value={sc.banner_titulo || ""} onChange={e => upd({ banner_titulo: e.target.value })} />
                 </div>
-                <div className="ff">
+                <div className="ff" style={{ marginBottom: 20 }}>
                   <label className="fl">Texto do banner</label>
                   <textarea className="fta" placeholder="Escreva aqui a história do seu estúdio — sua trajetória, o que te motiva, o que te diferencia. Ex: Começamos numa garagem, hoje somos referência no bairro." value={sc.banner_texto || ""} onChange={e => upd({ banner_texto: e.target.value })} />
+                </div>
+                <div className="ff">
+                  <label className="fl">Texto do botão (CTA Final)</label>
+                  <input className="fi" placeholder="Escreva aqui... Ex: Quero tatuar com vocês!" value={sc.banner_botao_texto || ""} onChange={e => upd({ banner_botao_texto: e.target.value })} />
                 </div>
                 </FoscoOverlay>
               </div>
