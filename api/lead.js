@@ -1193,6 +1193,13 @@ export default async function handler(req, res) {
   if (acao === "lead_busca") {
     const slugBusca = (req.query?.slug || "").trim();
     const telBusca = (req.query?.tel || "").replace(/\D/g, "").slice(-11);
+    // Modo padrão (sem detalhe=1): resposta mínima, sem dado pessoal --
+    // suficiente pra alimentar a pergunta "continuar atendimento ou novo
+    // projeto?" sem revelar nada antes de confirmar a intenção (Grupo B).
+    // Só devolve nome/artista/descrição/região/e-mail quando detalhe=1,
+    // chamado depois que o visitante já escolheu "novo projeto" (ou quando
+    // completo=false, caso em que a bifurcação nem chega a ser oferecida).
+    const detalhe = req.query?.detalhe === "1";
     if (!slugBusca || !telBusca) return res.status(200).json({ encontrado: false });
     const { data: tenantBusca } = await sb.from("ink_clientes").select("auth_user_id").eq("slug", slugBusca).single();
     if (!tenantBusca) return res.status(200).json({ encontrado: false });
@@ -1202,6 +1209,7 @@ export default async function handler(req, res) {
     const match = (candidatos || []).find(c => c.tel && c.tel.replace(/\D/g, "").slice(-11) === telBusca);
     if (!match) return res.status(200).json({ encontrado: false });
     const completo = !!(match.artista && match.descricao && match.regiao && match.email);
+    if (!detalhe) return res.status(200).json({ encontrado: true, completo });
     return res.status(200).json({
       encontrado: true, completo,
       nome: match.nome, artista: match.artista || "", descricao: match.descricao || "",
@@ -1653,7 +1661,7 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, artistaNome, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao, faixaInvestimento, finalizado } = req.body;
+  const { nome, tel, email, idea, ideia, artista, artistaNome, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao, faixaInvestimento, retornoAtendimento, motivoRetorno, finalizado } = req.body;
   if (!nome && !tel && !email) return res.status(400).json({ error: "pelo menos um dado obrigatorio" });
 
   const ideaFinal = idea || ideia || "";
@@ -1746,6 +1754,15 @@ export default async function handler(req, res) {
   function primeiroNome(s) {
     return (s || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(" ")[0] || "";
   }
+  // Mesma composição usada na migration SQL de clientes.chave_dedup --
+  // telefone só dígitos + primeiro nome normalizado. Calculável assim que
+  // nome+telefone chegam juntos pela primeira vez (sempre acontece na mesma
+  // requisição, já que salvar() reenvia o objeto lead inteiro a cada passo).
+  function calcularChaveDedup(nomeVal, telVal) {
+    const dig = telVal ? String(telVal).replace(/[^0-9]/g, "").slice(-11) : "";
+    const pn = primeiroNome(nomeVal);
+    return (dig && pn) ? (dig + "|" + pn) : null;
+  }
   // E-mail/telefone não são chave única de propósito (comum em estúdio: casal,
   // pai/filho, família dividindo uma conta) -- isso só monta o texto de aviso
   // pro Parecer da Aura quando o mesmo dado aparece em outro cadastro com nome
@@ -1777,125 +1794,177 @@ export default async function handler(req, res) {
   let clienteId = null;
   let isNewClient = true;
   let matchInfo = null;
-  let telefoneCompartilhadoCom = null;
   let avisoCompartilhamento = null;
   let etapaMudouAgora = false;
   {
     const telDigits = tel ? tel.replace(/[^0-9]/g, "").slice(-11) : null;
     const emailNorm = email ? email.trim().toLowerCase() : null;
-    const { data: existentes } = await sb.from("clientes").select("id,tel,nome,email,insta,descricao,nascimento,artista,regiao,etapa,projetos,campanha_id,referencias").eq("user_id", row.user_id);
-    // Uma mesma conversa do chat manda várias respostas em sequência (nome,
-    // depois ideia, depois região...). Enquanto telefone/e-mail ainda não
-    // foram digitados (ou vieram inválidos), não tem como reconhecer "é a
-    // mesma pessoa conversando" só por esses dois campos -- por isso, a
-    // partir do primeiro salvamento bem-sucedido, o clienteId já resolvido
-    // manda direto pra esse registro, sem depender de telefone/e-mail.
-    let match = clienteIdBody ? (existentes || []).find(c => String(c.id) === String(clienteIdBody)) : null;
-    if (!match) {
-      match =
-        (telDigits && (existentes || []).find(c => c.tel && c.tel.replace(/[^0-9]/g, "").slice(-11) === telDigits)) ||
-        (emailNorm && (existentes || []).find(c => c.email && c.email.trim().toLowerCase() === emailNorm));
-    }
-    // Telefone/e-mail em comum não garante que é a mesma pessoa (ex: casal
-    // dividindo o mesmo número) -- só trata como o mesmo cliente se o primeiro
-    // nome bater. Nome diferente = pessoa diferente: vira cadastro novo, com
-    // aviso na ficha pra não confundir com erro de duplicidade.
-    if (match && !clienteIdBody && nome && match.nome && primeiroNome(nome) !== primeiroNome(match.nome)) {
-      telefoneCompartilhadoCom = match.nome;
-      match = null;
-    }
-    avisoCompartilhamento = detectarCompartilhamento(nome, tel, email, existentes, match ? match.id : null);
-    if (match) {
-      const updateFields = { excluido_em: null };
-      if (origemSlug && row.orig !== "Site") updateFields.orig = row.orig;
-      if (camposCampanha && !match.campanha_id) Object.assign(updateFields, camposCampanha);
-      else campanhaAplicada = null; // já tinha campanha vinculada, ou não bateu -- não reporta como aplicado
-      const nomeVal = maisCompleto(match.nome, nome);
-      if (nomeVal) updateFields.nome = nomeVal;
-      const emailVal = maisCompleto(match.email, email);
-      if (emailVal) updateFields.email = emailVal;
-      if (telDigits && !match.tel) updateFields.tel = tel;
-      const instaVal = maisCompleto(match.insta, insta);
-      if (instaVal) updateFields.insta = instaVal;
-      const descVal = maisCompleto(match.descricao, ideaFinal);
-      if (descVal) updateFields.descricao = descVal;
-      if (nascimentoISO && !match.nascimento) updateFields.nascimento = nascimentoISO;
-      const artistaVal = maisCompleto(match.artista, artista);
-      if (artistaVal) updateFields.artista = artistaVal;
-      const regiaoVal = maisCompleto(match.regiao, regiao);
-      if (regiaoVal) updateFields.regiao = regiaoVal;
-      if (servico) updateFields.servico = servico;
-      if (periodoLigacao) updateFields.periodo_ligacao = periodoLigacao;
-      if (obsExtra) updateFields.obs = `Lead captado via Aura Chat no site. ${obsExtra}`;
-      // Classificação (Sessão/Consulta/Aguardando nova solicitação) só move a etapa
-      // quando o chat explicitamente pedir — e só se o cliente ainda estiver numa
-      // fase inicial do funil. Sem essa checagem, um cliente que já tem Sessão
-      // Marcada ou está em Pós-venda voltaria pra "Solicitação de Consulta" só
-      // por reabrir o chat e responder a pergunta de classificação de novo.
-      const ETAPAS_INICIAIS = ["lead", "lead_morno", "aura_agend", "precisa_remarcar"];
-      if (etapaSolicitada && etapaSolicitada !== match.etapa && (!match.etapa || ETAPAS_INICIAIS.includes(match.etapa))) {
-        updateFields.etapa = etapaSolicitada;
-        updateFields.etapa_desde = new Date().toISOString();
-        etapaMudouAgora = true;
-      }
-      // Gera o Parecer da Aura (resumo corrido pra ficha, ao lado do CPF) só
-      // quando a conversa termina de verdade (finalizado) -- gerar já na
-      // classificação perdia dados que só vêm depois (período, e-mail). A
-      // Solicitação de Serviço na aba Projeto continua 100% manual, feita
-      // presencialmente pelo estúdio -- o chat não abre nada lá sozinho.
-      // Resumo em tópicos (Bloco 1 — Aura 1.0): mesmo contrato de dado (string
-      // em parecer_aura, sempre sobrescrito, sem histórico/versionamento) --
-      // só muda a organização do texto pra facilitar a leitura do tatuador.
-      // "Estágio de decisão" e "Próxima ação sugerida" derivam da etapa já
-      // calculada acima; nenhum dado novo é persistido em coluna própria.
-      if (finalizado && (ideaFinal || servico)) {
-        const nomeParecer = updateFields.nome || match.nome || nome || "";
-        const telParecer = tel || match.tel || "";
-        const regiaoParecer = updateFields.regiao || match.regiao || regiao || "";
-        const qtdReferencias = (match.referencias || []).length;
-        const etapaFinal = updateFields.etapa || match.etapa || "";
-        const ESTAGIO_TEXTO = { aura_agend: "Já decidiu, quer agendar", lead_morno: "Prefere conversar antes de decidir" };
-        const PROXIMA_ACAO = { aura_agend: "Entrar em contato para confirmar o agendamento", lead_morno: "Ligar para esclarecer dúvidas e apresentar orçamento" };
+    const chaveDedupAtual = calcularChaveDedup(nome, tel);
 
-        const bullets = [];
-        if (nomeParecer) bullets.push("Nome: " + nomeParecer);
-        if (telParecer) bullets.push("Telefone: " + telParecer);
-        if (ideaFinal) bullets.push("Projeto: " + ideaFinal);
-        if (regiaoParecer) bullets.push("Região do corpo: " + regiaoParecer);
-        bullets.push("Referências enviadas: " + (qtdReferencias > 0 ? (qtdReferencias + (qtdReferencias === 1 ? " imagem" : " imagens")) : "Nenhuma"));
-        if (faixaInvestimento) bullets.push("Faixa de investimento: " + faixaInvestimento);
-        if (etapaFinal) bullets.push("Estágio de decisão: " + (ESTAGIO_TEXTO[etapaFinal] || etapaFinal));
-        if (periodoLigacao) bullets.push("Melhor período para contato: " + periodoLigacao);
-        if (artistaNome) bullets.push("Artista escolhido: " + artistaNome);
-        bullets.push("Próxima ação sugerida: " + (PROXIMA_ACAO[etapaFinal] || "Avaliar contato e dar retorno ao cliente"));
+    let match = null;
 
-        const cabecalho = avisoCompartilhamento ? avisoCompartilhamento + "\n\n" : "";
-        updateFields.parecer_aura = cabecalho + "Resumo do atendimento\n" + bullets.map(b => "• " + b).join("\n");
+    // 1) Conversa já em andamento -- o id já é conhecido, busca direto por ele.
+    if (clienteIdBody) {
+      const { data } = await sb.from("clientes").select("*").eq("id", clienteIdBody).eq("user_id", row.user_id).maybeSingle();
+      match = data || null;
+    }
+
+    // 2) Resolução atômica por chave_dedup (telefone + primeiro nome) -- cria
+    // só se realmente não existir ainda para este tenant. Duas requisições
+    // concorrentes (ex: duplo toque no mobile) nunca resultam em duas linhas:
+    // a segunda encontra o UNIQUE(user_id, chave_dedup) já ocupado e o
+    // upsert simplesmente não insere nada (ignoreDuplicates: true). Telefone
+    // compartilhado com primeiro nome diferente continua virando um
+    // registro à parte, de propósito -- chave diferente, sem conflito.
+    if (!match && chaveDedupAtual) {
+      const { data: criado } = await sb.from("clientes")
+        .upsert({ ...row, chave_dedup: chaveDedupAtual }, { onConflict: "user_id,chave_dedup", ignoreDuplicates: true })
+        .select("*")
+        .maybeSingle();
+      if (criado) {
+        match = criado;
+        isNewClient = true;
+      } else {
+        const { data: existente } = await sb.from("clientes")
+          .select("*").eq("user_id", row.user_id).eq("chave_dedup", chaveDedupAtual).maybeSingle();
+        match = existente || null;
+        if (match) isNewClient = false;
       }
-      await sb.from("clientes").update(updateFields).eq("id", match.id);
+    }
+
+    // 3) Fallback -- só quando a chave ainda não pôde ser calculada nesta
+    // requisição específica (ex: telefone ainda inválido/ausente). Mesmo
+    // espírito da busca por e-mail que já existia antes desta mudança.
+    if (!match && emailNorm) {
+      const { data: existentes } = await sb.from("clientes").select("*").eq("user_id", row.user_id).is("excluido_em", null);
+      match = (existentes || []).find(c => c.email && c.email.trim().toLowerCase() === emailNorm) || null;
+      if (match) isNewClient = false;
+    }
+
+    // Aviso de compartilhamento -- informativo pro Parecer (ex: telefone
+    // igual ao de outro cliente com primeiro nome diferente). Independente
+    // da resolução de identidade acima, que agora é garantida pelo banco.
+    if (telDigits || emailNorm) {
+      const { data: candidatosAviso } = await sb.from("clientes")
+        .select("id,nome,tel,email").eq("user_id", row.user_id).is("excluido_em", null);
+      avisoCompartilhamento = detectarCompartilhamento(nome, tel, email, candidatosAviso, match ? match.id : null);
+    }
+
+    if (match && !isNewClient) {
+      if (retornoAtendimento) {
+        // Caminho "Continuar atendimento" (Grupo B): não mexe em serviço,
+        // descrição, região, etapa ou Parecer -- só registra o retorno no
+        // histórico, exatamente como decidido na Auditoria Pré-Implementação.
+        const novoHist = [
+          ...(Array.isArray(match.hist) ? match.hist : []),
+          { t: "Cliente retornou pelo site — " + (motivoRetorno || "motivo não informado"), d: new Date().toLocaleString("pt-BR") },
+        ];
+        await sb.from("clientes").update({ hist: novoHist, excluido_em: null }).eq("id", match.id);
+        clienteId = match.id;
+        matchInfo = { artista: match.artista || null, etapa: match.etapa || null, projetos: match.projetos || [] };
+      } else {
+        const updateFields = { excluido_em: null };
+        if (origemSlug && row.orig !== "Site") updateFields.orig = row.orig;
+        if (camposCampanha && !match.campanha_id) Object.assign(updateFields, camposCampanha);
+        else campanhaAplicada = null; // já tinha campanha vinculada, ou não bateu -- não reporta como aplicado
+        const nomeVal = maisCompleto(match.nome, nome);
+        if (nomeVal) updateFields.nome = nomeVal;
+        const emailVal = maisCompleto(match.email, email);
+        if (emailVal) updateFields.email = emailVal;
+        if (telDigits && !match.tel) updateFields.tel = tel;
+        const instaVal = maisCompleto(match.insta, insta);
+        if (instaVal) updateFields.insta = instaVal;
+        const descVal = maisCompleto(match.descricao, ideaFinal);
+        if (descVal) updateFields.descricao = descVal;
+        if (nascimentoISO && !match.nascimento) updateFields.nascimento = nascimentoISO;
+        const artistaVal = maisCompleto(match.artista, artista);
+        if (artistaVal) updateFields.artista = artistaVal;
+        const regiaoVal = maisCompleto(match.regiao, regiao);
+        if (regiaoVal) updateFields.regiao = regiaoVal;
+        if (servico) updateFields.servico = servico;
+        if (periodoLigacao) updateFields.periodo_ligacao = periodoLigacao;
+        if (obsExtra) updateFields.obs = `Lead captado via Aura Chat no site. ${obsExtra}`;
+        // Classificação (Sessão/Consulta/Aguardando nova solicitação) só move a etapa
+        // quando o chat explicitamente pedir — e só se o cliente ainda estiver numa
+        // fase inicial do funil. Sem essa checagem, um cliente que já tem Sessão
+        // Marcada ou está em Pós-venda voltaria pra "Solicitação de Consulta" só
+        // por reabrir o chat e responder a pergunta de classificação de novo.
+        const ETAPAS_INICIAIS = ["lead", "lead_morno", "aura_agend", "precisa_remarcar"];
+        if (etapaSolicitada && etapaSolicitada !== match.etapa && (!match.etapa || ETAPAS_INICIAIS.includes(match.etapa))) {
+          updateFields.etapa = etapaSolicitada;
+          updateFields.etapa_desde = new Date().toISOString();
+          etapaMudouAgora = true;
+        }
+        // Gera o Parecer da Aura (resumo corrido pra ficha, ao lado do CPF) só
+        // quando a conversa termina de verdade (finalizado) -- gerar já na
+        // classificação perdia dados que só vêm depois (período, e-mail). A
+        // Solicitação de Serviço na aba Projeto continua 100% manual, feita
+        // presencialmente pelo estúdio -- o chat não abre nada lá sozinho.
+        // Resumo em tópicos (Bloco 1 — Aura 1.0): mesmo contrato de dado (string
+        // em parecer_aura, sempre sobrescrito, sem histórico/versionamento) --
+        // só muda a organização do texto pra facilitar a leitura do tatuador.
+        // "Estágio de decisão" e "Próxima ação sugerida" derivam da etapa já
+        // calculada acima; nenhum dado novo é persistido em coluna própria.
+        if (finalizado && (ideaFinal || servico)) {
+          const nomeParecer = updateFields.nome || match.nome || nome || "";
+          const telParecer = tel || match.tel || "";
+          const regiaoParecer = updateFields.regiao || match.regiao || regiao || "";
+          const qtdReferencias = (match.referencias || []).length;
+          const etapaFinal = updateFields.etapa || match.etapa || "";
+          const ESTAGIO_TEXTO = { aura_agend: "Já decidiu, quer agendar", lead_morno: "Prefere conversar antes de decidir" };
+          const PROXIMA_ACAO = { aura_agend: "Entrar em contato para confirmar o agendamento", lead_morno: "Ligar para esclarecer dúvidas e apresentar orçamento" };
+
+          const bullets = [];
+          if (nomeParecer) bullets.push("Nome: " + nomeParecer);
+          if (telParecer) bullets.push("Telefone: " + telParecer);
+          if (ideaFinal) bullets.push("Projeto: " + ideaFinal);
+          if (regiaoParecer) bullets.push("Região do corpo: " + regiaoParecer);
+          bullets.push("Referências enviadas: " + (qtdReferencias > 0 ? (qtdReferencias + (qtdReferencias === 1 ? " imagem" : " imagens")) : "Nenhuma"));
+          if (faixaInvestimento) bullets.push("Faixa de investimento: " + faixaInvestimento);
+          if (etapaFinal) bullets.push("Estágio de decisão: " + (ESTAGIO_TEXTO[etapaFinal] || etapaFinal));
+          if (periodoLigacao) bullets.push("Melhor período para contato: " + periodoLigacao);
+          if (artistaNome) bullets.push("Artista escolhido: " + artistaNome);
+          bullets.push("Próxima ação sugerida: " + (PROXIMA_ACAO[etapaFinal] || "Avaliar contato e dar retorno ao cliente"));
+
+          const cabecalho = avisoCompartilhamento ? avisoCompartilhamento + "\n\n" : "";
+          updateFields.parecer_aura = cabecalho + "Resumo do atendimento\n" + bullets.map(b => "• " + b).join("\n");
+        }
+        // Mantém chave_dedup em sincronia se nome/telefone mudaram nesta
+        // requisição (ex: correção no fim da conversa) -- tentativa separada
+        // e silenciosa, pra nunca derrubar o salvamento principal por causa
+        // disso (ex: colisão rara com a chave de outro cliente já existente).
+        if (chaveDedupAtual && chaveDedupAtual !== match.chave_dedup) {
+          sb.from("clientes").update({ chave_dedup: chaveDedupAtual }).eq("id", match.id).then(() => {}).catch(() => {});
+        }
+        await sb.from("clientes").update(updateFields).eq("id", match.id);
+        clienteId = match.id;
+        matchInfo = {
+          artista: updateFields.artista || match.artista || null,
+          etapa: match.etapa || null,
+          projetos: match.projetos || [],
+        };
+      }
+    } else if (match && isNewClient) {
+      // Acabou de ser criado agora mesmo pelo upsert atômico -- já está com
+      // os dados corretos de `row`, nada a mesclar.
       clienteId = match.id;
-      isNewClient = false;
-      matchInfo = {
-        artista: updateFields.artista || match.artista || null,
-        etapa: match.etapa || null,
-        projetos: match.projetos || [],
-      };
+      if (avisoCompartilhamento) {
+        await sb.from("clientes").update({ parecer_aura: avisoCompartilhamento }).eq("id", match.id);
+      }
     }
   }
 
+  // Fallback final -- só chega aqui se chave_dedup não pôde ser calculada
+  // nesta chamada e nenhum outro caminho encontrou/criou o cliente (ex:
+  // requisição isolada sem telefone/nome válidos ainda).
   if (!clienteId) {
-    if (telefoneCompartilhadoCom) {
-      row.obs = `${row.obs} ⚠️ Mesmo telefone/e-mail de outro cliente cadastrado: ${telefoneCompartilhadoCom}.`;
-    }
-    if (avisoCompartilhamento) {
-      row.parecer_aura = avisoCompartilhamento;
-    }
     const { data: inserted, error } = await sb.from("clientes").insert(row).select("id").single();
     if (error) {
       console.error("Supabase insert error:", error);
       return res.status(500).json({ error: error.message });
     }
     clienteId = inserted?.id || null;
+    isNewClient = true;
   }
 
   // Salvar histórico de conversa da Aura (enviado pelo widget via chat_log)
