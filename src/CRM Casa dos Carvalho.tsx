@@ -11713,7 +11713,7 @@ export default function CRM() {
                       </div>
                       <div className="fi2">
                         <div className="fil">Serviço</div>
-                        <select className="ef" value={novoProjetoForm.servico || ""} onChange={e => setNovoProjetoForm({ ...novoProjetoForm, servico: e.target.value })}>
+                        <select className="ef" value={novoProjetoForm.servico || sc.servico || ""} onChange={e => setNovoProjetoForm({ ...novoProjetoForm, servico: e.target.value })}>
                           <option value="">Selecione o serviço...</option>
                           {servicoOpts.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
                         </select>
@@ -11898,7 +11898,7 @@ export default function CRM() {
                         <button onClick={() => {
                           if (!novoProjetoForm.estilo.trim()) { setShowAviso("Preencha o nome/identificação do projeto."); return; }
                           const val = parseFloat(novoProjetoForm.valorTotal.replace(/\./g,"").replace(",",".")) || 0;
-                          const proj: any = { id: Date.now(), estilo: novoProjetoForm.estilo, tam: novoProjetoForm.tam, primeira: novoProjetoForm.primeira, desc: novoProjetoForm.desc, servico: (novoProjetoForm as any).servico || "", artista: novoProjetoForm.artista || sc.artista || "", valorTotal: val, status: "ativo", etapa: "lead", etapa_desde: new Date().toISOString(), criadoEm: new Date().toLocaleDateString("pt-BR"), pagamentos: [] };
+                          const proj: any = { id: Date.now(), estilo: novoProjetoForm.estilo, tam: novoProjetoForm.tam, primeira: novoProjetoForm.primeira, desc: novoProjetoForm.desc, servico: (novoProjetoForm as any).servico || sc.servico || "", artista: novoProjetoForm.artista || sc.artista || "", valorTotal: val, status: "ativo", etapa: "lead", etapa_desde: new Date().toISOString(), criadoEm: new Date().toLocaleDateString("pt-BR"), pagamentos: [] };
                           if (novoProjetoForm.piercingItens.length > 0) {
                             proj.piercingItens = novoProjetoForm.piercingItens;
                           }
@@ -11920,7 +11920,7 @@ export default function CRM() {
                     const projetos: any[] = sc.projetos && sc.projetos.length > 0
                       ? sc.projetos
                       : (sc.estilo || sc.desc)
-                        ? [{ id: "legacy", estilo: sc.estilo || "", tam: sc.tam || "Medio", primeira: sc.primeira || false, desc: sc.desc || "", status: "ativo", criadoEm: "—" }]
+                        ? [{ id: "legacy", estilo: sc.estilo || "", tam: sc.tam || "Medio", primeira: sc.primeira || false, desc: sc.desc || "", servico: sc.servico || "", status: "ativo", criadoEm: "—" }]
                         : [];
                     const ativos = projetos.filter((p: any) => p.status !== "concluido");
                     const concluidos = projetos.filter((p: any) => p.status === "concluido");
