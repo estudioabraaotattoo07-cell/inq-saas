@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { ALLOWED_ORIGINS } from "./_lib/allowedOrigins.js";
+import { verificarRateLimit, identificadorPorIp } from "./_lib/rateLimit.js";
 
 const sb = createClient(
   "https://zkzsykmnhrkwmvgekshh.supabase.co",
@@ -1078,11 +1080,34 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") return res.status(200).end();
-
   const acao = req.query && req.query.acao;
   const token = req.query && req.query.token;
   const nota = req.query && req.query.nota;
+
+  // Bloco 4 -- hardening: origem restrita + rate limit, só nas 3 ações
+  // confirmadas como fetch() de navegador (POST base, lead_busca,
+  // track_click). Demais ações (site, preview, links por token, etc.)
+  // continuam com o Access-Control-Allow-Origin: "*" de sempre --
+  // nenhuma delas foi tocada de propósito.
+  const origin = req.headers.origin || "";
+  const ip = identificadorPorIp(req);
+  const acaoRestrita = acao === "track_click" || acao === "lead_busca" || !acao;
+  if (acaoRestrita) {
+    res.setHeader("Vary", "Origin");
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    } else {
+      res.removeHeader("Access-Control-Allow-Origin");
+      if (req.method !== "OPTIONS") return res.status(403).json({ error: "Origem não permitida" });
+    }
+  }
+
+  if (req.method === "OPTIONS") return res.status(200).end();
+
+  if (acaoRestrita) {
+    const { permitido: permitidoGlobal } = await verificarRateLimit("lead_global", ip);
+    if (!permitidoGlobal) return res.status(429).json({ error: "Muitas requisições. Aguarde um instante." });
+  }
 
   // ── SITE PÚBLICO DO TENANT (molde Premium) ──────────────────────────────────
   if (acao === "site") {
@@ -1203,6 +1228,8 @@ export default async function handler(req, res) {
     if (!slugBusca || !telBusca) return res.status(200).json({ encontrado: false });
     const { data: tenantBusca } = await sb.from("ink_clientes").select("auth_user_id").eq("slug", slugBusca).single();
     if (!tenantBusca) return res.status(200).json({ encontrado: false });
+    const { permitido: permitidoBusca } = await verificarRateLimit("lead_busca", ip + "|tenant:" + tenantBusca.auth_user_id);
+    if (!permitidoBusca) return res.status(429).json({ error: "Muitas requisições. Aguarde um instante." });
     const { data: candidatos } = await sb.from("clientes")
       .select("nome, tel, artista, descricao, regiao, email, campanha_id")
       .eq("user_id", tenantBusca.auth_user_id).is("excluido_em", null);
@@ -1661,7 +1688,10 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, artistaNome, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlug, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao, faixaInvestimento, retornoAtendimento, motivoRetorno, finalizado } = req.body;
+  const { nome, tel, email, idea, ideia, artista, artistaNome, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlugRaw, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao, faixaInvestimento, retornoAtendimento, motivoRetorno, finalizado } = req.body;
+  // Normalização equivalente à já usada em lead_busca -- espaço incidental
+  // não deveria diferenciar um slug válido de "inexistente".
+  const siteSlug = (siteSlugRaw || "").trim();
   if (!nome && !tel && !email) return res.status(400).json({ error: "pelo menos um dado obrigatorio" });
 
   const ideaFinal = idea || ideia || "";
@@ -1721,6 +1751,8 @@ export default async function handler(req, res) {
   if (!tenantLead || tenantLead.status !== "ativo" || !tenantLead.auth_user_id) {
     return res.status(404).json({ error: "Estúdio não encontrado" });
   }
+  const { permitido: permitidoPost } = await verificarRateLimit("lead_post", ip + "|tenant:" + tenantLead.auth_user_id);
+  if (!permitidoPost) return res.status(429).json({ error: "Muitas requisições. Aguarde um instante." });
   row.user_id = tenantLead.auth_user_id;
 
   // Origem via link (?origem=slug) -- sobrepõe o default "Site" quando o slug bate
