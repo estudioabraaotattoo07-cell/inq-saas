@@ -15,7 +15,7 @@ const ORIGENS_PRODUCAO = [
 // depende de nenhuma configuração nossa) -- fora desse ambiente, ALLOWED_ORIGINS
 // é idêntica a ORIGENS_PRODUCAO, sem nenhuma exceção. Remover antes do
 // encerramento formal do H2, ver Auditoria Pós.
-const ORIGEM_PREVIEW_TESTE_H2 = "https://inq-saas-390pov2vb-estudioabraaotattoo07-cells-projects.vercel.app";
+const ORIGEM_PREVIEW_TESTE_H2 = "https://inq-saas-git-harden-088fff-estudioabraaotattoo07-cells-projects.vercel.app";
 
 export const ALLOWED_ORIGINS = process.env.VERCEL_ENV === "preview"
   ? [...ORIGENS_PRODUCAO, ORIGEM_PREVIEW_TESTE_H2]
