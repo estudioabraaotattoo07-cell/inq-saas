@@ -6,4 +6,10 @@ export const ALLOWED_ORIGINS = [
   "https://www.acasadoscarvalhotattoo.com.br",
   "https://inksystem.com.br",
   "https://www.inksystem.com.br",
+  // Instrumentação temporária -- Bloco 4 (hardening), teste de CORS do H4 em
+  // Preview. Só existe quando VERCEL_ENV === "preview"; Production nunca
+  // inclui essa origem. Revertida antes do merge para main.
+  ...(process.env.VERCEL_ENV === "preview"
+    ? ["https://inq-saas-git-harden-6b05bb-estudioabraaotattoo07-cells-projects.vercel.app"]
+    : []),
 ];
