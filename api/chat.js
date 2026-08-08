@@ -4,13 +4,30 @@ import { ALLOWED_ORIGINS } from "./_lib/allowedOrigins.js";
 import { verificarRateLimit, identificadorPorIp } from "./_lib/rateLimit.js";
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const STUDIO_USER_ID = "2d366d35-1cae-40d5-ba92-06fe2ab8a763";
 
-const supabase = createClient(
-  "https://zkzsykmnhrkwmvgekshh.supabase.co",
-  process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY,
-  { auth: { persistSession: false } }
-);
+// Hardening H2 -- nunca cair para a chave anônima: sem SUPABASE_SERVICE_KEY,
+// o cliente fica null e o handler recusa a requisição explicitamente (ver
+// checagem logo no início de handler()), em vez de silenciosamente operar
+// com privilégio de anon.
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const supabase = SUPABASE_SERVICE_KEY
+  ? createClient("https://zkzsykmnhrkwmvgekshh.supabase.co", SUPABASE_SERVICE_KEY, { auth: { persistSession: false } })
+  : null;
+
+// Hardening H2 -- resolve o tenant a partir do slug público enviado pelo
+// widget (nunca de um user_id vindo do cliente). slug ausente/inválido/
+// inexistente retorna null -- o chamador (handler) deve falhar fechado,
+// nunca cair em um tenant padrão.
+async function resolverTenantPorSlug(slug) {
+  if (!slug || typeof slug !== "string" || !slug.trim()) return null;
+  const { data, error } = await supabase
+    .from("ink_clientes")
+    .select("auth_user_id")
+    .eq("slug", slug.trim())
+    .single();
+  if (error || !data?.auth_user_id) return null;
+  return data.auth_user_id;
+}
 
 const BASE_PROMPT = `Você é a Aura, assistente da Casa dos Carvalho — estúdio de tatuagem de alto padrão em Vitória-ES. Criada e treinada por Abraão de Carvalho Aguiar, idealizador do estúdio, que é obcecado pela excelência no atendimento. O padrão aqui é alto — e você o representa com naturalidade.
 
@@ -318,7 +335,7 @@ const TOOLS = [
   }
 ];
 
-async function verificarClienteExistente(telefoneInformado) {
+async function verificarClienteExistente(telefoneInformado, studioUserId) {
   try {
     const digitsInformado = (telefoneInformado || "").replace(/\D/g, "");
     const ultimosDigitos = digitsInformado.slice(-11);
@@ -326,7 +343,7 @@ async function verificarClienteExistente(telefoneInformado) {
     const { data, error } = await supabase
       .from("clientes")
       .select("id, nome, tel")
-      .eq("user_id", STUDIO_USER_ID);
+      .eq("user_id", studioUserId);
     if (error || !data) return { encontrado: false };
     const match = data.find(c => (c.tel || "").replace(/\D/g, "").slice(-11) === ultimosDigitos);
     if (match) return { encontrado: true, nome: match.nome, id: match.id };
@@ -336,7 +353,7 @@ async function verificarClienteExistente(telefoneInformado) {
   }
 }
 
-async function atualizarCliente(input) {
+async function atualizarCliente(input, studioUserId) {
   try {
     const { cliente_id, orcamento, obs, insta, nascimento, artista } = input;
     if (!cliente_id) return { ok: false, erro: "cliente_id obrigatório" };
@@ -346,7 +363,7 @@ async function atualizarCliente(input) {
     if (insta) campos.insta = insta.replace("@", "");
     if (nascimento) campos.nascimento = nascimento;
     if (artista) {
-      const { data: artistaRow } = await supabase.from("artistas").select("id").ilike("nome", "%" + artista.split(" ")[0] + "%").eq("user_id", STUDIO_USER_ID).limit(1).single();
+      const { data: artistaRow } = await supabase.from("artistas").select("id").ilike("nome", "%" + artista.split(" ")[0] + "%").eq("user_id", studioUserId).limit(1).single();
       if (artistaRow) campos.artista = artistaRow.id;
     }
     if (Object.keys(campos).length === 0) return { ok: true, mensagem: "Nada para atualizar" };
@@ -377,7 +394,7 @@ async function notificarSolicitacaoAgendamento(nome, telefone, resumo) {
   }
 }
 
-async function solicitarAgendamento(input) {
+async function solicitarAgendamento(input, studioUserId) {
   try {
     const { cliente_id, cliente_nome, cliente_email, cliente_tel, cliente_insta, cliente_nascimento, artista, tipo, data_solicitada, hora_solicitada, projeto, regiao, orcamento, horario_ligacao } = input;
 
@@ -391,9 +408,9 @@ async function solicitarAgendamento(input) {
     // Buscar dados do artista (com ID) e configurações do estúdio em paralelo
     const [artistaRow, cfgRow] = await Promise.all([
       artista
-        ? supabase.from("artistas").select("id,nome,email,tel").ilike("nome", "%" + artista.split(" ")[0] + "%").eq("user_id", STUDIO_USER_ID).limit(1).single().then(r => r.data)
+        ? supabase.from("artistas").select("id,nome,email,tel").ilike("nome", "%" + artista.split(" ")[0] + "%").eq("user_id", studioUserId).limit(1).single().then(r => r.data)
         : Promise.resolve(null),
-      supabase.from("configuracoes").select("studio_email,studio_name,fluxo_notificacao_artista_ativa").eq("user_id", STUDIO_USER_ID).limit(1).single().then(r => r.data)
+      supabase.from("configuracoes").select("studio_email,studio_name,fluxo_notificacao_artista_ativa").eq("user_id", studioUserId).limit(1).single().then(r => r.data)
     ]);
 
     const artistaId = artistaRow?.id || null;
@@ -419,7 +436,7 @@ async function solicitarAgendamento(input) {
     let finalClienteId = cliente_id || null;
     if (!finalClienteId && cliente_tel) {
       const telDigits = (cliente_tel || "").replace(/[^0-9]/g, "").slice(-11);
-      const { data: existentes } = await supabase.from("clientes").select("id,tel,nome,email").eq("user_id", STUDIO_USER_ID);
+      const { data: existentes } = await supabase.from("clientes").select("id,tel,nome,email").eq("user_id", studioUserId);
       const matchTel = (existentes || []).find(c => (c.tel || "").replace(/[^0-9]/g, "").slice(-11) === telDigits);
       if (matchTel) {
         const nomeNovo = normalizarNome(cliente_nome);
@@ -441,7 +458,7 @@ async function solicitarAgendamento(input) {
     }
     if (!finalClienteId) {
       const novoClienteRow = {
-        user_id: STUDIO_USER_ID,
+        user_id: studioUserId,
         nome: cliente_nome,
         tel: (cliente_tel || "").replace(/\D/g, ""),
         email: cliente_email || "",
@@ -473,7 +490,7 @@ async function solicitarAgendamento(input) {
     const { error: pendErr } = await supabase
       .from("agendamentos_pendentes")
       .insert({
-        user_id: STUDIO_USER_ID,
+        user_id: studioUserId,
         status: "pendente",
         cliente_id: finalClienteId,
         cliente_nome,
@@ -599,18 +616,18 @@ async function solicitarAgendamento(input) {
   }
 }
 
-async function executarFerramenta(nome, input) {
+async function executarFerramenta(nome, input, studioUserId) {
   if (nome === "verificar_cliente_existente") {
-    return await verificarClienteExistente(input.telefone);
+    return await verificarClienteExistente(input.telefone, studioUserId);
   }
   if (nome === "atualizar_cliente") {
-    return await atualizarCliente(input);
+    return await atualizarCliente(input, studioUserId);
   }
   if (nome === "notificar_solicitacao_agendamento") {
     return await notificarSolicitacaoAgendamento(input.nome, input.telefone, input.resumo);
   }
   if (nome === "solicitar_agendamento") {
-    return await solicitarAgendamento(input);
+    return await solicitarAgendamento(input, studioUserId);
   }
   return { erro: "ferramenta desconhecida" };
 }
@@ -626,6 +643,13 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
+  // Hardening H2 -- sem a chave privilegiada, falha explícita aqui. Nunca
+  // opera com o cliente de fallback (não existe mais) nem com privilégio de
+  // anon.
+  if (!supabase) {
+    return res.status(500).json({ error: "Configuração do servidor incompleta (SUPABASE_SERVICE_KEY ausente)" });
+  }
+
   // Bloco 1 -- hardening: allowlist real (antes era "*", sem checagem
   // nenhuma). Widget público não tem login -- não dá pra exigir sessão aqui
   // sem criar um fluxo de autenticação novo para o visitante, o que está
@@ -640,12 +664,22 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: "Muitas mensagens em pouco tempo. Aguarde um instante." });
   }
 
-  const { messages, campanhas, contexto } = req.body;
+  const { messages, campanhas, contexto, slug } = req.body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "messages array required" });
   }
   if (JSON.stringify(messages).length > 20000) {
     return res.status(400).json({ error: "Conversa muito longa para esta requisição" });
+  }
+
+  // Hardening H2 -- o tenant é resolvido aqui, uma única vez por requisição,
+  // a partir do slug público enviado pelo widget -- nunca de um user_id
+  // enviado pelo cliente. slug ausente/inválido/inexistente falha fechado,
+  // antes mesmo de chamar a Anthropic (evita gastar a chamada de IA para
+  // uma conversa que não vai conseguir persistir nada).
+  const studioUserId = await resolverTenantPorSlug(slug);
+  if (!studioUserId) {
+    return res.status(400).json({ error: "Estúdio não identificado (slug ausente ou inválido)" });
   }
 
   if (!ANTHROPIC_API_KEY) {
@@ -715,7 +749,7 @@ export default async function handler(req, res) {
 
       const toolResults = [];
       for (const block of toolUseBlocks) {
-        const resultado = await executarFerramenta(block.name, block.input);
+        const resultado = await executarFerramenta(block.name, block.input, studioUserId);
         if (resultado && resultado.agendamento) { agendamentoRealizado = true; agendamentoTipo = resultado.tipo || ""; }
         if (resultado && resultado.clienteId) clienteIdCapturado = resultado.clienteId;
         if (resultado && resultado.encontrado && resultado.id) clienteIdCapturado = resultado.id;
@@ -772,7 +806,7 @@ export default async function handler(req, res) {
   let studioTelResp = "";
   try {
     const { data: cfgTel } = await supabase.from("configuracoes")
-      .select("studio_tel").eq("user_id", STUDIO_USER_ID).limit(1).single();
+      .select("studio_tel").eq("user_id", studioUserId).limit(1).single();
     studioTelResp = (cfgTel?.studio_tel || "").replace(/[^0-9]/g, "");
   } catch (e) {}
 
@@ -786,7 +820,7 @@ export default async function handler(req, res) {
         const { data: found } = await supabase
           .from("clientes")
           .select("id")
-          .eq("user_id", STUDIO_USER_ID)
+          .eq("user_id", studioUserId)
           .filter("tel", "ilike", "%" + telDigits.slice(-8))
           .limit(1)
           .single();
