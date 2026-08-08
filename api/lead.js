@@ -1708,14 +1708,20 @@ export default async function handler(req, res) {
     referencias: Array.isArray(referencias) && referencias.length ? referencias : [],
   };
 
-  // Site do tenant manda `slug` -- resolve o dono certo. Sem slug (chat antigo
-  // da Casa dos Carvalho, que não manda esse campo), mantém o comportamento
-  // de sempre pra não quebrar nada em produção.
-  row.user_id = "2d366d35-1cae-40d5-ba92-06fe2ab8a763";
-  if (siteSlug) {
-    const { data: tenantLead } = await sb.from("ink_clientes").select("auth_user_id").eq("slug", siteSlug).single();
-    if (tenantLead?.auth_user_id) row.user_id = tenantLead.auth_user_id;
+  // Site do tenant sempre manda `slug` -- resolve o dono certo. Falha fechada
+  // se slug ausente, inexistente ou tenant não ativo (nenhum fallback).
+  if (!siteSlug) {
+    return res.status(400).json({ error: "slug obrigatório" });
   }
+  const { data: tenantLead } = await sb
+    .from("ink_clientes")
+    .select("auth_user_id, status")
+    .eq("slug", siteSlug)
+    .single();
+  if (!tenantLead || tenantLead.status !== "ativo" || !tenantLead.auth_user_id) {
+    return res.status(404).json({ error: "Estúdio não encontrado" });
+  }
+  row.user_id = tenantLead.auth_user_id;
 
   // Origem via link (?origem=slug) -- sobrepõe o default "Site" quando o slug bate
   // com uma origem cadastrada desse tenant. Sem slug, comportamento de sempre.
