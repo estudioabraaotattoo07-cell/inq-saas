@@ -14536,12 +14536,12 @@ export default function CRM() {
                         count--;
                         if (count <= 0) {
                           clearInterval(t);
-                          await sb.from("saidas").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-                          await sb.from("financeiro").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-                          await sb.from("agenda").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-                          await sb.from("clientes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+                          await sb.from("saidas").delete().eq("user_id", userId);
+                          await sb.from("financeiro").delete().eq("user_id", userId);
+                          await sb.from("agenda").delete().eq("user_id", userId);
+                          await sb.from("clientes").delete().eq("user_id", userId);
                           await sb.from("artistas").delete().eq("user_id", userId);
-                          await sb.from("historico").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+                          await sb.from("historico").delete().eq("user_id", userId);
                           setClients([]); setAgEvents([]); setFin([]); setSaidas([]); setArtists([]); setHistorico([]);
                           setResetUndo(false); setConfirmReset(false); setShowSettings(false);
                           setShowAviso("Reset concluído. Sistema limpo e pronto para uso real. 🖤");
