@@ -106,14 +106,15 @@ const VERSOES_PERMISSOES: Record<string, Record<string, boolean>> = {
     aparenciaCrm: false,
   },
 };
-// Compatibilidade temporária com o modelo legado de planos (Bronze/Prata/Ouro).
-// Ainda não existe uma coluna própria de "versão" no tenant -- enquanto ela não
-// existir, esta é a única função que sabe que "Bronze" já equivale à versão
-// comercial "1.0". Nenhum outro ponto do código deve comparar com "Bronze"
+// "1.0" é o valor nativo do plano comercial de entrada. "Bronze" continua
+// sendo aceito só como compatibilidade temporária com contas legadas --
+// nenhuma conta nova deve mais nascer com "Bronze" (ver PLANO_PADRAO).
+// Nenhum outro ponto do código deve comparar com "Bronze"/"1.0"
 // diretamente -- só chamar resolverVersaoComercial() (ou obterAcessoTenant()).
 function resolverVersaoComercial(planoLegado: string): string | null {
   const normalizado = (planoLegado || "").trim().toLowerCase();
-  if (normalizado === "bronze") return VERSAO_PADRAO_COMERCIAL;
+  if (normalizado === "1.0") return VERSAO_PADRAO_COMERCIAL;
+  if (normalizado === "bronze") return VERSAO_PADRAO_COMERCIAL; // compatibilidade temporária
   return null; // Prata/Ouro (legado) e planos não reconhecidos não têm versão comercial ativa
 }
 // Autoridade única de acesso -- a interface consulta isto em vez de comparar
