@@ -1601,7 +1601,6 @@ export default function CRM() {
   const [donoWhats, setDonoWhats] = useState("");
   const [donoEmail, setDonoEmail] = useState("");
   const auraName = "Aura"; // nome fixo — não é configurável pelo tenant
-  const [auraInstrucoes, setAuraInstrucoes] = useState("Sou profissional da área de (ex: tatuagem / odontologia / estética / barbearia / nutrição / fotografia / fisioterapia / advocacia / educação / moda...).\nMinha especialidade principal é (ex: blackwork e realismo / clareamento dental e implantes / depilação a laser e skincare / cortes masculinos e barba / emagrecimento e reeducação alimentar / retratos e ensaios / pilates e reabilitação...).\nMeu negócio se chama (nome do negócio) e fica em (cidade e bairro ou endereço completo).\nAtendo (ex: somente presencialmente / online e presencialmente / apenas por videochamada / em domicílio).\n\nMe chamo (seu nome) e sou (ex: tatuador há 10 anos especializado em arte autoral / dentista com foco em estética do sorriso / esteticista com 8 anos de experiência em tratamentos faciais / nutricionista clínico e esportivo...).\nTrabalho (ex: sozinho em estúdio próprio / com uma equipe de 3 profissionais / com assistentes e recepcionista).\n\nMeu tom de comunicação é (ex: descontraído, próximo e sem formalidade — como um amigo especialista / profissional e preciso, sempre claro e objetivo / empático e acolhedor, especialmente com clientes ansiosos ou com dúvidas / artístico e criativo, refletindo a identidade do negócio / direto e eficiente, sem rodeios).\nUso de emojis nas respostas: (ex: nenhum — mantenho comunicação limpa e profissional / use com moderação apenas para reforçar pontos importantes / use livremente para deixar a conversa mais leve e expressiva).\nTrato os clientes por: (ex: 'você' com tom próximo / 'você' formalmente / 'tu' de forma informal / sempre pelo primeiro nome).\n\nMeus serviços e valores são: (ex: tatuagem pequena a partir de R$200, sessão de 3h por R$500, projetos grandes sob orçamento / consulta de avaliação gratuita, limpeza de pele R$150, botox a partir de R$800 / plano mensal de acompanhamento R$350, consulta avulsa R$180...).\nQuando um cliente perguntar sobre preço: (ex: explique que o valor depende do tamanho e complexidade do projeto e convide para uma consulta gratuita / informe a tabela de preços e ofereça condições de parcelamento / diga que enviará um orçamento personalizado após entender a necessidade).\nFormas de pagamento aceitas: (ex: Pix, cartão de crédito em até 3x sem juros e dinheiro / somente Pix e transferência / todos os meios, inclusive parcelamento em até 12x).\n\nPara confirmar um agendamento: (ex: cobramos sinal de 30% antecipado via Pix — sem sinal não há confirmação / exigimos apenas o preenchimento do cadastro / a consulta inicial é gratuita e sem compromisso, sem necessidade de sinal).\nCancelamentos e remarcações: (ex: aceitamos com até 48h de antecedência sem custo / cobramos taxa de R$50 para remarcar com menos de 24h / o sinal é descontado do valor final mas não é reembolsável em caso de desistência).\nClientes que faltaram sem avisar: (ex: cobramos taxa de R$100 para reagendar — é nossa política de respeito ao tempo de trabalho / damos uma segunda chance sem custo mas registramos no histórico / não reagendamos sem justificativa plausível).\n\nMeu horário de funcionamento: (ex: terça a sábado das 10h às 19h / segunda a sexta das 9h às 18h, sábados das 9h às 14h / atendo por agendamento sem horário fixo, conforme disponibilidade).\nNão atendo: (ex: às segundas-feiras / aos domingos e feriados / em horários fora do comercial, exceto em casos especiais).\n\nO processo de atendimento começa com: (ex: uma consulta presencial gratuita para entender o projeto e apresentar referências / um formulário de pré-avaliação que envio pelo WhatsApp / o envio de fotos de referência pelo cliente para eu avaliar a viabilidade).\nApós a consulta ou primeiro contato: (ex: enviamos o orçamento em até 48h por WhatsApp / já agendamos a sessão na hora se o cliente aprovar / o cliente tem 7 dias para confirmar com o sinal).\nNão realizamos: (ex: coberturas sem avaliação presencial prévia / procedimentos sem laudo médico quando necessário / trabalhos copiados de outros artistas — cada projeto é único / atendimentos de urgência sem agendamento).\n\nInformações importantes que a agente deve sempre ter em mente:\n- (ex: temos lista de espera — novos clientes podem aguardar até 2 meses para o primeiro atendimento)\n- (ex: não trabalhamos com convênio ou plano de saúde)\n- (ex: o valor da consulta inicial é descontado no serviço aprovado)\n- (ex: atendemos clientes a partir de 18 anos — menores somente com presença e autorização dos responsáveis)\n- (ex: disponibilizamos estacionamento gratuito no local)\n- (ex: o cliente deve evitar sol e bebida alcoólica 48h antes do procedimento)\n- (ex: emitimos nota fiscal para todos os serviços)\n\nComo a agente deve se comportar no atendimento:\n- Quando um cliente entrar em contato pela primeira vez: (ex: cumprimente com entusiasmo, pergunte o que está procurando e convide para uma consulta sem pressão)\n- Quando perguntarem sobre disponibilidade: (ex: informe que verificará a agenda e retornará em breve com opções de horário)\n- Quando o cliente estiver indeciso: (ex: seja paciente, apresente exemplos do portfólio, tire dúvidas e ofereça uma consulta sem compromisso)\n- Quando houver reclamação: (ex: ouça com atenção, peça desculpas pelo inconveniente e encaminhe para contato direto comigo)\n- Sempre finalize com: (ex: um convite para agendamento / uma pergunta aberta para manter a conversa ativa / o link do portfólio ou redes sociais)\n- Nunca: (ex: prometa datas sem confirmar comigo na agenda / informe preços exatos sem antes entender o projeto / tome decisões que dependam da minha aprovação)");
   const [metaSessoes, setMetaSessoes] = useState(0);
   const [metaLeads, setMetaLeads] = useState(0);
   const [metaNPS, setMetaNPS] = useState(0);
@@ -2293,7 +2292,6 @@ export default function CRM() {
           if (cfg.zenvia_api_key) setZenviaApiKey(cfg.zenvia_api_key);
           if (cfg.zenvia_numero) setZenviaNumero(cfg.zenvia_numero);
           if (cfg.aura_api_key) setAuraApiKey(cfg.aura_api_key);
-          if (cfg.aura_instrucoes) setAuraInstrucoes(cfg.aura_instrucoes);
           // ── CANAIS HABILITADOS ──
           if (cfg.canais_habilitados) {
             try {
@@ -4308,17 +4306,6 @@ export default function CRM() {
       }
     },
     {
-      name: "salvar_memoria",
-      description: "Salva uma informação nova e permanente sobre o estúdio nas instruções da IA. Usar quando o usuário revelar algo importante sobre como o estúdio funciona, suas regras, preferências ou política — e que deve ser lembrado em todas as conversas futuras. SEMPRE pedir confirmação antes de salvar.",
-      input_schema: {
-        type: "object",
-        properties: {
-          instrucao: { type: "string", description: "A instrução exata a ser adicionada às memórias permanentes. Deve ser uma frase clara e objetiva." }
-        },
-        required: ["instrucao"]
-      }
-    },
-    {
       name: "migrar_origens",
       description: "Escaneia todos os clientes e mapeia valores antigos de origem (campo 'orig') para as origens cadastradas no sistema (por nome ou slug). Gera um relatório do que será alterado e SEMPRE pede confirmação explícita do usuário antes de aplicar qualquer mudança.",
       input_schema: {
@@ -4593,22 +4580,6 @@ export default function CRM() {
           return "✅ PDF encaminhado para **" + params.destinatario_nome + "** (" + params.destinatario_email + ").";
         } catch { return "❌ Erro ao encaminhar PDF. Verifique as configurações de e-mail."; }
       }
-      if (tool === "salvar_memoria") {
-        try {
-          const novaInstrucao = params.instrucao;
-          const novasInstrucoes = (auraInstrucoes ? auraInstrucoes + "\n" : "") + novaInstrucao;
-          setAuraInstrucoes(novasInstrucoes);
-          const { error: erroMemoria } = await sb
-            .from("configuracoes")
-            .upsert({ user_id: userId, aura_instrucoes: novasInstrucoes }, { onConflict: "user_id" });
-          if (erroMemoria) {
-            return "❌ Não consegui salvar a memória agora. Tente novamente em instantes.";
-          }
-          return "✅ Memória salva! Agora sei que: **" + novaInstrucao + "**\n\nEssa informação ficará comigo em todas as conversas futuras.";
-        } catch {
-          return "❌ Erro ao salvar memória. Tente novamente.";
-        }
-      }
       if (tool === "migrar_origens") {
         try {
           const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -4771,8 +4742,6 @@ export default function CRM() {
     const nomeIA = auraName || "Assistente";
     const tipoNegocio = studioName || "estúdio";
 
-    const blocoInstrucoes = auraInstrucoes ? "\nINSTRUÇÕES ESPECÍFICAS DO ESTÚDIO:\n" + auraInstrucoes : "";
-
     const hoje2 = new Date().toLocaleDateString("pt-BR");
 
     const contexto = "Você é " + nomeIA + ", assistente inteligente do INK SYSTEM CRM.\n" +
@@ -4786,7 +4755,6 @@ export default function CRM() {
       "- Agendamentos hoje: " + agEvents.filter((e: any) => e.date === hoje).length + "\n" +
       "- Profissionais: " + artists.map((a: any) => a.nome).join(", ") + "\n\n" +
       "CLIENTES (até 80 mais recentes):\n" + clientesContexto + "\n\n" +
-      blocoInstrucoes + "\n\n" +
       "REGRAS IMPORTANTES:\n" +
       "1. Antes de executar qualquer ação, SEMPRE peça confirmação descrevendo exatamente o que vai fazer.\n" +
       "2. Quando o usuário confirmar com sim/pode/confirmo/ok ou similar, use a ferramenta correspondente.\n" +
@@ -4795,9 +4763,7 @@ export default function CRM() {
       "5. Use **negrito** para destacar nomes e valores importantes.\n" +
       "6. Você conhece o histórico desta conversa — use-o para dar continuidade.\n" +
       "7. Quando não souber algo sobre um cliente específico, diga que precisa verificar e peça o nome.\n" +
-      "8. Quando o usuário revelar algo importante sobre como o estúdio funciona (regras, preferências, política, horários), sugira salvar isso nas suas memórias permanentes usando a ferramenta salvar_memoria.\n" +
-      "9. Nunca invente informações sobre o estúdio — se não souber, pergunte.\n" +
-      "10. Se as instruções do estúdio já existirem, use-as como base principal do seu comportamento.";
+      "8. Nunca invente informações sobre o estúdio — se não souber, pergunte.";
     try {
       const apiMessages = newHistory.map((m: any) => {
         if (typeof m.content === "string" && m.content.startsWith("📷")) return null;
@@ -4847,9 +4813,6 @@ export default function CRM() {
           }
           else if (toolUseBlock.name === "encaminhar_pdf") {
             descricao = "Encaminhar PDF para **" + p2.destinatario_nome + "** (" + p2.destinatario_email + ")\nAssunto: " + p2.assunto;
-          }
-          else if (toolUseBlock.name === "salvar_memoria") {
-            descricao = "Salvar permanentemente nas minhas memórias: **" + toolUseBlock.input.instrucao + "**";
           }
           const msgAura = (textBlock?.text ? textBlock.text + "\n\n" : "") + "⚡ **Ação identificada:** " + descricao + "\n\n✅ Posso executar isso agora. Confirma?";
           setAuraChatMessages(prev => [...prev, { role: "assistant", content: msgAura }]);
@@ -16187,7 +16150,6 @@ export default function CRM() {
                     zenvia_api_key: zenviaApiKey,
                     zenvia_numero: zenviaNumero,
                     aura_api_key: auraApiKey,
-                    aura_instrucoes: auraInstrucoes,
                     user_id: userId,
                     updated_at: new Date().toISOString()
                   };
