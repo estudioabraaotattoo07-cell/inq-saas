@@ -53,7 +53,9 @@ function criarSbFalso({ contasAuth = {}, linhasInkClientes = [], forcarErroConfl
   const tabelaCategorias = new Map();
   const tabelaFormasPagamento = new Map();
   const tabelaPipelineEtapas = [];
+  const tabelaConfiguracoes = new Map();
   let proximoIdLicenca = 1;
+  let proximoIdConfiguracao = 1;
 
   return {
     auth: {
@@ -172,9 +174,34 @@ function criarSbFalso({ contasAuth = {}, linhasInkClientes = [], forcarErroConfl
           },
         };
       }
+      if (tabela === "configuracoes") {
+        return {
+          select(_cols) {
+            return {
+              eq(_c, valor) {
+                return {
+                  limit(_n) {
+                    return {
+                      async maybeSingle() {
+                        const achou = tabelaConfiguracoes.get(valor);
+                        return { data: achou ? { id: achou.id } : null, error: null };
+                      },
+                    };
+                  },
+                };
+              },
+            };
+          },
+          async insert(payload) {
+            const id = `configuracao-${proximoIdConfiguracao++}`;
+            tabelaConfiguracoes.set(payload.user_id, { id, ...payload });
+            return { data: null, error: null };
+          },
+        };
+      }
       throw new Error("tabela inesperada no teste: " + tabela);
     },
-    _tabelas: { tabelaInkClientes, tabelaLicencas, tabelaCategorias, tabelaFormasPagamento, tabelaPipelineEtapas },
+    _tabelas: { tabelaInkClientes, tabelaLicencas, tabelaCategorias, tabelaFormasPagamento, tabelaPipelineEtapas, tabelaConfiguracoes },
   };
 }
 
@@ -238,19 +265,22 @@ test("prossegue normalmente quando o authUserId já existe em ink_clientes com o
   assert.equal(r.body.sucesso, true);
 });
 
-test("com tudo válido, chama provisionarEstudio() de verdade e devolve o relatório com as 4 etapas", async () => {
+test("com tudo válido, chama provisionarEstudio() de verdade e devolve o relatório com as 5 etapas", async () => {
   const sb = criarSbFalso({ contasAuth: { [AUTH_USER_ID]: { email: DADOS_VALIDOS.email } } });
   const r = await processarProvisionamento(sb, CHAVE_CORRETA, DADOS_VALIDOS);
   assert.equal(r.status, 200);
   assert.equal(r.body.sucesso, true);
-  assert.equal(r.body.etapas.length, 4);
-  assert.deepEqual(r.body.etapas.map((e) => e.etapa), ["identidade", "licenciamento", "financeiro", "pipeline"]);
+  assert.equal(r.body.etapas.length, 5);
+  assert.deepEqual(r.body.etapas.map((e) => e.etapa), ["identidade", "licenciamento", "financeiro", "pipeline", "configuracoes"]);
   assert.equal(r.body.etapas[3].status, "garantido");
+  assert.equal(r.body.etapas[4].status, "garantido");
   assert.equal(sb._tabelas.tabelaInkClientes.size, 1);
   assert.equal(sb._tabelas.tabelaLicencas.size, 1);
   assert.equal(sb._tabelas.tabelaCategorias.size, 13);
   assert.equal(sb._tabelas.tabelaFormasPagamento.size, 7);
   assert.equal(sb._tabelas.tabelaPipelineEtapas.length, 16);
+  assert.equal(sb._tabelas.tabelaConfiguracoes.size, 1);
+  assert.deepEqual(Object.keys(sb._tabelas.tabelaConfiguracoes.get(AUTH_USER_ID)), ["id", "user_id"]);
 });
 
 test("gera o slug técnico provisório derivado do authUserId, sem risco de colisão", async () => {
@@ -268,6 +298,7 @@ test("chamar duas vezes com os mesmos dados não duplica nenhuma linha (idempot�
   assert.equal(r2.status, 200);
   assert.equal(sb._tabelas.tabelaInkClientes.size, 1);
   assert.equal(sb._tabelas.tabelaLicencas.size, 1);
+  assert.equal(sb._tabelas.tabelaConfiguracoes.size, 1);
 });
 
 test("dois authUserId diferentes não conflitam entre si", async () => {
