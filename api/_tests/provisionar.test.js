@@ -52,6 +52,7 @@ function criarSbFalso({ contasAuth = {}, linhasInkClientes = [], forcarErroConfl
   const tabelaLicencas = new Map();
   const tabelaCategorias = new Map();
   const tabelaFormasPagamento = new Map();
+  const tabelaPipelineEtapas = [];
   let proximoIdLicenca = 1;
 
   return {
@@ -163,9 +164,17 @@ function criarSbFalso({ contasAuth = {}, linhasInkClientes = [], forcarErroConfl
           },
         };
       }
+      if (tabela === "pipeline_etapas") {
+        return {
+          async upsert(payload) {
+            for (const item of payload) tabelaPipelineEtapas.push(item);
+            return { data: null, error: null };
+          },
+        };
+      }
       throw new Error("tabela inesperada no teste: " + tabela);
     },
-    _tabelas: { tabelaInkClientes, tabelaLicencas, tabelaCategorias, tabelaFormasPagamento },
+    _tabelas: { tabelaInkClientes, tabelaLicencas, tabelaCategorias, tabelaFormasPagamento, tabelaPipelineEtapas },
   };
 }
 
@@ -229,17 +238,19 @@ test("prossegue normalmente quando o authUserId já existe em ink_clientes com o
   assert.equal(r.body.sucesso, true);
 });
 
-test("com tudo válido, chama provisionarEstudio() de verdade e devolve o relatório com as 3 etapas", async () => {
+test("com tudo válido, chama provisionarEstudio() de verdade e devolve o relatório com as 4 etapas", async () => {
   const sb = criarSbFalso({ contasAuth: { [AUTH_USER_ID]: { email: DADOS_VALIDOS.email } } });
   const r = await processarProvisionamento(sb, CHAVE_CORRETA, DADOS_VALIDOS);
   assert.equal(r.status, 200);
   assert.equal(r.body.sucesso, true);
-  assert.equal(r.body.etapas.length, 3);
-  assert.deepEqual(r.body.etapas.map((e) => e.etapa), ["identidade", "licenciamento", "financeiro"]);
+  assert.equal(r.body.etapas.length, 4);
+  assert.deepEqual(r.body.etapas.map((e) => e.etapa), ["identidade", "licenciamento", "financeiro", "pipeline"]);
+  assert.equal(r.body.etapas[3].status, "garantido");
   assert.equal(sb._tabelas.tabelaInkClientes.size, 1);
   assert.equal(sb._tabelas.tabelaLicencas.size, 1);
   assert.equal(sb._tabelas.tabelaCategorias.size, 13);
   assert.equal(sb._tabelas.tabelaFormasPagamento.size, 7);
+  assert.equal(sb._tabelas.tabelaPipelineEtapas.length, 16);
 });
 
 test("gera o slug técnico provisório derivado do authUserId, sem risco de colisão", async () => {

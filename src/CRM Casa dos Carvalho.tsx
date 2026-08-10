@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useLayoutEffect, useCallback, useRef } fr
 import { createPortal } from "react-dom";
 import { createClient } from "@supabase/supabase-js";
 import { jsPDF } from "jspdf";
+import { PIPELINE_ETAPAS_PADRAO as DEFAULT_STAGES } from "../lib/tenant/pipelinePadrao.js";
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
 const SUPA_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -817,24 +818,9 @@ table.ft tr:nth-child(even) td{background:var(--dk4);}
 `;
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const DEFAULT_STAGES = [
-  { id: "lead", label: "Lead", color: "#5B8DEF", emoji: "🎯" },
-  { id: "lead_morno", label: "Solicitação de Consulta", color: "#E8A838", emoji: "🗓️" },
-  { id: "aura_agend", label: "Solicitação de Sessão", color: "#8B5CF6", emoji: "✦" },
-  { id: "precisa_remarcar", label: "Precisa Remarcar", color: "#E74C3C", emoji: "📞" },
-  { id: "cons_agendada", label: "Consulta Marcada", color: "#9B6BB5", emoji: "📅" },
-  { id: "sessao_agend", label: "Sessão Marcada", color: "#4A9EBF", emoji: "✏️" },
-  { id: "aguard_agend", label: "Aguardando Agendamento de Sessão em Andamento", color: "#F39C12", emoji: "⏰" },
-  { id: "aguard_1a_sessao", label: "Aguardando 1ª Sessão", color: "#F39C12", emoji: "🖊️" },
-  { id: "aguard_prox_sessao", label: "Aguardando Nova Solicitação de Projeto", color: "#E8A838", emoji: "🔄" },
-  { id: "tatuado", label: "Sessão Realizada", color: "#27AE60", emoji: "✅" },
-  { id: "pos_venda", label: "Pós-venda", color: "#E67E22", emoji: "💬" },
-  { id: "pos_venda_piercing", label: "Pós-venda Piercing", color: "#D4527E", emoji: "💍" },
-  { id: "reengajamento", label: "Reengajamento", color: "#16A085", emoji: "💎" },
-  { id: "lista_espera", label: "Lista de Espera", color: "#3498DB", emoji: "⏳" },
-  { id: "hibernacao", label: "Hibernação", color: "#666", emoji: "💤" },
-  { id: "blacklist", label: "Blacklist", color: "#C0392B", emoji: "🚫" },
-];
+// DEFAULT_STAGES agora vem de lib/tenant/pipelinePadrao.js (import no topo
+// do arquivo) -- fonte canônica única, compartilhada com criarPipeline() no
+// motor de provisionamento. Ver Bloco Pipeline-1.
 
 // Estágios de onde agendar uma consulta/sessão pode avançar o cliente
 // automaticamente no pipeline. Mesma lista pros dois tipos de agendamento —
