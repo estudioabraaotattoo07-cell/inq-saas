@@ -4598,7 +4598,12 @@ export default function CRM() {
           const novaInstrucao = params.instrucao;
           const novasInstrucoes = (auraInstrucoes ? auraInstrucoes + "\n" : "") + novaInstrucao;
           setAuraInstrucoes(novasInstrucoes);
-          await dbUpsert("configuracoes", { studio_id: userId, aura_instrucoes: novasInstrucoes });
+          const { error: erroMemoria } = await sb
+            .from("configuracoes")
+            .upsert({ user_id: userId, aura_instrucoes: novasInstrucoes }, { onConflict: "user_id" });
+          if (erroMemoria) {
+            return "❌ Não consegui salvar a memória agora. Tente novamente em instantes.";
+          }
           return "✅ Memória salva! Agora sei que: **" + novaInstrucao + "**\n\nEssa informação ficará comigo em todas as conversas futuras.";
         } catch {
           return "❌ Erro ao salvar memória. Tente novamente.";
