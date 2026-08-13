@@ -53,16 +53,10 @@ const DEFAULT_FORMAS_PAGAMENTO: { chave_sistema: string; nome: string }[] = [
 // As funções de servidor (/api/*) só existem no deploy do inq-saas — usar URL absoluta
 // garante que funcionem mesmo quando o CRM é acessado por outro domínio (ex: inksystem.com.br).
 const API_BASE = "https://inq-saas.vercel.app";
-// Preços e limites por plano — espelha ink-system-plataform/app/page.tsx (PLANOS).
-// Se mudar preço/limite lá, mudar aqui também (repos separados, sem import compartilhado).
-const PLANO_LIMITES: Record<string, { preco: number; fotosPorArtista: number; artistasInclusos: number; smsPorMes: number; emailPorMes: number; storageMb: number; coresPersonalizadas: boolean }> = {
-  Bronze: { preco: 297, fotosPorArtista: 5, artistasInclusos: 2, smsPorMes: 50, emailPorMes: 120, storageMb: 1024, coresPersonalizadas: false },
-  Prata: { preco: 497, fotosPorArtista: 15, artistasInclusos: 4, smsPorMes: 100, emailPorMes: 200, storageMb: 3072, coresPersonalizadas: false },
-  Ouro: { preco: 597, fotosPorArtista: 30, artistasInclusos: 6, smsPorMes: 200, emailPorMes: 400, storageMb: 10240, coresPersonalizadas: true },
-};
-// Pacotes de recarga de SMS/e-mail — crédito persistente: só é consumido quando a
-// cota incluída do mês é ultrapassada, e o que sobrar não expira (acumula pro mês
-// seguinte). Mesmos valores pra qualquer plano, quantidade maior sai mais barato.
+// Pacotes de recarga de SMS/e-mail — crédito persistente: compra manual e
+// autônoma, sem relação com plano comercial (ver Bloco 2, remoção de
+// Bronze/Prata/Ouro, 2026-08-13). O que sobrar não expira (acumula pro mês
+// seguinte).
 const RECARGA_SMS_TIERS = [
   { qtd: 20, preco: 9 },
   { qtd: 30, preco: 12 },
@@ -79,73 +73,7 @@ const RECARGA_STORAGE_TIERS = [
   { qtd: 10240, preco: 15, label: "+10GB" },
   { qtd: 25600, preco: 20, label: "+25GB" },
 ];
-const PROXIMO_PLANO: Record<string, string> = { Bronze: "Prata", Prata: "Ouro" };
 const WHATSAPP_SUPORTE_INK = "5527999598230"; // espelha ink-system-plataform/app/page.tsx (WHATSAPP_SUPORTE)
-const PLANO_ORDEM_GLOBAL = ["Bronze", "Prata", "Ouro"];
-
-// ============================================================
-// ARQUITETURA DE VERSÕES DO INK SYSTEM
-//
-// Define quais funcionalidades pertencem a cada versão comercial.
-//
-// O Laboratório da Casa dos Carvalho não depende desta matriz.
-// O Laboratório sempre possui acesso irrestrito.
-//
-// Os valores Bronze, Prata e Ouro são identificadores legados.
-// Novas versões comerciais devem ser adicionadas nesta matriz,
-// preservando a compatibilidade das versões anteriores.
-// ============================================================
-const VERSAO_PADRAO_COMERCIAL = "1.0";
-const VERSOES_PERMISSOES: Record<string, Record<string, boolean>> = {
-  "1.0": {
-    disparos: false,
-    origens: false,
-    campanhas: false,
-    depoimentos: false,
-    historiaDoEstudio: false,
-    coresEstilo: false,
-    aparenciaCrm: false,
-    multiplosProfissionais: false,
-  },
-};
-// "1.0" é o valor nativo do plano comercial de entrada. "Bronze" continua
-// sendo aceito só como compatibilidade temporária com contas legadas --
-// nenhuma conta nova deve mais nascer com "Bronze" (ver PLANO_PADRAO).
-// Nenhum outro ponto do código deve comparar com "Bronze"/"1.0"
-// diretamente -- só chamar resolverVersaoComercial() (ou obterAcessoTenant()).
-function resolverVersaoComercial(planoLegado: string): string | null {
-  const normalizado = (planoLegado || "").trim().toLowerCase();
-  if (normalizado === "1.0") return VERSAO_PADRAO_COMERCIAL;
-  if (normalizado === "bronze") return VERSAO_PADRAO_COMERCIAL; // compatibilidade temporária
-  return null; // Prata/Ouro (legado) e planos não reconhecidos não têm versão comercial ativa
-}
-// Autoridade única de acesso -- a interface consulta isto em vez de comparar
-// plano/versão diretamente. O Laboratório (OWNER_EMAIL) é resolvido aqui mesmo
-// e nunca consulta a matriz de permissões -- acesso irrestrito, sempre.
-function obterAcessoTenant({ authEmail, planoLegado }: { authEmail: string; planoLegado: string }) {
-  const ehLaboratorio = authEmail === OWNER_EMAIL;
-  const versao = ehLaboratorio ? null : resolverVersaoComercial(planoLegado);
-  const permissoes = versao ? VERSOES_PERMISSOES[versao] : undefined;
-  const tem = (recurso: string) => ehLaboratorio || !!permissoes?.[recurso];
-  return {
-    ehLaboratorio,
-    versao,
-    temDisparos: tem("disparos"),
-    temOrigens: tem("origens"),
-    temCampanhas: tem("campanhas"),
-    temDepoimentos: tem("depoimentos"),
-    temHistoriaDoEstudio: tem("historiaDoEstudio"),
-    temCoresEstilo: tem("coresEstilo"),
-    temAparenciaCrm: tem("aparenciaCrm"),
-    temMultiplosProfissionais: tem("multiplosProfissionais"),
-  };
-}
-// Nome comercial exibido ao usuário -- nunca "Bronze" na interface. Prata/Ouro
-// seguem exibindo o nome técnico (identificadores legados, sem oferta comercial ativa).
-function nomeComercialPlano(planoLegado: string): string {
-  const versao = resolverVersaoComercial(planoLegado);
-  return versao ? "Ink System " + versao : planoLegado;
-}
 
 // ── MENSAGENS DE SISTEMA — texto/canal padrão (mesmo texto que vive em
 // cron-disparos.js) + metadados pra edição na tela. Ausência de override no
@@ -281,63 +209,6 @@ const MENSAGENS_SISTEMA_DEF: Record<string, { label: string; etapaSlug: string; 
   },
 };
 
-// Diferença proporcional até o fim do ciclo atual — mesma regra combinada com o
-// Abraão em 2026-07-13 (ver calcUpgrade, uso interno do editor do site).
-function calcUpgradeValor(planoAtual: string, vencimento: string, planoAlvo: string): { valor: number; dataFmt: string } | null {
-  if (!PLANO_LIMITES[planoAtual] || !PLANO_LIMITES[planoAlvo] || !vencimento) return null;
-  const diasRestantes = Math.max(0, Math.ceil((new Date(vencimento).getTime() - Date.now()) / 86400000));
-  const diferenca = (PLANO_LIMITES[planoAlvo].preco - PLANO_LIMITES[planoAtual].preco) / 30 * diasRestantes;
-  return { valor: Math.max(0, Math.round(diferenca * 100) / 100), dataFmt: new Date(vencimento).toLocaleDateString("pt-BR") };
-}
-
-// Selo compacto de upgrade — mostra só os botões que realmente destravam o recurso
-// (ex.: um recurso exclusivo do Ouro não mostra botão de upgrade pro Prata, já que
-// não resolveria nada). Sem valor no texto do botão — o valor vai só na mensagem do
-// WhatsApp, pro Abraão já ver a conta quando o cliente clicar.
-function UpgradeBadge({ meuPlano, vencimento, minPlano, featureNome }: { meuPlano: string; vencimento: string; minPlano: string; featureNome: string }) {
-  const idxMin = PLANO_ORDEM_GLOBAL.indexOf(minPlano);
-  const opcoes = idxMin >= 0 ? PLANO_ORDEM_GLOBAL.slice(idxMin) : [];
-  return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-      {opcoes.map(planoAlvo => {
-        const upgrade = calcUpgradeValor(meuPlano, vencimento, planoAlvo);
-        return (
-          <a key={planoAlvo}
-            href={`https://wa.me/${WHATSAPP_SUPORTE_INK}?text=${encodeURIComponent(
-              `Olá! Gostaria de fazer upgrade para o plano ${planoAlvo} pra desbloquear: ${featureNome}.` +
-              (upgrade ? ` Calculei a diferença proporcional em R$${upgrade.valor.toFixed(2)} até o fim do ciclo atual (${upgrade.dataFmt}). Podemos confirmar o pagamento?` : "")
-            )}`}
-            target="_blank" rel="noopener noreferrer"
-            style={{ display: "inline-flex", alignItems: "center", gap: 5, textDecoration: "none", background: "linear-gradient(135deg,#E8C97A,#C9A84C 45%,#8a6a24)", color: "#17140A", fontWeight: 700, fontSize: 11, borderRadius: 999, padding: "6px 12px", boxShadow: "0 3px 12px rgba(201,168,76,.35)", whiteSpace: "nowrap" }}
-          >
-            🔒 Fazer upgrade agora{opcoes.length > 1 ? ` (${planoAlvo})` : ""} →
-          </a>
-        );
-      })}
-    </div>
-  );
-}
-
-// Bloqueio "fosco" — mostra o recurso real por trás, com uma camada escura por CIMA
-// (não opacity/filter no próprio conteúdo — isso "contaminaria" até o selo, que
-// precisa ficar nítido). O aviso fica DENTRO do próprio bloco escurecido (acima da
-// camada escura via z-index), não fixo na tela — evita empilhar vários avisos quando
-// há mais de um bloco bloqueado na mesma página, e deixa claro qual recurso é aquele.
-function FoscoOverlay({ bloqueado, meuPlano, vencimento, minPlano, featureNome, children }: { bloqueado: boolean; meuPlano: string; vencimento: string; minPlano: string; featureNome: string; children: React.ReactNode }) {
-  if (!bloqueado) return <>{children}</>;
-  return (
-    <div style={{ position: "relative" }}>
-      <div style={{ position: "absolute", inset: 0, zIndex: 15, background: "rgba(0,0,0,.62)", backdropFilter: "grayscale(70%)", WebkitBackdropFilter: "grayscale(70%)" }} />
-      <div style={{ position: "relative", zIndex: 16, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, marginBottom: 14 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", background: "rgba(10,10,10,.85)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 8, padding: "6px 12px" }}>
-          🔒 {featureNome} é recurso exclusivo do plano {minPlano}
-        </div>
-        <UpgradeBadge meuPlano={meuPlano} vencimento={vencimento} minPlano={minPlano} featureNome={featureNome} />
-      </div>
-      {children}
-    </div>
-  );
-}
 
 // Variável global para manter tool pendente da Aura sem stale closure
 let _auraToolPendenteCache: { tool: string; params: any; descricao: string } | null = null;
@@ -1610,20 +1481,29 @@ export default function CRM() {
   const [siteLoaded, setSiteLoaded] = useState(false);
   const [siteSaving, setSiteSaving] = useState(false);
   const [siteSlug, setSiteSlug] = useState<string>("");
-  const [sitePlano, setSitePlano] = useState<string>("");
-  const [meuPlano, setMeuPlano] = useState<string>("");
-  const [meuVencimento, setMeuVencimento] = useState<string>("");
-  // Autoridade única de acesso por versão comercial (ver ARQUITETURA DE VERSÕES,
-  // topo do arquivo) -- resolve Laboratório vs. Ink System 1.0 uma vez só.
-  const acessoTenant = useMemo(() => obterAcessoTenant({ authEmail, planoLegado: meuPlano }), [authEmail, meuPlano]);
+  // inq-saas atende exclusivamente o Laboratório P&D (Bloco 2 da remoção de
+  // Bronze/Prata/Ouro, 2026-08-13) -- nenhuma ferramenta do CRM depende mais
+  // de "plano" nem de e-mail para ficar disponível: tudo é o comportamento
+  // padrão deste repositório. A edição comercial Ink System 1.0, com suas
+  // próprias limitações, é responsabilidade de outro projeto (fora deste
+  // repositório).
+  const acessoTenant = {
+    temDisparos: true,
+    temOrigens: true,
+    temCampanhas: true,
+    temDepoimentos: true,
+    temHistoriaDoEstudio: true,
+    temCoresEstilo: true,
+    temAparenciaCrm: true,
+    temMultiplosProfissionais: true,
+  };
   const [meuSlug, setMeuSlug] = useState<string>("");
   const [storageUsadoMb, setStorageUsadoMb] = useState<number>(0);
   const [storageExtraMb, setStorageExtraMb] = useState<number>(0);
-  // Crédito comprado de SMS/e-mail — não expira: só é consumido quando a cota
-  // incluída do mês é ultrapassada (ver logEnvio). O que sobra acumula.
+  // Crédito comprado de SMS/e-mail — não expira, fica disponível até ser usado
+  // manualmente (comprarRecarga). O que sobra acumula.
   const [smsCreditoExtra, setSmsCreditoExtra] = useState<number>(0);
   const [emailCreditoExtra, setEmailCreditoExtra] = useState<number>(0);
-  const [siteVencimento, setSiteVencimento] = useState<string>("");
   const [slugProposto, setSlugProposto] = useState<string>("");
   const [slugConfirmando, setSlugConfirmando] = useState(false);
   const [categoriaNegocio, setCategoriaNegocio] = useState<string>("");
@@ -1669,10 +1549,6 @@ export default function CRM() {
   const [srch, setSrch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [showArtForm, setShowArtForm] = useState(false);
-  const [showExtraArtistConfirm, setShowExtraArtistConfirm] = useState(false);
-  // Aviso compacto quando uma ação interativa (ex.: trocar tema) não pôde ser salva
-  // por ser recurso de um plano acima do atual — guarda o nome da feature, ou null.
-  const [avisoUpgrade, setAvisoUpgrade] = useState<string | null>(null);
   const [showRecargaModal, setShowRecargaModal] = useState<"sms" | "email" | "storage" | null>(null);
   const [comprandoRecarga, setComprandoRecarga] = useState(false);
   const [showAgForm, setShowAgForm] = useState(false);
@@ -1861,25 +1737,22 @@ export default function CRM() {
   const [agPipelineOpen, setAgPipelineOpen] = useState(false);
   const [pvEditando, setPvEditando] = useState<number | null>(null);
   const [canaisHabilitados, setCanaisHabilitados] = useState<{email: boolean; whatsapp: boolean; sms: boolean}>({ email: true, whatsapp: false, sms: false });
-  // ── USO MENSAL DE MENSAGERIA (e-mail/SMS) — cota do plano + recarga comprada ──
+  // ── USO MENSAL DE MENSAGERIA (e-mail/SMS) — telemetria + recarga comprada ──
   const [usoMensal, setUsoMensal] = useState({ emailEnviados: 0, smsEnviados: 0, emailComprado: 0, smsComprado: 0 });
   const anoMesAtual = new Date().toISOString().slice(0, 7);
   const logEnvio = useCallback((canal: "email" | "sms", qtd: number = 1) => {
     if (!userId) return;
-    // Só consome crédito comprado na parcela que ultrapassa a cota incluída do mês
-    // — o crédito não expira, fica guardado até ser realmente usado.
-    const incluido = canal === "email" ? PLANO_LIMITES[meuPlano]?.emailPorMes : PLANO_LIMITES[meuPlano]?.smsPorMes;
-    const enviadosAntes = canal === "email" ? usoMensal.emailEnviados : usoMensal.smsEnviados;
-    const excedente = incluido !== undefined ? Math.max(0, Math.min(qtd, (enviadosAntes + qtd) - incluido)) : 0;
+    // inq-saas atende exclusivamente o Laboratório P&D (Bloco 2 da remoção de
+    // Bronze/Prata/Ouro, 2026-08-13) -- não existe mais "cota mensal incluída
+    // no plano" pra medir excesso contra: o envio é sempre registrado (uso
+    // mensal, abaixo), mas nunca consome crédito comprado automaticamente por
+    // aqui. O saldo de crédito extra (comprarRecarga) continua existindo e
+    // disponível pra compra manual, só não é mais decrementado por "excesso
+    // de cota de plano" nesta função.
     setUsoMensal(p => canal === "email" ? { ...p, emailEnviados: p.emailEnviados + qtd } : { ...p, smsEnviados: p.smsEnviados + qtd });
-    if (excedente > 0) {
-      if (canal === "email") setEmailCreditoExtra(p => Math.max(0, p - excedente));
-      else setSmsCreditoExtra(p => Math.max(0, p - excedente));
-      sb.rpc("consumir_credito_mensageria", { p_user_id: userId, p_canal: canal, p_qtd: excedente }).then(() => {}, () => {});
-    }
     sb.rpc("incrementar_uso_mensageria", { p_user_id: userId, p_ano_mes: anoMesAtual, p_canal: canal, p_qtd: qtd }).then(() => {}, () => {});
     sb.rpc("incrementar_uso_diario", { p_user_id: userId, p_canal: canal, p_qtd: qtd }).then(() => {}, () => {});
-  }, [userId, anoMesAtual, meuPlano, usoMensal]);
+  }, [userId, anoMesAtual]);
   const logFalha = useCallback((canal: "email" | "sms", motivo: string) => {
     if (!userId) return;
     sb.rpc("registrar_falha_mensageria", { p_user_id: userId, p_canal: canal, p_motivo: motivo }).then(() => {}, () => {});
@@ -1900,8 +1773,11 @@ export default function CRM() {
         setShowRecargaModal(null);
         return;
       }
-      // Crédito persistente (não é por mês) — só é consumido de verdade quando a
-      // cota incluída daquele mês é ultrapassada, ver lógica em logEnvio.
+      // Crédito persistente (não é por mês) — registrado como saldo disponível
+      // (ver "Canais habilitados"), mas não existe mais nenhuma cota mensal
+      // pra "ultrapassar": desde o Bloco 2 (remoção de Bronze/Prata/Ouro,
+      // 2026-08-13), logEnvio não decrementa mais esse saldo automaticamente.
+      // A reconciliação da compra continua manual (ver comentário acima).
       const { error } = await sb.rpc("comprar_credito_mensageria", { p_user_id: userId, p_canal: canal, p_qtd: tier.qtd });
       if (error) { setShowAviso("Erro ao registrar a recarga: " + error.message); return; }
       if (canal === "email") setEmailCreditoExtra(p => p + tier.qtd); else setSmsCreditoExtra(p => p + tier.qtd);
@@ -1911,7 +1787,7 @@ export default function CRM() {
       setComprandoRecarga(false);
     }
   };
-  // Soma o tamanho de cada upload na cota de armazenamento do plano (fire-and-forget).
+  // Soma o tamanho de cada upload no total de armazenamento usado (fire-and-forget).
   const logStorage = (bytes: number) => {
     if (!userId || !bytes) return;
     const mb = bytes / (1024 * 1024);
@@ -2034,9 +1910,6 @@ export default function CRM() {
       return;
     }
     setLicencaOk(true);
-    const planoBrutoLic = (lic.plano || "").trim();
-    setMeuPlano(["Bronze", "Prata", "Ouro"].find(p => p.toLowerCase() === planoBrutoLic.toLowerCase()) || planoBrutoLic);
-    setMeuVencimento(lic.data_vencimento || "");
     const { data: inkCli } = await sb.from("ink_clientes").select("slug, storage_usado_mb, storage_extra_mb, sms_credito_extra, email_credito_extra").eq("auth_user_id", uid).limit(1).maybeSingle();
     setMeuSlug(inkCli?.slug || "");
     setStorageUsadoMb(Number(inkCli?.storage_usado_mb) || 0);
@@ -2640,7 +2513,7 @@ export default function CRM() {
     (async () => {
       const [{ data: site }, { data: tenant }] = await Promise.all([
         sb.from("site_conteudo").select("*").eq("user_id", userId).single(),
-        sb.from("ink_clientes").select("slug, plano, data_vencimento").eq("auth_user_id", userId).single(),
+        sb.from("ink_clientes").select("slug").eq("auth_user_id", userId).single(),
       ]);
       setSiteConteudo(site || {
         user_id: userId, molde: "premium", publicado: false,
@@ -2648,13 +2521,6 @@ export default function CRM() {
         banner_foto_url: "", banner_titulo: "", banner_texto: "", banner_botao_texto: "", depoimentos: [],
       });
       setSiteSlug(tenant?.slug || "");
-      // "plano" é texto livre digitado manualmente em ink_clientes (não é enum) —
-      // normaliza maiúscula/minúscula e espaços em volta pra não travar por
-      // diferença de digitação (ex: "ouro ", "OURO").
-      const planoBruto = (tenant?.plano || "").trim();
-      const planoCanonico = ["Bronze", "Prata", "Ouro"].find(p => p.toLowerCase() === planoBruto.toLowerCase()) || planoBruto;
-      setSitePlano(planoCanonico);
-      setSiteVencimento(tenant?.data_vencimento || "");
       setSiteLoaded(true);
     })();
   }, [tab, userId, siteLoaded]);
@@ -2809,24 +2675,6 @@ export default function CRM() {
     if (d.url) logStorage(base64.length * 0.75);
     return d.url || "";
   };
-
-  // Upgrade de plano: cobra só a diferença proporcional até o vencimento do
-  // ciclo atual (não o mês cheio) — combinado com o Abraão em 2026-07-13.
-  // planoAlvo é opcional: se não vier, assume o próximo plano da escada
-  // (Bronze→Prata→Ouro). Passar um planoAlvo explícito permite pular direto
-  // pra um plano específico (ex: Bronze → Ouro pra desbloquear algo exclusivo).
-  const calcUpgrade = (planoAtual: string, vencimento: string, planoAlvo?: string): { planoNovo: string; valor: number; dataFmt: string } | null => {
-    const planoNovo = planoAlvo || PROXIMO_PLANO[planoAtual];
-    if (!planoNovo || !PLANO_LIMITES[planoAtual] || !PLANO_LIMITES[planoNovo] || !vencimento) return null;
-    const diasRestantes = Math.max(0, Math.ceil((new Date(vencimento).getTime() - Date.now()) / 86400000));
-    const diferenca = (PLANO_LIMITES[planoNovo].preco - PLANO_LIMITES[planoAtual].preco) / 30 * diasRestantes;
-    return {
-      planoNovo,
-      valor: Math.max(0, Math.round(diferenca * 100) / 100),
-      dataFmt: new Date(vencimento).toLocaleDateString("pt-BR"),
-    };
-  };
-  const PLANO_ORDEM = ["Bronze", "Prata", "Ouro"];
 
   useEffect(() => {
     if (tab === "agenda") {
@@ -5348,6 +5196,7 @@ export default function CRM() {
               <select className="ef" value={sistemaEditCanal} onChange={e => setSistemaEditCanal(e.target.value)}>
                 <option value="email">E-mail</option>
                 <option value="sms">SMS</option>
+                <option value="whatsapp" disabled>WhatsApp (em breve)</option>
               </select>
             </div>
             <div style={{ fontSize: 11, color: "var(--tx2)", lineHeight: 1.6, background: "var(--dk4)", borderRadius: 6, padding: "8px 10px" }}>
@@ -8511,16 +8360,11 @@ export default function CRM() {
                 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", marginBottom: 4 }}>Canais habilitados</div>
                 <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 10 }}>Status definido por teste real, em Configurações → IA. O canal usado em cada mensagem é escolhido na própria régua.</div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  {(authEmail === OWNER_EMAIL ? (["email", "whatsapp", "sms"] as const) : (["email", "sms"] as const)).map((ch) => {
+                  {(["email", "whatsapp", "sms"] as const).map((ch) => {
                     const label = ch === "email" ? "E-mail" : ch === "sms" ? "SMS" : "WhatsApp";
                     const testado = canaisHabilitados[ch] === true;
-                    const ehOwner = authEmail === OWNER_EMAIL;
                     const enviados = ch === "email" ? usoMensal.emailEnviados : ch === "sms" ? usoMensal.smsEnviados : 0;
                     const comprado = ch === "email" ? emailCreditoExtra : ch === "sms" ? smsCreditoExtra : 0;
-                    const cota = ch === "email" ? PLANO_LIMITES[meuPlano]?.emailPorMes : ch === "sms" ? PLANO_LIMITES[meuPlano]?.smsPorMes : undefined;
-                    const cotaTotal = (cota || 0) + comprado;
-                    const pct = cotaTotal > 0 ? Math.min(100, (enviados / cotaTotal) * 100) : 0;
-                    const corBarra = pct >= 90 ? "#e74c3c" : pct >= 70 ? "#e6b800" : "var(--q3)";
                     return (
                       <div key={ch} style={{ minWidth: 150 }}>
                         <div
@@ -8532,44 +8376,25 @@ export default function CRM() {
                         </div>
                         {(ch === "email" || ch === "sms") && (
                           <div style={{ marginTop: 6 }}>
-                            {ehOwner ? (
-                              <div style={{ fontSize: 10, color: "var(--tx3)" }}>{enviados} enviados este mês · conta ilimitada</div>
-                            ) : (
-                              <>
-                                <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{enviados}/{cotaTotal} este mês{comprado > 0 ? ` (+${comprado} adquiridos)` : ""}</div>
-                                <div style={{ width: "100%", height: 5, background: "var(--dk4)", borderRadius: 3, overflow: "hidden" }}>
-                                  <div style={{ width: pct + "%", height: "100%", background: corBarra, transition: "width .3s, background .3s" }} />
-                                </div>
-                                {(ch === "email" || ch === "sms") && pct >= 90 && (
-                                  <button onClick={() => setShowRecargaModal(ch)} style={{ marginTop: 5, background: "none", border: "none", color: "var(--gold)", fontSize: 10, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
-                                    + Comprar mais
-                                  </button>
-                                )}
-                              </>
-                            )}
+                            <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{enviados} enviados este mês{comprado > 0 ? ` · ${comprado} de crédito extra disponível` : ""}</div>
+                            <button onClick={() => setShowRecargaModal(ch)} style={{ background: "none", border: "none", color: "var(--gold)", fontSize: 10, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                              + Comprar crédito extra
+                            </button>
                           </div>
                         )}
                       </div>
                     );
                   })}
                 </div>
-                {authEmail !== OWNER_EMAIL && PLANO_LIMITES[meuPlano] && (() => {
-                  const cotaStorageMb = PLANO_LIMITES[meuPlano].storageMb + storageExtraMb;
-                  const pctStorage = Math.min(100, (storageUsadoMb / cotaStorageMb) * 100);
-                  const corStorage = pctStorage >= 90 ? "#e74c3c" : pctStorage >= 70 ? "#e6b800" : "var(--q3)";
+                {(() => {
                   const fmtMb = (mb: number) => mb >= 1024 ? (mb / 1024).toFixed(2) + "GB" : Math.round(mb) + "MB";
                   return (
                     <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--br)", maxWidth: 220 }}>
                       <div style={{ fontSize: 12, color: "var(--tx)", fontWeight: 500, marginBottom: 4 }}>📦 Armazenamento</div>
-                      <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{fmtMb(storageUsadoMb)} de {fmtMb(cotaStorageMb)} usados{storageExtraMb > 0 ? ` (+${(storageExtraMb / 1024).toFixed(0)}GB extra)` : ""}</div>
-                      <div style={{ width: "100%", height: 5, background: "var(--dk4)", borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ width: pctStorage + "%", height: "100%", background: corStorage, transition: "width .3s, background .3s" }} />
-                      </div>
-                      {pctStorage >= 90 && (
-                        <button onClick={() => setShowRecargaModal("storage")} style={{ marginTop: 5, background: "none", border: "none", color: "var(--gold)", fontSize: 10, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
-                          + Comprar mais
-                        </button>
-                      )}
+                      <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{fmtMb(storageUsadoMb)} usados{storageExtraMb > 0 ? ` (+${(storageExtraMb / 1024).toFixed(0)}GB extra adquiridos)` : ""}</div>
+                      <button onClick={() => setShowRecargaModal("storage")} style={{ background: "none", border: "none", color: "var(--gold)", fontSize: 10, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                        + Aumentar armazenamento
+                      </button>
                     </div>
                   );
                 })()}
@@ -8648,7 +8473,6 @@ export default function CRM() {
               {/* ── FLUXO UNIFICADO POR ETAPA ── */}
               <AccordionHeader titulo="Fluxo de Relacionamento por Etapa" aberto={pvAccordion.fluxo} onToggle={() => setPvAccordion(p => ({ ...p, fluxo: !p.fluxo }))} />
               {pvAccordion.fluxo && (() => {
-                const bloqueadoDisparos = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata");
                 const slugsComFluxo = Array.from(new Set(fluxoEtapas.map((f: any) => f.etapa_slug)));
                 const salvarFluxoEtapa = async (etapa: any) => {
                   setFluxoSalvando(true);
@@ -8761,24 +8585,24 @@ export default function CRM() {
                                 if (sid === "lead_morno") return boasVindasCards;
                                 if (sid === "aura_agend") return boasVindasCards;
                                 if (sid === "cons_agendada") return (<>
-                                  <CardSistemaEditavel chave="confirmacao_consulta" bloqueado={bloqueadoDisparos} />
-                                  <CardSistemaEditavel chave="lembrete_d1_consulta" bloqueado={bloqueadoDisparos} />
-                                  <CardSistemaEditavel chave="dia_consulta_cliente" bloqueado={bloqueadoDisparos} />
-                                  <CardSistemaEditavel chave="dia_consulta_artista" bloqueado={bloqueadoDisparos} />
+                                  {CardSistemaEditavel({ chave: "confirmacao_consulta" })}
+                                  {CardSistemaEditavel({ chave: "lembrete_d1_consulta" })}
+                                  {CardSistemaEditavel({ chave: "dia_consulta_cliente" })}
+                                  {CardSistemaEditavel({ chave: "dia_consulta_artista" })}
                                 </>);
                                 if (sid === "sessao_agend") return (<>
-                                  <CardSistemaEditavel chave="confirmacao_sessao" bloqueado={bloqueadoDisparos} />
-                                  <CardSistemaEditavel chave="lembrete_d1_sessao" bloqueado={bloqueadoDisparos} />
-                                  <CardSistemaEditavel chave="dia_sessao_cliente" bloqueado={bloqueadoDisparos} />
-                                  <CardSistemaEditavel chave="dia_sessao_artista" bloqueado={bloqueadoDisparos} />
+                                  {CardSistemaEditavel({ chave: "confirmacao_sessao" })}
+                                  {CardSistemaEditavel({ chave: "lembrete_d1_sessao" })}
+                                  {CardSistemaEditavel({ chave: "dia_sessao_cliente" })}
+                                  {CardSistemaEditavel({ chave: "dia_sessao_artista" })}
                                 </>);
-                                if (sid === "aguard_agend") return <CardSistemaEditavel chave="aguard_agend" bloqueado={bloqueadoDisparos} />;
-                                if (sid === "pos_venda_piercing") return <CardSistemaEditavel chave="pos_venda_piercing" bloqueado={bloqueadoDisparos} />;
-                                if (sid === "lista_espera") return <CardSistemaEditavel chave="lista_espera" bloqueado={bloqueadoDisparos} />;
+                                if (sid === "aguard_agend") return CardSistemaEditavel({ chave: "aguard_agend" });
+                                if (sid === "pos_venda_piercing") return CardSistemaEditavel({ chave: "pos_venda_piercing" });
+                                if (sid === "lista_espera") return CardSistemaEditavel({ chave: "lista_espera" });
                                 if (sid === "pos_venda" || sid === "tatuado") return (<>
                                   <CardSistema ativo={fluxoToggles.nps} toggleKey="nps" label="Avaliação NPS pós-sessão" gatilho="D+1 — após entrada no Pós-venda" preview={"Assunto: Como foi sua sessão, {nome}?\n\nFoi uma alegria ter você no estúdio. Como você avalia sua experiência? [escala 0–10]\n\nNota e comentário salvos na ficha automaticamente."} />
                                   <CardSistema ativo={fluxoToggles.google_convite} toggleKey="google_convite" label="Convite ao Google" gatilho="D+2 — após avaliação positiva (nota ≥ 7)" preview={"Assunto: Uma última coisa, {nome} — leva 1 minuto\n\nSua opinião no Google faz uma diferença enorme para nós. Clique para avaliar — o seu comentário já aparece pré-preenchido."} />
-                                  {sid === "tatuado" && <CardSistemaEditavel chave="tatuado_aftercare" bloqueado={bloqueadoDisparos} />}
+                                  {sid === "tatuado" && CardSistemaEditavel({ chave: "tatuado_aftercare" })}
                                 </>);
                                 if (sid === "aguard_prox_sessao") return (
                                   <CardSistema ativo={fluxoToggles.recontato_prox_sessao} toggleKey="recontato_prox_sessao" label="E-mail de recontato + link WhatsApp" gatilho="D+60 — sem nova solicitação. Move para Hibernação em D+90 se não houver retorno" preview={"Assunto: A próxima ideia já nasceu, {nome}?\n\nOlá, {nome}! Faz um tempo desde a sua última sessão. Esperamos que sua arte esteja linda e bem cicatrizada.\n\nSabemos que uma boa ideia não tem pressa para nascer. Mas quando ela chegar, queremos ser os primeiros a saber.\n\n[ Tenho uma nova ideia ] → abre WhatsApp\n\nRespeitoso abraço, {estudio}"} />
@@ -8790,7 +8614,7 @@ export default function CRM() {
                                   <CardSistema ativo={fluxoToggles.agradecimento_1asessao} toggleKey="agradecimento_1asessao" label="E-mail de agradecimento pela consulta" gatilho="Imediato — ao entrar em Aguardando 1ª Sessão" preview={"Assunto: Obrigado pela sua visita, {nome}\n\nOlá, {nome}! Queremos te agradecer por ter vindo até a gente. Sua pontualidade e compromisso dizem muito sobre quem você é.\n\nSeu projeto está registrado com carinho. Daqui a 30 dias vamos entrar em contato para saber se já chegou a sua hora!\n\nRespeitoso abraço, {estudio}"} />
                                   <CardSistema ativo={fluxoToggles.recontato_d30} toggleKey="recontato_d30" label="E-mail de recontato D+30 — Sim / Não" gatilho="30 dias após entrar na etapa — repete a cada 30 dias enquanto clicar Não" preview={"Assunto: Já chegou a sua hora, {nome}?\n\nFaz 30 dias desde a sua consulta. Seu projeto continua guardado com o mesmo cuidado de sempre.\n\n{artista} criou algo pensado exclusivamente para você.\n\n[ Sim, quero agendar! ] → abre WhatsApp\n[ Ainda não ] → recontato em mais 30 dias"} />
                                 </>);
-                                if (sid === "reengajamento") return <CardSistemaEditavel chave="reengajamento" bloqueado={bloqueadoDisparos} />;
+                                if (sid === "reengajamento") return CardSistemaEditavel({ chave: "reengajamento" });
                                 return null;
                               })()}
                               {etapasDesteSlug.map((fe: any) => (
@@ -8908,7 +8732,6 @@ export default function CRM() {
         })()}
         {/* ── ORIGENS ── */}
         {tab === "posvenda" && pvSubTab === "origens" && acessoTenant.temOrigens && (() => {
-          const bloqueadoOrigens = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro");
           const siteBase = (studioSite || "https://seusite.com.br").replace(/\/$/, "");
           const salvarOrigem = async (nome: string, idx: number | null, pago?: boolean, pagina?: string) => {
             const sl = slugify(nome);
@@ -8959,32 +8782,19 @@ export default function CRM() {
           const convGeral = (totalFrio + totalQuente) > 0 ? Math.round((totalQuente / (totalFrio + totalQuente)) * 100) : 0;
           return (
               <div className="origem-portrait-scale" style={{ padding: "24px 16px", maxWidth: 740, margin: "0 auto", overflowX: "auto", WebkitOverflowScrolling: "touch" as any, position: "relative" }}>
-                {bloqueadoOrigens && (
-                  <>
-                    <div style={{ position: "absolute", inset: 0, zIndex: 15, background: "rgba(0,0,0,.62)", backdropFilter: "grayscale(70%)", WebkitBackdropFilter: "grayscale(70%)" }} />
-                    <div style={{ position: "relative", zIndex: 16, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, marginBottom: 14 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", background: "rgba(10,10,10,.85)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 8, padding: "6px 12px" }}>
-                        🔒 Origens é recurso exclusivo do plano Ouro
-                      </div>
-                      <UpgradeBadge meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Origens" />
-                    </div>
-                  </>
-                )}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🔗 Gerenciador de Origens</div>
                   <button className="btn-s" onClick={() => { setOrigenEditIdx(-1); setOrigenEditNome(""); setOrigenEditPago(false); }}>+ Nova origem</button>
                 </div>
 
                 <div style={{ position: "relative", zIndex: 16, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px", marginBottom: 20, fontSize: 12, color: "var(--tx2)", lineHeight: 1.7 }}>
-                  <div style={{ marginBottom: bloqueadoOrigens ? 0 : 10 }}>
+                  <div style={{ marginBottom: 10 }}>
                     Origens mostram <strong style={{ color: "var(--tx)" }}>de onde vêm seus leads</strong>. Cada origem gera um link próprio (bio do Instagram, um vídeo, um anúncio pago) — quando alguém entra pelo seu site por esse link, o sistema já sabe de onde ela veio e guarda isso direto no cadastro do cliente, sem você precisar marcar nada na mão depois.
                   </div>
-                  {!bloqueadoOrigens && (
-                    <div style={{ paddingTop: 10, borderTop: "1px solid var(--br)" }}>
-                      <div style={{ color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>Como usar</div>
-                      Cadastre uma origem pra cada lugar que divulga seu trabalho (ex: "Instagram", "Google Maps", "Indicação"). O sistema monta um link único pra cada uma — copie e cole esse link exatamente onde a pessoa vai clicar (na bio, na descrição do vídeo, no anúncio). Se quiser mandar pra uma página específica de um artista, preencha "Página destino". Marque como "Pago" as origens que custam algo (anúncios) pra diferenciar de orgânico. As métricas de Lead Frio/Quente e conversão de cada origem se atualizam sozinhas, direto do cadastro dos clientes que chegaram por ali — quanto mais desses leads avançam no funil, maior a conversão da origem.
-                    </div>
-                  )}
+                  <div style={{ paddingTop: 10, borderTop: "1px solid var(--br)" }}>
+                    <div style={{ color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>Como usar</div>
+                    Cadastre uma origem pra cada lugar que divulga seu trabalho (ex: "Instagram", "Google Maps", "Indicação"). O sistema monta um link único pra cada uma — copie e cole esse link exatamente onde a pessoa vai clicar (na bio, na descrição do vídeo, no anúncio). Se quiser mandar pra uma página específica de um artista, preencha "Página destino". Marque como "Pago" as origens que custam algo (anúncios) pra diferenciar de orgânico. As métricas de Lead Frio/Quente e conversão de cada origem se atualizam sozinhas, direto do cadastro dos clientes que chegaram por ali — quanto mais desses leads avançam no funil, maior a conversão da origem.
+                  </div>
                 </div>
 
                 {/* Cards de resumo geral */}
@@ -9143,9 +8953,6 @@ export default function CRM() {
           })()}
         {/* ── DISPAROS ── */}
         {tab === "posvenda" && pvSubTab === "disparos" && acessoTenant.temDisparos && (
-          <FoscoOverlay
-            bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata")}
-            meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Prata" featureNome="Disparos">
           <div style={{ flex: 1, padding: "16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, maxWidth: 780, width: "100%", animation: "fadeIn .15s ease" }}>
 
             {/* Cabeçalho */}
@@ -9155,15 +8962,13 @@ export default function CRM() {
             </div>
 
             <div style={{ position: "relative", zIndex: 16, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px", fontSize: 12, color: "var(--tx2)", lineHeight: 1.7 }}>
-              <div style={{ marginBottom: (authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata")) ? 0 : 10 }}>
+              <div style={{ marginBottom: 10 }}>
                 Disparos são <strong style={{ color: "var(--tx)" }}>mensagens automáticas</strong> pra manter contato com quem já é seu cliente — aniversário, datas comemorativas, reativação de quem sumiu, avisos pra grupos específicos. Cada mensagem sai personalizada com os dados reais da pessoa, escrita pela {(auraName || "IA")}.
               </div>
-              {!(authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata")) && (
-                <div style={{ paddingTop: 10, borderTop: "1px solid var(--br)" }}>
-                  <div style={{ color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>Como usar</div>
-                  Escolha um grupo de clientes (por tag, por data, ou a base toda) e o canal (e-mail ou SMS, dentro da sua cota mensal). As Campanhas Sazonais (aniversário, Natal, Dia dos Namorados etc.) já vêm com mensagens prontas e disparo automático na data certa — é só ativar e, se quiser, ajustar o texto. Fora isso, você pode montar um disparo avulso pra qualquer grupo, na hora que quiser.
-                </div>
-              )}
+              <div style={{ paddingTop: 10, borderTop: "1px solid var(--br)" }}>
+                <div style={{ color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>Como usar</div>
+                Escolha um grupo de clientes (por tag, por data, ou a base toda) e o canal (e-mail ou SMS, dentro da sua cota mensal). As Campanhas Sazonais (aniversário, Natal, Dia dos Namorados etc.) já vêm com mensagens prontas e disparo automático na data certa — é só ativar e, se quiser, ajustar o texto. Fora isso, você pode montar um disparo avulso pra qualquer grupo, na hora que quiser.
+              </div>
             </div>
 
             {/* Alerta de data comemorativa próxima */}
@@ -9390,15 +9195,10 @@ export default function CRM() {
               </div>
             </div>
 
-              {/* ── CAMPANHAS SAZONAIS (datas comemorativas — automático) ──
-                  Elevada acima da camada de bloqueio de propósito: mesmo quem
-                  não tem o plano pode abrir e ver o que cada campanha oferece
-                  (desperta vontade de assinar). Só as ações que gravam no banco
-                  (editar/excluir/salvar/adicionar) ficam de fato bloqueadas. */}
+              {/* ── CAMPANHAS SAZONAIS (datas comemorativas — automático) ── */}
               <div style={{ position: "relative", zIndex: 16 }}>
               <AccordionHeader titulo="Campanhas Sazonais" aberto={pvAccordion.sazonais} onToggle={() => setPvAccordion(p => ({ ...p, sazonais: !p.sazonais }))} />
               {pvAccordion.sazonais && (() => {
-                const bloqueadoDisparos = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Prata");
                 const CAMPANHAS_SAZONAIS_DEF = [
                   { slug: "dia_maes", label: "Dia das Mães", emoji: "🌸", desc: "2º domingo de maio · tatuagem mãe + filho(a) até 15cm cada — filho(a) paga a dele, mãe ganha a dela" },
                   { slug: "dia_pais", label: "Dia dos Pais", emoji: "👨‍👦", desc: "2º domingo de agosto · tatuagem pai + filho(a) até 15cm cada — filho(a) paga a dele, pai ganha a dele" },
@@ -9409,7 +9209,6 @@ export default function CRM() {
                   { slug: "ano_novo", label: "Ano Novo", emoji: "🎆", desc: "1º de janeiro · só felicitações do casal, sem venda" },
                 ];
                 const salvarCampSazEtapa = async (etapa: any) => {
-                  if (bloqueadoDisparos) return;
                   setCampSazSalvando(true);
                   try {
                     if (etapa.id && !etapa.id.startsWith("new_")) {
@@ -9425,12 +9224,10 @@ export default function CRM() {
                   setCampSazSalvando(false);
                 };
                 const excluirCampSazEtapa = async (id: string) => {
-                  if (bloqueadoDisparos) return;
                   await sb.from("campanhas_sazonais_etapas").delete().eq("id", id);
                   setCampSazEtapas(p => p.filter((f: any) => f.id !== id));
                 };
                 const adicionarNovaCampSazEtapa = (slug: string) => {
-                  if (bloqueadoDisparos) return;
                   const tempId = "new_" + Date.now();
                   const novaEtapa = { id: tempId, campanha_slug: slug, label: "Nova mensagem", dias_offset: 0, canal: "email", mensagem: "Olá, {nome}! ...", ativo: true, ordem: campSazEtapas.filter((f: any) => f.campanha_slug === slug).length };
                   setCampSazEditandoId(tempId);
@@ -9464,7 +9261,7 @@ export default function CRM() {
                           {aberto && (
                             <div style={{ padding: "10px 14px 14px", borderTop: "1px solid var(--br)", display: "flex", flexDirection: "column", gap: 8 }}>
                               <div style={{ fontSize: 11, color: "var(--tx3)", fontStyle: "italic" }}>{camp.desc}</div>
-                              <CardSistemaEditavel chave={"sazonal_" + camp.slug} bloqueado={bloqueadoDisparos} />
+                              {CardSistemaEditavel({ chave: "sazonal_" + camp.slug })}
                               {etapasDesteSlug.map((fe: any) => (
                                 campSazEditandoId === fe.id ? (
                                   <div key={fe.id} style={{ background: "var(--dk3)", borderRadius: 7, padding: "12px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -9509,8 +9306,8 @@ export default function CRM() {
                                       <div style={{ fontSize: 11, color: "var(--tx3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{stripHtmlPreview(fe.mensagem)}</div>
                                     </div>
                                     <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                                      <button onClick={() => { if (bloqueadoDisparos) return; setCampSazEditandoId(fe.id); setCampSazEditLocal({ ...fe }); }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: bloqueadoDisparos ? "not-allowed" : "pointer", opacity: bloqueadoDisparos ? 0.5 : 1 }}>Editar</button>
-                                      <button onClick={() => { if (bloqueadoDisparos) return; setConfirmAcao({ titulo: "Remover mensagem", mensagem: "Remover esta mensagem?", confirmar: "Remover", onConfirmar: () => excluirCampSazEtapa(fe.id) }); }} style={{ fontSize: 11, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "3px 8px", color: "var(--q1)", cursor: bloqueadoDisparos ? "not-allowed" : "pointer", opacity: bloqueadoDisparos ? 0.5 : 1 }}>✕</button>
+                                      <button onClick={() => { setCampSazEditandoId(fe.id); setCampSazEditLocal({ ...fe }); }} style={{ fontSize: 11, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "3px 8px", color: "var(--tx2)", cursor: "pointer" }}>Editar</button>
+                                      <button onClick={() => { setConfirmAcao({ titulo: "Remover mensagem", mensagem: "Remover esta mensagem?", confirmar: "Remover", onConfirmar: () => excluirCampSazEtapa(fe.id) }); }} style={{ fontSize: 11, background: "rgba(192,57,43,.1)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 5, padding: "3px 8px", color: "var(--q1)", cursor: "pointer" }}>✕</button>
                                     </div>
                                   </div>
                                 )
@@ -9550,7 +9347,7 @@ export default function CRM() {
                                 </div>
                               ) : (
                                 <button onClick={() => adicionarNovaCampSazEtapa(camp.slug)}
-                                  style={{ alignSelf: "flex-start", fontSize: 11, background: "var(--dk4)", border: "1px dashed var(--br)", borderRadius: 6, padding: "5px 12px", color: "var(--tx3)", cursor: bloqueadoDisparos ? "not-allowed" : "pointer", opacity: bloqueadoDisparos ? 0.5 : 1 }}>
+                                  style={{ alignSelf: "flex-start", fontSize: 11, background: "var(--dk4)", border: "1px dashed var(--br)", borderRadius: 6, padding: "5px 12px", color: "var(--tx3)", cursor: "pointer" }}>
                                   + Adicionar mensagem
                                 </button>
                               )}
@@ -9588,11 +9385,9 @@ export default function CRM() {
             )}
 
           </div>
-          </FoscoOverlay>
         )}
         {/* ── CAMPANHAS ── */}
         {tab === "posvenda" && pvSubTab === "campanhas" && acessoTenant.temCampanhas && (() => {
-          const bloqueadoCampanhas = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro");
           const hoje = new Date().toISOString().split("T")[0];
           const statusCamp = (c: any) => {
             if (!c.data_inicio || !c.data_fim) return "sem data";
@@ -9708,31 +9503,18 @@ export default function CRM() {
           };
           return (
             <div style={{ padding: "24px 16px", maxWidth: 700, margin: "0 auto", position: "relative" }}>
-              {bloqueadoCampanhas && (
-                <>
-                  <div style={{ position: "absolute", inset: 0, zIndex: 15, background: "rgba(0,0,0,.62)", backdropFilter: "grayscale(70%)", WebkitBackdropFilter: "grayscale(70%)" }} />
-                  <div style={{ position: "relative", zIndex: 16, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, marginBottom: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)", background: "rgba(10,10,10,.85)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 8, padding: "6px 12px" }}>
-                      🔒 Campanhas é recurso exclusivo do plano Ouro
-                    </div>
-                    <UpgradeBadge meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Campanhas" />
-                  </div>
-                </>
-              )}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                 <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontWeight: 700, color: "var(--gold)" }}>🎯 Campanhas</div>
                 <button className="btn-s" onClick={() => { setCampEditIdx(-1); setCampEditForm(CAMP_FORM_VAZIO); }}>+ Nova campanha</button>
               </div>
               <div style={{ position: "relative", zIndex: 16, background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 10, padding: "14px 16px", marginBottom: 20, fontSize: 12, color: "var(--tx2)", lineHeight: 1.7 }}>
-                <div style={{ marginBottom: bloqueadoCampanhas ? 0 : 10 }}>
+                <div style={{ marginBottom: 10 }}>
                   Campanhas ligam uma <strong style={{ color: "var(--tx)" }}>palavra secreta</strong> a uma promoção. Você define a palavra e, por um tempo, divulga onde quiser (Instagram, vídeo, story, boca a boca). Quando um lead conversa com a Aura no seu site e diz a palavra certa, ela reconhece, confirma com ele e já vincula o cadastro àquela campanha automaticamente — sem você precisar fazer nada na hora.
                 </div>
-                {!bloqueadoCampanhas && (
-                  <div style={{ paddingTop: 10, borderTop: "1px solid var(--br)" }}>
-                    <div style={{ color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>Como usar</div>
-                    Cadastre a campanha com a palavra secreta e o período em que ela vale. Se quiser, cole o link de onde você vai divulgar (um vídeo, post ou story) — a Aura mostra esse link pro lead que disser não saber a palavra. Defina também o crédito de quem acertar: um valor fixo em reais (some direto no saldo do cliente, pronto pra usar) ou um percentual (fica marcado na ficha, pra você aplicar na hora do pagamento) — e o prazo em dias que esse benefício continua valendo a partir do cadastro. O vínculo com a campanha aparece automaticamente na ficha do cliente assim que a palavra é confirmada.
-                  </div>
-                )}
+                <div style={{ paddingTop: 10, borderTop: "1px solid var(--br)" }}>
+                  <div style={{ color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>Como usar</div>
+                  Cadastre a campanha com a palavra secreta e o período em que ela vale. Se quiser, cole o link de onde você vai divulgar (um vídeo, post ou story) — a Aura mostra esse link pro lead que disser não saber a palavra. Defina também o crédito de quem acertar: um valor fixo em reais (some direto no saldo do cliente, pronto pra usar) ou um percentual (fica marcado na ficha, pra você aplicar na hora do pagamento) — e o prazo em dias que esse benefício continua valendo a partir do cadastro. O vínculo com a campanha aparece automaticamente na ficha do cliente assim que a palavra é confirmada.
+                </div>
               </div>
               {/* Modal confirmação exclusão */}
               {campConfirmDel !== null && (
@@ -10546,7 +10328,7 @@ export default function CRM() {
                                     setFichaEditada(false);
                                     setMenorSalvarConfirm(false);
                                   };
-                                  // Comprime toda foto que entra no sistema (economiza cota de armazenamento do plano).
+                                  // Comprime toda foto que entra no sistema (economiza armazenamento).
                                   const compressImg = (f: File, maxPx: number, q: number): Promise<Blob> => new Promise((resolve, reject) => {
                                     const reader = new FileReader();
                                     reader.onload = (ev) => {
@@ -14267,17 +14049,6 @@ export default function CRM() {
             </div>
           );
         })()}
-        {/* Aviso compacto: ação de recurso exclusivo tentada mas não salva */}
-        {avisoUpgrade && (
-          <div style={{ position: "fixed", left: 10, right: 10, bottom: "max(env(safe-area-inset-bottom),14px)", zIndex: 100002, maxWidth: 460, margin: "0 auto", background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 11, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 10px 30px rgba(0,0,0,.55)", flexWrap: "wrap" }}>
-            <span style={{ fontSize: 18, flexShrink: 0 }}>🔒</span>
-            <span style={{ flex: 1, fontSize: 12.5, color: "var(--tx)", lineHeight: 1.35, minWidth: 160 }}>
-              <b>{avisoUpgrade}</b> é recurso exclusivo do Ouro — sua alteração não foi salva.
-            </span>
-            <UpgradeBadge meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome={avisoUpgrade} />
-            <button onClick={() => setAvisoUpgrade(null)} style={{ background: "transparent", border: "1px solid var(--br)", borderRadius: 7, color: "var(--tx2)", padding: "6px 11px", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0, fontFamily: "'DM Sans',sans-serif" }}>✕</button>
-          </div>
-        )}
         {/* Desfazer reagendamento (Fase 2) */}
         {undoReag && (
           <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 9999, background: "var(--dk2)", border: "1px solid var(--ab)", borderRadius: 10, padding: "12px 20px", display: "flex", alignItems: "center", gap: 16, boxShadow: "0 4px 24px rgba(0,0,0,.5)", minWidth: 320, maxWidth: "92vw" }}>
@@ -14778,36 +14549,6 @@ export default function CRM() {
             </div>
           );
 
-          // Trava genérica de feature por plano — reutilizável (hoje: Cores e Estilo,
-          // exclusivo Ouro). Sem plano reconhecido (ex: conta do dono do sistema) = sem trava.
-          const TravaPlano = ({ minPlano, featureNome, children }: { minPlano: string; featureNome: string; children: React.ReactNode }) => {
-            const idxAtual = PLANO_ORDEM.indexOf(sitePlano);
-            const idxMin = PLANO_ORDEM.indexOf(minPlano);
-            const temAcesso = !sitePlano || (idxAtual >= 0 && idxAtual >= idxMin);
-            if (temAcesso) return <>{children}</>;
-            const upgrade = calcUpgrade(sitePlano, siteVencimento, minPlano);
-            return (
-              <div style={{ border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 8, padding: "14px 16px", background: "#0a0a0a", opacity: 0.85, filter: "grayscale(0.4)" }}>
-                <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>
-                  🔒 {featureNome} é exclusivo do plano {minPlano}.
-                </div>
-                {upgrade ? (
-                  <a
-                    href={`https://wa.me/${WHATSAPP_SUPORTE_INK}?text=${encodeURIComponent(
-                      `Olá! Gostaria de fazer upgrade para o plano ${minPlano} pra desbloquear: ${featureNome}. Calculei a diferença proporcional em R$${upgrade.valor.toFixed(2)} até o fim do ciclo atual (${upgrade.dataFmt}). Podemos confirmar o pagamento?`
-                    )}`}
-                    target="_blank" rel="noopener noreferrer" className="btn-sm"
-                    style={{ display: "inline-block", textDecoration: "none" }}
-                  >
-                    Fazer upgrade para {minPlano} por R${upgrade.valor.toFixed(2)} →
-                  </a>
-                ) : (
-                  <div style={{ fontSize: 11, color: "var(--tx3)" }}>Fale com o suporte pra desbloquear.</div>
-                )}
-              </div>
-            );
-          };
-
           const isMobileView = typeof window !== "undefined" && window.innerWidth < 960;
           const PreviewFrame = (
             <iframe title="Prévia do site" srcDoc={previewHtml || "<body style=\"background:#080808\"></body>"}
@@ -15012,9 +14753,6 @@ export default function CRM() {
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Depoimentos</div>
                 <Help>Depoimentos reais de clientes — copie e cole de onde recebeu (WhatsApp, Instagram, Google). O print é opcional.</Help>
-                <FoscoOverlay
-                  bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro")}
-                  meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Depoimentos">
                 {(sc.depoimentos || []).map((d: any, i: number) => (
                   <div key={i} style={{ background: "#050505", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8, padding: 12, marginBottom: 8, boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}>
                     <textarea className="fta" placeholder="Escreva aqui o texto do depoimento (ou copie e cole de onde recebeu)." value={d.texto || ""} style={{ marginBottom: 6 }}
@@ -15051,7 +14789,6 @@ export default function CRM() {
                   </div>
                 ))}
                 <button className="btn-sm" onClick={() => upd({ depoimentos: [...(sc.depoimentos || []), { texto: "", autor: "", estrelas: 5, imagem_url: "" }] })}>+ Adicionar depoimento</button>
-                </FoscoOverlay>
               </div>
               )}
 
@@ -15059,9 +14796,6 @@ export default function CRM() {
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 14 }}>História do estúdio</div>
                 <Help>Conte a história do seu estúdio — o que te trouxe até aqui, o que te diferencia.</Help>
-                <FoscoOverlay
-                  bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro")}
-                  meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="História do estúdio">
                 <ImageSlot label="Foto do banner" hint="Recomendado: 1600×900px, paisagem. Uma foto marcante do estúdio, da equipe ou de um trabalho autoral."
                   value={sc.banner_foto_url || ""} onChange={(url) => upd({ banner_foto_url: url })} aspect="16/9" />
                 <div className="ff" style={{ marginBottom: 20 }}>
@@ -15076,7 +14810,6 @@ export default function CRM() {
                   <label className="fl">Texto do botão (CTA Final)</label>
                   <input className="fi" placeholder="Escreva aqui... Ex: Quero tatuar com vocês!" value={sc.banner_botao_texto || ""} onChange={e => upd({ banner_botao_texto: e.target.value })} />
                 </div>
-                </FoscoOverlay>
               </div>
               )}
 
@@ -15084,9 +14817,6 @@ export default function CRM() {
               <div style={cardSt}>
                 <div style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>Cores e Estilo</div>
                 <Help>Personalize a identidade visual do seu site — cores (fundo, botão e texto), cantos, estilo de fontes, brilho e velocidade da esteira de fotos.</Help>
-                <FoscoOverlay
-                  bloqueado={authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro")}
-                  meuPlano={meuPlano} vencimento={meuVencimento} minPlano="Ouro" featureNome="Cores e Estilo">
                   {(() => {
                     const est = sc.estilo || {};
                     const updEst = (patch: any) => upd({ estilo: { ...est, ...patch } });
@@ -15128,11 +14858,21 @@ export default function CRM() {
                         </div>
                         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                           <div className="ff">
-                            <label className="fl">Cantos</label>
+                            <label className="fl">Cantos dos botões</label>
                             <select className="fi" value={est.cantos || "reto"} onChange={e => updEst({ cantos: e.target.value })}>
                               <option value="reto">Retos</option>
                               <option value="arredondado">Arredondados</option>
                               <option value="capsula">Sem bordas (cápsula)</option>
+                            </select>
+                          </div>
+                          <div className="ff">
+                            <label className="fl">Bordas das fotos</label>
+                            {/* Sem opção "cápsula" de propósito: um raio de 999px falha visualmente
+                                numa foto retangular (vira um formato estranho) -- só faz sentido
+                                em botões, que são bem mais largos que altos. */}
+                            <select className="fi" value={est.cantosFotos || est.cantos || "reto"} onChange={e => updEst({ cantosFotos: e.target.value })}>
+                              <option value="reto">Retas</option>
+                              <option value="arredondado">Arredondadas</option>
                             </select>
                           </div>
                           <div className="ff">
@@ -15175,7 +14915,6 @@ export default function CRM() {
                       </div>
                     );
                   })()}
-                </FoscoOverlay>
               </div>
               )}
 
@@ -15503,17 +15242,8 @@ export default function CRM() {
                           setShowAviso("Sua conta já possui um profissional cadastrado. Edite o profissional existente em vez de criar outro.");
                           return;
                         }
-                        const ativos = artists.filter((a: any) => a.ativo).length;
-                        const limite = PLANO_LIMITES[meuPlano]?.artistasInclusos;
-                        if (limite !== undefined && ativos >= limite) setShowExtraArtistConfirm(true);
-                        else setShowArtForm(true);
+                        setShowArtForm(true);
                       }}>+ Adicionar Profissional</button>
-                      {PLANO_LIMITES[meuPlano] && (
-                        <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 6 }}>
-                          {artists.filter((a: any) => a.ativo).length} de {PLANO_LIMITES[meuPlano].artistasInclusos} artistas inclusos no plano {meuPlano}
-                          {artists.filter((a: any) => a.ativo).length >= PLANO_LIMITES[meuPlano].artistasInclusos && " — próximo será cobrado à parte"}
-                        </div>
-                      )}
                     </div>
                     {artists.map(a => (
                       <div className="acard" key={a.id} style={{ opacity: a.ativo ? 1 : .55, marginBottom: 10 }}>
@@ -16001,8 +15731,6 @@ export default function CRM() {
                       })}
                     </div>
                     <button className="btn-s" style={{ marginTop: 10 }} onClick={async () => {
-                      const bloqueado = authEmail !== OWNER_EMAIL && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) >= 0 && PLANO_ORDEM_GLOBAL.indexOf(meuPlano) < PLANO_ORDEM_GLOBAL.indexOf("Ouro");
-                      if (bloqueado) { setAvisoUpgrade("Aparência"); return; }
                       if (userId) await sb.from("configuracoes").update({ tema }).eq("user_id", userId);
                       temaSalvoRef.current = tema;
                       addLog(`Tema do sistema alterado para "${THEMES[tema]?.nome || tema}"`);
@@ -16508,33 +16236,6 @@ export default function CRM() {
                   setConfirmDeleteStage(null);
                 }} style={{ flex: 1, padding: "10px", background: "#E74C3C", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 700, fontFamily: "'DM Sans',sans-serif" }}>
                   Excluir
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── CONFIRMAR ARTISTA EXTRA (além da cota do plano) ── */}
-        {showExtraArtistConfirm && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
-            onClick={() => setShowExtraArtistConfirm(false)}>
-            <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 14, padding: 28, minWidth: 320, maxWidth: 380 }}
-              onClick={e => e.stopPropagation()}>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, color: "var(--gold)", marginBottom: 12 }}>Artista extra</div>
-              <p style={{ fontSize: 13, color: "var(--tx2)", lineHeight: 1.6, marginBottom: 14 }}>
-                Seu plano <strong style={{ color: "var(--tx)" }}>{meuPlano}</strong> inclui <strong style={{ color: "var(--tx)" }}>{PLANO_LIMITES[meuPlano]?.artistasInclusos}</strong> artistas. Esse será um artista extra: <strong style={{ color: "var(--gold)" }}>+R$45,00/mês</strong>, cobrado junto da sua mensalidade. Não tem limite de quantos extras você pode ter.
-              </p>
-              <p style={{ fontSize: 12, color: "var(--tx3)", lineHeight: 1.6, marginBottom: 20 }}>
-                Sem fidelidade: remova quando quiser o profissional excedente ao seu plano. Ao remover, a cobrança automática cessa no ato, mas o acesso permanece ativo até o fim dos 30 dias do ciclo já pago.
-              </p>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => setShowExtraArtistConfirm(false)}
-                  style={{ flex: 1, padding: "10px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 8, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                  Cancelar
-                </button>
-                <button onClick={() => { setShowExtraArtistConfirm(false); setShowArtForm(true); }}
-                  className="btn-s" style={{ flex: 1 }}>
-                  Adicionar (+R$45/mês)
                 </button>
               </div>
             </div>

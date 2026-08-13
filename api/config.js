@@ -8,6 +8,13 @@ const sb = createClient(
 
 const STUDIO_USER_ID = process.env.STUDIO_USER_ID || "2d366d35-1cae-40d5-ba92-06fe2ab8a763";
 
+// Extraído à parte pra ser testável sem depender de um handler HTTP nem do
+// Supabase real (ver api/_tests/config.licencaDemoPayload.test.js) -- decisão
+// registrada no Bloco 2 da remoção de Bronze/Prata/Ouro (2026-08-13).
+export function licencaDemoPayload(uid) {
+  return { user_id: uid, status: "ativo", data_vencimento: "2099-12-31", plano: null };
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -24,8 +31,14 @@ export default async function handler(req, res) {
       await sb.from(t).delete().eq("user_id", uid);
     }
     // Garante licença sempre válida pra conta demo (checada no login).
+    // "plano" fica null de propósito (Bloco 2 da remoção de Bronze/Prata/Ouro,
+    // 2026-08-13): a coluna já aceita null hoje (a própria licença real da
+    // Casa dos Carvalho está assim), e a conta demo não representa nenhuma
+    // edição comercial real -- não faz sentido gravar "1.0" (pareceria uma
+    // conta comercial de verdade) nem "Laboratório" (a demo não é o
+    // Laboratório P&D).
     const { data: licExistente } = await sb.from("licencas").select("id").eq("user_id", uid).limit(1).maybeSingle();
-    const licPayload = { user_id: uid, status: "ativo", data_vencimento: "2099-12-31", plano: "Ouro" };
+    const licPayload = licencaDemoPayload(uid);
     if (licExistente) await sb.from("licencas").update(licPayload).eq("id", licExistente.id);
     else await sb.from("licencas").insert(licPayload);
     // Garante configuracoes com onboarding_done=false — quem testa a demo

@@ -142,14 +142,13 @@ function paginaSiteIndisponivel() {
 // Molde "Premium" — site publico do tenant, gerado a partir de site_conteudo +
 // configuracoes + artistas (colunas foto_site_url/bio_site/portfolio_fotos).
 // Publicacao automatica: nao ha build, o HTML e montado na hora a cada visita.
-// inq-saas atende exclusivamente o Laboratório P&D (Sub-bloco 1 da remoção de
-// Bronze/Prata/Ouro, 2026-08-13) -- carrossel automático e portfólio sem
-// limite de fotos são o comportamento padrão deste repositório, sem depender
-// de "plano" nem de qualquer outro identificador. `plano` continua chegando
-// como parâmetro (os dois chamadores ainda leem ink_clientes.plano por
-// motivos alheios a este sub-bloco), mas deixou de decidir carrossel ou
-// limite de fotos.
-export function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas, plano) {
+// inq-saas atende exclusivamente o Laboratório P&D (Sub-bloco 1 e Bloco 2 da
+// remoção de Bronze/Prata/Ouro, 2026-08-13) -- carrossel automático e
+// portfólio sem limite de fotos são o comportamento padrão deste
+// repositório. Não recebe mais "plano" como parâmetro: nenhum dos dois
+// chamadores (site real e prévia) lê mais ink_clientes.plano, porque nada
+// aqui dentro depende mais desse valor.
+export function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas) {
   const carrosselAutomatico = true;
   const nomeEstudio = cfg?.studio_name || "Estúdio";
   const local = [cfg?.studio_city, cfg?.studio_estado].filter(Boolean).join(" · ");
@@ -159,12 +158,13 @@ export function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas, pl
   const linhas = (site.hero_frase || `Arte na pele, criada\na partir da sua história.`).split("\n");
   const heroHeadline = linhas.map(l => esc(l)).join("<br>");
 
-  // Cores/estilo personalizados — exclusivo plano Ouro (trava fica no CRM,
-  // aqui só aplica o que já foi salvo; sem estilo salvo = visual padrão de sempre).
+  // Cores/estilo personalizados — recurso padrão do Laboratório (Bloco 2 da
+  // remoção de Bronze/Prata/Ouro, 2026-08-13), sem depender de plano; aqui só
+  // aplica o que já foi salvo no CRM; sem estilo salvo = visual padrão de sempre.
   const est = site.estilo || {};
   const corFundo = /^#[0-9a-f]{3,8}$/i.test(est.corFundo || "") ? est.corFundo : "#080808";
   // Brilho de canto do fundo (superior-esquerdo + inferior-direito) — mesmo padrão
-  // visual do CRM/admin, com cor e intensidade editáveis (exclusivo Ouro).
+  // visual do CRM/admin, com cor e intensidade editáveis.
   const corBrilho = /^#[0-9a-f]{3,8}$/i.test(est.corBrilho || "") ? est.corBrilho : "#8B5CDE";
   const hexToRgb = (hex) => {
     const h = hex.replace("#", "");
@@ -180,6 +180,12 @@ export function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas, pl
   const corTitulo = /^#[0-9a-f]{3,8}$/i.test(est.corTitulo || "") ? est.corTitulo : "#ffffff";
   const corCorpo = /^#[0-9a-f]{3,8}$/i.test(est.corCorpo || "") ? est.corCorpo : "rgba(255,255,255,0.38)";
   const radius = { arredondado: "14px", capsula: "999px" }[est.cantos] || "0px";
+  // Bordas das fotos são um controle independente do cantos dos botões (antes
+  // era a mesma variável para tudo -- um raio de 999px, que só faz sentido
+  // num botão largo, ficava esquisito numa foto retangular). Sem "cápsula"
+  // aqui de propósito -- só reto/arredondado. Cai no valor de "cantos" (dos
+  // botões) se a conta ainda não tiver escolhido um valor próprio pras fotos.
+  const radiusFotos = { arredondado: "14px" }[est.cantosFotos || est.cantos] || "0px";
   const glow = { nenhum: "0px", suave: "10px", intenso: "26px" }[est.brilho] || "0px";
   const velocidadeMult = { lento: 1.6, normal: 1, rapido: 0.6 }[est.velocidadeCarrossel] || 1;
 
@@ -306,7 +312,7 @@ fbq('track', 'PageView');
 <link href="${googleFontsHref}" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--gold:${corBotao1};--gold-2:${corBotao2};--gold-dim:rgba(201,168,76,0.35);--bg:${corFundo};--off:#e8e4dc;--dim:${corCorpo};--pad:52px;--radius:${radius};--font-titulo:${fonteTitulo};--font-corpo:${fonteCorpo};--cor-titulo:${corTitulo};--glow:${glow}}
+:root{--gold:${corBotao1};--gold-2:${corBotao2};--gold-dim:rgba(201,168,76,0.35);--bg:${corFundo};--off:#e8e4dc;--dim:${corCorpo};--pad:52px;--radius:${radius};--radius-foto:${radiusFotos};--font-titulo:${fonteTitulo};--font-corpo:${fonteCorpo};--cor-titulo:${corTitulo};--glow:${glow}}
 html{scroll-behavior:smooth}
 body{background:${fundoComBrilho};color:var(--cor-titulo);font-family:var(--font-corpo);overflow-x:hidden}
 .nav{position:fixed;top:0;left:0;right:0;z-index:300;display:flex;align-items:center;justify-content:space-between;padding:14px var(--pad);background:rgba(8,8,8,0.93);backdrop-filter:blur(14px);border-bottom:0.5px solid rgba(255,255,255,0.05)}
@@ -324,7 +330,7 @@ body{background:${fundoComBrilho};color:var(--cor-titulo);font-family:var(--font
 .manifesto-quote{font-family:var(--font-titulo);font-size:clamp(22px,3.8vw,48px);font-weight:300;font-style:italic;color:var(--off);line-height:1.25;max-width:820px;margin:0 auto}
 .portfolio-block{padding:64px 0 0}
 .artist-row{display:flex;align-items:flex-end;padding:0 var(--pad);margin-bottom:28px;gap:22px}
-.artist-photo{width:140px;height:185px;object-fit:cover;flex-shrink:0;border-radius:var(--radius)}
+.artist-photo{width:140px;height:185px;object-fit:cover;flex-shrink:0;border-radius:var(--radius-foto)}
 .artist-eyebrow{font-size:7.5px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
 .artist-name{font-family:var(--font-titulo);font-size:clamp(22px,2.8vw,34px);font-weight:300;color:var(--cor-titulo);margin-bottom:6px}
 .artist-tagline{font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:12px;max-width:360px}
@@ -344,7 +350,7 @@ body{background:${fundoComBrilho};color:var(--cor-titulo);font-family:var(--font
 .strip-outer:hover .strip-track{animation-play-state:paused}
 @keyframes goRight{0%{transform:translateX(-50%)}100%{transform:translateX(0)}}
 @keyframes goLeft{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
-.strip-item{width:200px;height:255px;flex-shrink:0;overflow:hidden;background:#111;border-radius:var(--radius);position:relative;cursor:pointer}
+.strip-item{width:200px;height:255px;flex-shrink:0;overflow:hidden;background:#111;border-radius:var(--radius-foto);position:relative;cursor:pointer}
 .strip-item img{width:100%;height:100%;object-fit:cover;pointer-events:none}
 .strip-ov{position:absolute;inset:0;background:rgba(0,0,0,0);transition:background .3s;display:flex;align-items:center;justify-content:center}
 .strip-item:hover .strip-ov{background:rgba(0,0,0,0.22)}
@@ -354,7 +360,7 @@ body{background:${fundoComBrilho};color:var(--cor-titulo);font-family:var(--font
 .depo-print-link{cursor:pointer}
 .lb{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.96);display:none;align-items:center;justify-content:center}
 .lb.open{display:flex}
-.lb-img{max-width:75vw;max-height:75vh;object-fit:contain;width:auto;height:auto;border-radius:var(--radius)}
+.lb-img{max-width:75vw;max-height:75vh;object-fit:contain;width:auto;height:auto;border-radius:var(--radius-foto)}
 .lb-close{position:absolute;top:18px;right:20px;width:40px;height:40px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:0.5px solid rgba(255,255,255,0.1);transition:border-color .2s}
 .lb-close:hover{border-color:var(--gold)}
 .lb-close svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:1.5}
@@ -377,7 +383,7 @@ body{background:${fundoComBrilho};color:var(--cor-titulo);font-family:var(--font
 .depo-text{font-size:11px;color:var(--dim);line-height:1.85;font-style:italic;margin-bottom:16px}
 .depo-author{font-size:7.5px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.3)}
 .depo-print-link{display:block;margin-top:12px}
-.depo-print{width:100%;max-height:140px;object-fit:cover;border:0.5px solid rgba(255,255,255,0.1);border-radius:var(--radius);cursor:pointer;display:block}
+.depo-print{width:100%;max-height:140px;object-fit:cover;border:0.5px solid rgba(255,255,255,0.1);border-radius:var(--radius-foto);cursor:pointer;display:block}
 .banner{position:relative;width:100%;overflow:hidden}
 .banner-img{display:block;width:100%;height:auto;min-height:400px;object-fit:cover;filter:brightness(0.42)}
 .banner-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,#080808 0%,rgba(8,8,8,0.08) 20%,rgba(8,8,8,0.08) 65%,rgba(8,8,8,0.75) 84%,#080808 100%)}
@@ -1126,7 +1132,7 @@ export default async function handler(req, res) {
   if (acao === "site") {
     const slug = (req.query?.slug || "").trim();
     if (!slug) return res.status(400).send(paginaSiteIndisponivel());
-    const { data: tenant } = await sb.from("ink_clientes").select("auth_user_id, status, plano").eq("slug", slug).single();
+    const { data: tenant } = await sb.from("ink_clientes").select("auth_user_id, status").eq("slug", slug).single();
     if (!tenant || tenant.status !== "ativo") return res.status(404).send(paginaSiteIndisponivel());
     const uid = tenant.auth_user_id;
     // Conta demo nunca publica de verdade, mesmo com "Publicado" ligado no CRM.
@@ -1141,7 +1147,7 @@ export default async function handler(req, res) {
     // registro terminar de gravar (fire-and-forget não é confiável na Vercel).
     await registrarVisita(uid, req).catch(() => {});
     const campanhasAtivas = await campanhasAtivasHoje(uid).catch(() => []);
-    return res.status(200).send(paginaSitePremium(site, cfg, artistas || [], slug, campanhasAtivas, tenant.plano));
+    return res.status(200).send(paginaSitePremium(site, cfg, artistas || [], slug, campanhasAtivas));
   }
 
   // ── ANALYTICS: clique no CTA principal (aberto o chat da Aura) ──────────────
@@ -1224,15 +1230,13 @@ export default async function handler(req, res) {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
     const { site, cfg, artistas, slug: slugPreview } = req.body || {};
     let campanhasAtivas = [];
-    let planoPreview = null;
     if (slugPreview) {
-      const { data: tenantPreview } = await sb.from("ink_clientes").select("auth_user_id, plano").eq("slug", slugPreview).single();
+      const { data: tenantPreview } = await sb.from("ink_clientes").select("auth_user_id").eq("slug", slugPreview).single();
       if (tenantPreview) {
         campanhasAtivas = await campanhasAtivasHoje(tenantPreview.auth_user_id).catch(() => []);
-        planoPreview = tenantPreview.plano;
       }
     }
-    return res.status(200).send(paginaSitePremium(site || {}, cfg || {}, artistas || [], slugPreview || "", campanhasAtivas, planoPreview));
+    return res.status(200).send(paginaSitePremium(site || {}, cfg || {}, artistas || [], slugPreview || "", campanhasAtivas));
   }
 
   // ── BUSCA DE CLIENTE EXISTENTE (widget do site pergunta "já é cliente?") ────
