@@ -10,6 +10,18 @@ const sb = createClient(
 
 const GOOGLE_REVIEW_URL = "https://g.page/r/CSIFD3cla6rxEBM/review";
 
+// Bronze/Prata/Ouro foram descontinuados como plano comercial (decisão de
+// produto de 2026-08-13) -- nenhuma solicitação nova pode persistir esses
+// nomes em ink_leads.plano_sugerido nem citá-los no e-mail de confirmação,
+// não importa o que o chamador envie. Defesa aplicada aqui (servidor), não
+// só na interface, porque o endpoint é público e sem autenticação.
+const PLANOS_LEGADOS_BLOQUEADOS = new Set(["bronze", "prata", "ouro"]);
+export function planoSugeridoSemLegado(valor) {
+  const texto = typeof valor === "string" ? valor.trim() : "";
+  if (!texto || PLANOS_LEGADOS_BLOQUEADOS.has(texto.toLowerCase())) return null;
+  return texto;
+}
+
 // Estilo premium compartilhado por todas as paginas publicas server-rendered
 // (confirmacao, avaliacao NPS, convite Google) -- mesmo padrao visual do app:
 // fundo com brilho violeta, quadro com moldura dourada neon, botoes em pilula.
@@ -1140,9 +1152,14 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
-  // ── SOLICITAÇÕES (quiz de plano da demo + suporte/assessoria dentro do CRM +
-  // fluxo Aura do site de vendas) ── Sem WhatsApp de propósito — cai numa fila
-  // no /admin, revisada manualmente.
+  // ── SOLICITAÇÕES (suporte/assessoria dentro do CRM + fluxo Aura do site de
+  // vendas) ── Sem WhatsApp de propósito — cai numa fila no /admin, revisada
+  // manualmente. O quiz "qual plano cabe em você" (Bronze/Prata/Ouro) que
+  // existia no modo demo do CRM foi removido em 2026-08-13 (Bloco 1 da
+  // remoção da arquitetura Bronze/Prata/Ouro) -- este endpoint continua
+  // aceitando tipo:"plano" por compatibilidade com outros chamadores, mas
+  // plano_sugerido nunca mais persiste nem envia por e-mail um desses três
+  // nomes (ver planoSugeridoSemLegado, acima).
   // Suporta salvar progressivamente: sem "id" no corpo, cria a linha (email
   // ainda pode ser vazio); com "id", atualiza a mesma linha em vez de criar
   // outra. E-mail de confirmação só dispara quando "finalizado:true" chega,
@@ -1152,10 +1169,16 @@ export default async function handler(req, res) {
     const { id: leadIdBody, tipo, nome, email, telefone, estudio, mensagem, plano_sugerido, respostas, user_id, finalizado, origem_trafego } = req.body || {};
     if (finalizado && (!email || !String(email).includes("@"))) return res.status(400).json({ error: "E-mail inválido" });
 
+    // Nunca persiste Bronze/Prata/Ouro, em nenhuma variação de maiúscula/
+    // minúscula -- sem isso, transforma silenciosamente num valor vazio em
+    // vez de recusar a solicitação inteira (o resto do pedido continua
+    // legítimo mesmo que plano_sugerido não seja).
+    const planoSugeridoSeguro = planoSugeridoSemLegado(plano_sugerido);
+
     const campos = {
       tipo: tipo === "suporte" ? "suporte" : "plano",
       nome: nome || null, email: email || null, telefone: telefone || null, estudio: estudio || null,
-      mensagem: mensagem || null, plano_sugerido: plano_sugerido || null,
+      mensagem: mensagem || null, plano_sugerido: planoSugeridoSeguro,
       respostas: respostas || null, user_id: user_id || null,
       origem_trafego: origem_trafego || null,
       ...(finalizado ? { finalizado: true } : {}),
@@ -1181,7 +1204,7 @@ export default async function handler(req, res) {
         const assunto = tipo === "suporte" ? "Recebemos sua solicitação de suporte" : "Recebemos seu pedido de informações sobre planos";
         const corpo = tipo === "suporte"
           ? `<p>Olá${nome ? " " + esc(nome) : ""}!</p><p>Recebemos sua solicitação de suporte/assessoria. Nossa equipe vai analisar e te responder por aqui em breve.</p><p>— INK SYSTEM</p>`
-          : `<p>Olá${nome ? " " + esc(nome) : ""}!</p><p>Recebemos seu interesse${plano_sugerido ? ` no plano <strong>${esc(plano_sugerido)}</strong>` : ""}. Vamos analisar e te responder por e-mail em breve.</p><p>— INK SYSTEM</p>`;
+          : `<p>Olá${nome ? " " + esc(nome) : ""}!</p><p>Recebemos seu interesse${planoSugeridoSeguro ? ` no plano <strong>${esc(planoSugeridoSeguro)}</strong>` : ""}. Vamos analisar e te responder por e-mail em breve.</p><p>— INK SYSTEM</p>`;
         await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
