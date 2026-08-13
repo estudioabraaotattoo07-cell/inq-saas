@@ -142,14 +142,15 @@ function paginaSiteIndisponivel() {
 // Molde "Premium" — site publico do tenant, gerado a partir de site_conteudo +
 // configuracoes + artistas (colunas foto_site_url/bio_site/portfolio_fotos).
 // Publicacao automatica: nao ha build, o HTML e montado na hora a cada visita.
-// Mesmos limites de PLANO_LIMITES.fotosPorArtista no CRM -- serve de segunda
-// trava aqui na exibição do site, caso o cadastro tenha mais fotos do que o
-// plano atual permite (ex: fotos antigas de antes do limite existir, ou
-// downgrade de plano depois de já ter subido mais fotos).
-const FOTOS_POR_ARTISTA_PLANO = { Bronze: 5, Prata: 15, Ouro: 30 };
-function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas, plano) {
-  const carrosselAutomatico = plano === "Ouro";
-  const limiteFotosPlano = FOTOS_POR_ARTISTA_PLANO[plano];
+// inq-saas atende exclusivamente o Laboratório P&D (Sub-bloco 1 da remoção de
+// Bronze/Prata/Ouro, 2026-08-13) -- carrossel automático e portfólio sem
+// limite de fotos são o comportamento padrão deste repositório, sem depender
+// de "plano" nem de qualquer outro identificador. `plano` continua chegando
+// como parâmetro (os dois chamadores ainda leem ink_clientes.plano por
+// motivos alheios a este sub-bloco), mas deixou de decidir carrossel ou
+// limite de fotos.
+export function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas, plano) {
+  const carrosselAutomatico = true;
   const nomeEstudio = cfg?.studio_name || "Estúdio";
   const local = [cfg?.studio_city, cfg?.studio_estado].filter(Boolean).join(" · ");
   const tel = (cfg?.studio_tel || "").replace(/\D/g, "");
@@ -209,7 +210,7 @@ function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas, plano) {
   const stripIdsComFotos = [];
   const artistasHtml = (artistas || []).map((a, artIdx) => {
     const fotosCadastradas = Array.isArray(a.portfolio_fotos) ? a.portfolio_fotos : [];
-    const fotos = limiteFotosPlano !== undefined ? fotosCadastradas.slice(0, limiteFotosPlano) : fotosCadastradas;
+    const fotos = fotosCadastradas;
     const stripId = `strip-${artIdx}`;
     if (fotos.length > 0) stripIdsComFotos.push(stripId);
     const igHandle = (a.insta || "").replace(/^@/, "");
@@ -223,10 +224,9 @@ function paginaSitePremium(site, cfg, artistas, slug, campanhasAtivas, plano) {
     const dir = carrosselAutomatico ? "go-right" : "";
     const largItem = 204; // 200px de foto + 4px de gap
     const duracaoSeg = Math.max(12, Math.round((fotos.length * largItem) / 70 * velocidadeMult));
-    // A duplicação da lista só faz sentido pro plano Ouro, onde a esteira anda
-    // sozinha e precisa do "loop" pra não dar salto no fim. Nos outros planos
-    // (esteira estática, só setas manuais) duplicar só repete as mesmas fotos
-    // à toa.
+    // A duplicação da lista só faz sentido com o carrossel automático (padrão
+    // deste repositório), onde a esteira anda sozinha e precisa do "loop" pra
+    // não dar salto no fim.
     const fotosStrip = fotos.length > 0
       ? (carrosselAutomatico ? [...fotos, ...fotos] : fotos).map(f => `<div class="strip-item" data-src="${esc(f)}"><img src="${esc(f)}" alt=""><div class="strip-ov"><div class="strip-exp">${EXPAND_ICON}</div></div></div>`).join("")
       : "";
@@ -498,9 +498,10 @@ var CLICK_THRESH = 10;
 var stripArrowFns = {};
 function getStripOffset(track) { return new DOMMatrix(getComputedStyle(track).transform).m41; }
 function setStripOffset(track, x) { track.style.transform = "translateX(" + x + "px)"; }
-// Trava o arraste/seta na ultima e primeira foto pras esteiras estaticas
-// (Bronze/Prata) -- sem isso, dava pra continuar "andando" pra fundo preto
-// mesmo sem mais fotos. O Ouro tem animacao propria (classe go-right) e nao
+// Trava o arraste/seta na ultima e primeira foto pra uma eventual esteira
+// estatica (classe "go-right" ausente) -- sem isso, dava pra continuar
+// "andando" pra fundo preto mesmo sem mais fotos. O carrossel automático
+// (classe go-right, padrão deste repositório) tem animacao propria e nao
 // usa essa trava, porque a lista la ja vem duplicada de proposito pro loop.
 function clampStripOffset(track, outer, x) {
   if (track.classList.contains("go-right")) return x;

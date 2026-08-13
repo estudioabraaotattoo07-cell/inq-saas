@@ -14926,10 +14926,6 @@ export default function CRM() {
                   return artistasParaSite.map((a: any, idx: number) => {
                   const bioLen = (a.bio_site || "").length;
                   const fotos: string[] = Array.isArray(a.portfolio_fotos) ? a.portfolio_fotos : [];
-                  // Sem plano reconhecido (ex: conta do dono do sistema) = sem limite.
-                  const limiteFotos = PLANO_LIMITES[sitePlano]?.fotosPorArtista;
-                  const limiteAtingido = limiteFotos !== undefined && fotos.length >= limiteFotos;
-                  const upgrade = limiteAtingido ? calcUpgrade(sitePlano, siteVencimento) : null;
                   return (
                     <div key={a.id} style={{ background: "#050505", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 10, padding: 16, marginBottom: 12 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -14953,12 +14949,7 @@ export default function CRM() {
                             value={a.botao_social_label || ""} onChange={e => updArtistSite(a.id, { botao_social_label: e.target.value })} />
                         </div>
                       )}
-                      <Help>Fotos do portfólio dele — aparecem numa esteira embaixo do bloco.{limiteFotos !== undefined ? ` (${fotos.length}/${limiteFotos})` : ""}</Help>
-                      {sitePlano !== "Ouro" && (
-                        <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>
-                          No site, os visitantes avançam pelas fotos manualmente, usando as setas ao lado.
-                        </div>
-                      )}
+                      <Help>Fotos do portfólio dele — aparecem numa esteira embaixo do bloco, rodando sozinha automaticamente.</Help>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
                         {fotos.map((f, i) => (
                           <div key={i} style={{ position: "relative", width: 80, height: 100 }}>
@@ -14967,38 +14958,16 @@ export default function CRM() {
                               style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: "#C0392B", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11 }}>×</button>
                           </div>
                         ))}
-                        {!limiteAtingido && (
-                          <label style={{ width: 80, height: 100, border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--gold)", fontSize: 22, background: "#0a0a0a" }}>
-                            +
-                            <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
-                              const f = e.target.files?.[0]; if (!f) return;
-                              const url = await uploadSiteImg(f, "thumb");
-                              if (url) updArtistSite(a.id, { portfolio_fotos: [...fotos, url] });
-                              e.target.value = "";
-                            }} />
-                          </label>
-                        )}
+                        <label style={{ width: 80, height: 100, border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--gold)", fontSize: 22, background: "#0a0a0a" }}>
+                          +
+                          <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
+                            const f = e.target.files?.[0]; if (!f) return;
+                            const url = await uploadSiteImg(f, "thumb");
+                            if (url) updArtistSite(a.id, { portfolio_fotos: [...fotos, url] });
+                            e.target.value = "";
+                          }} />
+                        </label>
                       </div>
-                      {limiteAtingido && (
-                        <div style={{ width: "100%", border: "1.5px dashed rgba(201,168,76,0.3)", borderRadius: 6, padding: "10px 12px", background: "#0a0a0a", opacity: 0.85, filter: "grayscale(0.4)" }}>
-                          <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 8 }}>
-                            🔒 Limite de {limiteFotos} fotos atingido para {a.nome}.
-                          </div>
-                          {upgrade ? (
-                            <a
-                              href={`https://wa.me/${WHATSAPP_SUPORTE_INK}?text=${encodeURIComponent(
-                                `Olá! Meu estúdio atingiu o limite de fotos por artista e eu gostaria de aumentar essa capacidade. Podemos conversar?`
-                              )}`}
-                              target="_blank" rel="noopener noreferrer" className="btn-sm"
-                              style={{ display: "inline-block", textDecoration: "none" }}
-                            >
-                              Falar com a gente pra aumentar o limite →
-                            </a>
-                          ) : (
-                            <div style={{ fontSize: 11, color: "var(--tx3)" }}>Esse é o limite máximo de fotos por artista disponível no momento.</div>
-                          )}
-                        </div>
-                      )}
                     </div>
                   );
                   });
