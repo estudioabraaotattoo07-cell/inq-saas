@@ -53,6 +53,11 @@ const DEFAULT_FORMAS_PAGAMENTO: { chave_sistema: string; nome: string }[] = [
 // As funções de servidor (/api/*) só existem no deploy do inq-saas — usar URL absoluta
 // garante que funcionem mesmo quando o CRM é acessado por outro domínio (ex: inksystem.com.br).
 const API_BASE = "https://inq-saas.vercel.app";
+// inksystem.com.br hoje pertence ao projeto de vendas (ink-system-plataform), não
+// ao inq-saas -- não existe rewrite nenhum que ligue "inksystem.com.br/{slug}" a
+// este servidor. O endereço que realmente funciona é este, direto no domínio do
+// próprio inq-saas. Quando o Laboratório ganhar domínio próprio, troca só aqui.
+const urlSiteTenant = (slug: string) => `${API_BASE}/api/lead?acao=site&slug=${slug}`;
 // Pacotes de recarga de SMS/e-mail — crédito persistente: compra manual e
 // autônoma, sem relação com plano comercial (ver Bloco 2, remoção de
 // Bronze/Prata/Ouro, 2026-08-13). O que sobrar não expira (acumula pro mês
@@ -2589,7 +2594,7 @@ export default function CRM() {
       return;
     }
     setSiteSlug(slugProposto);
-    setShowAviso("✅ Endereço definido: inksystem.com.br/" + slugProposto);
+    setShowAviso("✅ Endereço definido: " + urlSiteTenant(slugProposto));
   };
 
   // Prévia ao vivo (ainda não salva) — reusa o mesmo render do site real via
@@ -5606,11 +5611,11 @@ export default function CRM() {
               </div>
               {onbSlugConfirmado ? (
                 <div style={{ fontSize: 12, color: "#27AE60", background: "rgba(39,174,96,0.1)", border: "1px solid rgba(39,174,96,0.3)", borderRadius: 8, padding: "10px 14px", width: "100%" }}>
-                  ✓ Endereço definido: <b>inksystem.com.br/{onbSlugConfirmado}</b>
+                  ✓ Endereço definido: <b>{urlSiteTenant(onbSlugConfirmado)}</b>
                 </div>
               ) : onbSlugProposto && (
                 <div style={{ fontSize: 12, color: "#8A8070", background: "#1A1A1A", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 8, padding: "12px 14px", width: "100%", textAlign: "left", lineHeight: 1.6 }}>
-                  Seu endereço público seria <b style={{ color: "#C9A84C" }}>inksystem.com.br/{onbSlugProposto}</b>, baseado no nome do estúdio. <b>Isso é definitivo e não pode ser trocado depois</b> — mas você não precisa decidir agora, dá pra confirmar mais tarde na aba "Meu Site".
+                  Seu endereço público seria <b style={{ color: "#C9A84C" }}>{urlSiteTenant(onbSlugProposto)}</b>, baseado no nome do estúdio. <b>Isso é definitivo e não pode ser trocado depois</b> — mas você não precisa decidir agora, dá pra confirmar mais tarde na aba "Meu Site".
                   <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                     <button className="btn-s" disabled={onbSlugSalvando} onClick={confirmarSlugOnboarding} style={{ flex: 1 }}>
                       {onbSlugSalvando ? "Confirmando..." : "✓ Confirmar agora"}
@@ -14501,7 +14506,7 @@ export default function CRM() {
           const upd = (patch: any) => setSiteConteudo((p: any) => ({ ...p, ...patch }));
           const updArtistSite = (artistId: string, patch: any) =>
             setArtists(p => p.map((a: any) => a.id === artistId ? { ...a, ...patch, _siteDirty: true } : a));
-          const previewUrl = siteSlug ? `https://inksystem.com.br/${siteSlug}` : "";
+          const previewUrl = siteSlug ? urlSiteTenant(siteSlug) : "";
 
           const cardSt: React.CSSProperties = {
             background: "radial-gradient(ellipse 420px 200px at 50% -10%, rgba(139,92,222,0.18), transparent 70%), linear-gradient(180deg, #1A1A1A, #0F0F0F)",
@@ -14563,7 +14568,7 @@ export default function CRM() {
                   <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 600, color: "var(--gold)" }}>✦ Meu Site</h2>
                   <div style={{ fontSize: 11, color: "var(--tx3)" }}>Edite o conteúdo do seu site público.</div>
                   {siteSlug && !ehSlugTecnico(siteSlug) && (
-                    <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 4 }}>Seu endereço: <b style={{ color: "var(--gold)" }}>inksystem.com.br/{siteSlug}</b></div>
+                    <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 4 }}>Seu endereço: <b style={{ color: "var(--gold)" }}>{urlSiteTenant(siteSlug)}</b></div>
                   )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -14602,7 +14607,7 @@ export default function CRM() {
                 <div style={{ fontSize: 12, color: "var(--tx2)", background: "var(--dk3)", border: "1px solid var(--gold)", borderRadius: 8, padding: "14px 16px", marginBottom: 16, lineHeight: 1.6 }}>
                   {slugProposto ? (
                     <>
-                      Seu endereço será <b style={{ color: "var(--gold)" }}>inksystem.com.br/{slugProposto}</b> — isso é <b>definitivo</b> e não pode ser trocado depois (é o link que vai em cartão, Instagram, WhatsApp). Confirma?
+                      Seu endereço será <b style={{ color: "var(--gold)" }}>{urlSiteTenant(slugProposto)}</b> — isso é <b>definitivo</b> e não pode ser trocado depois (é o link que vai em cartão, Instagram, WhatsApp). Confirma?
                       <div style={{ marginTop: 10 }}>
                         <button className="btn-sm" disabled={slugConfirmando} onClick={confirmarSlug}>
                           {slugConfirmando ? "Confirmando..." : "✓ Confirmar e criar meu endereço"}
