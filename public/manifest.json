@@ -1,0 +1,19 @@
+{
+  "name": "Ink System P&D",
+  "short_name": "Ink System P&D",
+  "description": "Sistema operacional do Laboratório P&D — A Casa dos Carvalho.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0A0A0A",
+  "theme_color": "#C9A84C",
+  "icons": [
+    {
+      "src": "/icone-ink-system.png",
+      "sizes": "1536x1024",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
