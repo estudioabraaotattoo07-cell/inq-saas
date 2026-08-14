@@ -408,7 +408,9 @@ footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28p
 .aura-btn{background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.4);color:var(--gold);padding:8px 14px;border-radius:20px;font-size:11.5px;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block}
 .aura-btn:hover{background:rgba(201,168,76,0.2)}
 .aura-text-input{flex:1;background:#050505;border:1px solid rgba(201,168,76,0.25);border-radius:20px;padding:9px 14px;color:#fff;font-size:12.5px;font-family:inherit;outline:none;min-width:0}
+.aura-date-input{flex:1;min-width:140px;background:#050505;border:1px solid rgba(201,168,76,0.25);border-radius:20px;padding:9px 14px;color:#fff;font-size:12.5px;font-family:inherit;outline:none;color-scheme:dark}
 .aura-send-btn{background:var(--gold);color:#17140A;border:none;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:14px;flex-shrink:0}
+.aura-skip-btn{width:100%;text-align:center}
 @media(max-width:480px){.aura-panel{width:100vw;height:85vh;max-height:85vh;max-width:100vw;bottom:0;right:0;border-radius:16px 16px 0 0}}
 @media(max-width:768px){:root{--pad:20px}.como-grid{grid-template-columns:repeat(2,1fr)}.depo-grid{grid-template-columns:1fr}.artist-row{flex-direction:column;align-items:flex-start;text-align:left}.strip-nav{opacity:0.85}}
 </style>
@@ -671,6 +673,41 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     area.appendChild(btn);
     inp.focus();
   }
+  // Usa o seletor de data nativo do navegador em vez de um componente próprio:
+  // no iPhone/iPad (onde a maioria dos leads preenche) o Safari já renderiza
+  // isso como uma roleta de rolagem nativa, sem precisar reconstruir esse
+  // comportamento em JS puro dentro do widget.
+  function mostrarInputData(onEnviar, onPular){
+    var area = $('aura-input-area');
+    area.innerHTML = '';
+    var inp = document.createElement('input');
+    inp.type = 'date';
+    inp.className = 'aura-date-input';
+    var hoje = new Date();
+    var max = new Date(hoje.getFullYear() - 5, hoje.getMonth(), hoje.getDate());
+    var min = new Date(hoje.getFullYear() - 100, hoje.getMonth(), hoje.getDate());
+    inp.max = max.toISOString().slice(0, 10);
+    inp.min = min.toISOString().slice(0, 10);
+    var btn = document.createElement('button');
+    btn.className = 'aura-send-btn';
+    btn.textContent = '→';
+    function enviar(){
+      if (!inp.value) return;
+      var partes = inp.value.split('-');
+      var dataFormatada = partes[2] + '/' + partes[1] + '/' + partes[0];
+      userMsg(dataFormatada);
+      area.innerHTML = '';
+      onEnviar(dataFormatada);
+    }
+    btn.onclick = enviar;
+    var pular = document.createElement('button');
+    pular.className = 'aura-btn aura-skip-btn';
+    pular.textContent = 'Prefiro não informar';
+    pular.onclick = function(){ userMsg('Prefiro não informar'); area.innerHTML = ''; onPular(); };
+    area.appendChild(inp);
+    area.appendChild(btn);
+    area.appendChild(pular);
+  }
 
   function salvar(campos){
     Object.assign(lead, campos);
@@ -898,8 +935,13 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     mostrarBotoes(['Manhã', 'Tarde', 'Noite'], function(op){
       lead.periodo_ligacao = op;
       salvar({ periodo_ligacao: op });
-      passoEmail();
+      passoNascimento();
     });
+  }
+  function passoNascimento(){
+    if (lead.nascimento) { salvar({ nascimento: lead.nascimento }); return passoEmail(); }
+    botMsg('Data de nascimento? Para te surpreendermos na sua data mais especial! 🎂');
+    mostrarInputData(function(dataFormatada){ salvar({ nascimento: dataFormatada }); passoEmail(); }, function(){ passoEmail(); });
   }
   function passoEmail(){
     if (lead.email) { salvar({ email: lead.email }); return passoPalavraSecreta(); }
@@ -2096,6 +2138,8 @@ export default async function handler(req, res) {
 
   // E-mail de boas-vindas ao cliente (controlado por fluxo_boas_vindas_email_ativa)
   const resendKey = process.env.RESEND_API_KEY;
+  const LOGO_EMAIL_URL = "https://inq-saas.vercel.app/icone-ink-system-192.png";
+  const logoEmailTag = "<img src='" + LOGO_EMAIL_URL + "' width='36' height='36' alt='Ink System' style='display:block;margin-bottom:16px;border-radius:8px'>";
 
   // Serverless: sem await aqui a função pode encerrar antes do Resend responder
   // (fire-and-forget não é confiável na Vercel) -- por isso ambos os envios
@@ -2124,18 +2168,22 @@ export default async function handler(req, res) {
     const emailFrom2Raw = process.env.EMAIL_REMETENTE || "";
     const emailFrom2 = emailFrom2Raw ? nomeEstudioLead + " <" + emailFrom2Raw + ">" : emailFrom2Raw;
     if (emailArtista) {
+    const nascFormatadoAlerta = nascimentoISO ? nascimentoISO.split("-").reverse().join("/") : "—";
     const htmlAlerta =
       "<div style='font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#222;padding:28px'>" +
+      logoEmailTag +
       "<p style='font-size:18px;font-weight:700;color:#c9a84c;margin-bottom:4px'>✦ Novo lead — " + nome + "</p>" +
       "<hr style='border:none;border-top:1px solid #c9a84c33;margin-bottom:18px'>" +
       "<table style='width:100%;border-collapse:collapse;font-size:13px'>" +
-      "<tr><td style='padding:7px 0;color:#888;width:130px'>Nome</td><td style='color:#222'>" + nome + "</td></tr>" +
-      "<tr><td style='padding:7px 0;color:#888'>Telefone</td><td style='color:#222'>" + (tel || "—") + "</td></tr>" +
-      "<tr><td style='padding:7px 0;color:#888'>E-mail</td><td style='color:#222'>" + (email || "—") + "</td></tr>" +
-      "<tr><td style='padding:7px 0;color:#888'>Ideia / projeto</td><td style='color:#222'>" + (ideaFinal || "—") + "</td></tr>" +
-      "<tr><td style='padding:7px 0;color:#888'>Região</td><td style='color:#222'>" + (regiao || "—") + "</td></tr>" +
-      "<tr><td style='padding:7px 0;color:#888'>Instagram</td><td style='color:#222'>" + (insta || "—") + "</td></tr>" +
-      "<tr><td style='padding:7px 0;color:#888'>Artista</td><td style='color:#222'>" + (artistaNomeResolvido || "A definir") + "</td></tr>" +
+      "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555;width:140px'>Nome</td><td style='padding:8px 12px;color:#222'>" + nome + "</td></tr>" +
+      "<tr><td style='padding:8px 12px;color:#555'>Telefone</td><td style='padding:8px 12px;color:#222'>" + (tel || "—") + "</td></tr>" +
+      "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>E-mail</td><td style='padding:8px 12px;color:#222'>" + (email || "—") + "</td></tr>" +
+      "<tr><td style='padding:8px 12px;color:#555'>Artista</td><td style='padding:8px 12px;color:#222'>" + (artistaNomeResolvido || "A definir") + "</td></tr>" +
+      "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Ideia / projeto</td><td style='padding:8px 12px;color:#222'>" + (ideaFinal || "—") + "</td></tr>" +
+      "<tr><td style='padding:8px 12px;color:#555'>Região</td><td style='padding:8px 12px;color:#222'>" + (regiao || "—") + "</td></tr>" +
+      "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Instagram</td><td style='padding:8px 12px;color:#222'>" + (insta || "—") + "</td></tr>" +
+      "<tr><td style='padding:8px 12px;color:#555'>Data de nascimento</td><td style='padding:8px 12px;color:#222'>" + nascFormatadoAlerta + "</td></tr>" +
+      (obsExtra ? "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Observações</td><td style='padding:8px 12px;color:#222'>" + obsExtra + "</td></tr>" : "") +
       "</table>" +
       "<p style='margin-top:20px;font-size:12px;color:#aaa'>Entre no INK SYSTEM para dar andamento.</p></div>";
     await enviarEmailLead("alerta ao artista", { from: emailFrom2, to: [emailArtista], subject: "✦ Novo lead — " + nome, html: htmlAlerta });
@@ -2169,6 +2217,7 @@ export default async function handler(req, res) {
       "</table>";
     const htmlBoasVindas =
       "<div style='font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px'>" +
+      logoEmailTag +
       "<p style='font-size:22px;font-weight:bold;color:#1a1a1a;margin-bottom:4px'>" + nomeEstudioLead + "</p>" +
       "<hr style='border:none;border-top:1px solid #d4a84b;margin-bottom:24px'>" +
       "<p style='font-size:16px'>Olá, <strong>" + fn + "</strong>!</p>" +
