@@ -909,9 +909,16 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
   }
   function passoRegiao(){
     if (lead.servico === 'Consulta') return passoClassificacao();
-    if (lead.regiao) { salvar({ regiao: lead.regiao }); return passoClassificacao(); }
+    if (lead.regiao) { salvar({ regiao: lead.regiao }); return passoFaixaInvestimento(); }
     botMsg('Em qual região do corpo?');
-    mostrarInput('Ex: braço, costas...', function(regiao){ salvar({ regiao: regiao }); passoClassificacao(); });
+    mostrarInput('Ex: braço, costas...', function(regiao){ salvar({ regiao: regiao }); passoFaixaInvestimento(); });
+  }
+  function passoFaixaInvestimento(){
+    botMsg('Você já tem uma faixa de investimento em mente para este projeto?');
+    mostrarBotoes(['Até R$500', 'R$500 a R$1.500', 'R$1.500 a R$3.000', 'Acima de R$3.000', 'Prefiro conversar sobre isso'], function(op){
+      if (op !== 'Prefiro conversar sobre isso') salvar({ faixaInvestimento: op });
+      passoClassificacao();
+    });
   }
   // Consulta já É o pedido de conversa -- escolher esse serviço já responde
   // a pergunta sozinho, então pula direto pra classificação certa.
@@ -2138,8 +2145,8 @@ export default async function handler(req, res) {
 
   // E-mail de boas-vindas ao cliente (controlado por fluxo_boas_vindas_email_ativa)
   const resendKey = process.env.RESEND_API_KEY;
-  const LOGO_EMAIL_URL = "https://inq-saas.vercel.app/icone-ink-system-192.png";
-  const logoEmailTag = "<img src='" + LOGO_EMAIL_URL + "' width='36' height='36' alt='Ink System' style='display:block;margin-bottom:16px;border-radius:8px'>";
+  const LOGO_EMAIL_URL = "https://inq-saas.vercel.app/logo-ink-system.png";
+  const logoEmailTag = "<img src='" + LOGO_EMAIL_URL + "' width='180' height='53' alt='Ink System' style='display:block;margin-bottom:16px'>";
 
   // Serverless: sem await aqui a função pode encerrar antes do Resend responder
   // (fire-and-forget não é confiável na Vercel) -- por isso ambos os envios
