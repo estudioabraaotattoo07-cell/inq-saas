@@ -1923,6 +1923,7 @@ export default async function handler(req, res) {
     if (clienteIdBody) {
       const { data } = await sb.from("clientes").select("*").eq("id", clienteIdBody).eq("user_id", row.user_id).maybeSingle();
       match = data || null;
+      if (match) isNewClient = false;
     }
 
     // 2) Resolução atômica por chave_dedup (telefone + primeiro nome) -- cria
