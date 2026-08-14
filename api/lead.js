@@ -723,10 +723,18 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
   // Sobe cada imagem assim que escolhida (sem esperar o cliente existir --
   // /api/upload aceita base64 sem clienteId e só devolve a URL pública), pra
   // ficha inteira ser um único envio no final, sem gravação parcial.
+  var LIMITE_IMAGENS = 5;
   function handleArquivos(files){
     var lista = Array.prototype.slice.call(files || []);
     if (!lista.length) return;
     var status = $('ficha-file-status');
+    var vagas = LIMITE_IMAGENS - referenciasUrls.length;
+    var cortadas = lista.length > vagas;
+    lista = lista.slice(0, Math.max(0, vagas));
+    if (!lista.length) {
+      status.textContent = 'Limite de ' + LIMITE_IMAGENS + ' imagens atingido.';
+      return;
+    }
     status.textContent = 'Enviando ' + lista.length + ' imagem(ns)...';
     var restantes = lista.length, falhas = 0;
     lista.forEach(function(file){
@@ -734,7 +742,13 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
         restantes--;
         if (ok) referenciasUrls.push(url); else falhas++;
         if (restantes === 0) {
-          status.textContent = referenciasUrls.length + ' imagem(ns) pronta(s) pra envio' + (falhas ? ' — ' + falhas + ' falhou/falharam.' : '.');
+          status.textContent = referenciasUrls.length + '/' + LIMITE_IMAGENS + ' imagem(ns) pronta(s) pra envio' +
+            (falhas ? ' — ' + falhas + ' falhou/falharam.' : '.') +
+            (cortadas ? ' Limite de ' + LIMITE_IMAGENS + ' atingido, o restante não foi enviado.' : '');
+          if (referenciasUrls.length >= LIMITE_IMAGENS) {
+            $('ficha-file-btn').disabled = true;
+            $('ficha-file-btn').textContent = 'Limite de ' + LIMITE_IMAGENS + ' imagens atingido';
+          }
         }
       });
     });
