@@ -2,11 +2,13 @@ import sharp from "sharp";
 
 const origem = "public/icone-ink-system.png";
 
+const simboloRecortado = await sharp(origem).trim({ threshold: 10 }).toBuffer();
+
 async function gerar(tamanho, destino) {
-  const padding = Math.round(tamanho * 0.12);
+  const padding = Math.round(tamanho * 0.04);
   const areaSimbolo = tamanho - padding * 2;
 
-  const simboloRedimensionado = await sharp(origem)
+  const simboloRedimensionado = await sharp(simboloRecortado)
     .resize(areaSimbolo, areaSimbolo, { fit: "inside", withoutEnlargement: false })
     .toBuffer();
 
