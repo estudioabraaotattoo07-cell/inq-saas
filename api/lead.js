@@ -647,9 +647,9 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
   }
   function formatarTelefone(v){
     var d = v.replace(/\D/g, '').slice(0, 11);
-    if (d.length > 10) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7, 11);
-    if (d.length > 6) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6, 10);
-    if (d.length > 2) return '(' + d.slice(0, 2) + ') ' + d.slice(2);
+    if (d.length > 10) return '(' + d.slice(0, 2) + ')' + d.slice(2, 7) + '-' + d.slice(7, 11);
+    if (d.length > 6) return '(' + d.slice(0, 2) + ')' + d.slice(2, 6) + '-' + d.slice(6, 10);
+    if (d.length > 2) return '(' + d.slice(0, 2) + ')' + d.slice(2);
     if (d.length > 0) return '(' + d;
     return '';
   }
@@ -663,7 +663,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     html += '<div class="ficha-aviso">Preencha o máximo de informações possível — isso agiliza seu atendimento. <b>Obrigatório: nome completo, e-mail e WhatsApp.</b></div>';
     html += '<form id="ficha-form">';
     html += campo('Nome completo <span class="ficha-req">*</span>', '<input class="ficha-input" name="nome" required placeholder="Seu nome completo">');
-    html += campo('WhatsApp <span class="ficha-req">*</span>', '<input class="ficha-input" id="ficha-tel" name="tel" type="tel" inputmode="numeric" required placeholder="(99) 99999-9999">');
+    html += campo('WhatsApp <span class="ficha-req">*</span>', '<input class="ficha-input" id="ficha-tel" name="tel" type="tel" inputmode="numeric" required placeholder="(99)99999-9999">');
     html += campo('E-mail <span class="ficha-req">*</span>', '<input class="ficha-input" name="email" type="email" required placeholder="seu@email.com">');
     if (SERVICOS.length) {
       html += campo('Serviço desejado', '<select class="ficha-select" name="servico"><option value="">Selecione...</option>' + SERVICOS.map(function(s){ return '<option value="' + esc(s.nome) + '">' + esc(s.nome) + '</option>'; }).join('') + '</select>');
