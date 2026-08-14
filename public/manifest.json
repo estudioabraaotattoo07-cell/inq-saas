@@ -10,8 +10,14 @@
   "theme_color": "#C9A84C",
   "icons": [
     {
-      "src": "/icone-ink-system.png",
-      "sizes": "1536x1024",
+      "src": "/icone-ink-system-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icone-ink-system-512.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     }
