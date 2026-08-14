@@ -404,7 +404,12 @@ footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28p
 .ficha-field{display:flex;flex-direction:column;gap:5px}
 .ficha-label{font-size:11px;color:#b8b2a4;letter-spacing:.02em}
 .ficha-req{color:var(--gold)}
-.ficha-input,.ficha-select,.ficha-textarea{background:#050505;border:1px solid rgba(201,168,76,0.25);border-radius:10px;padding:9px 12px;color:#fff;font-size:12.5px;font-family:inherit;outline:none;width:100%;box-sizing:border-box;color-scheme:dark}
+.ficha-input,.ficha-select,.ficha-textarea{background:#050505;border:1px solid rgba(201,168,76,0.25);border-radius:10px;padding:9px 12px;color:#fff;font-size:16px;font-family:inherit;outline:none;width:100%;box-sizing:border-box;color-scheme:dark}
+.ficha-data-row{display:flex;gap:6px}
+.ficha-data-row .ficha-select{flex:1;min-width:0}
+.ficha-insta-wrap{display:flex;align-items:center;gap:6px}
+.ficha-insta-at{color:var(--gold);font-size:16px;flex-shrink:0}
+.ficha-insta-wrap .ficha-input{flex:1;min-width:0}
 .ficha-textarea{resize:vertical;min-height:60px}
 .ficha-file-btn{background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.4);color:var(--gold);padding:9px 14px;border-radius:10px;font-size:11.5px;cursor:pointer;font-family:inherit;text-align:center;width:100%}
 .ficha-file-status{font-size:10.5px;color:#8a8474}
@@ -618,6 +623,35 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
   function campo(label, inputHtml){
     return '<div class="ficha-field"><label class="ficha-label">' + label + '</label>' + inputHtml + '</div>';
   }
+  // Três selects em vez de <input type="date">: no mobile, tocar num select
+  // abre a roleta nativa do sistema (mesma sensação de "rolar pra escolher"),
+  // e como só existem valores válidos pra escolher, não tem como digitar um
+  // ano absurdo sem querer -- o que aconteceu com o date nativo no desktop.
+  function diasOptions(){
+    var out = '';
+    for (var d = 1; d <= 31; d++) out += '<option value="' + d + '">' + d + '</option>';
+    return out;
+  }
+  function mesesOptions(){
+    var nomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    var out = '';
+    for (var m = 0; m < 12; m++) out += '<option value="' + (m + 1) + '">' + nomes[m] + '</option>';
+    return out;
+  }
+  function anosOptions(){
+    var anoAtual = new Date().getFullYear();
+    var out = '';
+    for (var a = anoAtual - 5; a >= anoAtual - 100; a--) out += '<option value="' + a + '">' + a + '</option>';
+    return out;
+  }
+  function formatarTelefone(v){
+    var d = v.replace(/\D/g, '').slice(0, 11);
+    if (d.length > 10) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7, 11);
+    if (d.length > 6) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6, 10);
+    if (d.length > 2) return '(' + d.slice(0, 2) + ') ' + d.slice(2);
+    if (d.length > 0) return '(' + d;
+    return '';
+  }
 
   // Ficha única, preenchida pelo próprio visitante -- substitui a conversa
   // por etapas (decisão de 2026-08-14: menos código, menos superfície pra
@@ -628,7 +662,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     html += '<div class="ficha-aviso">Preencha o máximo de informações possível — isso agiliza seu atendimento. <b>Obrigatório: nome completo, e-mail e WhatsApp.</b></div>';
     html += '<form id="ficha-form">';
     html += campo('Nome completo <span class="ficha-req">*</span>', '<input class="ficha-input" name="nome" required placeholder="Seu nome completo">');
-    html += campo('WhatsApp <span class="ficha-req">*</span>', '<input class="ficha-input" name="tel" type="tel" required placeholder="(99) 99999-9999">');
+    html += campo('WhatsApp <span class="ficha-req">*</span>', '<input class="ficha-input" id="ficha-tel" name="tel" type="tel" inputmode="numeric" required placeholder="(99) 99999-9999">');
     html += campo('E-mail <span class="ficha-req">*</span>', '<input class="ficha-input" name="email" type="email" required placeholder="seu@email.com">');
     if (SERVICOS.length) {
       html += campo('Serviço desejado', '<select class="ficha-select" name="servico"><option value="">Selecione...</option>' + SERVICOS.map(function(s){ return '<option value="' + esc(s.nome) + '">' + esc(s.nome) + '</option>'; }).join('') + '</select>');
@@ -639,8 +673,12 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     if (ARTISTAS.length > 1) {
       html += campo('Artista de preferência', '<select class="ficha-select" name="artista"><option value="">Sem preferência</option>' + ARTISTAS.map(function(a){ return '<option value="' + esc(a.id) + '"' + (a.id === artistaPreEscolhido ? ' selected' : '') + '>' + esc(a.nome) + '</option>'; }).join('') + '</select>');
     }
-    html += campo('Instagram', '<input class="ficha-input" name="insta" placeholder="seu_usuario">');
-    html += campo('Data de nascimento', '<input class="ficha-input" name="nascimento" type="date">');
+    html += campo('Instagram', '<div class="ficha-insta-wrap"><span class="ficha-insta-at">@</span><input class="ficha-input" id="ficha-insta" name="insta" placeholder="seu_usuario"></div>');
+    html += campo('Data de nascimento', '<div class="ficha-data-row">' +
+      '<select class="ficha-select" name="nasc_dia"><option value="">Dia</option>' + diasOptions() + '</select>' +
+      '<select class="ficha-select" name="nasc_mes"><option value="">Mês</option>' + mesesOptions() + '</select>' +
+      '<select class="ficha-select" name="nasc_ano"><option value="">Ano</option>' + anosOptions() + '</select>' +
+      '</div>');
     html += campo('Melhor período pra retorno', '<select class="ficha-select" name="periodo_ligacao"><option value="">Selecione...</option><option>Manhã</option><option>Tarde</option><option>Noite</option></select>');
     if (CAMPANHAS_ATIVAS.length) {
       html += campo('Código promocional (se tiver)', '<input class="ficha-input" name="palavra_secreta" placeholder="Se você tem um código, digite aqui">');
@@ -658,6 +696,8 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     }
     $('ficha-file-btn').onclick = function(){ $('ficha-file-input').click(); };
     $('ficha-file-input').onchange = function(){ handleArquivos(this.files); };
+    $('ficha-tel').addEventListener('input', function(){ this.value = formatarTelefone(this.value); });
+    $('ficha-insta').addEventListener('input', function(){ this.value = this.value.replace(/@/g, ''); });
     var footer = document.createElement('div');
     footer.className = 'ficha-footer';
     footer.innerHTML = '<button type="submit" form="ficha-form" class="ficha-submit" id="ficha-submit-btn">Enviar solicitação</button>';
@@ -726,10 +766,11 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
       mostrarErro('Nome completo, WhatsApp e e-mail são obrigatórios.');
       return;
     }
-    if (dados.nascimento) {
-      var partes = dados.nascimento.split('-');
-      if (partes.length === 3) dados.nascimento = partes[2] + '/' + partes[1] + '/' + partes[0];
+    if (dados.nasc_dia && dados.nasc_mes && dados.nasc_ano) {
+      dados.nascimento = String(dados.nasc_dia).padStart(2, '0') + '/' + String(dados.nasc_mes).padStart(2, '0') + '/' + dados.nasc_ano;
     }
+    delete dados.nasc_dia; delete dados.nasc_mes; delete dados.nasc_ano;
+    if (dados.insta) dados.insta = '@' + dados.insta;
     enviando = true;
     var btn = $('ficha-submit-btn');
     btn.disabled = true; btn.textContent = 'Enviando...';
