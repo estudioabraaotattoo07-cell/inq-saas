@@ -696,7 +696,21 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     }
     $('ficha-file-btn').onclick = function(){ $('ficha-file-input').click(); };
     $('ficha-file-input').onchange = function(){ handleArquivos(this.files); };
-    $('ficha-tel').addEventListener('input', function(){ this.value = formatarTelefone(this.value); });
+    $('ficha-tel').addEventListener('input', function(){
+      // Reformatar sem cuidar do cursor faz ele pular pro final a cada tecla --
+      // editar/apagar no meio do número (não só digitar em sequência no fim)
+      // embaralhava o resultado. Conta quantos dígitos existem antes do cursor
+      // na string antiga, reformata, e recoloca o cursor depois da mesma
+      // quantidade de dígitos na string nova.
+      var digitosAntes = this.value.slice(0, this.selectionStart).replace(/\D/g, '').length;
+      this.value = formatarTelefone(this.value);
+      var pos = 0, contados = 0;
+      while (pos < this.value.length && contados < digitosAntes) {
+        if (/\d/.test(this.value[pos])) contados++;
+        pos++;
+      }
+      this.setSelectionRange(pos, pos);
+    });
     $('ficha-insta').addEventListener('input', function(){ this.value = this.value.replace(/@/g, ''); });
     var footer = document.createElement('div');
     footer.className = 'ficha-footer';
