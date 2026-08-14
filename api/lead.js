@@ -399,18 +399,20 @@ footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28p
 .aura-head{padding:14px 16px;background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(201,168,76,0.2);display:flex;justify-content:space-between;align-items:center;font-size:12px;letter-spacing:1px;color:var(--gold)}
 .aura-close{cursor:pointer;color:#fff;font-size:18px;line-height:1;padding:6px;margin:-6px;border-radius:50%}
 .aura-close:hover{background:rgba(255,255,255,0.12)}
-.aura-msgs{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
-.aura-msgs>div:first-child{margin-top:auto}
-.aura-msg-bot{background:rgba(255,255,255,0.06);color:#f0ede8;padding:9px 12px;border-radius:10px 10px 10px 2px;font-size:12.5px;line-height:1.5;max-width:85%;align-self:flex-start;white-space:pre-line}
-.aura-msg-user{background:var(--gold);color:#17140A;padding:9px 12px;border-radius:10px 10px 2px 10px;font-size:12.5px;line-height:1.5;max-width:85%;align-self:flex-end;font-weight:600}
-.aura-input-area{padding:12px 14px;border-top:1px solid rgba(201,168,76,0.15);display:flex;gap:8px;flex-wrap:wrap}
-.aura-btns{display:flex;gap:8px;flex-wrap:wrap;width:100%}
-.aura-btn{background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.4);color:var(--gold);padding:8px 14px;border-radius:20px;font-size:11.5px;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block}
-.aura-btn:hover{background:rgba(201,168,76,0.2)}
-.aura-text-input{flex:1;background:#050505;border:1px solid rgba(201,168,76,0.25);border-radius:20px;padding:9px 14px;color:#fff;font-size:12.5px;font-family:inherit;outline:none;min-width:0}
-.aura-date-input{flex:1;min-width:140px;background:#050505;border:1px solid rgba(201,168,76,0.25);border-radius:20px;padding:9px 14px;color:#fff;font-size:12.5px;font-family:inherit;outline:none;color-scheme:dark}
-.aura-send-btn{background:var(--gold);color:#17140A;border:none;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:14px;flex-shrink:0}
-.aura-skip-btn{width:100%;text-align:center}
+.ficha-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.ficha-aviso{background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.25);border-radius:8px;padding:10px 12px;font-size:11px;line-height:1.6;color:#d8d2c4}
+.ficha-field{display:flex;flex-direction:column;gap:5px}
+.ficha-label{font-size:11px;color:#b8b2a4;letter-spacing:.02em}
+.ficha-req{color:var(--gold)}
+.ficha-input,.ficha-select,.ficha-textarea{background:#050505;border:1px solid rgba(201,168,76,0.25);border-radius:10px;padding:9px 12px;color:#fff;font-size:12.5px;font-family:inherit;outline:none;width:100%;box-sizing:border-box;color-scheme:dark}
+.ficha-textarea{resize:vertical;min-height:60px}
+.ficha-file-btn{background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.4);color:var(--gold);padding:9px 14px;border-radius:10px;font-size:11.5px;cursor:pointer;font-family:inherit;text-align:center;width:100%}
+.ficha-file-status{font-size:10.5px;color:#8a8474}
+.ficha-footer{padding:12px 16px;border-top:1px solid rgba(201,168,76,0.15)}
+.ficha-submit{width:100%;background:var(--gold);color:#17140A;border:none;border-radius:999px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.ficha-submit:disabled{opacity:.6;cursor:default}
+.ficha-erro{color:#e07b6e;font-size:11px}
+.ficha-obrigado{padding:24px 16px;text-align:center;display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:center;height:100%}
 @media(max-width:480px){.aura-panel{width:100vw;height:85vh;max-height:85vh;max-width:100vw;bottom:0;right:0;border-radius:16px 16px 0 0}}
 @media(max-width:768px){:root{--pad:20px}.como-grid{grid-template-columns:repeat(2,1fr)}.depo-grid{grid-template-columns:1fr}.artist-row{flex-direction:column;align-items:flex-start;text-align:left}.strip-nav{opacity:0.85}}
 </style>
@@ -460,8 +462,7 @@ ${site.banner_foto_url ? `<section class="banner">
 <button id="aura-fab" class="aura-fab" onclick="AuraChat.abrir()">✦ Marque agora</button>
 <div id="aura-panel" class="aura-panel">
   <div class="aura-head"><span>✦ Fale com a gente</span><span class="aura-close" onclick="AuraChat.fechar()">✕</span></div>
-  <div id="aura-msgs" class="aura-msgs"></div>
-  <div id="aura-input-area" class="aura-input-area"></div>
+  <div id="ficha-body" class="ficha-body"></div>
 </div>
 <script>
 // Lightbox das fotos (esteira de portfólio + print de depoimento) + arraste
@@ -586,13 +587,16 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
   var ORIGEM_SLUG = (function(){
     try { return new URLSearchParams(window.location.search).get('origem') || ''; } catch (e) { return ''; }
   })();
-  var lead = {};
-  var history = [];
   var aberto = false;
+  var cliqueContado = false;
+  var referenciasUrls = [];
+  var enviando = false;
 
   function $(id){ return document.getElementById(id); }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+  }
 
-  var cliqueContado = false;
   function abrir(artistaPreEscolhido){
     if (!aberto) {
       aberto = true;
@@ -603,14 +607,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
       cliqueContado = true;
       if (SLUG) fetch(API_BASE + '/api/lead?acao=track_click&slug=' + encodeURIComponent(SLUG), { method: 'POST', keepalive: true }).catch(function(){});
     }
-    if ($('aura-msgs').children.length === 0) {
-      if (artistaPreEscolhido) {
-        lead.artista = artistaPreEscolhido;
-        var artPre = ARTISTAS.filter(function(a){ return a.id === artistaPreEscolhido; })[0];
-        if (artPre) lead.artistaNome = artPre.nome;
-      }
-      passoBoasVindas();
-    }
+    if ($('ficha-body').children.length === 0) montarFicha(artistaPreEscolhido);
   }
   function fechar(){
     aberto = false;
@@ -618,222 +615,75 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     $('aura-fab').style.display = 'flex';
   }
 
-  // Toda mensagem exibida passa por aqui -- então capturar a transcrição
-  // completa (pra aparecer na aba Histórico da ficha) é só empilhar em cada
-  // uma dessas duas funções, sem precisar duplicar em cada pergunta do fluxo.
-  function botMsg(texto){
-    var d = document.createElement('div');
-    d.className = 'aura-msg-bot';
-    d.textContent = texto;
-    $('aura-msgs').appendChild(d);
-    $('aura-msgs').scrollTop = $('aura-msgs').scrollHeight;
-    history.push({ role: 'assistant', content: texto });
-  }
-  function userMsg(texto){
-    var d = document.createElement('div');
-    d.className = 'aura-msg-user';
-    d.textContent = texto;
-    $('aura-msgs').appendChild(d);
-    $('aura-msgs').scrollTop = $('aura-msgs').scrollHeight;
-    history.push({ role: 'user', content: texto });
-  }
-  function mostrarBotoes(opcoes, onEscolher){
-    var area = $('aura-input-area');
-    area.innerHTML = '';
-    var wrap = document.createElement('div');
-    wrap.className = 'aura-btns';
-    opcoes.forEach(function(op){
-      var b = document.createElement('button');
-      b.className = 'aura-btn';
-      b.textContent = op;
-      b.onclick = function(){ userMsg(op); area.innerHTML = ''; onEscolher(op); };
-      wrap.appendChild(b);
-    });
-    area.appendChild(wrap);
-  }
-  function mostrarInput(placeholder, onEnviar){
-    var area = $('aura-input-area');
-    area.innerHTML = '';
-    var inp = document.createElement('input');
-    inp.className = 'aura-text-input';
-    inp.placeholder = placeholder;
-    var btn = document.createElement('button');
-    btn.className = 'aura-send-btn';
-    btn.textContent = '→';
-    function enviar(){
-      var v = inp.value.trim();
-      if (!v) return;
-      userMsg(v);
-      area.innerHTML = '';
-      onEnviar(v);
-    }
-    btn.onclick = enviar;
-    inp.onkeydown = function(e){ if (e.key === 'Enter') enviar(); };
-    area.appendChild(inp);
-    area.appendChild(btn);
-    inp.focus();
-  }
-  // Usa o seletor de data nativo do navegador em vez de um componente próprio:
-  // no iPhone/iPad (onde a maioria dos leads preenche) o Safari já renderiza
-  // isso como uma roleta de rolagem nativa, sem precisar reconstruir esse
-  // comportamento em JS puro dentro do widget.
-  function mostrarInputData(onEnviar, onPular){
-    var area = $('aura-input-area');
-    area.innerHTML = '';
-    var inp = document.createElement('input');
-    inp.type = 'date';
-    inp.className = 'aura-date-input';
-    var hoje = new Date();
-    var max = new Date(hoje.getFullYear() - 5, hoje.getMonth(), hoje.getDate());
-    var min = new Date(hoje.getFullYear() - 100, hoje.getMonth(), hoje.getDate());
-    inp.max = max.toISOString().slice(0, 10);
-    inp.min = min.toISOString().slice(0, 10);
-    var btn = document.createElement('button');
-    btn.className = 'aura-send-btn';
-    btn.textContent = '→';
-    function enviar(){
-      if (!inp.value) return;
-      var partes = inp.value.split('-');
-      var dataFormatada = partes[2] + '/' + partes[1] + '/' + partes[0];
-      userMsg(dataFormatada);
-      area.innerHTML = '';
-      onEnviar(dataFormatada);
-    }
-    btn.onclick = enviar;
-    var pular = document.createElement('button');
-    pular.className = 'aura-btn aura-skip-btn';
-    pular.textContent = 'Prefiro não informar';
-    pular.onclick = function(){ userMsg('Prefiro não informar'); area.innerHTML = ''; onPular(); };
-    area.appendChild(inp);
-    area.appendChild(btn);
-    area.appendChild(pular);
+  function campo(label, inputHtml){
+    return '<div class="ficha-field"><label class="ficha-label">' + label + '</label>' + inputHtml + '</div>';
   }
 
-  function salvar(campos){
-    Object.assign(lead, campos);
-    var payload = Object.assign({}, lead, { slug: SLUG, orig: 'Site', origem_slug: ORIGEM_SLUG, chat_log: history });
-    delete payload._jaECliente;
-    delete payload._temCampanha;
-    delete payload._clienteId;
-    if (lead._clienteId) payload.clienteId = lead._clienteId;
-    // Depois do primeiro salvamento bem-sucedido, todas as respostas seguintes
-    // dessa mesma conversa mandam o clienteId junto -- sem isso, uma resposta
-    // com telefone/e-mail ainda incompletos (ex: nao digitou nada valido ainda)
-    // nao encontra o registro que acabou de ser criado e cria um cliente novo
-    // a cada pergunta, em vez de ir completando o mesmo.
-    return fetch(API_BASE + '/api/lead', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(data){
-        if (data && data.clienteId) lead._clienteId = data.clienteId;
-        return { json: function(){ return Promise.resolve(data); } };
-      })
-      .catch(function(){ return { json: function(){ return Promise.resolve(null); } }; });
-  }
-  function waBtnHtml(){
-    return '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.65-.6-2.9-1.25-4.79-4.17-4.94-4.36-.14-.2-1.18-1.56-1.18-2.98s.75-2.11 1.02-2.4c.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.19-.28.37-.23.62-.14.26.09 1.63.77 1.91.91.28.14.47.21.54.33.07.12.07.68-.17 1.36Z"/></svg>';
+  // Ficha única, preenchida pelo próprio visitante -- substitui a conversa
+  // por etapas (decisão de 2026-08-14: menos código, menos superfície pra
+  // bug de estado, e uma ficha "burocrática" deixa claro de cara o que é
+  // obrigatório vs. opcional, em vez de pergunta-resposta uma de cada vez).
+  function montarFicha(artistaPreEscolhido){
+    var html = '';
+    html += '<div class="ficha-aviso">Preencha o máximo de informações possível — isso agiliza seu atendimento. <b>Obrigatório: nome completo, e-mail e WhatsApp.</b></div>';
+    html += '<form id="ficha-form">';
+    html += campo('Nome completo <span class="ficha-req">*</span>', '<input class="ficha-input" name="nome" required placeholder="Seu nome completo">');
+    html += campo('WhatsApp <span class="ficha-req">*</span>', '<input class="ficha-input" name="tel" type="tel" required placeholder="(99) 99999-9999">');
+    html += campo('E-mail <span class="ficha-req">*</span>', '<input class="ficha-input" name="email" type="email" required placeholder="seu@email.com">');
+    if (SERVICOS.length) {
+      html += campo('Serviço desejado', '<select class="ficha-select" name="servico"><option value="">Selecione...</option>' + SERVICOS.map(function(s){ return '<option value="' + esc(s.nome) + '">' + esc(s.nome) + '</option>'; }).join('') + '</select>');
+    }
+    html += campo('Ideia / descrição do projeto', '<textarea class="ficha-textarea" name="idea" placeholder="Conte com detalhes o que você imagina..."></textarea>');
+    html += campo('Região do corpo', '<input class="ficha-input" name="regiao" placeholder="Ex: braço, costas...">');
+    html += campo('Faixa de investimento', '<select class="ficha-select" name="faixaInvestimento"><option value="">Selecione...</option><option>Até R$500</option><option>R$500 a R$1.500</option><option>R$1.500 a R$3.000</option><option>Acima de R$3.000</option></select>');
+    if (ARTISTAS.length > 1) {
+      html += campo('Artista de preferência', '<select class="ficha-select" name="artista"><option value="">Sem preferência</option>' + ARTISTAS.map(function(a){ return '<option value="' + esc(a.id) + '"' + (a.id === artistaPreEscolhido ? ' selected' : '') + '>' + esc(a.nome) + '</option>'; }).join('') + '</select>');
+    }
+    html += campo('Instagram', '<input class="ficha-input" name="insta" placeholder="seu_usuario">');
+    html += campo('Data de nascimento', '<input class="ficha-input" name="nascimento" type="date">');
+    html += campo('Melhor período pra retorno', '<select class="ficha-select" name="periodo_ligacao"><option value="">Selecione...</option><option>Manhã</option><option>Tarde</option><option>Noite</option></select>');
+    if (CAMPANHAS_ATIVAS.length) {
+      html += campo('Código promocional (se tiver)', '<input class="ficha-input" name="palavra_secreta" placeholder="Se você tem um código, digite aqui">');
+    }
+    html += campo('Imagens de referência', '<input type="file" id="ficha-file-input" accept="image/*" multiple style="display:none">' +
+      '<button type="button" class="ficha-file-btn" id="ficha-file-btn">📷 Escolher imagens</button>' +
+      '<div class="ficha-file-status" id="ficha-file-status"></div>');
+    html += '<div class="ficha-erro" id="ficha-erro" style="display:none"></div>';
+    html += '</form>';
+    $('ficha-body').innerHTML = html;
+    if (ARTISTAS.length === 1) {
+      var hidden = document.createElement('input');
+      hidden.type = 'hidden'; hidden.name = 'artista'; hidden.value = ARTISTAS[0].id;
+      $('ficha-form').appendChild(hidden);
+    }
+    $('ficha-file-btn').onclick = function(){ $('ficha-file-input').click(); };
+    $('ficha-file-input').onchange = function(){ handleArquivos(this.files); };
+    var footer = document.createElement('div');
+    footer.className = 'ficha-footer';
+    footer.innerHTML = '<button type="submit" form="ficha-form" class="ficha-submit" id="ficha-submit-btn">Enviar solicitação</button>';
+    $('ficha-body').appendChild(footer);
+    $('ficha-form').addEventListener('submit', function(e){ e.preventDefault(); enviarFicha(); });
   }
 
-  function passoBoasVindas(){
-    botMsg('Olá! Eu sou a Aura e sou responsável por cadastrar você no ecossistema do ' + NOME_ESTUDIO + '. Você já é nosso cliente ou é novo por aqui?');
-    mostrarBotoes(['Já sou cliente', 'Sou novo por aqui'], function(op){
-      lead._jaECliente = op.indexOf('novo') === -1;
-      passoAvisoColeta();
-    });
-  }
-  function passoAvisoColeta(){
-    botMsg('Precisamos coletar alguns dados pra registrar sua solicitação de agendamento. Qual seu nome completo?');
-    mostrarInput('Seu nome completo', function(nome){ lead.nome = nome; passoTelefone(); });
-  }
-  function passoTelefone(){
-    botMsg('Muito prazer, ' + lead.nome.split(' ')[0] + '! Por gentileza, você pode me informar o seu número de WhatsApp?');
-    function pedirTelefone(){
-      mostrarInput('(99) 99999-9999', function(tel){
-        if (tel.replace(/[^0-9]/g, '').length < 10) {
-          botMsg('Esse número não parece completo — pode digitar de novo, com DDD? Ex: (27) 99999-9999');
-          return pedirTelefone();
+  // Sobe cada imagem assim que escolhida (sem esperar o cliente existir --
+  // /api/upload aceita base64 sem clienteId e só devolve a URL pública), pra
+  // ficha inteira ser um único envio no final, sem gravação parcial.
+  function handleArquivos(files){
+    var lista = Array.prototype.slice.call(files || []);
+    if (!lista.length) return;
+    var status = $('ficha-file-status');
+    status.textContent = 'Enviando ' + lista.length + ' imagem(ns)...';
+    var restantes = lista.length, falhas = 0;
+    lista.forEach(function(file){
+      comprimirEEnviar(file, function(ok, url){
+        restantes--;
+        if (ok) referenciasUrls.push(url); else falhas++;
+        if (restantes === 0) {
+          status.textContent = referenciasUrls.length + ' imagem(ns) pronta(s) pra envio' + (falhas ? ' — ' + falhas + ' falhou/falharam.' : '.');
         }
-        salvar({ nome: lead.nome, tel: tel });
-        if (lead._jaECliente) buscarCliente(tel); else passoServico();
       });
-    }
-    pedirTelefone();
-  }
-  function buscarCliente(tel){
-    botMsg('Só um instante, deixa eu conferir seu cadastro...');
-    fetch(API_BASE + '/api/lead?acao=lead_busca&slug=' + encodeURIComponent(SLUG) + '&tel=' + encodeURIComponent(tel))
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        if (data.encontrado) {
-          botMsg('Que bom te ver por aqui de novo, ' + lead.nome.split(' ')[0] + '! 🖤');
-          if (!lead.artista && data.artista) lead.artista = data.artista;
-          if (!lead.idea && data.descricao) lead.idea = data.descricao;
-          if (!lead.regiao && data.regiao) lead.regiao = data.regiao;
-          if (!lead.email && data.email) lead.email = data.email;
-          lead._temCampanha = !!data.temCampanha;
-        } else {
-          botMsg('Não encontrei seu cadastro por aqui ainda — vamos preencher rapidinho!');
-        }
-        passoServico();
-      })
-      .catch(function(){ passoServico(); });
-  }
-  // Qual serviço o lead procura -- vem da lista que o estúdio configurou em
-  // Configurações > Serviços. Sem servico cadastrado, pula (compatibilidade
-  // com estúdios que ainda não usaram essa lista).
-  function passoServico(){
-    if (lead.servico) { salvar({ servico: lead.servico }); return passoArtista(); }
-    if (!SERVICOS.length) return passoArtista();
-    botMsg('Qual serviço você procura?');
-    mostrarBotoes(SERVICOS.map(function(s){ return s.nome; }), function(op){
-      lead.servico = op;
-      salvar({ servico: op });
-      passoArtista();
     });
   }
-  // Só oferece profissionais que atendem o serviço escolhido. Profissional
-  // sem nenhum serviço marcado = atende todos (compatibilidade com cadastros
-  // antigos). Se o filtro zerar a lista por engano, mostra todo mundo em vez
-  // de travar o fluxo sem nenhuma opção.
-  function passoArtista(){
-    if (lead.artista) { salvar({ artista: lead.artista }); return passoIdeia(); }
-    var candidatos = ARTISTAS;
-    if (lead.servico) {
-      var filtrados = ARTISTAS.filter(function(a){ return !a.servicos.length || a.servicos.indexOf(lead.servico) !== -1; });
-      if (filtrados.length) candidatos = filtrados;
-    }
-    if (candidatos.length <= 1) {
-      var unico = candidatos[0];
-      if (unico) lead.artistaNome = unico.nome;
-      salvar({ artista: (unico && unico.id) || '' });
-      return passoIdeia();
-    }
-    botMsg('Vendo os trabalhos dos profissionais, com qual você se identificou mais?');
-    var area = $('aura-input-area');
-    area.innerHTML = '';
-    var wrap = document.createElement('div');
-    wrap.className = 'aura-btns';
-    candidatos.forEach(function(a, i){
-      var b = document.createElement('button');
-      b.className = 'aura-btn';
-      b.textContent = '(' + (i + 1) + ') ' + a.nome;
-      b.onclick = function(){ userMsg(a.nome); area.innerHTML = ''; lead.artistaNome = a.nome; salvar({ artista: a.id }); passoIdeia(); };
-      wrap.appendChild(b);
-    });
-    area.appendChild(wrap);
-  }
-  function passoIdeia(){
-    if (lead.idea) { salvar({ idea: lead.idea }); return passoReferencia(); }
-    var pergunta = lead.servico === 'Piercing'
-      ? 'Me conta um pouco sobre o piercing que você tem em mente:'
-      : 'Me conta um pouco sobre a ideia que você tem em mente:';
-    botMsg(pergunta);
-    mostrarInput('Sua ideia...', function(idea){ salvar({ idea: idea }); passoReferencia(); });
-  }
-  // Comprime e sobe uma imagem pro cliente já criado nessa conversa, sem
-  // exigir login (mesmo endpoint público já usado no site da Casa dos Carvalho).
   function comprimirEEnviar(file, cb){
     var reader = new FileReader();
     reader.onload = function(ev){
@@ -847,250 +697,70 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
         var base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
         fetch(API_BASE + '/api/upload', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ base64: base64, mimeType: 'image/jpeg', clienteId: lead._clienteId })
-        }).then(function(r){ return r.json(); }).then(function(d){ cb(!!(d && d.url)); }).catch(function(){ cb(false); });
+          body: JSON.stringify({ base64: base64, mimeType: 'image/jpeg' })
+        }).then(function(r){ return r.json(); }).then(function(d){ cb(!!(d && d.url), d && d.url); }).catch(function(){ cb(false); });
       };
       img.src = ev.target.result;
     };
     reader.readAsDataURL(file);
   }
-  // Botão explícito (em vez de abrir o seletor sozinho) -- deixa claro que é
-  // uma ação da pessoa, e permite escolher várias fotos de uma vez (câmera
-  // ou galeria, o próprio celular decide) em vez de uma por vez.
-  function botaoEnviarImagem(onDone){
-    var area = $('aura-input-area');
-    area.innerHTML = '';
-    var inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true; inp.style.display = 'none';
-    inp.onchange = function(){
-      var files = Array.prototype.slice.call(inp.files || []);
-      if (!files.length) return;
-      area.innerHTML = '';
-      history.push({ role: 'user', content: files.length > 1 ? ('[O cliente enviou ' + files.length + ' imagens de referência]') : '[O cliente enviou uma imagem de referência]' });
-      botMsg(files.length > 1 ? ('Enviando ' + files.length + ' imagens...') : 'Enviando imagem...');
-      var todasOk = true;
-      (function enviarUma(i){
-        if (i >= files.length) return onDone(todasOk);
-        comprimirEEnviar(files[i], function(ok){ if (!ok) todasOk = false; enviarUma(i + 1); });
-      })(0);
-    };
-    var btn = document.createElement('button');
-    btn.className = 'aura-btn';
-    btn.innerHTML = '📷 Escolher imagens';
-    btn.onclick = function(){ inp.click(); };
-    area.appendChild(btn);
-    area.appendChild(inp);
+
+  function waBtnHtml(){
+    return '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.65-.6-2.9-1.25-4.79-4.17-4.94-4.36-.14-.2-1.18-1.56-1.18-2.98s.75-2.11 1.02-2.4c.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.19-.28.37-.23.62-.14.26.09 1.63.77 1.91.91.28.14.47.21.54.33.07.12.07.68-.17 1.36Z"/></svg>';
   }
-  function passoReferencia(){
-    var pergunta = lead.servico === 'Piercing'
-      ? 'Você tem uma imagem que possa me mandar do piercing que você quer aplicar?'
-      : 'Você tem uma imagem de referência?';
-    botMsg(pergunta);
-    mostrarBotoes(['Sim', 'Não'], function(op){
-      if (op === 'Não') return passoRegiao();
-      botaoEnviarImagem(function(sucesso){
-        if (!sucesso) { botMsg('Não consegui enviar uma ou mais imagens — mas sem problema, seguimos!'); return passoRegiao(); }
-        passoMaisReferencias();
-      });
-    });
-  }
-  function passoMaisReferencias(){
-    var pergunta = lead.servico === 'Piercing'
-      ? 'Tem mais imagens de joias que você gostou?'
-      : 'Tem mais referências da arte que você gostou?';
-    botMsg(pergunta);
-    mostrarBotoes(['Sim', 'Não'], function(op){
-      if (op === 'Não') return passoRegiao();
-      botaoEnviarImagem(function(sucesso){
-        if (!sucesso) { botMsg('Não consegui enviar uma ou mais imagens — mas sem problema, seguimos!'); return passoRegiao(); }
-        passoMaisReferencias();
-      });
-    });
-  }
-  function passoRegiao(){
-    if (lead.servico === 'Consulta') return passoClassificacao();
-    if (lead.regiao) { salvar({ regiao: lead.regiao }); return passoFaixaInvestimento(); }
-    botMsg('Em qual região do corpo?');
-    mostrarInput('Ex: braço, costas...', function(regiao){ salvar({ regiao: regiao }); passoFaixaInvestimento(); });
-  }
-  function passoFaixaInvestimento(){
-    botMsg('Você já tem uma faixa de investimento em mente para este projeto?');
-    mostrarBotoes(['Até R$500', 'R$500 a R$1.500', 'R$1.500 a R$3.000', 'Acima de R$3.000', 'Prefiro conversar sobre isso'], function(op){
-      if (op !== 'Prefiro conversar sobre isso') salvar({ faixaInvestimento: op });
-      passoClassificacao();
-    });
-  }
-  // Consulta já É o pedido de conversa -- escolher esse serviço já responde
-  // a pergunta sozinho, então pula direto pra classificação certa.
-  function passoClassificacao(){
-    if (lead.servico === 'Consulta') {
-      salvar({ etapa: 'lead_morno' });
-      return passoPeriodo();
-    }
-    var pergunta = lead.servico === 'Piercing'
-      ? 'Você já decidiu e quer agendar a aplicação, ou prefere conversar com o profissional antes?'
-      : 'Você já decidiu e quer agendar, ou prefere conversar antes?';
-    botMsg(pergunta);
-    mostrarBotoes(['🎯 Já decidi, quero agendar', '💬 Quero conversar antes'], function(op){
-      var etapa = op.indexOf('conversar') !== -1 ? 'lead_morno' : 'aura_agend';
-      salvar({ etapa: etapa });
-      passoPeriodo();
-    });
-  }
-  function passoPeriodo(){
-    botMsg('Você prefere receber uma ligação em qual período do dia?');
-    mostrarBotoes(['Manhã', 'Tarde', 'Noite'], function(op){
-      lead.periodo_ligacao = op;
-      salvar({ periodo_ligacao: op });
-      passoNascimento();
-    });
-  }
-  function passoNascimento(){
-    if (lead.nascimento) { salvar({ nascimento: lead.nascimento }); return passoEmail(); }
-    botMsg('Data de nascimento? Para te surpreendermos na sua data mais especial! 🎂');
-    mostrarInputData(function(dataFormatada){ salvar({ nascimento: dataFormatada }); passoEmail(); }, function(){ passoEmail(); });
-  }
-  function passoEmail(){
-    if (lead.email) { salvar({ email: lead.email }); return passoPalavraSecreta(); }
-    botMsg('Por último, qual o seu melhor e-mail?');
-    mostrarInput('seu@email.com', function(email){ salvar({ email: email }); passoPalavraSecreta(); });
-  }
-  function passoPalavraSecreta(){
-    if (!CAMPANHAS_ATIVAS.length || lead._temCampanha) return passoConfirmacao();
-    botMsg('Antes de fechar por aqui — você tem uma palavra secreta? 🔑');
-    mostrarBotoes(['Sim', 'Não'], function(op){
-      if (op === 'Sim') {
-        botMsg('Qual é a palavra secreta?');
-        pedirPalavraSecreta();
-        return;
-      }
-      var comLink = CAMPANHAS_ATIVAS.filter(function(c){ return c.link; })[0];
-      if (comLink) {
-        botMsg('Ainda não viu? Dá uma olhada aqui 👉 ' + comLink.link + '. Se descobrir, é só escrever aqui embaixo!');
-        pedirPalavraSecreta();
-      } else {
-        passoConfirmacao();
-      }
-    });
-  }
-  function pedirPalavraSecreta(){
-    mostrarInput('Digite aqui...', function(palavra){
-      botMsg('Só um instante...');
-      salvar({ palavra_secreta: palavra })
-        .then(function(r){ return r && r.json ? r.json() : null; })
-        .then(function(data){
-          if (data && data.campanha) {
-            var dataFmt = new Date(data.campanha.validade + 'T12:00:00').toLocaleDateString('pt-BR');
-            var valorTxt = data.campanha.tipo === 'percentual'
-              ? (data.campanha.valor + '% de desconto')
-              : ('R$ ' + Number(data.campanha.valor).toFixed(2).replace('.', ',') + ' de crédito');
-            botMsg('Prontinho! Você está cadastrado(a) na campanha ' + data.campanha.nome + ' e garantiu ' + valorTxt + '. 🖤 Você tem até ' + dataFmt + ' para aproveitar — é só marcar sua sessão dentro desse prazo.');
-          } else {
-            botMsg('Não encontrei essa por aqui, mas tudo bem — vamos continuar!');
-          }
-          passoConfirmacao();
-        })
-        .catch(function(){ passoConfirmacao(); });
-    });
-  }
-  // Revisão final -- mostra um resumo do que foi coletado antes de encerrar,
-  // pra pessoa confirmar ou corrigir algum campo. Evita cadastro com dado
-  // errado (ex: telefone digitado errado) chegando sem chance de conserto.
-  function passoConfirmacao(){
-    var quebra = String.fromCharCode(10);
-    var ideiaFinal = lead.idea || lead.ideia || '';
-    var linhas = [
-      'Só confirmando antes de finalizar:',
-      '📋 Nome: ' + (lead.nome || '—'),
-      '📱 WhatsApp: ' + (lead.tel || '—'),
-      '✉️ E-mail: ' + (lead.email || '—')
-    ];
-    if (lead.servico) linhas.push('🛠️ Serviço: ' + lead.servico);
-    linhas.push('🎨 Projeto: ' + (ideiaFinal || '—') + (lead.regiao ? ' — ' + lead.regiao : ''));
-    if (lead.periodo_ligacao) linhas.push('🕐 Período preferido pra ligação: ' + lead.periodo_ligacao);
-    linhas.push('');
-    linhas.push('Está tudo certo?');
-    botMsg(linhas.join(quebra));
-    mostrarBotoes(['✅ Sim, está certo', '✏️ Preciso corrigir algo'], function(op){
-      if (op.indexOf('certo') === -1) return passoEscolherCorrecao();
-      // Confere de verdade se o cadastro foi salvo antes de comemorar --
-      // salvar() engolia erro de rede/servidor silenciosamente, e a
-      // conversa terminava com "Pronto!" mesmo sem nada ter sido salvo.
-      botMsg('Só um instante...');
-      salvar({ finalizado: true }).then(function(r){ return r.json(); }).then(function(data){
-        if (data && data.ok) return passoFinal();
-        passoErroSalvar();
-      });
-    });
-  }
-  function passoErroSalvar(){
-    var area = $('aura-input-area');
-    botMsg('Hmm, tivemos um problema técnico agora e não consegui confirmar se seus dados foram salvos. Pode tentar de novo, ou já chamar a gente direto no WhatsApp pra não perder seu lugar:');
-    area.innerHTML = '';
-    var wrap = document.createElement('div');
-    wrap.className = 'aura-btns';
-    var btnTentar = document.createElement('button');
-    btnTentar.className = 'aura-btn';
-    btnTentar.textContent = '🔁 Tentar de novo';
-    btnTentar.onclick = function(){ area.innerHTML = ''; passoConfirmacao(); };
-    wrap.appendChild(btnTentar);
-    area.appendChild(wrap);
-    var a = document.createElement('a');
-    a.href = WA_LINK !== '#' ? WA_LINK + '?text=' + encodeURIComponent(montarTextoWhatsApp()) : WA_LINK;
-    a.target = '_blank'; a.className = 'aura-wa-btn';
-    a.innerHTML = waBtnHtml() + 'Falar agora no WhatsApp';
-    area.appendChild(a);
-  }
-  function passoEscolherCorrecao(){
-    botMsg('Qual item você quer corrigir?');
-    var opcoes = ['Nome', 'Telefone', 'E-mail'].concat(SERVICOS.length ? ['Serviço'] : []).concat(['Projeto', 'Período da ligação']);
-    mostrarBotoes(opcoes, function(item){
-      if (item === 'Nome') {
-        botMsg('Qual é o nome completo certo?');
-        mostrarInput('Seu nome completo', function(v){ lead.nome = v; salvar({ nome: v }); passoConfirmacao(); });
-      } else if (item === 'Telefone') {
-        botMsg('Qual é o número de WhatsApp certo?');
-        mostrarInput('(99) 99999-9999', function(v){
-          if (v.replace(/[^0-9]/g, '').length < 10) {
-            botMsg('Esse número não parece completo — com DDD, só números.');
-            return passoEscolherCorrecao();
-          }
-          lead.tel = v; salvar({ tel: v }); passoConfirmacao();
-        });
-      } else if (item === 'E-mail') {
-        botMsg('Qual é o e-mail certo?');
-        mostrarInput('seu@email.com', function(v){ lead.email = v; salvar({ email: v }); passoConfirmacao(); });
-      } else if (item === 'Serviço') {
-        botMsg('Qual é o serviço certo?');
-        mostrarBotoes(SERVICOS.map(function(s){ return s.nome; }), function(v){ lead.servico = v; salvar({ servico: v }); passoConfirmacao(); });
-      } else if (item === 'Período da ligação') {
-        botMsg('Prefere receber a ligação em qual período?');
-        mostrarBotoes(['Manhã', 'Tarde', 'Noite'], function(v){ lead.periodo_ligacao = v; salvar({ periodo_ligacao: v }); passoConfirmacao(); });
-      } else {
-        botMsg('Me conta de novo a ideia:');
-        mostrarInput('Sua ideia...', function(v){ lead.idea = v; salvar({ idea: v }); passoConfirmacao(); });
-      }
-    });
-  }
-  function montarTextoWhatsApp(){
-    var ideiaFinal = lead.idea || lead.ideia || '';
-    var partes = ['Olá! Sou ' + (lead.nome || '')];
-    if (lead.servico) partes.push('procurando ' + lead.servico.toLowerCase());
-    if (ideiaFinal) partes.push('conversei com a Aura sobre ' + ideiaFinal);
-    if (lead.regiao) partes.push('na região: ' + lead.regiao);
-    if (lead.artistaNome) partes.push('Profissional de interesse: ' + lead.artistaNome);
-    if (lead.email) partes.push('Meu e-mail: ' + lead.email);
+  function montarTextoWhatsApp(dados){
+    var partes = ['Olá! Sou ' + (dados.nome || '')];
+    if (dados.servico) partes.push('procurando ' + dados.servico.toLowerCase());
+    if (dados.idea) partes.push('minha ideia: ' + dados.idea);
+    if (dados.regiao) partes.push('na região: ' + dados.regiao);
+    if (dados.email) partes.push('Meu e-mail: ' + dados.email);
     return partes.join('. ') + '.';
   }
-  function passoFinal(){
-    botMsg('Pronto! Já registramos os dados principais — nossa equipe vai entrar em contato com você em breve. Se quiser adiantar, pode chamar no WhatsApp do estúdio! 🖤');
-    var area = $('aura-input-area');
-    area.innerHTML = '';
-    var a = document.createElement('a');
-    a.href = WA_LINK !== '#' ? WA_LINK + '?text=' + encodeURIComponent(montarTextoWhatsApp()) : WA_LINK;
-    a.target = '_blank'; a.className = 'aura-wa-btn';
-    a.innerHTML = waBtnHtml() + 'Falar agora no WhatsApp';
-    area.appendChild(a);
+
+  function enviarFicha(){
+    if (enviando) return;
+    var fd = new FormData($('ficha-form'));
+    var dados = {};
+    fd.forEach(function(v, k){ if (v) dados[k] = v; });
+    if (!dados.nome || !dados.tel || !dados.email) {
+      mostrarErro('Nome completo, WhatsApp e e-mail são obrigatórios.');
+      return;
+    }
+    if (dados.nascimento) {
+      var partes = dados.nascimento.split('-');
+      if (partes.length === 3) dados.nascimento = partes[2] + '/' + partes[1] + '/' + partes[0];
+    }
+    enviando = true;
+    var btn = $('ficha-submit-btn');
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    var payload = Object.assign({}, dados, {
+      referencias: referenciasUrls, slug: SLUG, orig: 'Site', origem_slug: ORIGEM_SLUG, finalizado: true
+    });
+    fetch(API_BASE + '/api/lead', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (!d || !d.ok) throw new Error('falha');
+        mostrarObrigado(dados);
+      })
+      .catch(function(){
+        enviando = false;
+        btn.disabled = false; btn.textContent = 'Enviar solicitação';
+        mostrarErro('Tivemos um problema técnico ao enviar. Pode tentar de novo, ou chamar a gente direto no WhatsApp.');
+      });
+  }
+  function mostrarErro(msg){
+    var el = $('ficha-erro');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function mostrarObrigado(dados){
+    var wa = WA_LINK !== '#' ? WA_LINK + '?text=' + encodeURIComponent(montarTextoWhatsApp(dados)) : WA_LINK;
+    $('ficha-body').innerHTML = '<div class="ficha-obrigado">' +
+      '<div style="font-size:14px;line-height:1.6;color:#f0ede8">Pronto, ' + esc((dados.nome || '').split(' ')[0]) + '! Já registramos seus dados — nossa equipe vai entrar em contato em breve. 🖤</div>' +
+      '<a href="' + wa + '" target="_blank" class="aura-wa-btn">' + waBtnHtml() + 'Falar agora no WhatsApp</a>' +
+      '</div>';
   }
 
   window.AuraChat = { abrir: abrir, fechar: fechar };
@@ -2023,7 +1693,11 @@ export default async function handler(req, res) {
         // só muda a organização do texto pra facilitar a leitura do tatuador.
         // "Estágio de decisão" e "Próxima ação sugerida" derivam da etapa já
         // calculada acima; nenhum dado novo é persistido em coluna própria.
-        if (finalizado && (ideaFinal || servico)) {
+        // Pausado em 2026-08-14: captação de lead virou ficha estática (sem
+        // conversa pra resumir), então não faz sentido gerar Parecer da Aura
+        // pra leads novos por enquanto. Lógica mantida intacta -- só a
+        // condição abaixo impede que rode, fácil de reativar depois.
+        if (false && finalizado && (ideaFinal || servico)) {
           const nomeParecer = updateFields.nome || match.nome || nome || "";
           const telParecer = tel || match.tel || "";
           const regiaoParecer = updateFields.regiao || match.regiao || regiao || "";
