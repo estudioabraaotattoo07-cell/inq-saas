@@ -22,6 +22,21 @@ export function planoSugeridoSemLegado(valor) {
   return texto;
 }
 
+// Máscara do campo WhatsApp da ficha de captação. Formato aprovado
+// (2026-08-14): (DD) DDDDD-DDDD, com espaço depois do parêntese -- mesmo
+// padrão visual do maskTel() já usado nos campos de telefone do CRM
+// (src/CRM Casa dos Carvalho.tsx). Função real (não uma cópia) -- o script
+// do navegador recebe o mesmo corpo via formatarTelefone.toString() dentro
+// de paginaSitePremium(), e os testes importam esta função diretamente.
+// Nunca digite a máscara nos dois lugares.
+export function formatarTelefone(v) {
+  v = (v || "").replace(/\D/g, "").slice(0, 11);
+  if (v.length <= 2) return v.length ? "(" + v : v;
+  if (v.length <= 6) return "(" + v.slice(0, 2) + ") " + v.slice(2);
+  if (v.length <= 10) return "(" + v.slice(0, 2) + ") " + v.slice(2, 6) + "-" + v.slice(6);
+  return "(" + v.slice(0, 2) + ") " + v.slice(2, 7) + "-" + v.slice(7);
+}
+
 // Estilo premium compartilhado por todas as paginas publicas server-rendered
 // (confirmacao, avaliacao NPS, convite Google) -- mesmo padrao visual do app:
 // fundo com brilho violeta, quadro com moldura dourada neon, botoes em pilula.
@@ -645,14 +660,10 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     for (var a = anoAtual - 5; a >= anoAtual - 100; a--) out += '<option value="' + a + '">' + a + '</option>';
     return out;
   }
-  function formatarTelefone(v){
-    var d = v.replace(/\D/g, '').slice(0, 11);
-    if (d.length > 10) return '(' + d.slice(0, 2) + ')' + d.slice(2, 7) + '-' + d.slice(7, 11);
-    if (d.length > 6) return '(' + d.slice(0, 2) + ')' + d.slice(2, 6) + '-' + d.slice(6, 10);
-    if (d.length > 2) return '(' + d.slice(0, 2) + ')' + d.slice(2);
-    if (d.length > 0) return '(' + d;
-    return '';
-  }
+  // Corpo real vindo da função exportada no topo do arquivo -- garante que o
+  // navegador rode exatamente o mesmo código que os testes exercitam, nunca
+  // uma segunda cópia digitada à mão que possa divergir da de produção.
+  ${formatarTelefone.toString()}
 
   // Ficha única, preenchida pelo próprio visitante -- substitui a conversa
   // por etapas (decisão de 2026-08-14: menos código, menos superfície pra
@@ -663,7 +674,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     html += '<div class="ficha-aviso">Preencha o máximo de informações possível — isso agiliza seu atendimento. <b>Obrigatório: nome completo, e-mail e WhatsApp.</b></div>';
     html += '<form id="ficha-form">';
     html += campo('Nome completo <span class="ficha-req">*</span>', '<input class="ficha-input" name="nome" required placeholder="Seu nome completo">');
-    html += campo('WhatsApp <span class="ficha-req">*</span>', '<input class="ficha-input" id="ficha-tel" name="tel" type="tel" inputmode="numeric" required placeholder="(99)99999-9999">');
+    html += campo('WhatsApp <span class="ficha-req">*</span>', '<input class="ficha-input" id="ficha-tel" name="tel" type="text" inputmode="numeric" autocomplete="tel" required placeholder="(99) 99999-9999">');
     html += campo('E-mail <span class="ficha-req">*</span>', '<input class="ficha-input" name="email" type="email" required placeholder="seu@email.com">');
     if (SERVICOS.length) {
       html += campo('Serviço desejado', '<select class="ficha-select" name="servico"><option value="">Selecione...</option>' + SERVICOS.map(function(s){ return '<option value="' + esc(s.nome) + '">' + esc(s.nome) + '</option>'; }).join('') + '</select>');
@@ -697,21 +708,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     }
     $('ficha-file-btn').onclick = function(){ $('ficha-file-input').click(); };
     $('ficha-file-input').onchange = function(){ handleArquivos(this.files); };
-    $('ficha-tel').addEventListener('input', function(){
-      // Reformatar sem cuidar do cursor faz ele pular pro final a cada tecla --
-      // editar/apagar no meio do número (não só digitar em sequência no fim)
-      // embaralhava o resultado. Conta quantos dígitos existem antes do cursor
-      // na string antiga, reformata, e recoloca o cursor depois da mesma
-      // quantidade de dígitos na string nova.
-      var digitosAntes = this.value.slice(0, this.selectionStart).replace(/\D/g, '').length;
-      this.value = formatarTelefone(this.value);
-      var pos = 0, contados = 0;
-      while (pos < this.value.length && contados < digitosAntes) {
-        if (/\d/.test(this.value[pos])) contados++;
-        pos++;
-      }
-      this.setSelectionRange(pos, pos);
-    });
+    $('ficha-tel').addEventListener('input', function(){ this.value = formatarTelefone(this.value); });
     $('ficha-insta').addEventListener('input', function(){ this.value = this.value.replace(/@/g, ''); });
     var footer = document.createElement('div');
     footer.className = 'ficha-footer';
