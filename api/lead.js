@@ -2230,10 +2230,16 @@ export default async function handler(req, res) {
       resumoDados +
       "<p style='line-height:1.8;color:#333;margin-top:16px'>Obrigado por escolher fazer parte da nossa família. Já estamos ansiosos para te conhecer. 🖤</p>" +
       "<p style='margin-top:32px;font-size:12px;color:#999'>Com carinho,<br><strong>" + nomeEstudioLead + "</strong>" + (cidadeLead ? " — " + cidadeLead : "") + "</p>" +
+      "<p style='margin-top:20px;font-size:11px;color:#bbb'>Não é necessário responder este e-mail — se preferir falar com a gente, use o WhatsApp acima.</p>" +
       "</div>";
+    // reply_to aponta pro e-mail do próprio estúdio (não pro remetente técnico
+    // compartilhado por todos os tenants) -- sem isso, resposta de lead de
+    // qualquer estúdio cairia todas no mesmo lugar, misturadas.
+    const replyToEstudio = cfgDisparos?.studio_email || null;
     await enviarEmailLead("boas-vindas ao cliente", {
       from: emailFrom,
       to: [email],
+      ...(replyToEstudio ? { reply_to: replyToEstudio } : {}),
       subject: "Recebemos sua mensagem, " + fn + "! 🖤",
       html: htmlBoasVindas
     });
