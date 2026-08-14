@@ -310,6 +310,7 @@ fbq('init', '${esc(pixelId)}');
 fbq('track', 'PageView');
 </script>` : ""}
 <link href="${googleFontsHref}" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--gold:${corBotao1};--gold-2:${corBotao2};--gold-dim:rgba(201,168,76,0.35);--bg:${corFundo};--off:#e8e4dc;--dim:${corCorpo};--pad:52px;--radius:${radius};--radius-foto:${radiusFotos};--font-titulo:${fonteTitulo};--font-corpo:${fonteCorpo};--cor-titulo:${corTitulo};--glow:${glow}}
@@ -399,7 +400,7 @@ footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28p
 .aura-head{padding:14px 16px;background:rgba(0,0,0,0.3);border-bottom:1px solid rgba(201,168,76,0.2);display:flex;justify-content:space-between;align-items:center;font-size:12px;letter-spacing:1px;color:var(--gold)}
 .aura-close{cursor:pointer;color:#fff;font-size:18px;line-height:1;padding:6px;margin:-6px;border-radius:50%}
 .aura-close:hover{background:rgba(255,255,255,0.12)}
-.ficha-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.ficha-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;font-family:'Inter',sans-serif}
 .ficha-aviso{background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.25);border-radius:8px;padding:10px 12px;font-size:11px;line-height:1.6;color:#d8d2c4}
 .ficha-field{display:flex;flex-direction:column;gap:5px}
 .ficha-label{font-size:11px;color:#b8b2a4;letter-spacing:.02em}
