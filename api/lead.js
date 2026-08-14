@@ -1975,7 +1975,8 @@ export default async function handler(req, res) {
           ...(Array.isArray(match.hist) ? match.hist : []),
           { t: "Cliente retornou pelo site — " + (motivoRetorno || "motivo não informado"), d: new Date().toLocaleString("pt-BR") },
         ];
-        await sb.from("clientes").update({ hist: novoHist, excluido_em: null }).eq("id", match.id);
+        const { error: erroUpdateRetorno } = await sb.from("clientes").update({ hist: novoHist, excluido_em: null }).eq("id", match.id);
+        if (erroUpdateRetorno) console.error("ERRO update cliente retornando (criarSolicitacao):", JSON.stringify(erroUpdateRetorno));
         clienteId = match.id;
         matchInfo = { artista: match.artista || null, etapa: match.etapa || null, projetos: match.projetos || [] };
       } else {
@@ -2052,7 +2053,8 @@ export default async function handler(req, res) {
         if (chaveDedupAtual && chaveDedupAtual !== match.chave_dedup) {
           sb.from("clientes").update({ chave_dedup: chaveDedupAtual }).eq("id", match.id).then(() => {}).catch(() => {});
         }
-        await sb.from("clientes").update(updateFields).eq("id", match.id);
+        const { error: erroUpdateMatch } = await sb.from("clientes").update(updateFields).eq("id", match.id);
+        if (erroUpdateMatch) console.error("ERRO update cliente existente (criarSolicitacao):", JSON.stringify(erroUpdateMatch), "campos:", JSON.stringify(updateFields));
         clienteId = match.id;
         matchInfo = {
           artista: updateFields.artista || match.artista || null,
