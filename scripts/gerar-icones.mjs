@@ -21,7 +21,7 @@ async function gerar(tamanho, destino) {
       width: tamanho,
       height: tamanho,
       channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
+      background: { r: 10, g: 10, b: 10, alpha: 1 },
     },
   })
     .composite([{ input: simboloRedimensionado, left, top }])
