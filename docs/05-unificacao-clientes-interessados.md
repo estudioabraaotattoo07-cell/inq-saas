@@ -246,3 +246,48 @@ navegador) poderia criar um cliente com, por exemplo, só um telefone.
 **Não corrigida neste bloco** — registrada aqui só como pendência conhecida
 de segurança/integridade de dado, para avaliação e correção em bloco
 separado.
+
+## ADENDO 4 — Encerramento documental do bloco (2026-08-15)
+
+A migration principal
+(`sql/2026-08-14_pipeline_unificar_clientes_interessados.sql`) foi
+**executada manualmente com sucesso** no Supabase, depois de aprovação
+explícita e de uma auditoria de leitura imediatamente anterior. As
+evidências abaixo foram fornecidas pelo responsável do estúdio a partir do
+próprio SQL Editor do Supabase e de validação visual direta no CRM — não
+foram obtidas por acesso automatizado a este repositório:
+
+- **Único tenant afetado: o Laboratório P&D**
+  (`2d366d35-1cae-40d5-ba92-06fe2ab8a763`) — confirmado pela consulta
+  pré-migration `01-tenants-afetados.csv` (parte da fotografia exportada
+  antes da execução), que retornou exatamente uma linha. Nenhum outro
+  tenant tinha cliente, projeto ou etapa de pipeline nas condições que a
+  migration corrige.
+- **57 clientes do Laboratório preservados** — mesmo total antes e depois
+  da migration (ela nunca cria nem apaga cliente, só atualiza `etapa`).
+- **5 clientes migrados** de `lead_morno`/`aura_agend` para `lead`.
+- **7 clientes finais** na coluna "Clientes interessados" (os 5 migrados
+  mais os que já estavam em `lead` antes).
+- **0 clientes e 0 projetos** ainda em etapas antigas depois da execução.
+- **0 linhas antigas restantes** em `pipeline_etapas` (`lead_morno`/
+  `aura_agend` removidas).
+- **0 duplicidades** de `(user_id, slug)` em `pipeline_etapas`.
+- **Selo `✦ Projeto detalhado` validado visualmente** no CRM, aparecendo
+  nos cartões qualificados depois de `Ctrl+F5`.
+- **Backup e SQL de restauração preservados fora do repositório**, em
+  `C:\Users\Abraão\Documents\INK SYSTEM - Backup pre-migration 2026-08-15`
+  (fotografia exportada + script de restauração condicional, específico do
+  Laboratório, nunca executado).
+
+**Este bloco (unificação de "Clientes interessados") está tecnicamente
+concluído.** Isso não inclui as pendências já registradas separadamente
+neste documento e que continuam abertas, fora do escopo daqui:
+
+- A pendência de segurança/integridade da validação do servidor (nome/
+  WhatsApp/e-mail em `api/lead.js`), descrita logo acima neste mesmo
+  documento — segue **não corrigida**, tratamento em bloco separado.
+- A integração com a API de Conversões da Meta (ADENDO 3) **continua
+  futura e fora deste bloco** — nenhuma implementação foi iniciada.
+- As compatibilidades temporárias já documentadas (normalização visual em
+  memória no CRM, comentários com termos antigos) **não foram removidas**
+  neste encerramento, de propósito — permanecem como estavam.
