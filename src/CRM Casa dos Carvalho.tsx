@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { createClient } from "@supabase/supabase-js";
 import { jsPDF } from "jspdf";
 import { PIPELINE_ETAPAS_PADRAO as DEFAULT_STAGES } from "../lib/tenant/pipelinePadrao.js";
+import { projetoEstaDetalhado } from "../lib/tenant/classificacaoInteressado.js";
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
 const SUPA_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -680,13 +681,15 @@ table.ft tr:nth-child(even) td{background:var(--dk4);}
 // Estágios de onde agendar uma consulta/sessão pode avançar o cliente
 // automaticamente no pipeline. Mesma lista pros dois tipos de agendamento —
 // antes a de consulta só aceitava "lead", deixando de mover clientes vindos
-// de "Solicitação de Consulta"/"Solicitação de Sessão" e outros estágios.
-const AUTO_MOVE_ORIGENS = ["lead", "lead_morno", "aura_agend", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"];
+// de outros estágios elegíveis.
+// "lead_morno" e "aura_agend" removidas (Bloco de Unificação da Entrada de
+// Clientes Interessados, 2026-08-14) -- essas duas etapas deixaram de
+// existir; todo novo interessado entra em "lead" ("Clientes interessados"),
+// que já está na lista.
+const AUTO_MOVE_ORIGENS = ["lead", "cons_agendada", "hibernacao", "sessao_agend", "tatuado", "aguard_agend", "pos_venda"];
 
 const STAGE_INFO: Record<string, string> = {
-  lead: "Primeiros contatos captados pelo site, redes sociais, indicação ou qualquer outro canal de entrada. O cliente demonstrou algum interesse mas ainda não foi qualificado. Seu papel aqui é iniciar o relacionamento: entender a ideia, o projeto e o nível de intenção. Quanto antes entrar em contato, maior a chance de conversão.",
-  lead_morno: "Clientes que solicitaram consulta via chat. Aguardam contato da equipe para agendar a conversa presencial.",
-  aura_agend: "Clientes que solicitaram sessão de tatuagem diretamente pelo chat do site. Aguardam contato para confirmar data e horário. Prioridade de retorno — esse cliente tomou a iniciativa.",
+  lead: "Clientes interessados: primeiros contatos captados pelo site, redes sociais, indicação, cadastro manual ou qualquer outro canal de entrada. O cliente demonstrou algum interesse mas ainda não foi qualificado. Seu papel aqui é iniciar o relacionamento: entender a ideia, o projeto e o nível de intenção. Quanto antes entrar em contato, maior a chance de conversão.",
   cons_agendada: "Consulta presencial já confirmada. O cliente virá ao estúdio para uma conversa sobre o projeto: entender a proposta, alinhar expectativas, ver referências e definir o caminho antes de tatuar. Prepare o ambiente e o artista responsável.",
   sessao_agend: "Sessão de tatuagem agendada e confirmada. O projeto já foi discutido, o valor alinhado e o horário marcado. Tudo certo para tatuar na data combinada. Confirme com antecedência e certifique-se de que o cliente está preparado.",
   tatuado: "Sessão concluída com sucesso. Agora é hora do pós-atendimento: acompanhe a cicatrização, peça feedback, solicite avaliação e mantenha o vínculo para futuras sessões ou indicações. Um cliente satisfeito é o melhor canal de aquisição.",
@@ -1869,15 +1872,10 @@ export default function CRM() {
     }
   }, [auraChatMessages, auraChatLoading]);
 
-  // Quando auraName muda, atualiza os labels dinâmicos de consulta e sessão
-  useEffect(() => {
-    if (!auraName) return;
-    setStages(p => p.map((s: any) => {
-      if (s.id === "aura_agend") return { ...s, label: "Solicitação de Sessão via " + auraName };
-      if (s.id === "lead_morno") return { ...s, label: "Solicitação de Consulta via " + auraName };
-      return s;
-    }));
-  }, [auraName]);
+  // Renomeio dinâmico de "aura_agend"/"lead_morno" com o nome da Aura foi
+  // removido (Bloco de Unificação da Entrada de Clientes Interessados,
+  // 2026-08-14) -- essas duas etapas não existem mais no pipeline, o label
+  // de "lead" ("Clientes interessados") é fixo, sem variação por tenant.
 
   useEffect(() => {
     const el = document.createElement("style");
@@ -2034,7 +2032,7 @@ export default function CRM() {
         if (cls && cls.length > 0) {
           const clientesMapeados = cls.map((c: any) => ({
             ...c,
-            etapa: c.etapa === "qualificacao" ? "lead" : c.etapa,
+            etapa: (c.etapa === "qualificacao" || c.etapa === "lead_morno" || c.etapa === "aura_agend") ? "lead" : c.etapa,
             hist: c.hist || [],
             pv: c.followups || [],
             faltas: c.faltas || 0,
@@ -2047,13 +2045,23 @@ export default function CRM() {
             campanha_id: c.campanha_id || null,
           }));
           setClients(clientesMapeados);
-          // Migração: clientes antigos na etapa "qualificacao" (removida) vão para "lead"
+          // "qualificacao" é migração automática de verdade (grava no banco) --
+          // comportamento anterior a este bloco, preservado sem alteração.
           const clientesParaMigrar = cls.filter((c: any) => c.etapa === "qualificacao");
           if (clientesParaMigrar.length > 0) {
             clientesParaMigrar.forEach((c: any) => {
               sb.from("clientes").update({ etapa: "lead", etapa_desde: new Date().toISOString() }).eq("id", c.id).then(() => {});
             });
           }
+          // "lead_morno"/"aura_agend" (Bloco de Unificação, 2026-08-14): a
+          // normalização acima (clientesMapeados, linha ~2035) já faz esses
+          // clientes aparecerem em "lead" no Kanban -- mas isso é só
+          // apresentação em memória. De propósito, NENHUM UPDATE automático é
+          // disparado pro banco para esses dois casos: só o SQL versionado
+          // (sql/2026-08-14_pipeline_unificar_clientes_interessados.sql),
+          // revisado e executado manualmente, pode alterar esses registros.
+          // Até lá, o valor gravado em clientes.etapa continua sendo
+          // lead_morno/aura_agend -- só a tela mostra "lead".
           // Sincronização: cliente com evento de agenda válido não pode ficar em "lead"
           if (ags && ags.length > 0) {
             const clientesParaSincronizar: { id: any; novaEtapa: string }[] = [];
@@ -2863,15 +2871,11 @@ export default function CRM() {
       return;
     }
 
-    // Etapas só-automáticas: não aceitam arraste manual, só avisam o motivo
-    if (ns === "lead_morno") {
-      setShowAviso("Essa etapa é preenchida automaticamente quando o cliente pede uma consulta pelo chat do site — não é possível mover um cliente pra cá manualmente.");
-      return;
-    }
-    if (ns === "aura_agend") {
-      setShowAviso("Essa etapa é preenchida automaticamente quando o cliente pede uma sessão de tatuagem pelo chat do site — não é possível mover um cliente pra cá manualmente.");
-      return;
-    }
+    // Etapas só-automáticas: não aceitam arraste manual, só avisam o motivo.
+    // "lead_morno"/"aura_agend" removidas daqui (Bloco de Unificação da
+    // Entrada de Clientes Interessados, 2026-08-14) -- não existem mais
+    // como etapas do pipeline, não há mais coluna pra arrastar um card até
+    // elas.
     if (ns === "cons_agendada") {
       setShowAviso("Essa etapa só é preenchida quando existe um agendamento de consulta de verdade na Agenda. Marque a consulta primeiro — o cliente é movido pra cá automaticamente quando isso acontece.");
       return;
@@ -2962,7 +2966,13 @@ export default function CRM() {
     const cliente = clients.find(c => c.id === evento.cliente_id);
     if (!cliente) return;
     if (cliente.etapa !== "cons_agendada" && cliente.etapa !== "sessao_agend") return;
-    const etapaAlvo = (cliente as any).etapa_antes_agenda || "lead";
+    const etapaSalva = (cliente as any).etapa_antes_agenda || "lead";
+    // Defesa: um agendamento antigo pode ter guardado "lead_morno"/"aura_agend"
+    // como etapa_antes_agenda antes do Bloco de Unificação da Entrada de
+    // Clientes Interessados (2026-08-14) -- essas duas etapas não existem
+    // mais como coluna do pipeline, reverter pra elas deixaria o card sem
+    // coluna pra aparecer.
+    const etapaAlvo = (etapaSalva === "lead_morno" || etapaSalva === "aura_agend") ? "lead" : etapaSalva;
     executarMove(cliente.id, etapaAlvo, { etapa_antes_agenda: null }, (evento as any).projeto_id);
   };
   // Rascunho de edição de uma solicitação: enquanto existir draft, a tela mostra ele (não o dado salvo).
@@ -3407,7 +3417,10 @@ export default function CRM() {
         return;
       }
       if (data) {
-        // Definir etapa inicial baseada na qualificação
+        // Etapa inicial é sempre "lead" ("Clientes interessados") -- nunca variou pela
+        // Qualificação Q0-Q3 apesar do que este comentário dizia antes (achado na Auditoria
+        // Pré-Implementação de 2026-08-14). Qualificação manual continua intocada, é uma
+        // estrutura separada (campo "qual"), não decide etapa.
         const etapaInicial = "lead";
         setClients(p => [{ ...nc, id: data.id, etapa: etapaInicial }, ...p]);
         if (nc.email) {
@@ -6150,6 +6163,17 @@ export default function CRM() {
                               </span>
                             );
                           })()}
+                          {/* Selo "Projeto detalhado" -- classificação interna calculada na hora
+                              (nunca persistida), Bloco de Unificação da Entrada de Clientes
+                              Interessados (2026-08-14). Nunca mostra os termos internos "lead
+                              frio"/"lead quente"; lead frio simplesmente não exibe selo nenhum. */}
+                          {projetoEstaDetalhado(c) && (
+                            <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                              background: "rgba(201,168,76,.16)", border: "1px solid rgba(201,168,76,.4)", color: "var(--gold)",
+                              marginTop: 2, marginLeft: 4, display: "inline-block" }}>
+                              ✦ Projeto detalhado
+                            </span>
+                          )}
                           {(c as any).servicoInteresse && <div className="cst">{(c as any).servicoInteresse}</div>}
                           {(() => {
                             const sessCli = agEvents.filter(e => e.cliente_id === c.id && !e.tipo?.startsWith("bloq") && !e.tipo?.startsWith("cons"));
@@ -8515,7 +8539,7 @@ export default function CRM() {
                       const etapasDesteSlug = fluxoEtapas.filter((f: any) => f.etapa_slug === stage.id);
                       const sid = stage.id;
                       const sistemaCounts: Record<string, number> = {
-                        lead: 2, lead_morno: 2, aura_agend: 2,
+                        lead: 2,
                         cons_agendada: 4, sessao_agend: 4,
                         aguard_agend: 1,
                         aguard_1a_sessao: 2,
@@ -8586,9 +8610,10 @@ export default function CRM() {
                                   <CardSistema ativo={fluxoToggles.boas_vindas_email} toggleKey="boas_vindas_email" label="E-mail de boas-vindas ao cliente" gatilho="Imediato — ao entrar no sistema (Aura Chat ou cadastro manual)" preview={"Assunto: Recebemos sua mensagem, {nome}!\n\nOlá, {nome}! Que alegria receber sua ideia aqui na {estudio}. Já registramos tudo com cuidado — em até 24h, alguém da nossa equipe vai te ligar pessoalmente. Sem formulário, sem robô — conversa de gente pra gente.\n\n+ Resumo dos dados registrados (nome, telefone, ideia, região, artista...)"} />
                                   <CardSistema ativo={fluxoToggles.notificacao_artista} toggleKey="notificacao_artista" label="E-mail de alerta interno ao artista" gatilho="Imediato — notifica o profissional responsável" preview={"Assunto: Novo lead — {nome}\n\nUm novo cliente entrou em contato solicitando atendimento com você.\n\nNome: {nome} · Tel: {tel} · Ideia: {estilo} · Região: {regiao}\n\nAcesse o sistema para dar andamento."} />
                                 </>);
+                                // "lead_morno"/"aura_agend" removidas daqui (Bloco de Unificação da
+                                // Entrada de Clientes Interessados, 2026-08-14) -- não existem mais
+                                // como etapa do pipeline, "sid" nunca mais chega com esses valores.
                                 if (sid === "lead") return boasVindasCards;
-                                if (sid === "lead_morno") return boasVindasCards;
-                                if (sid === "aura_agend") return boasVindasCards;
                                 if (sid === "cons_agendada") return (<>
                                   {CardSistemaEditavel({ chave: "confirmacao_consulta" })}
                                   {CardSistemaEditavel({ chave: "lembrete_d1_consulta" })}
@@ -8764,9 +8789,13 @@ export default function CRM() {
             } catch {}
             setOrigenConfirmDel(null);
           };
-          // Conversão calculada direto do cadastro único do cliente (orig + etapa) — sem
-          // nenhum salvamento paralelo. "Frio" = ainda na etapa inicial "lead"; "Quente" =
-          // já avançou (lead_morno, aura_agend ou além).
+          // Conversão calculada direto do cadastro único do cliente (orig + classificação
+          // de conteúdo) — sem nenhum salvamento paralelo. Bloco de Unificação da Entrada
+          // de Clientes Interessados (2026-08-14): como agora todo interessado entra na
+          // mesma etapa "lead", a métrica não pode mais usar etapa como sinal de frio/
+          // quente. "frio" (exibido como "Contato básico") = projetoEstaDetalhado() false;
+          // "quente" (exibido como "Projeto detalhado") = true. Termos "frio"/"quente" são
+          // só nomes internos de variável, nunca aparecem na interface (ver texto abaixo).
           const tempoRelativo = (iso: string) => {
             const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
             if (diff < 60) return "agora";
@@ -8776,8 +8805,8 @@ export default function CRM() {
           };
           const origensComMetrica = origens.map(o => {
             const doOrigem = (clients as any[]).filter(c => c.orig === o.nome && !c.excluido_em);
-            const frio = doOrigem.filter(c => c.etapa === "lead").length;
-            const quente = doOrigem.length - frio;
+            const quente = doOrigem.filter(c => projetoEstaDetalhado(c)).length;
+            const frio = doOrigem.length - quente;
             const conv = doOrigem.length > 0 ? Math.round((quente / doOrigem.length) * 100) : 0;
             const ultimoTs = doOrigem.reduce((max: string | null, c: any) => (c.created_at && (!max || c.created_at > max)) ? c.created_at : max, null as string | null);
             return { ...o, frio, quente, conv, ultimoTs };
@@ -8798,7 +8827,7 @@ export default function CRM() {
                   </div>
                   <div style={{ paddingTop: 10, borderTop: "1px solid var(--br)" }}>
                     <div style={{ color: "var(--gold)", fontWeight: 600, marginBottom: 4 }}>Como usar</div>
-                    Cadastre uma origem pra cada lugar que divulga seu trabalho (ex: "Instagram", "Google Maps", "Indicação"). O sistema monta um link único pra cada uma — copie e cole esse link exatamente onde a pessoa vai clicar (na bio, na descrição do vídeo, no anúncio). Se quiser mandar pra uma página específica de um artista, preencha "Página destino". Marque como "Pago" as origens que custam algo (anúncios) pra diferenciar de orgânico. As métricas de Lead Frio/Quente e conversão de cada origem se atualizam sozinhas, direto do cadastro dos clientes que chegaram por ali — quanto mais desses leads avançam no funil, maior a conversão da origem.
+                    Cadastre uma origem pra cada lugar que divulga seu trabalho (ex: "Instagram", "Google Maps", "Indicação"). O sistema monta um link único pra cada uma — copie e cole esse link exatamente onde a pessoa vai clicar (na bio, na descrição do vídeo, no anúncio). Se quiser mandar pra uma página específica de um artista, preencha "Página destino". Marque como "Pago" as origens que custam algo (anúncios) pra diferenciar de orgânico. As métricas de Contato básico/Projeto detalhado e conversão de cada origem se atualizam sozinhas, direto do cadastro dos clientes que chegaram por ali — quanto mais desses leads avançam no funil, maior a conversão da origem.
                   </div>
                 </div>
 
@@ -8806,8 +8835,8 @@ export default function CRM() {
                 <div className="origem-sum-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8, marginBottom: 20 }}>
                   {[
                     { label: "Origens", val: origens.length, icon: "🔗", color: "var(--tx2)" },
-                    { label: "Lead Frio", val: totalFrio, icon: "🧊", color: "#4A9EBF" },
-                    { label: "Lead Quente", val: totalQuente, icon: "🔥", color: "#C0392B" },
+                    { label: "Contato básico", val: totalFrio, icon: "🧊", color: "#4A9EBF" },
+                    { label: "Projeto detalhado", val: totalQuente, icon: "🔥", color: "#C0392B" },
                     { label: "Conversão", val: convGeral + "%", icon: "📈", color: "var(--gold)" },
                   ].map((c, i) => (
                     <div key={i} style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 9, padding: "12px 14px" }}>
@@ -8824,8 +8853,8 @@ export default function CRM() {
                     <div style={{ fontSize: 11, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12 }}>Funil consolidado</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
                       {[
-                        { label: "Lead Frio", val: totalFrio, icon: "🧊", color: "#4A9EBF", w: 100 },
-                        { label: "Lead Quente", val: totalQuente, icon: "🔥", color: "#C0392B", w: totalFrio > 0 ? Math.max(20, Math.round((totalQuente / totalFrio) * 100)) : 0 },
+                        { label: "Contato básico", val: totalFrio, icon: "🧊", color: "#4A9EBF", w: 100 },
+                        { label: "Projeto detalhado", val: totalQuente, icon: "🔥", color: "#C0392B", w: totalFrio > 0 ? Math.max(20, Math.round((totalQuente / totalFrio) * 100)) : 0 },
                       ].map((f, i) => (
                         <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
                           {i > 0 && <div style={{ color: "var(--tx3)", fontSize: 14, flexShrink: 0 }}>→</div>}
@@ -8930,8 +8959,8 @@ export default function CRM() {
                             {/* Métricas da origem */}
                             <div className="origem-metric-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 6 }}>
                               {[
-                                { label: "Lead Frio", val: o.frio, color: "#4A9EBF", icon: "🧊" },
-                                { label: "Lead Quente", val: o.quente, color: "#C0392B", icon: "🔥" },
+                                { label: "Contato básico", val: o.frio, color: "#4A9EBF", icon: "🧊" },
+                                { label: "Projeto detalhado", val: o.quente, color: "#C0392B", icon: "🔥" },
                                 { label: "Conversão", val: o.conv + "%", color: "var(--gold)", icon: "📈" },
                                 { label: "Último lead", val: o.ultimoTs ? tempoRelativo(o.ultimoTs) : "—", color: "var(--tx3)", icon: "⏱" },
                               ].map((m, mi) => (

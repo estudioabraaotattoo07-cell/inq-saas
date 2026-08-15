@@ -1503,7 +1503,7 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, artistaNome, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, etapa: etapaSolicitada, slug: siteSlugRaw, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao, faixaInvestimento, retornoAtendimento, motivoRetorno, finalizado } = req.body;
+  const { nome, tel, email, idea, ideia, artista, artistaNome, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, slug: siteSlugRaw, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao, faixaInvestimento, retornoAtendimento, motivoRetorno, finalizado } = req.body;
   // Normalização equivalente à já usada em lead_busca -- espaço incidental
   // não deveria diferenciar um slug válido de "inexistente".
   const siteSlug = (siteSlugRaw || "").trim();
@@ -1526,7 +1526,11 @@ export default async function handler(req, res) {
     email: email || "",
     insta: insta || "",
     qual: "Q1",
-    etapa: etapaSolicitada || "lead",
+    // Fixo em "lead" ("Clientes interessados") -- endpoint público, sem
+    // autenticação, não pode aceitar etapa externa (Bloco de Unificação da
+    // Entrada de Clientes Interessados, 2026-08-14). O corpo da requisição
+    // ainda pode mandar um campo "etapa", mas ele é ignorado de propósito.
+    etapa: "lead",
     orig: orig || "Site",
     descricao: ideaFinal,
     nascimento: nascimentoISO,
@@ -1648,7 +1652,6 @@ export default async function handler(req, res) {
   let isNewClient = true;
   let matchInfo = null;
   let avisoCompartilhamento = null;
-  let etapaMudouAgora = false;
   {
     const telDigits = tel ? tel.replace(/[^0-9]/g, "").slice(-11) : null;
     const emailNorm = email ? email.trim().toLowerCase() : null;
@@ -1739,17 +1742,15 @@ export default async function handler(req, res) {
         if (servico) updateFields.servico = servico;
         if (periodoLigacao) updateFields.periodo_ligacao = periodoLigacao;
         if (obsExtra) updateFields.obs = `Lead captado via Aura Chat no site. ${obsExtra}`;
-        // Classificação (Sessão/Consulta/Aguardando nova solicitação) só move a etapa
-        // quando o chat explicitamente pedir — e só se o cliente ainda estiver numa
-        // fase inicial do funil. Sem essa checagem, um cliente que já tem Sessão
-        // Marcada ou está em Pós-venda voltaria pra "Solicitação de Consulta" só
-        // por reabrir o chat e responder a pergunta de classificação de novo.
-        const ETAPAS_INICIAIS = ["lead", "lead_morno", "aura_agend", "precisa_remarcar"];
-        if (etapaSolicitada && etapaSolicitada !== match.etapa && (!match.etapa || ETAPAS_INICIAIS.includes(match.etapa))) {
-          updateFields.etapa = etapaSolicitada;
-          updateFields.etapa_desde = new Date().toISOString();
-          etapaMudouAgora = true;
-        }
+        // Bloco de Unificação da Entrada de Clientes Interessados (2026-08-14):
+        // removido o bloco que deixava a requisição pública escolher a etapa de um
+        // cliente já existente via etapaSolicitada (campo "etapa" do corpo da
+        // requisição). Motivo duplo: (1) decisão de produto -- consulta/sessão só
+        // viram etapa quando existe agendamento real na Agenda, não por "intenção"
+        // declarada; (2) segurança -- esse endpoint é público, sem autenticação,
+        // e permitia que qualquer chamador externo definisse etapa livremente
+        // (inclusive reintroduzindo lead_morno ou aura_agend, que não existem
+        // mais). etapaSolicitada nunca é mais lida por este handler.
         // Gera o Parecer da Aura (resumo corrido pra ficha, ao lado do CPF) só
         // quando a conversa termina de verdade (finalizado) -- gerar já na
         // classificação perdia dados que só vêm depois (período, e-mail). A
@@ -1770,8 +1771,15 @@ export default async function handler(req, res) {
           const regiaoParecer = updateFields.regiao || match.regiao || regiao || "";
           const qtdReferencias = (match.referencias || []).length;
           const etapaFinal = updateFields.etapa || match.etapa || "";
-          const ESTAGIO_TEXTO = { aura_agend: "Já decidiu, quer agendar", lead_morno: "Prefere conversar antes de decidir" };
-          const PROXIMA_ACAO = { aura_agend: "Entrar em contato para confirmar o agendamento", lead_morno: "Ligar para esclarecer dúvidas e apresentar orçamento" };
+          // Bloco de Unificação (2026-08-14): as duas etapas de entrada que esses
+          // mapas diferenciavam deixaram de existir -- todo contato novo nasce em
+          // "lead" hoje, então não há mais "estágio" pra distinguir aqui. Mantido
+          // como mapa de 1 entrada (em vez de apagar) só pra preservar o texto
+          // amigável de "lead" sem quebrar o fallback pro id bruto de etapas mais
+          // avançadas (ex.: se um dia isto for reativado com um cliente que já
+          // avançou no Pipeline antes do resumo ser gerado).
+          const ESTAGIO_TEXTO = { lead: "Contato novo, ainda não avaliado" };
+          const PROXIMA_ACAO = { lead: "Avaliar o pedido e dar o primeiro retorno ao cliente" };
 
           const bullets = [];
           if (nomeParecer) bullets.push("Nome: " + nomeParecer);

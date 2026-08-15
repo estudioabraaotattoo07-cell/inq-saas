@@ -278,7 +278,10 @@ test("com tudo válido, chama provisionarEstudio() de verdade e devolve o relat�
   assert.equal(sb._tabelas.tabelaLicencas.size, 1);
   assert.equal(sb._tabelas.tabelaCategorias.size, 13);
   assert.equal(sb._tabelas.tabelaFormasPagamento.size, 7);
-  assert.equal(sb._tabelas.tabelaPipelineEtapas.length, 16);
+  // Bloco de Unificação da Entrada de Clientes Interessados (2026-08-14):
+  // lead_morno e aura_agend deixaram de existir em PIPELINE_ETAPAS_PADRAO,
+  // por isso 16 virou 14. Ver lib/tenant/pipelinePadrao.js.
+  assert.equal(sb._tabelas.tabelaPipelineEtapas.length, 14);
   assert.equal(sb._tabelas.tabelaConfiguracoes.size, 1);
   assert.deepEqual(Object.keys(sb._tabelas.tabelaConfiguracoes.get(AUTH_USER_ID)), ["id", "user_id"]);
 });

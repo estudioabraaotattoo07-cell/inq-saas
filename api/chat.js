@@ -430,7 +430,12 @@ async function solicitarAgendamento(input) {
         const emailsBatem = !emailNovo || !emailExistente || emailNovo === emailExistente;
         if (nomesBatem && emailsBatem) {
           finalClienteId = matchTel.id;
-          const upd = { etapa: (tipo === "consulta") ? "lead_morno" : "aura_agend", excluido_em: null };
+          // "lead_morno"/"aura_agend" removidas do pipeline (Bloco de Unificação da Entrada
+          // de Clientes Interessados, 2026-08-14) -- fixo em "lead" aqui só para impedir que
+          // este caminho pausado (Aura pública sofisticada, reservada pro uso interno futuro
+          // do tatuador, não reativada nesta implementação) volte a criar uma etapa que não
+          // existe mais, se algum dia for religado sem passar por aqui de novo.
+          const upd = { etapa: "lead", excluido_em: null };
           if (descricao) upd.descricao = descricao;
           if (artistaId) upd.artista = artistaId;
           if (nascimentoISO) upd.nascimento = nascimentoISO;
@@ -449,7 +454,7 @@ async function solicitarAgendamento(input) {
         artista: artistaId || artista || null,
         descricao: descricao || "",
         regiao: regiao || "",
-        etapa: (tipo === "consulta") ? "lead_morno" : "aura_agend",
+        etapa: "lead",
         etapa_desde: new Date().toISOString(),
         orig: "Site - Aura Chat",
         qual: "Q1",
@@ -463,7 +468,7 @@ async function solicitarAgendamento(input) {
       if (clienteErr) console.error("clientes insert error:", clienteErr);
       if (novoCliente) finalClienteId = novoCliente.id;
     } else {
-      const updateFields = { etapa: (tipo === "consulta") ? "lead_morno" : "aura_agend" };
+      const updateFields = { etapa: "lead" };
       if (descricao) updateFields.descricao = descricao;
       if (artistaId) updateFields.artista = artistaId;
       if (nascimentoISO) updateFields.nascimento = nascimentoISO;

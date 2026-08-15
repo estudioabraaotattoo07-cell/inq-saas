@@ -65,9 +65,15 @@ export default async function handler(req, res) {
       hist: [{ t: "Cliente cadastrado (exemplo)", d: new Date().toLocaleDateString("pt-BR") }],
       etapa_desde: new Date().toISOString(), ...over,
     });
+    // Bloco de Unificação da Entrada de Clientes Interessados (2026-08-14):
+    // "lead_morno"/"aura_agend" não existem mais como etapa -- os dois
+    // exemplos que ilustravam a entrada inicial agora ficam em "lead"
+    // ("Clientes interessados"). Marina fica como exemplo de "Contato
+    // básico" (sem descrição/região/referência); Bruno ganha os três
+    // campos preenchidos, virando o exemplo de "✦ Projeto detalhado".
     await sb.from("clientes").insert([
       cli({ nome: "Marina Alves", artista: artistaId1, etapa: "lead", insta: "@marina.alves" }),
-      cli({ nome: "Bruno Kern", artista: artistaId2, etapa: "lead_morno", insta: "@brunokern" }),
+      cli({ nome: "Bruno Kern", artista: artistaId2, etapa: "lead", insta: "@brunokern", descricao: "Fechamento de braço com tema japonês, carpa e ondas", regiao: "braço inteiro", referencias: ["https://via.placeholder.com/300x300?text=Referencia+Exemplo"] }),
       cli({ nome: "Talita Nunes", artista: artistaId1, etapa: "cons_agendada", insta: "@talitanunes" }),
       cli({ nome: "Priscila Gomes", artista: artistaId2, etapa: "sessao_agend", insta: "@pri.gomes" }),
       cli({ nome: "Renan Costa", artista: artistaId1, etapa: "aguard_agend", insta: "@renancosta" }),
