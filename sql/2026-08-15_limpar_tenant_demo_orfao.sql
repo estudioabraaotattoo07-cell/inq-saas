@@ -54,14 +54,20 @@
 -- tabela nova, prevista ou não, entra automaticamente nessa checagem.
 --
 -- ── CHAVES ESTRANGEIRAS E CASCATA ──────────────────────────────────────────
--- O Passo 5 descobre dinamicamente (information_schema) toda constraint de
--- chave estrangeira que referencia clientes, artistas ou configuracoes a
--- partir de QUALQUER outra tabela, e confere se alguma linha de fora aponta
--- para os 10 registros que serão apagados -- aborta se encontrar. A ordem de
--- exclusão (Passo 6) é clientes -> artistas -> configuracoes: clientes é
--- apagado primeiro por poder referenciar artistas (coluna "artista"); não é
--- assumido nenhum ON DELETE CASCADE -- o script não depende de cascata
--- alguma, apaga cada tabela explicitamente, na ordem segura.
+-- O Passo 6 descobre dinamicamente (information_schema) toda constraint de
+-- chave estrangeira que referencia clientes, artistas OU configuracoes a
+-- partir de QUALQUER outra tabela -- incluindo a coluna exata referenciada
+-- (nunca presume que é "id") -- e confere, com uma consulta real, se alguma
+-- linha de fora aponta para os 10 registros que serão apagados -- aborta se
+-- encontrar. As três tabelas de destino recebem exatamente a mesma checagem
+-- real, sem exceção (correção de 2026-08-15: uma versão anterior deste
+-- script só consultava de verdade clientes/artistas e tratava qualquer FK
+-- para configuracoes como "0 dependentes" sem consultar nada -- corrigido).
+-- A ordem de exclusão (Passo 7) é clientes -> artistas -> configuracoes:
+-- clientes é apagado primeiro por poder referenciar artistas (coluna
+-- "artista"); não é assumido nenhum ON DELETE CASCADE -- o script não
+-- depende de cascata alguma, apaga cada tabela explicitamente, na ordem
+-- segura.
 --
 -- ── TRANSACIONALIDADE ──────────────────────────────────────────────────────
 -- Todo o script roda dentro de um único bloco (do $$ ... $$). Qualquer
@@ -114,9 +120,6 @@ declare
 
   fk record;
   qtd_dependentes int;
-
-  ids_clientes uuid[];
-  ids_artistas uuid[];
 
   qtd_removida int;
   qtd_residual_pos int;
@@ -232,17 +235,31 @@ begin
     raise notice '  configuracao id=% studio_name=%', tabela.id, tabela.studio_name;
   end loop;
 
-  select array_agg(id) into ids_clientes from public.clientes where user_id = uuid_alvo;
-  select array_agg(id) into ids_artistas from public.artistas where user_id = uuid_alvo;
-
-  -- ── PASSO 6 — Chaves estrangeiras: alguma outra tabela referencia estes IDs? ──
+  -- ── PASSO 6 — Chaves estrangeiras: alguma outra tabela referencia estes registros? ──
   -- Descoberta dinâmica de toda FK que aponta pra clientes/artistas/configuracoes
-  -- a partir de QUALQUER outra tabela do schema public.
+  -- a partir de QUALQUER outra tabela do schema public -- inclui a COLUNA
+  -- exata referenciada (ccu.column_name), nunca presume que é "id" (correção
+  -- de 2026-08-15: uma revisão externa encontrou que a versão anterior deste
+  -- Passo só tratava tabela_destino = clientes/artistas de verdade; qualquer
+  -- FK com tabela_destino = configuracoes caía num "else" que declarava
+  -- qtd_dependentes := 0 SEM CONSULTAR NADA -- uma dependência real de
+  -- configuracoes teria passado despercebida). A checagem abaixo roda a
+  -- MESMA consulta real, dinâmica, pra qualquer tabela_destino descoberta
+  -- (clientes, artistas, configuracoes, ou qualquer outra que um dia passe a
+  -- referenciar essas três) -- sem ramificação por nome de tabela e sem
+  -- nenhum caminho que possa declarar "0 dependentes" sem consultar de
+  -- verdade. A subconsulta usa "where user_id = $1" pra identificar as
+  -- linhas que serão apagadas em tabela_destino (todas as três tabelas são
+  -- escopadas por user_id, então isso é equivalente e mais simples que
+  -- carregar arrays de id tipados de antemão -- também evita ter que
+  -- assumir o tipo de tabela_destino.coluna_destino, que este script não
+  -- tem como confirmar sem consultar o banco).
   for fk in
     select
       tc.table_name as tabela_origem,
       kcu.column_name as coluna_origem,
-      ccu.table_name as tabela_destino
+      ccu.table_name as tabela_destino,
+      ccu.column_name as coluna_destino
     from information_schema.table_constraints tc
     join information_schema.key_column_usage kcu
       on tc.constraint_name = kcu.constraint_name and tc.table_schema = kcu.table_schema
@@ -253,21 +270,16 @@ begin
       and ccu.table_name in ('clientes', 'artistas', 'configuracoes')
       and tc.table_name not in ('clientes', 'artistas', 'configuracoes')
   loop
-    if fk.tabela_destino = 'clientes' and ids_clientes is not null then
-      execute format('select count(*) from public.%I where %I = any($1)', fk.tabela_origem, fk.coluna_origem)
-        into qtd_dependentes using ids_clientes;
-    elsif fk.tabela_destino = 'artistas' and ids_artistas is not null then
-      execute format('select count(*) from public.%I where %I = any($1)', fk.tabela_origem, fk.coluna_origem)
-        into qtd_dependentes using ids_artistas;
-    else
-      qtd_dependentes := 0;
-    end if;
+    execute format(
+      'select count(*) from public.%I t where t.%I in (select %I from public.%I where user_id = $1)',
+      fk.tabela_origem, fk.coluna_origem, fk.coluna_destino, fk.tabela_destino
+    ) into qtd_dependentes using uuid_alvo;
 
     if qtd_dependentes > 0 then
-      raise exception 'Abortando: tabela "%" tem % linha(s) referenciando "%" (via coluna "%") de um dos registros a apagar -- exclusão cancelada, dependência não prevista.', fk.tabela_origem, qtd_dependentes, fk.tabela_destino, fk.coluna_origem;
+      raise exception 'Abortando: tabela "%" tem % linha(s) referenciando "%.%" de um dos registros a apagar -- exclusão cancelada, dependência não prevista.', fk.tabela_origem, qtd_dependentes, fk.tabela_destino, fk.coluna_destino;
     end if;
 
-    raise notice '  FK verificada: %.% -> % (0 dependentes)', fk.tabela_origem, fk.coluna_origem, fk.tabela_destino;
+    raise notice '  FK verificada: %.% -> %.% (0 dependentes)', fk.tabela_origem, fk.coluna_origem, fk.tabela_destino, fk.coluna_destino;
   end loop;
 
   -- ── PASSO 7 — Exclusão, na ordem clientes -> artistas -> configuracoes ────

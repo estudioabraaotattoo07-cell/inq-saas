@@ -85,6 +85,63 @@ test("chaves estrangeiras que referenciam clientes/artistas/configuracoes são d
   assert.match(sql, /qtd_dependentes > 0 then\s*\n\s*raise exception/);
 });
 
+// ── Correção de 2026-08-15: revisão externa encontrou que FK com
+// tabela_destino = configuracoes caía num "else" que declarava
+// qtd_dependentes := 0 SEM CONSULTAR NADA. Os testes abaixo provam que essa
+// ramificação por nome de tabela não existe mais -- as 3 tabelas de destino
+// (clientes, artistas, configuracoes) recebem exatamente a MESMA consulta
+// real, dinâmica, e nenhuma delas pode ser declarada "0 dependentes" sem
+// consulta.
+
+function extrairBlocoPasso6(sqlTexto) {
+  const inicio = sqlTexto.search(/── PASSO 6 —/);
+  const fim = sqlTexto.indexOf("-- ── PASSO 7", inicio);
+  return sqlTexto.slice(inicio, fim);
+}
+
+test("Passo 6 não tem NENHUMA ramificação por nome de tabela (if/elsif tabela_destino = ...) -- a checagem de dependência é a MESMA consulta real para qualquer destino, incluindo configuracoes", () => {
+  const blocoPasso6 = extrairBlocoPasso6(sql);
+  const codigoAtivo = blocoPasso6
+    .split("\n")
+    .filter((l) => !l.trim().startsWith("--"))
+    .join("\n");
+  assert.doesNotMatch(codigoAtivo, /if\s+fk\.tabela_destino\s*=/, "não pode existir ramificação por tabela_destino -- a checagem tem que ser genérica");
+  assert.doesNotMatch(codigoAtivo, /qtd_dependentes\s*:=\s*0/, "não pode existir nenhum caminho de código ativo que declare qtd_dependentes := 0 sem consultar");
+  // Exatamente 1 EXECUTE dentro do loop de FK -- prova que é a MESMA consulta
+  // pra todo fk.tabela_destino descoberto, não uma por tabela.
+  const qtdExecute = (codigoAtivo.match(/execute format/g) || []).length;
+  assert.equal(qtdExecute, 1, `esperava exatamente 1 "execute format" dentro do Passo 6 (consulta única e genérica), achou ${qtdExecute}`);
+});
+
+test("a consulta de dependência do Passo 6 usa a coluna de destino REAL (ccu.column_name), nunca hardcoded como 'id'", () => {
+  assert.match(sql, /ccu\.column_name as coluna_destino/, "a coluna referenciada precisa ser descoberta dinamicamente, não assumida");
+  const blocoPasso6 = extrairBlocoPasso6(sql);
+  assert.match(blocoPasso6, /fk\.coluna_destino/, "a consulta de dependência precisa usar fk.coluna_destino, a coluna real descoberta -- não pode assumir 'id'");
+  assert.doesNotMatch(blocoPasso6, /where\s+user_id\s*=\s*\$1\)\s*\)\s*into qtd_dependentes using ids_/, "não pode mais depender de arrays pré-carregados tipados (ids_clientes/ids_artistas)");
+});
+
+test("não existem mais variáveis de array tipado (ids_clientes/ids_artistas) -- a checagem de dependência não presume o tipo do id de nenhuma tabela de destino", () => {
+  assert.doesNotMatch(sql, /ids_clientes/);
+  assert.doesNotMatch(sql, /ids_artistas/);
+});
+
+test("a subconsulta de dependência do Passo 6 é escopada por user_id = uuid_alvo em tabela_destino -- identifica os registros a apagar sem precisar de um array de ids pré-carregado", () => {
+  const blocoPasso6 = extrairBlocoPasso6(sql);
+  assert.match(blocoPasso6, /select %I from public\.%I where user_id = \$1/, "a subconsulta que identifica os registros a apagar em tabela_destino precisa ser escopada por user_id");
+});
+
+test("simulação estrutural: se a FK descoberta tiver tabela_destino = 'configuracoes', o mesmo bloco de código (única consulta genérica) executa -- não existe caminho de código exclusivo para clientes/artistas que pule configuracoes", () => {
+  const blocoPasso6 = extrairBlocoPasso6(sql);
+  // Nenhuma referência literal a 'clientes' ou 'artistas' como valor de
+  // comparação dentro do corpo do loop (só na query de descoberta do FOR,
+  // que é comum às 3 tabelas) -- confirma que configuracoes recebe o mesmo
+  // tratamento, não um tratamento à parte ou ausente.
+  const corpoDoLoop = blocoPasso6.slice(blocoPasso6.indexOf("loop") + 4, blocoPasso6.indexOf("end loop;"));
+  assert.doesNotMatch(corpoDoLoop, /'clientes'/);
+  assert.doesNotMatch(corpoDoLoop, /'artistas'/);
+  assert.doesNotMatch(corpoDoLoop, /'configuracoes'/);
+});
+
 test("ordem de exclusão é clientes -> artistas -> configuracoes (clientes primeiro, por poder referenciar artistas)", () => {
   const idxClientes = sql.search(/delete from public\.clientes where user_id = uuid_alvo;/);
   const idxArtistas = sql.search(/delete from public\.artistas where user_id = uuid_alvo;/);
