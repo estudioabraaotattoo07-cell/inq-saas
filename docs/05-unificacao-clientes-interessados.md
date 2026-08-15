@@ -196,3 +196,53 @@ representação textual idêntica caractere por caractere.
 Ver `lib/tenant/classificacaoInteressado.js` (docblock) e
 `sql/2026-08-14_pipeline_unificar_clientes_interessados.sql` (cabeçalho)
 para o detalhamento técnico completo de cada ponto.
+
+## ADENDO 3 — Confirmação formal da definição de produto: "lead quente"/"lead básico" (2026-08-15)
+
+Decisão de produto confirmada, formalizando por escrito o que já estava
+implementado desde a versão inicial deste bloco — **nenhum comportamento foi
+alterado por este adendo**, só a documentação passou a registrar
+explicitamente a definição comercial por trás do código já existente:
+
+- Comercialmente, um interessado é **"lead quente"** quando preenche pelo
+  menos 2 destes 3 critérios: descrição da ideia, região do corpo, imagens
+  de referência. Quem não atinge 2 dos 3 é **"lead básico"**.
+- **"Lead quente" é o conceito comercial; "Projeto detalhado" é a sua
+  apresentação visual no CRM** — o selo `✦ Projeto detalhado` no cartão
+  (`src/CRM Casa dos Carvalho.tsx`) é como esse conceito aparece pro
+  usuário. O termo "lead quente" continua sendo só um nome interno de
+  raciocínio, nunca aparece como texto na interface (ver ADENDO, acima).
+  "Lead básico" fica sem nenhuma marcação/selo no cartão.
+- Lead básico e lead quente **continuam dentro da mesma e única coluna**,
+  `lead`/"Clientes interessados" — essa distinção nunca cria uma coluna
+  nova, um slug novo, ou um valor de banco chamado `lead_quente`. Não existe
+  e não deve ser criado nenhum identificador técnico com esse nome.
+- Confirmado que os seguintes campos **não** entram nesse cálculo: Instagram,
+  data de nascimento, melhor período pra retorno, código promocional,
+  artista de preferência, serviço desejado. A **faixa de investimento**
+  também não entra nesta regra — fica reservada para uma possível
+  classificação comercial futura e diferente, ainda não definida.
+- A função `projetoEstaDetalhado()` (`lib/tenant/classificacaoInteressado.js`)
+  deve continuar sendo uma função pura, sem depender de banco nem de tela,
+  justamente para poder ser reaproveitada dentro do backend (`api/lead.js`)
+  quando a integração com a API de Conversões da Meta (Meta Conversions
+  API — o mecanismo que permite enviar eventos de "lead qualificado"
+  diretamente do servidor pra Meta, mais confiável que só o Pixel do
+  navegador) for planejada. **Essa integração não foi implementada agora** —
+  só a propriedade de a função já ser reaproveitável foi confirmada como
+  algo a preservar.
+
+### PENDÊNCIA DE SEGURANÇA E INTEGRIDADE (fora do escopo deste bloco)
+
+Durante a auditoria desta definição de produto, foi encontrada uma
+divergência entre o que a ficha do site promete como obrigatório e o que o
+servidor realmente exige: o formulário (`api/lead.js:676-678`) marca nome,
+WhatsApp e e-mail como obrigatórios (`required`, reforçado por uma mensagem
+de erro em `api/lead.js:792`), mas a validação real do servidor
+(`api/lead.js:1510`) só rejeita a requisição se **os três** estiverem vazios
+ao mesmo tempo — basta um único desses três campos vir preenchido pra passar.
+Uma requisição feita diretamente à API (sem passar pelo formulário do
+navegador) poderia criar um cliente com, por exemplo, só um telefone.
+**Não corrigida neste bloco** — registrada aqui só como pendência conhecida
+de segurança/integridade de dado, para avaliação e correção em bloco
+separado.
