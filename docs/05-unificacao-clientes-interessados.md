@@ -66,8 +66,10 @@ documento formaliza o que já era verdade na prática:
 
 ## O QUE MUDA NA PRÁTICA
 
-- Toda nova entrada começa em `lead` / "Clientes interessados", sem exceção.
-- A quantidade de informação fornecida **nunca** cria uma coluna diferente.
+- Toda nova entrada, básica ou detalhada, deve entrar na etapa técnica
+  `lead`, exibida como "Clientes interessados". A diferença entre contato
+  básico e projeto detalhado **não cria colunas diferentes** — é só o selo
+  descrito abaixo, dentro da mesma coluna.
 - Dentro da mesma coluna, um cartão pode ganhar o selo **"✦ Projeto
   detalhado"** — uma classificação calculada na hora de exibir o cartão
   (nunca gravada numa coluna do banco, pra nunca ficar desatualizada),
@@ -160,6 +162,36 @@ ajuste ou esclarecimento adicional:
   ativa atual. Comportamento documentado e fixado por teste; a correção
   definitiva (região/referências por item de `projetos[]`) fica para o
   bloco de reconstrução do formulário do site.
+
+## ADENDO 2 — Correção pós-revisão externa do SQL (2026-08-15)
+
+Uma revisão externa ao conteúdo integral do arquivo SQL (não só ao resumo
+deste documento) encontrou uma falha real na descoberta de tenants afetados
+descrita no Adendo anterior: ela olhava só para clientes ou itens de
+`projetos[]` em `lead_morno`/`aura_agend`. Isso deixava de fora um tenant já
+provisionado que possui linha(s) de `pipeline_etapas` com `lead_morno`/
+`aura_agend` (ou cujo `lead` ainda tem o label antigo "Lead") mas **já não
+tem nenhum cliente ou projeto** nessas etapas — esse tenant manteria as
+colunas antigas (ou o label antigo) para sempre, porque nunca seria
+"descoberto" pela migração.
+
+Corrigido: a descoberta de tenants agora é a união de quatro critérios —
+(1) cliente com etapa antiga; (2) cliente com item de `projetos[]` em etapa
+antiga; (3) linha de `pipeline_etapas` com slug `lead_morno`/`aura_agend`,
+mesmo sem nenhum cliente/projeto usando essas etapas; (4) linha de
+`pipeline_etapas` com slug `lead` cujo label ainda não é "Clientes
+interessados", mesmo sem nenhum cliente/projeto afetado. O script também
+passou a: abortar antes de qualquer alteração se encontrar registro com
+`user_id` nulo relacionado a `lead_morno`/`aura_agend` (cliente, projeto ou
+linha de `pipeline_etapas`); conferir pós-condições **globais** (todo o
+banco, não só os tenants processados nesta execução) antes de concluir; e
+ser seguro rodar mais de uma vez (segunda execução não encontra mais nenhum
+tenant afetado e só imprime aviso de "nada a fazer", sem tocar em nada).
+
+A afirmação de que os itens de `projetos[]` são preservados "byte a byte"
+também foi corrigida para "semanticamente" (mesma ordem, campos e valores) —
+`jsonb_agg`/`jsonb_set` reconstroem o array JSONB e o Postgres não garante
+representação textual idêntica caractere por caractere.
 
 Ver `lib/tenant/classificacaoInteressado.js` (docblock) e
 `sql/2026-08-14_pipeline_unificar_clientes_interessados.sql` (cabeçalho)
