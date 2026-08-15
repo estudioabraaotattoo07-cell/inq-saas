@@ -37,6 +37,19 @@ export function formatarTelefone(v) {
   return "(" + v.slice(0, 2) + ") " + v.slice(2, 7) + "-" + v.slice(7);
 }
 
+// Nome/WhatsApp/e-mail são verdadeiramente obrigatórios na captação pública
+// (Bloco 1 -- Reconstrução da Captação, 2026-08-15): só texto de verdade
+// conta -- ausente, null, tipo diferente de string, ou string vazia/só com
+// espaços não passam. Função pura e exportada (mesmo padrão de
+// formatarTelefone/planoSugeridoSemLegado, acima) para o teste exercitar a
+// mesma função usada pelo handler real, nunca uma cópia.
+export function textoObrigatorioValido(v) {
+  return typeof v === "string" && v.trim().length > 0;
+}
+export function camposObrigatoriosPreenchidos(nome, tel, email) {
+  return textoObrigatorioValido(nome) && textoObrigatorioValido(tel) && textoObrigatorioValido(email);
+}
+
 // Estilo premium compartilhado por todas as paginas publicas server-rendered
 // (confirmacao, avaliacao NPS, convite Google) -- mesmo padrao visual do app:
 // fundo com brilho violeta, quadro com moldura dourada neon, botoes em pilula.
@@ -1507,7 +1520,16 @@ export default async function handler(req, res) {
   // Normalização equivalente à já usada em lead_busca -- espaço incidental
   // não deveria diferenciar um slug válido de "inexistente".
   const siteSlug = (siteSlugRaw || "").trim();
-  if (!nome && !tel && !email) return res.status(400).json({ error: "pelo menos um dado obrigatorio" });
+  // Correção (Bloco 1 -- Reconstrução da Captação, 2026-08-15): a checagem
+  // anterior só rejeitava quando os TRÊS chegavam vazios ao mesmo tempo
+  // (`!nome && !tel && !email`) -- bastava um único campo preenchido pra
+  // passar, mesmo que os outros dois estivessem ausentes. Nome, WhatsApp e
+  // e-mail são obrigatórios de verdade: falta de QUALQUER um dos três
+  // rejeita a requisição inteira. Mensagem genérica de propósito -- não
+  // expõe qual validação específica falhou.
+  if (!camposObrigatoriosPreenchidos(nome, tel, email)) {
+    return res.status(400).json({ error: "Nome completo, WhatsApp e e-mail são obrigatórios." });
+  }
 
   const ideaFinal = idea || ideia || "";
 
