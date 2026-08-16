@@ -1972,57 +1972,97 @@ export default async function handler(req, res) {
   if (cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {
     const emailFromRaw = process.env.EMAIL_REMETENTE || "";
     const emailFrom = emailFromRaw ? nomeEstudioLead + " <" + emailFromRaw + ">" : emailFromRaw;
-    const artistaNome = artistaNomeResolvido;
+    // waNumero depende só de cfgDisparos.studio_tel (do tenant, não de
+    // isNewClient) -- calculado uma vez, reaproveitado pelos dois e-mails.
     const waNumero = cfgDisparos?.studio_tel ? "55" + cfgDisparos.studio_tel.replace(/\D/g, "") : "";
-    const waTexto = "Olá! Recebi agora o e-mail confirmando meu cadastro na " + nomeEstudioLead + ". Meus dados: " + nome +
-      (ideaFinal ? ", projeto de " + ideaFinal : "") + (regiao ? " na região " + regiao : "") + (artistaNomeResolvido ? ", com " + artistaNomeResolvido : "") +
-      ". Se for possível, vocês conseguem adiantar meu atendimento? Agradeço desde já!";
-    const waLink = waNumero ? "https://wa.me/" + waNumero + "?text=" + encodeURIComponent(waTexto) : "";
-    const cidadeLead = [cfgDisparos?.studio_city, cfgDisparos?.studio_estado].filter(Boolean).join(", ");
-    const ni = "Não informado";
-    const nascFormatado = nascimentoISO
-      ? nascimentoISO.split("-").reverse().join("/")
-      : ni;
-    const resumoDados =
-      "<table style='width:100%;border-collapse:collapse;font-size:13px;margin:16px 0'>" +
-      "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555;width:140px'>Nome</td><td style='padding:8px 12px;color:#222'>" + nome + "</td></tr>" +
-      "<tr><td style='padding:8px 12px;color:#555'>Telefone</td><td style='padding:8px 12px;color:#222'>" + (tel || ni) + "</td></tr>" +
-      "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>E-mail</td><td style='padding:8px 12px;color:#222'>" + (email || ni) + "</td></tr>" +
-      "<tr><td style='padding:8px 12px;color:#555'>Artista</td><td style='padding:8px 12px;color:#222'>" + (artistaNomeResolvido || ni) + "</td></tr>" +
-      "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Ideia / projeto</td><td style='padding:8px 12px;color:#222'>" + (ideaFinal || ni) + "</td></tr>" +
-      "<tr><td style='padding:8px 12px;color:#555'>Região do corpo</td><td style='padding:8px 12px;color:#222'>" + (regiao || ni) + "</td></tr>" +
-      "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Instagram</td><td style='padding:8px 12px;color:#222'>" + (insta || ni) + "</td></tr>" +
-      "<tr><td style='padding:8px 12px;color:#555'>Data de nascimento</td><td style='padding:8px 12px;color:#222'>" + nascFormatado + "</td></tr>" +
-      (obsExtra ? "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Observações</td><td style='padding:8px 12px;color:#222'>" + obsExtra + "</td></tr>" : "") +
-      "</table>";
-    const htmlBoasVindas =
-      "<div style='font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px'>" +
-      logoEmailTag +
-      "<p style='font-size:22px;font-weight:bold;color:#1a1a1a;margin-bottom:4px'>" + nomeEstudioLead + "</p>" +
-      "<hr style='border:none;border-top:1px solid #d4a84b;margin-bottom:24px'>" +
-      "<p style='font-size:16px'>Olá, <strong>" + fn + "</strong>!</p>" +
-      "<p style='line-height:1.8;color:#333'>Que alegria receber sua ideia aqui na " + nomeEstudioLead + ". Já registramos tudo com cuidado" +
-      (artistaNome ? " — e vimos que você tem interesse em tatuar com <strong>" + artistaNome + "</strong>!" : "!") + "</p>" +
-      "<p style='line-height:1.8;color:#333'>Em até 24h, alguém da nossa equipe vai te ligar pessoalmente para conversar sobre os detalhes do seu projeto. Sem formulário, sem robô — conversa de gente pra gente.</p>" +
-      (waLink ? "<p style='line-height:1.8;color:#333'>Se preferir adiantar por WhatsApp, é só chamar a gente aqui:</p><p><a href='" + waLink + "' style='display:inline-block;background:linear-gradient(135deg,#2CE370,#1DA851);color:#fff;text-decoration:none;padding:13px 28px;border-radius:50px;font-size:14px;font-weight:bold;box-shadow:0 4px 14px rgba(29,168,81,0.35)'><span style='display:inline-block;vertical-align:middle;margin-right:8px;width:16px;height:16px'><svg width='16' height='16' viewBox='0 0 24 24' fill='#fff' style='display:block'><path d='M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.65-.6-2.9-1.25-4.79-4.17-4.94-4.36-.14-.2-1.18-1.56-1.18-2.98s.75-2.11 1.02-2.4c.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.19-.28.37-.23.62-.14.26.09 1.63.77 1.91.91.28.14.47.21.54.33.07.12.07.68-.17 1.36Z'/></svg></span><span style='display:inline-block;vertical-align:middle'>Chamar no WhatsApp</span></a></p>" : "") +
-      "<p style='line-height:1.8;color:#333;margin-top:20px'>Trabalhamos só com hora marcada, então cada projeto recebe atenção total — do primeiro traço ao último detalhe.</p>" +
-      "<p style='margin-top:8px;line-height:1.8;color:#333'><strong>Resumo do que registramos:</strong></p>" +
-      resumoDados +
-      "<p style='line-height:1.8;color:#333;margin-top:16px'>Obrigado por escolher fazer parte da nossa família. Já estamos ansiosos para te conhecer. 🖤</p>" +
-      "<p style='margin-top:32px;font-size:12px;color:#999'>Com carinho,<br><strong>" + nomeEstudioLead + "</strong>" + (cidadeLead ? " — " + cidadeLead : "") + "</p>" +
-      "<p style='margin-top:20px;font-size:11px;color:#bbb'>Não é necessário responder este e-mail — se preferir falar com a gente, use o WhatsApp acima.</p>" +
-      "</div>";
     // reply_to aponta pro e-mail do próprio estúdio (não pro remetente técnico
     // compartilhado por todos os tenants) -- sem isso, resposta de lead de
     // qualquer estúdio cairia todas no mesmo lugar, misturadas.
     const replyToEstudio = cfgDisparos?.studio_email || null;
-    await enviarEmailLead("boas-vindas ao cliente", {
-      from: emailFrom,
-      to: [email],
-      ...(replyToEstudio ? { reply_to: replyToEstudio } : {}),
-      subject: "Recebemos sua mensagem, " + fn + "! 🖤",
-      html: htmlBoasVindas
-    });
+
+    if (isNewClient) {
+      // E-mail 1 -- boas-vindas ao lead novo. Preservado tal como estava.
+      const artistaNome = artistaNomeResolvido;
+      const waTexto = "Olá! Recebi agora o e-mail confirmando meu cadastro na " + nomeEstudioLead + ". Meus dados: " + nome +
+        (ideaFinal ? ", projeto de " + ideaFinal : "") + (regiao ? " na região " + regiao : "") + (artistaNomeResolvido ? ", com " + artistaNomeResolvido : "") +
+        ". Se for possível, vocês conseguem adiantar meu atendimento? Agradeço desde já!";
+      const waLink = waNumero ? "https://wa.me/" + waNumero + "?text=" + encodeURIComponent(waTexto) : "";
+      const cidadeLead = [cfgDisparos?.studio_city, cfgDisparos?.studio_estado].filter(Boolean).join(", ");
+      const ni = "Não informado";
+      const nascFormatado = nascimentoISO
+        ? nascimentoISO.split("-").reverse().join("/")
+        : ni;
+      const resumoDados =
+        "<table style='width:100%;border-collapse:collapse;font-size:13px;margin:16px 0'>" +
+        "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555;width:140px'>Nome</td><td style='padding:8px 12px;color:#222'>" + nome + "</td></tr>" +
+        "<tr><td style='padding:8px 12px;color:#555'>Telefone</td><td style='padding:8px 12px;color:#222'>" + (tel || ni) + "</td></tr>" +
+        "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>E-mail</td><td style='padding:8px 12px;color:#222'>" + (email || ni) + "</td></tr>" +
+        "<tr><td style='padding:8px 12px;color:#555'>Artista</td><td style='padding:8px 12px;color:#222'>" + (artistaNomeResolvido || ni) + "</td></tr>" +
+        "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Ideia / projeto</td><td style='padding:8px 12px;color:#222'>" + (ideaFinal || ni) + "</td></tr>" +
+        "<tr><td style='padding:8px 12px;color:#555'>Região do corpo</td><td style='padding:8px 12px;color:#222'>" + (regiao || ni) + "</td></tr>" +
+        "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Instagram</td><td style='padding:8px 12px;color:#222'>" + (insta || ni) + "</td></tr>" +
+        "<tr><td style='padding:8px 12px;color:#555'>Data de nascimento</td><td style='padding:8px 12px;color:#222'>" + nascFormatado + "</td></tr>" +
+        (obsExtra ? "<tr style='background:#f7f3ee'><td style='padding:8px 12px;color:#555'>Observações</td><td style='padding:8px 12px;color:#222'>" + obsExtra + "</td></tr>" : "") +
+        "</table>";
+      const htmlBoasVindas =
+        "<div style='font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px'>" +
+        logoEmailTag +
+        "<p style='font-size:22px;font-weight:bold;color:#1a1a1a;margin-bottom:4px'>" + nomeEstudioLead + "</p>" +
+        "<hr style='border:none;border-top:1px solid #d4a84b;margin-bottom:24px'>" +
+        "<p style='font-size:16px'>Olá, <strong>" + fn + "</strong>!</p>" +
+        "<p style='line-height:1.8;color:#333'>Que alegria receber sua ideia aqui na " + nomeEstudioLead + ". Já registramos tudo com cuidado" +
+        (artistaNome ? " — e vimos que você tem interesse em tatuar com <strong>" + artistaNome + "</strong>!" : "!") + "</p>" +
+        "<p style='line-height:1.8;color:#333'>Em até 24h, alguém da nossa equipe vai te ligar pessoalmente para conversar sobre os detalhes do seu projeto. Sem formulário, sem robô — conversa de gente pra gente.</p>" +
+        (waLink ? "<p style='line-height:1.8;color:#333'>Se preferir adiantar por WhatsApp, é só chamar a gente aqui:</p><p><a href='" + waLink + "' style='display:inline-block;background:linear-gradient(135deg,#2CE370,#1DA851);color:#fff;text-decoration:none;padding:13px 28px;border-radius:50px;font-size:14px;font-weight:bold;box-shadow:0 4px 14px rgba(29,168,81,0.35)'><span style='display:inline-block;vertical-align:middle;margin-right:8px;width:16px;height:16px'><svg width='16' height='16' viewBox='0 0 24 24' fill='#fff' style='display:block'><path d='M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.65-.6-2.9-1.25-4.79-4.17-4.94-4.36-.14-.2-1.18-1.56-1.18-2.98s.75-2.11 1.02-2.4c.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.19-.28.37-.23.62-.14.26.09 1.63.77 1.91.91.28.14.47.21.54.33.07.12.07.68-.17 1.36Z'/></svg></span><span style='display:inline-block;vertical-align:middle'>Chamar no WhatsApp</span></a></p>" : "") +
+        "<p style='line-height:1.8;color:#333;margin-top:20px'>Trabalhamos só com hora marcada, então cada projeto recebe atenção total — do primeiro traço ao último detalhe.</p>" +
+        "<p style='margin-top:8px;line-height:1.8;color:#333'><strong>Resumo do que registramos:</strong></p>" +
+        resumoDados +
+        "<p style='line-height:1.8;color:#333;margin-top:16px'>Obrigado por escolher fazer parte da nossa família. Já estamos ansiosos para te conhecer. 🖤</p>" +
+        "<p style='margin-top:32px;font-size:12px;color:#999'>Com carinho,<br><strong>" + nomeEstudioLead + "</strong>" + (cidadeLead ? " — " + cidadeLead : "") + "</p>" +
+        "<p style='margin-top:20px;font-size:11px;color:#bbb'>Não é necessário responder este e-mail — se preferir falar com a gente, use o WhatsApp acima.</p>" +
+        "</div>";
+      await enviarEmailLead("boas-vindas ao cliente", {
+        from: emailFrom,
+        to: [email],
+        ...(replyToEstudio ? { reply_to: replyToEstudio } : {}),
+        subject: "Recebemos sua mensagem, " + fn + "! 🖤",
+        html: htmlBoasVindas
+      });
+    } else {
+      // Bloco 3.2B -- E-mail 2: cadastro já reconhecido (isNewClient===false).
+      // Só informa que o cadastro foi reconhecido e direciona pro WhatsApp --
+      // nunca afirma "já tatuou"/"já é cliente"/"projeto ativo" (a pessoa
+      // pode só ter preenchido a ficha antes, sem nunca ter sido atendida).
+      // Deliberadamente SEM resumoDados -- não mostra ideia/região/artista/
+      // serviço/observações desta submissão, mesmo princípio do Bloco 3.2A
+      // de não reinterpretar uma nova solicitação pro cadastro existente.
+      const waTexto2 = "Olá! Já possuo cadastro e gostaria de continuar meu atendimento.";
+      const waLink2 = waNumero ? "https://wa.me/" + waNumero + "?text=" + encodeURIComponent(waTexto2) : "";
+      // Sem WhatsApp válido: nunca renderiza botão quebrado/vazio -- troca
+      // por orientação para responder o e-mail (reply_to já aponta pro
+      // e-mail do estúdio quando disponível, mesmo mecanismo de sempre).
+      const ctaOuOrientacao = waLink2
+        ? "<p><a href='" + waLink2 + "' style='display:inline-block;background:linear-gradient(135deg,#2CE370,#1DA851);color:#fff;text-decoration:none;padding:13px 28px;border-radius:50px;font-size:14px;font-weight:bold;box-shadow:0 4px 14px rgba(29,168,81,0.35)'><span style='display:inline-block;vertical-align:middle;margin-right:8px;width:16px;height:16px'><svg width='16' height='16' viewBox='0 0 24 24' fill='#fff' style='display:block'><path d='M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.02c-.24.68-1.4 1.32-1.94 1.4-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.65-.6-2.9-1.25-4.79-4.17-4.94-4.36-.14-.2-1.18-1.56-1.18-2.98s.75-2.11 1.02-2.4c.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.19-.28.37-.23.62-.14.26.09 1.63.77 1.91.91.28.14.47.21.54.33.07.12.07.68-.17 1.36Z'/></svg></span><span style='display:inline-block;vertical-align:middle'>Continuar pelo WhatsApp</span></a></p>"
+        : "<p style='line-height:1.8;color:#333'>Para continuar seu atendimento, responda este e-mail e nossa equipe dará continuidade ao contato.</p>";
+      const htmlCadastroReconhecido =
+        "<div style='font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#222;background:#fff;padding:32px'>" +
+        logoEmailTag +
+        "<p style='font-size:22px;font-weight:bold;color:#1a1a1a;margin-bottom:4px'>" + nomeEstudioLead + "</p>" +
+        "<hr style='border:none;border-top:1px solid #d4a84b;margin-bottom:24px'>" +
+        "<p style='font-size:16px'>Olá, <strong>" + fn + "</strong>!</p>" +
+        "<p style='line-height:1.8;color:#333'>Recebemos suas informações e reconhecemos que você já possui um cadastro conosco.</p>" +
+        "<p style='line-height:1.8;color:#333'>Para continuar seu atendimento, conversar sobre um novo projeto, consulta, sessão, reagendamento ou qualquer outra solicitação, fale diretamente com nossa equipe pelo WhatsApp.</p>" +
+        ctaOuOrientacao +
+        "<p style='margin-top:32px;font-size:12px;color:#999'>Até já,<br><strong>" + nomeEstudioLead + "</strong></p>" +
+        "</div>";
+      await enviarEmailLead("cadastro reconhecido", {
+        from: emailFrom,
+        to: [email],
+        ...(replyToEstudio ? { reply_to: replyToEstudio } : {}),
+        subject: "Vamos continuar seu atendimento, " + fn + "?",
+        html: htmlCadastroReconhecido
+      });
+    }
   }
 
   return res.status(200).json({ ok: true, clienteId, campanha: campanhaResp });
