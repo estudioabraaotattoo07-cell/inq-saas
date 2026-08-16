@@ -8608,6 +8608,14 @@ export default function CRM() {
                                 const sid = stage.id;
                                 const boasVindasCards = (<>
                                   <CardSistema ativo={fluxoToggles.boas_vindas_email} toggleKey="boas_vindas_email" label="E-mail de boas-vindas ao cliente" gatilho="Imediato — ao entrar no sistema (Aura Chat ou cadastro manual)" preview={"Assunto: Recebemos sua mensagem, {nome}!\n\nOlá, {nome}! Que alegria receber sua ideia aqui na {estudio}. Já registramos tudo com cuidado — em até 24h, alguém da nossa equipe vai te ligar pessoalmente. Sem formulário, sem robô — conversa de gente pra gente.\n\n+ Resumo dos dados registrados (nome, telefone, ideia, região, artista...)"} />
+                                  {/* Bloco 3.2C -- E-mail 2 (cadastro reconhecido, api/lead.js). Mesmo
+                                  padrão do CardSistema acima, sem toggleKey próprio de propósito: os
+                                  dois e-mails pertencem ao mesmo fluxo_boas_vindas_email_ativa (decisão
+                                  do Bloco 3.2B) -- um segundo switch aqui controlaria a mesma coluna do
+                                  primeiro, o que seria redundante e visualmente enganoso. "ativo" só
+                                  reflete o mesmo estado (leitura), o botão de ligar/desligar continua
+                                  existindo só uma vez, no card do E-mail 1 acima. */}
+                                  <CardSistema ativo={fluxoToggles.boas_vindas_email} label="E-mail de cadastro reconhecido" gatilho="Imediato — quando o formulário do site reconhece um cadastro já existente (mesmo interruptor do E-mail de boas-vindas, acima)" preview={"Assunto: Vamos continuar seu atendimento, {nome}?\n\nOlá, {nome}! Recebemos suas informações e reconhecemos que você já possui um cadastro conosco. Para continuar seu atendimento, conversar sobre um novo projeto, consulta, sessão, reagendamento ou qualquer outra solicitação, fale diretamente com nossa equipe pelo WhatsApp.\n\n+ Botão: Continuar pelo WhatsApp"} />
                                   <CardSistema ativo={fluxoToggles.notificacao_artista} toggleKey="notificacao_artista" label="E-mail de alerta interno ao artista" gatilho="Imediato — notifica o profissional responsável" preview={"Assunto: Novo lead — {nome}\n\nUm novo cliente entrou em contato solicitando atendimento com você.\n\nNome: {nome} · Tel: {tel} · Ideia: {estilo} · Região: {regiao}\n\nAcesse o sistema para dar andamento."} />
                                 </>);
                                 // "lead_morno"/"aura_agend" removidas daqui (Bloco de Unificação da

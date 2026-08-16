@@ -123,7 +123,10 @@ test("WhatsApp do E-mail 2 reaproveita waNumero (cfgDisparos.studio_tel) e encod
   const qtdWaNumero = (trechoBloco.match(/const waNumero = cfgDisparos\?\.studio_tel/g) || []).length;
   assert.equal(qtdWaNumero, 1, "waNumero precisa ser calculado uma única vez, compartilhado pelos dois e-mails");
   const trechoExistente = trechoRamoExistente();
-  assert.match(trechoExistente, /const waTexto2 = "Olá! Já possuo cadastro e gostaria de continuar meu atendimento\.";/);
+  // Bloco 3.2C (2026-08-16): mensagem pré-preenchida aprimorada -- ver
+  // api/_tests/lead.email2WhatsAppRelacionamento.test.js para a cobertura
+  // detalhada do conteúdo exato da nova mensagem.
+  assert.match(trechoExistente, /const waTexto2 = "Olá! Já faço parte da " \+ nomeEstudioLead \+/);
   assert.match(trechoExistente, /const waLink2 = waNumero \? "https:\/\/wa\.me\/" \+ waNumero \+ "\?text=" \+ encodeURIComponent\(waTexto2\) : "";/);
   assert.match(trechoExistente, /Continuar pelo WhatsApp/);
 });

@@ -2036,7 +2036,7 @@ export default async function handler(req, res) {
       // Deliberadamente SEM resumoDados -- não mostra ideia/região/artista/
       // serviço/observações desta submissão, mesmo princípio do Bloco 3.2A
       // de não reinterpretar uma nova solicitação pro cadastro existente.
-      const waTexto2 = "Olá! Já possuo cadastro e gostaria de continuar meu atendimento.";
+      const waTexto2 = "Olá! Já faço parte da " + nomeEstudioLead + " e recebi o e-mail para continuar meu atendimento por aqui. 😊\nQuero falar com vocês sobre uma nova solicitação. Podem me ajudar com os próximos passos?";
       const waLink2 = waNumero ? "https://wa.me/" + waNumero + "?text=" + encodeURIComponent(waTexto2) : "";
       // Sem WhatsApp válido: nunca renderiza botão quebrado/vazio -- troca
       // por orientação para responder o e-mail (reply_to já aponta pro
