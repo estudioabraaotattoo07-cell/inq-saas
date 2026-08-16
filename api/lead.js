@@ -1672,7 +1672,6 @@ export default async function handler(req, res) {
 
   let clienteId = null;
   let isNewClient = true;
-  let matchInfo = null;
   let avisoCompartilhamento = null;
   {
     const telDigits = tel ? tel.replace(/[^0-9]/g, "").slice(-11) : null;
@@ -1741,12 +1740,17 @@ export default async function handler(req, res) {
         const { error: erroUpdateRetorno } = await sb.from("clientes").update({ hist: novoHist, excluido_em: null }).eq("id", match.id);
         if (erroUpdateRetorno) console.error("ERRO update cliente retornando (criarSolicitacao):", JSON.stringify(erroUpdateRetorno));
         clienteId = match.id;
-        matchInfo = { artista: match.artista || null, etapa: match.etapa || null, projetos: match.projetos || [] };
       } else {
+        // Bloco 3.2A -- Roteamento seguro e privacidade (2026-08-16): cadastro
+        // já existente é só reconhecido, nunca tem sua vida operacional
+        // reinterpretada por uma nova passagem pelo formulário público --
+        // origem, campanha e dados de intenção/solicitação (descrição, região,
+        // serviço, artista, observações, período de ligação) PARAM de ser
+        // escritos aqui. Mantido só o enriquecimento cadastral mínimo, que
+        // nunca sobrescreve dado real já existente (maisCompleto/só-se-vazio).
+        // Ver docs/06-reconstrucao-captacao-site.md.
         const updateFields = { excluido_em: null };
-        if (origemSlug && row.orig !== "Site") updateFields.orig = row.orig;
-        if (camposCampanha && !match.campanha_id) Object.assign(updateFields, camposCampanha);
-        else campanhaAplicada = null; // já tinha campanha vinculada, ou não bateu -- não reporta como aplicado
+        campanhaAplicada = null; // cadastro existente nunca aplica/reporta campanha
         const nomeVal = maisCompleto(match.nome, nome);
         if (nomeVal) updateFields.nome = nomeVal;
         const emailVal = maisCompleto(match.email, email);
@@ -1754,16 +1758,7 @@ export default async function handler(req, res) {
         if (telDigits && !match.tel) updateFields.tel = tel;
         const instaVal = maisCompleto(match.insta, insta);
         if (instaVal) updateFields.insta = instaVal;
-        const descVal = maisCompleto(match.descricao, ideaFinal);
-        if (descVal) updateFields.descricao = descVal;
         if (nascimentoISO && !match.nascimento) updateFields.nascimento = nascimentoISO;
-        const artistaVal = maisCompleto(match.artista, artista);
-        if (artistaVal) updateFields.artista = artistaVal;
-        const regiaoVal = maisCompleto(match.regiao, regiao);
-        if (regiaoVal) updateFields.regiao = regiaoVal;
-        if (servico) updateFields.servico = servico;
-        if (periodoLigacao) updateFields.periodo_ligacao = periodoLigacao;
-        if (obsExtra) updateFields.obs = `Lead captado via Aura Chat no site. ${obsExtra}`;
         // Bloco de Unificação da Entrada de Clientes Interessados (2026-08-14):
         // removido o bloco que deixava a requisição pública escolher a etapa de um
         // cliente já existente via etapaSolicitada (campo "etapa" do corpo da
@@ -1828,11 +1823,6 @@ export default async function handler(req, res) {
         const { error: erroUpdateMatch } = await sb.from("clientes").update(updateFields).eq("id", match.id);
         if (erroUpdateMatch) console.error("ERRO update cliente existente (criarSolicitacao):", JSON.stringify(erroUpdateMatch), "campos:", JSON.stringify(updateFields));
         clienteId = match.id;
-        matchInfo = {
-          artista: updateFields.artista || match.artista || null,
-          etapa: match.etapa || null,
-          projetos: match.projetos || [],
-        };
       }
     } else if (match && isNewClient) {
       // Acabou de ser criado agora mesmo pelo upsert atômico -- já está com
@@ -1890,8 +1880,12 @@ export default async function handler(req, res) {
   // boas-vindas ao cliente saiam incompletos (as vezes nem enviavam, por
   // faltar e-mail nesse ponto especifico).
   const deveNotificar = !!finalizado;
+  // Bloco 3.2A -- resposta pública neutra: nunca expõe etapa/projetos/artista
+  // nem qualquer outro dado operacional interno do cadastro, novo ou
+  // existente -- evita transformar o formulário público em mecanismo de
+  // enumeração de clientes.
   if (!isNewClient) {
-    if (!deveNotificar) return res.status(200).json({ ok: true, clienteId, updated: true, campanha: campanhaResp, ...matchInfo });
+    if (!deveNotificar) return res.status(200).json({ ok: true, clienteId, updated: true, campanha: campanhaResp });
   } else if (!deveNotificar) {
     return res.status(200).json({ ok: true, clienteId, campanha: campanhaResp });
   }
@@ -1943,8 +1937,13 @@ export default async function handler(req, res) {
     }
   }
 
-  // E-mail de alerta interno ao profissional responsável
-  if (cfgDisparos?.fluxo_notificacao_artista_ativa !== false && resendKey) {
+  // E-mail de alerta interno ao profissional responsável -- Bloco 3.2A: o
+  // alerta rotula a submissão como "Novo lead" (assunto/título abaixo, texto
+  // intencionalmente preservado); cadastro já reconhecido (isNewClient ===
+  // false) não deve gerar esse alerta, para não induzir a equipe a tratar
+  // reincidência como entrada operacional nova. E-mail 2 pro cadastro
+  // reconhecido pertence ao Bloco 3.2B, não implementado aqui.
+  if (isNewClient && cfgDisparos?.fluxo_notificacao_artista_ativa !== false && resendKey) {
     let emailArtista = artistaEmailResolvido || cfgDisparos?.studio_email || null;
     const emailFrom2Raw = process.env.EMAIL_REMETENTE || "";
     const emailFrom2 = emailFrom2Raw ? nomeEstudioLead + " <" + emailFrom2Raw + ">" : emailFrom2Raw;
