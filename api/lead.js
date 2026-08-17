@@ -1019,6 +1019,13 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
   }
   var TRAFEGO_CAPTURADO = capturarTrafego();
   var ceEnviando = false;
+  // Bloco 3.3B-B2 -- estado do detalhamento opcional, inteiramente separado
+  // do estado da ficha antiga (referenciasUrls/enviando) e do estado da
+  // própria captação essencial (ceEnviando) -- nenhum dos três é
+  // compartilhado entre si, mesmo padrão já usado no resto do arquivo.
+  var ultimaCaptacao = null;   // { nome, tel, email } da captacao_essencial recém bem-sucedida
+  var cdEnviando = false;
+  var cdReferenciasUrls = [];
   function ceMostrarErro(msg) {
     var el = $('ce-erro');
     el.textContent = msg;
@@ -1068,31 +1075,14 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     }).then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
         if (!d || !d.ok) throw new Error('falha');
-        if (d.ambiguo) {
-          $('captacao-essencial').innerHTML = '<div class="captacao-obrigado">' +
-            '<div>Já encontramos algumas informações suas em nosso cadastro. Para continuarmos com segurança, fale conosco pelo WhatsApp.</div>' +
-            (WA_LINK !== '#' ? '<a href="' + WA_LINK + '" target="_blank" class="aura-wa-btn">' + waBtnHtml() + 'Continuar pelo WhatsApp</a>' : '') +
-            '</div>';
-          return;
-        }
-        // Bloco 3.3B-A2 -- sucesso normal continua sendo uma única
-        // experiência pública neutra, igual pra cliente novo e reconhecido
-        // (isNewClient/d.* nunca influenciam este texto). A novidade é só a
-        // personalização com dados que o próprio visitante acabou de
-        // digitar: primeiro nome na tela (via esc()) e mensagem do WhatsApp
-        // pré-preenchida (via montarTextoWhatsAppCaptacaoEssencial, só
-        // nome/tel/email locais). Quando o estúdio não tem WhatsApp
-        // configurado (WA_LINK === '#'), nem o botão nem a frase que faz
-        // referência a ele aparecem -- mesma checagem simples já usada em
-        // todos os outros desfechos deste arquivo, sem estado novo.
-        var waDisponivelCE = WA_LINK !== '#';
-        var waTextoCE = montarTextoWhatsAppCaptacaoEssencial(nome, tel, email);
-        var waHrefCE = waDisponivelCE ? WA_LINK + '?text=' + encodeURIComponent(waTextoCE) : WA_LINK;
-        $('captacao-essencial').innerHTML = '<div class="captacao-obrigado">' +
-          '<div>Pronto, ' + esc(nome.split(' ')[0]) + '! Recebemos suas informações.</div>' +
-          '<div>' + (waDisponivelCE ? 'Se quiser continuar por aqui agora, toque no botão abaixo. Sua mensagem já vai preparada para nossa equipe.' : 'Em breve nossa equipe entrará em contato para continuar seu atendimento.') + '</div>' +
-          (waDisponivelCE ? '<a href="' + waHrefCE + '" target="_blank" class="aura-wa-btn">' + waBtnHtml() + 'Continuar pelo WhatsApp</a>' : '') +
-          '</div>';
+        if (d.ambiguo) { mostrarOrientacaoNeutraCaptacao(); return; }
+        // Bloco 3.3B-B2 -- guarda nome/tel/email desta submissão bem-sucedida
+        // pra reenviar internamente no detalhamento opcional (nunca
+        // reeditáveis, nunca um novo campo de formulário). A tela de sucesso
+        // passou a oferecer os dois caminhos (detalhar ou WhatsApp direto),
+        // ver mostrarOfertaDetalhamento.
+        ultimaCaptacao = { nome: nome, tel: tel, email: email };
+        mostrarOfertaDetalhamento();
       })
       .catch(function () {
         ceEnviando = false;
@@ -1100,6 +1090,162 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
         ceMostrarErro('Tivemos um problema técnico ao enviar. Tente novamente.');
       });
   }
+
+  // Bloco 3.3B-B2 -- Detalhamento opcional (2026-08-17). Sempre depois de
+  // uma captacao_essencial já concluída com sucesso -- nunca pede nome/
+  // WhatsApp/e-mail de novo, nunca cria uma segunda experiência de
+  // reconhecimento. Extraída aqui porque tanto enviarCaptacaoEssencial
+  // quanto enviarDetalhamento precisam da mesma orientação neutra sem
+  // duplicar a mensagem.
+  function mostrarOrientacaoNeutraCaptacao() {
+    $('captacao-essencial').innerHTML = '<div class="captacao-obrigado">' +
+      '<div>Já encontramos algumas informações suas em nosso cadastro. Para continuarmos com segurança, fale conosco pelo WhatsApp.</div>' +
+      (WA_LINK !== '#' ? '<a href="' + WA_LINK + '" target="_blank" class="aura-wa-btn">' + waBtnHtml() + 'Continuar pelo WhatsApp</a>' : '') +
+      '</div>';
+  }
+
+  // Tela oferecida logo após o sucesso da captacao_essencial -- dois
+  // caminhos independentes, nenhum deles obrigatório. "Continuar pelo
+  // WhatsApp" precisa continuar disponível exatamente como antes, mesmo
+  // sem detalhar nada.
+  function mostrarOfertaDetalhamento() {
+    var waDisponivel = WA_LINK !== '#';
+    var waTexto = montarTextoWhatsAppCaptacaoEssencial(ultimaCaptacao.nome, ultimaCaptacao.tel, ultimaCaptacao.email);
+    var waHref = waDisponivel ? WA_LINK + '?text=' + encodeURIComponent(waTexto) : WA_LINK;
+    $('captacao-essencial').innerHTML = '<div class="captacao-obrigado">' +
+      '<div>Pronto, ' + esc(ultimaCaptacao.nome.split(' ')[0]) + '! Recebemos suas informações.</div>' +
+      '<div>Se quiser, você também pode contar um pouco mais sobre o projeto que tem em mente. Essa etapa é opcional.</div>' +
+      '<div class="captacao-hint">Quer contar um pouco mais sobre seu projeto?</div>' +
+      '<button type="button" class="ficha-file-btn" id="cd-abrir-btn">Detalhar meu projeto</button>' +
+      (waDisponivel
+        ? '<a href="' + waHref + '" target="_blank" class="aura-wa-btn">' + waBtnHtml() + 'Continuar pelo WhatsApp</a>'
+        : '<div>Em breve nossa equipe entrará em contato para continuar seu atendimento.</div>') +
+      '</div>';
+    $('cd-abrir-btn').addEventListener('click', montarFormularioDetalhamento);
+  }
+
+  // Formulário inline do detalhamento -- mesma região (#captacao-essencial),
+  // sem modal, sem nova página. Campos individualmente opcionais (a
+  // validação de "pelo menos um conteúdo" acontece em enviarDetalhamento).
+  // Reaproveita campo()/classes já existentes -- nenhuma CSS nova.
+  function montarFormularioDetalhamento() {
+    cdReferenciasUrls = [];
+    $('captacao-essencial').innerHTML =
+      '<form id="cd-form" class="captacao-form" novalidate>' +
+      campo('Conte um pouco sobre sua ideia (opcional)', '<textarea class="ficha-textarea" id="cd-descricao" placeholder="Descreva o que você imagina..."></textarea>') +
+      campo('Região do corpo (opcional)', '<input class="ficha-input" id="cd-regiao" placeholder="Ex: braço, costas...">') +
+      campo('Imagens de referência (opcional)', '<input type="file" id="cd-file-input" accept="image/*" multiple style="display:none">' +
+        '<button type="button" class="ficha-file-btn" id="cd-file-btn">📷 Escolher imagens</button>' +
+        '<div class="ficha-file-status" id="cd-file-status"></div>') +
+      '<div class="ficha-erro" id="cd-erro" style="display:none"></div>' +
+      '<button type="submit" class="ficha-submit" id="cd-submit">Enviar detalhes</button>' +
+      '<button type="button" class="captacao-hint" id="cd-voltar" style="background:none;border:none;text-decoration:underline;cursor:pointer">Voltar</button>' +
+      '</form>';
+    $('cd-file-btn').onclick = function () { $('cd-file-input').click(); };
+    $('cd-file-input').onchange = function () { handleArquivosDetalhamento(this.files); };
+    $('cd-form').addEventListener('submit', enviarDetalhamento);
+    // Abandonar o detalhamento descarta completamente o estado temporário
+    // desta tentativa -- uma nova entrada em "Detalhar meu projeto" começa
+    // sempre com zero referências, nunca herda upload de uma tentativa
+    // anterior abandonada.
+    $('cd-voltar').addEventListener('click', function () {
+      cdReferenciasUrls = [];
+      mostrarOfertaDetalhamento();
+    });
+  }
+
+  // Mesmo mecanismo de upload da ficha antiga (comprimirEEnviar/
+  // LIMITE_IMAGENS, reaproveitados sem alteração, sem clienteId), mas com
+  // estado e elementos de DOM inteiramente próprios do detalhamento --
+  // nunca referenciasUrls/handleArquivos da ficha antiga, pra não misturar
+  // upload das duas experiências.
+  function handleArquivosDetalhamento(files) {
+    var lista = Array.prototype.slice.call(files || []);
+    if (!lista.length) return;
+    var status = $('cd-file-status');
+    var vagas = LIMITE_IMAGENS - cdReferenciasUrls.length;
+    var cortadas = lista.length > vagas;
+    lista = lista.slice(0, Math.max(0, vagas));
+    if (!lista.length) { status.textContent = 'Limite de ' + LIMITE_IMAGENS + ' imagens atingido.'; return; }
+    status.textContent = 'Enviando ' + lista.length + ' imagem(ns)...';
+    var restantes = lista.length, falhas = 0;
+    lista.forEach(function (file) {
+      comprimirEEnviar(file, function (ok, url) {
+        restantes--;
+        if (ok) cdReferenciasUrls.push(url); else falhas++;
+        if (restantes === 0) {
+          status.textContent = cdReferenciasUrls.length + '/' + LIMITE_IMAGENS + ' imagem(ns) pronta(s) pra envio' +
+            (falhas ? ' — ' + falhas + ' falhou/falharam.' : '.') +
+            (cortadas ? ' Limite de ' + LIMITE_IMAGENS + ' atingido, o restante não foi enviado.' : '');
+          if (cdReferenciasUrls.length >= LIMITE_IMAGENS) {
+            $('cd-file-btn').disabled = true;
+            $('cd-file-btn').textContent = 'Limite de ' + LIMITE_IMAGENS + ' imagens atingido';
+          }
+        }
+      });
+    });
+  }
+
+  function cdMostrarErro(msg) {
+    var el = $('cd-erro');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  // formulario: "captacao_detalhamento" -- reenvia nome/tel/email internos
+  // (nunca de um campo editável), sem clienteId. O backend (Bloco 3.3B-B1)
+  // reencontra a ficha pela mesma resolução de identidade do 3.3A e é
+  // fail-closed: sem match seguro, nada é escrito, resposta neutra.
+  function enviarDetalhamento(e) {
+    e.preventDefault();
+    if (cdEnviando) return;
+    $('cd-erro').style.display = 'none';
+    var descricao = $('cd-descricao').value.trim();
+    var regiaoVal = $('cd-regiao').value.trim();
+    if (!descricao && !regiaoVal && cdReferenciasUrls.length === 0) {
+      cdMostrarErro('Conte algo, informe a região ou envie uma referência para continuar.');
+      return;
+    }
+    cdEnviando = true;
+    var btn = $('cd-submit');
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    var payload = {
+      nome: ultimaCaptacao.nome, tel: ultimaCaptacao.tel, email: ultimaCaptacao.email,
+      slug: SLUG, formulario: 'captacao_detalhamento', finalizado: true,
+      idea: descricao, regiao: regiaoVal, referencias: cdReferenciasUrls
+    };
+    fetch(API_BASE + '/api/lead', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.ok) throw new Error('falha');
+        if (d.ambiguo) { mostrarOrientacaoNeutraCaptacao(); return; }
+        mostrarSucessoDetalhamento();
+      })
+      .catch(function () {
+        cdEnviando = false;
+        btn.disabled = false; btn.textContent = 'Enviar detalhes';
+        cdMostrarErro('Tivemos um problema técnico ao enviar. Tente novamente.');
+      });
+  }
+
+  // Tela final do detalhamento -- mesma categoria de experiência já usada
+  // no resto da captação essencial (neutra + CTA WhatsApp), não uma
+  // terceira jornada. Mensagem pré-preenchida do WhatsApp inalterada
+  // (mesma montarTextoWhatsAppCaptacaoEssencial, sem revisão de copy).
+  function mostrarSucessoDetalhamento() {
+    var waDisponivel = WA_LINK !== '#';
+    var waTexto = montarTextoWhatsAppCaptacaoEssencial(ultimaCaptacao.nome, ultimaCaptacao.tel, ultimaCaptacao.email);
+    var waHref = waDisponivel ? WA_LINK + '?text=' + encodeURIComponent(waTexto) : WA_LINK;
+    $('captacao-essencial').innerHTML = '<div class="captacao-obrigado">' +
+      '<div>Prontinho! Recebemos os detalhes também.</div>' +
+      (waDisponivel
+        ? '<a href="' + waHref + '" target="_blank" class="aura-wa-btn">' + waBtnHtml() + 'Continuar pelo WhatsApp</a>'
+        : '<div>Em breve nossa equipe entrará em contato para continuar seu atendimento.</div>') +
+      '</div>';
+  }
+
   $('ce-form').addEventListener('submit', enviarCaptacaoEssencial);
   $('ce-tel').addEventListener('input', function () { this.value = formatarTelefone(this.value); });
 

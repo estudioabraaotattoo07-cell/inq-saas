@@ -225,6 +225,17 @@ function trechoEnviarCaptacaoEssencial() {
   return srcLead.slice(inicio, fim);
 }
 
+// Bloco 3.3B-B2 (2026-08-17): o bloco d.ambiguo, antes inline dentro de
+// enviarCaptacaoEssencial, foi extraído para mostrarOrientacaoNeutraCaptacao
+// -- reaproveitada também por enviarDetalhamento, pra não duplicar a
+// mensagem. enviarCaptacaoEssencial agora só chama a função.
+function trechoMostrarOrientacaoNeutraCaptacao() {
+  const inicio = srcLead.indexOf("function mostrarOrientacaoNeutraCaptacao() {");
+  const fim = srcLead.indexOf("\n  }", inicio);
+  assert.ok(inicio !== -1 && fim !== -1, "mostrarOrientacaoNeutraCaptacao não encontrada");
+  return srcLead.slice(inicio, fim);
+}
+
 test("13. enviarCaptacaoEssencial reconhece d.ambiguo === true antes de mostrar sucesso normal", () => {
   const trecho = trechoEnviarCaptacaoEssencial();
   const idxAmbiguo = trecho.indexOf("if (d.ambiguo) {");
@@ -238,11 +249,8 @@ test("13. enviarCaptacaoEssencial reconhece d.ambiguo === true antes de mostrar 
   assert.ok(idxAmbiguo < idxSucessoNormal, "a checagem de ambiguidade precisa vir antes da mensagem de sucesso normal");
 });
 
-test("13b. no caso ambíguo, a nova ficha usa WA_LINK já existente -- nenhuma nova requisição de rede, nenhuma integração nova", () => {
-  const trecho = trechoEnviarCaptacaoEssencial();
-  const idxAmbiguo = trecho.indexOf("if (d.ambiguo) {");
-  const idxFimRamo = trecho.indexOf("return;", idxAmbiguo);
-  const bloco = trecho.slice(idxAmbiguo, idxFimRamo);
+test("13b. no caso ambíguo, a orientação usa WA_LINK já existente -- nenhuma nova requisição de rede, nenhuma integração nova", () => {
+  const bloco = trechoMostrarOrientacaoNeutraCaptacao();
   assert.match(bloco, /WA_LINK/);
   assert.doesNotMatch(bloco, /fetch\(/, "não pode fazer nenhuma requisição de rede adicional pra mostrar a orientação de WhatsApp");
   assert.doesNotMatch(bloco, /\$\('ce-tel'\)\.value/, "não pode usar o telefone do próprio visitante como destino do WhatsApp");
@@ -258,10 +266,7 @@ test("13c. a copy da nova ficha no caso ambíguo é a orientação neutra aprova
 });
 
 test("13d. reaproveita a mesma classe .captacao-obrigado já usada no sucesso normal -- nenhum modal/componente novo", () => {
-  const trecho = trechoEnviarCaptacaoEssencial();
-  const idxAmbiguo = trecho.indexOf("if (d.ambiguo) {");
-  const idxFimRamo = trecho.indexOf("return;", idxAmbiguo);
-  const bloco = trecho.slice(idxAmbiguo, idxFimRamo);
+  const bloco = trechoMostrarOrientacaoNeutraCaptacao();
   assert.match(bloco, /captacao-obrigado/);
   assert.match(bloco, /aura-wa-btn/, "reaproveita a mesma classe de botão de WhatsApp já usada pela ficha antiga");
 });

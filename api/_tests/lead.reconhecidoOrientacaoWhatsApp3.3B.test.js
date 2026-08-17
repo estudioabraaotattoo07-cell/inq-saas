@@ -54,6 +54,30 @@ function trechoEnviarCaptacaoEssencial() {
   return srcLead.slice(inicio, fim);
 }
 
+// Bloco 3.3B-B2 (2026-08-17): a tela de sucesso normal (antes inline dentro
+// de enviarCaptacaoEssencial) foi extraída para mostrarOfertaDetalhamento
+// -- chamada por enviarCaptacaoEssencial, mas definida como função própria
+// (ainda dentro do range amplo de trechoEnviarCaptacaoEssencial, que vai
+// até o listener de submit do ce-form). Usada quando o teste precisa de um
+// recorte mais preciso, sem o risco de capturar o fetch() de
+// enviarDetalhamento (função nova, também dentro desse range amplo).
+function trechoMostrarOfertaDetalhamento() {
+  const inicio = srcLead.indexOf("function mostrarOfertaDetalhamento() {");
+  const fim = srcLead.indexOf("$('cd-abrir-btn').addEventListener", inicio);
+  assert.ok(inicio !== -1 && fim !== -1, "mostrarOfertaDetalhamento não encontrada");
+  return srcLead.slice(inicio, fim);
+}
+
+// Corpo isolado só de enviarCaptacaoEssencial (sem as funções novas do
+// detalhamento que vêm depois dela no arquivo) -- necessário pra testes que
+// precisam contar ocorrências (ex: número de fetch) sem contaminação.
+function trechoSoEnviarCaptacaoEssencial() {
+  const inicio = srcLead.indexOf("function enviarCaptacaoEssencial(e) {");
+  const fim = srcLead.indexOf("// Bloco 3.3B-B2 -- Detalhamento opcional (2026-08-17).", inicio);
+  assert.ok(inicio !== -1 && fim !== -1);
+  return srcLead.slice(inicio, fim);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Backend -- retorno público normal não expõe updated nem isNewClient
 // ═══════════════════════════════════════════════════════════════════════════
@@ -108,24 +132,24 @@ test("cliente novo e reconhecido recebem a mesma categoria de resposta pública 
   assert.equal(ocorrenciasSucesso, 1, "só pode haver um único bloco de sucesso normal, usado tanto pra cliente novo quanto reconhecido");
 });
 
-test("WhatsApp do estúdio aparece na experiência de sucesso normal, reaproveitando WA_LINK/waBtnHtml() -- nenhum fetch adicional", () => {
-  const trecho = trechoEnviarCaptacaoEssencial();
-  const idxInicioBlocoSucesso = trecho.indexOf("var waDisponivelCE = WA_LINK !== '#';");
-  const idxFimBloco = trecho.indexOf("})", idxInicioBlocoSucesso);
-  assert.ok(idxInicioBlocoSucesso !== -1 && idxFimBloco !== -1);
-  const bloco = trecho.slice(idxInicioBlocoSucesso, idxFimBloco);
+test("WhatsApp do estúdio aparece na experiência de sucesso normal (mostrarOfertaDetalhamento), reaproveitando WA_LINK/waBtnHtml() -- nenhum fetch adicional", () => {
+  // Bloco 3.3B-B2: variáveis renomeadas de waDisponivelCE/waTextoCE/waHrefCE
+  // (quando eram locais de enviarCaptacaoEssencial) pra waDisponivel/waTexto/
+  // waHref (agora locais de mostrarOfertaDetalhamento) -- mesmo papel.
+  const bloco = trechoMostrarOfertaDetalhamento();
   assert.match(bloco, /WA_LINK/);
   assert.match(bloco, /waBtnHtml\(\)/);
   assert.doesNotMatch(bloco, /fetch\(/, "não pode disparar nenhuma requisição de rede adicional");
 });
 
-test("copy do CTA de continuidade está presente, reaproveitando a classe .aura-wa-btn já usada nos outros dois desfechos", () => {
-  const trecho = trechoEnviarCaptacaoEssencial();
-  assert.match(trecho, /Se quiser continuar por aqui agora, toque no botão abaixo\. Sua mensagem já vai preparada para nossa equipe\./);
-  assert.match(trecho, /Continuar pelo WhatsApp/);
-  const idxSucesso = trecho.indexOf("Recebemos suas informações.");
-  const idxFimBloco = trecho.indexOf("})", idxSucesso);
-  const bloco = trecho.slice(idxSucesso, idxFimBloco);
+test("copy da oferta de continuidade está presente, reaproveitando a classe .aura-wa-btn já usada nos outros desfechos", () => {
+  // Bloco 3.3B-B2 (2026-08-17): copy aprovada -- oferece "Detalhar meu
+  // projeto" e "Continuar pelo WhatsApp" lado a lado, nenhum obrigatório.
+  const bloco = trechoMostrarOfertaDetalhamento();
+  assert.match(bloco, /Se quiser, você também pode contar um pouco mais sobre o projeto que tem em mente\. Essa etapa é opcional\./);
+  assert.match(bloco, /Quer contar um pouco mais sobre seu projeto\?/);
+  assert.match(bloco, /Detalhar meu projeto/);
+  assert.match(bloco, /Continuar pelo WhatsApp/);
   assert.match(bloco, /aura-wa-btn/);
 });
 
@@ -236,26 +260,40 @@ test("telefone e e-mail só entram na mensagem quando informados -- nenhuma linh
   assert.match(trecho, /if \(email\) partes\.push\('E-mail: ' \+ email \+ '\.'\);/);
 });
 
-test("chamada em enviarCaptacaoEssencial usa exatamente nome/tel/email locais (os mesmos lidos do formulário, não d.*)", () => {
-  const trecho = trechoEnviarCaptacaoEssencial();
-  assert.match(trecho, /var waTextoCE = montarTextoWhatsAppCaptacaoEssencial\(nome, tel, email\);/);
+test("mostrarOfertaDetalhamento usa exatamente ultimaCaptacao.nome/tel/email (os mesmos capturados na captação essencial, não d.* nem campo reeditável)", () => {
+  // Bloco 3.3B-B2: a mensagem do WhatsApp da tela de sucesso agora é
+  // montada em mostrarOfertaDetalhamento (não mais inline em
+  // enviarCaptacaoEssencial), usando ultimaCaptacao -- que por sua vez é
+  // preenchida com os mesmos nome/tel/email locais da submissão (ver teste
+  // "ultimaCaptacao é preenchida com..." em lead.detalhamentoFrontend3.3B.test.js).
+  const bloco = trechoMostrarOfertaDetalhamento();
+  assert.match(bloco, /var waTexto = montarTextoWhatsAppCaptacaoEssencial\(ultimaCaptacao\.nome, ultimaCaptacao\.tel, ultimaCaptacao\.email\);/);
 });
 
 test("href do CTA usa encodeURIComponent sobre o texto pré-preenchido, montado em cima de WA_LINK", () => {
-  const trecho = trechoEnviarCaptacaoEssencial();
-  assert.match(trecho, /var waHrefCE = waDisponivelCE \? WA_LINK \+ '\?text=' \+ encodeURIComponent\(waTextoCE\) : WA_LINK;/);
+  const bloco = trechoMostrarOfertaDetalhamento();
+  assert.match(bloco, /var waHref = waDisponivel \? WA_LINK \+ '\?text=' \+ encodeURIComponent\(waTexto\) : WA_LINK;/);
 });
 
 test("primeiro nome exibido na tela passa por esc() antes do innerHTML", () => {
-  const trecho = trechoEnviarCaptacaoEssencial();
-  assert.match(trecho, /'<div>Pronto, ' \+ esc\(nome\.split\(' '\)\[0\]\) \+ '! Recebemos suas informações\.<\/div>'/);
+  const bloco = trechoMostrarOfertaDetalhamento();
+  assert.match(bloco, /'<div>Pronto, ' \+ esc\(ultimaCaptacao\.nome\.split\(' '\)\[0\]\) \+ '! Recebemos suas informações\.<\/div>'/);
 });
 
-test("quando WA_LINK === '#' (estúdio sem WhatsApp configurado), nem o botão nem a frase 'toque no botão abaixo' aparecem", () => {
-  const trecho = trechoEnviarCaptacaoEssencial();
-  assert.match(trecho, /var waDisponivelCE = WA_LINK !== '#';/, "a checagem de disponibilidade precisa existir");
-  assert.match(trecho, /waDisponivelCE \? 'Se quiser continuar por aqui agora, toque no botão abaixo\. Sua mensagem já vai preparada para nossa equipe\.' : 'Em breve nossa equipe entrará em contato para continuar seu atendimento\.'/, "o texto precisa ter uma variante sem menção a botão quando WA_LINK é '#'");
-  assert.match(trecho, /waDisponivelCE \? '<a href="' \+ waHrefCE \+ '" target="_blank" class="aura-wa-btn">' \+ waBtnHtml\(\) \+ 'Continuar pelo WhatsApp<\/a>' : ''/, "o próprio botão precisa ficar condicionado à mesma checagem");
+test("quando WA_LINK === '#' (estúdio sem WhatsApp configurado), o botão de WhatsApp não aparece -- fallback de texto sem menção a botão", () => {
+  // Bloco 3.3B-B2: a estrutura mudou de um único texto ternário pra duas
+  // saídas completas (link vs. div de fallback) -- "toque no botão abaixo"
+  // não existe mais nesta copy (aprovada nesta rodada); "Detalhar meu
+  // projeto" continua oferecido independentemente do WhatsApp estar
+  // configurado ou não.
+  const bloco = trechoMostrarOfertaDetalhamento();
+  assert.match(bloco, /var waDisponivel = WA_LINK !== '#';/, "a checagem de disponibilidade precisa existir");
+  assert.match(
+    bloco,
+    /waDisponivel\s*\n\s*\? '<a href="' \+ waHref \+ '" target="_blank" class="aura-wa-btn">' \+ waBtnHtml\(\) \+ 'Continuar pelo WhatsApp<\/a>'\s*\n\s*: '<div>Em breve nossa equipe entrará em contato para continuar seu atendimento\.<\/div>'/,
+    "o botão precisa ficar condicionado à disponibilidade do WhatsApp, com fallback de texto"
+  );
+  assert.match(bloco, /Detalhar meu projeto/, "a opção de detalhar precisa continuar oferecida mesmo sem WhatsApp configurado");
 });
 
 test("mensagem alternativa (sem WhatsApp) não menciona 'botão' nem link nenhum", () => {
@@ -265,8 +303,12 @@ test("mensagem alternativa (sem WhatsApp) não menciona 'botão' nem link nenhum
   assert.doesNotMatch(trecho.slice(idx, idx + 60), /botão/i);
 });
 
-test("nenhuma nova requisição de rede é disparada pela personalização (continua um único fetch)", () => {
-  const trecho = trechoEnviarCaptacaoEssencial();
+test("nenhuma nova requisição de rede é disparada pela personalização da tela de sucesso (enviarCaptacaoEssencial em si continua com um único fetch)", () => {
+  // Bloco 3.3B-B2: o range amplo de trechoEnviarCaptacaoEssencial() agora
+  // também contém enviarDetalhamento (função nova, com seu próprio fetch
+  // legítimo e independente) -- por isso este teste usa o corpo ISOLADO só
+  // de enviarCaptacaoEssencial, não o range amplo.
+  const trecho = trechoSoEnviarCaptacaoEssencial();
   const ocorrenciasFetch = (trecho.match(/fetch\(/g) || []).length;
-  assert.equal(ocorrenciasFetch, 1, "captacao_essencial precisa continuar com um único fetch, a personalização é só sobre a resposta já recebida");
+  assert.equal(ocorrenciasFetch, 1, "enviarCaptacaoEssencial precisa continuar com um único fetch -- a personalização/oferta de detalhamento é só sobre a resposta já recebida");
 });
