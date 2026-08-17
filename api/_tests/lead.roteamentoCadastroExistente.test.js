@@ -66,7 +66,12 @@ test("updateFields do cadastro existente MANTÉM só o enriquecimento cadastral 
   assert.match(trecho, /const nomeVal = maisCompleto\(match\.nome, nome\);\s*\n\s*if \(nomeVal\) updateFields\.nome = nomeVal;/, "nome via maisCompleto precisa continuar");
   assert.match(trecho, /const emailVal = maisCompleto\(match\.email, email\);\s*\n\s*if \(emailVal\) updateFields\.email = emailVal;/, "email via maisCompleto precisa continuar");
   assert.match(trecho, /const instaVal = maisCompleto\(match\.insta, insta\);\s*\n\s*if \(instaVal\) updateFields\.insta = instaVal;/, "insta via maisCompleto precisa continuar");
-  assert.match(trecho, /if \(telDigits && !match\.tel\) updateFields\.tel = tel;/, "tel só-se-vazio precisa continuar");
+  // Correção do bug de máscara do telefone (Bloco 3.3B, 2026-08-17): a
+  // trava "telDigits && !match.tel" (tel só-se-vazio) continua exatamente
+  // igual -- só o valor persistido passou a ser normalizado com
+  // formatarTelefone(tel), a mesma função já usada pra máscara em tempo
+  // real (ver lead.mascaraTelefone3.3B.test.js para a cobertura completa).
+  assert.match(trecho, /if \(telDigits && !match\.tel\) updateFields\.tel = formatarTelefone\(tel\);/, "tel só-se-vazio precisa continuar, agora normalizado com formatarTelefone");
   assert.match(trecho, /if \(nascimentoISO && !match\.nascimento\) updateFields\.nascimento = nascimentoISO;/, "nascimento só-se-vazio precisa continuar");
 });
 

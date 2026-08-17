@@ -602,7 +602,7 @@ ainda, nenhum código antigo foi removido. -->
     </div>
     <div class="ficha-field">
       <label class="ficha-label" for="ce-tel">WhatsApp</label>
-      <input class="ficha-input" id="ce-tel" name="tel" type="text" inputmode="numeric" autocomplete="tel" placeholder="(99) 99999-9999">
+      <input class="ficha-input" id="ce-tel" name="tel" type="text" inputmode="numeric" autocomplete="tel" maxlength="16" placeholder="(99) 99999-9999">
     </div>
     <div class="ficha-field">
       <label class="ficha-label" for="ce-email">E-mail</label>
@@ -824,7 +824,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     html += '<div class="ficha-aviso">Preencha o máximo de informações possível — isso agiliza seu atendimento. <b>Obrigatório: nome completo, e-mail e WhatsApp.</b></div>';
     html += '<form id="ficha-form">';
     html += campo('Nome completo <span class="ficha-req">*</span>', '<input class="ficha-input" name="nome" required placeholder="Seu nome completo">');
-    html += campo('WhatsApp <span class="ficha-req">*</span>', '<input class="ficha-input" id="ficha-tel" name="tel" type="text" inputmode="numeric" autocomplete="tel" required placeholder="(99) 99999-9999">');
+    html += campo('WhatsApp <span class="ficha-req">*</span>', '<input class="ficha-input" id="ficha-tel" name="tel" type="text" inputmode="numeric" autocomplete="tel" maxlength="16" required placeholder="(99) 99999-9999">');
     html += campo('E-mail <span class="ficha-req">*</span>', '<input class="ficha-input" name="email" type="email" required placeholder="seu@email.com">');
     if (SERVICOS.length) {
       html += campo('Serviço desejado', '<select class="ficha-select" name="servico"><option value="">Selecione...</option>' + SERVICOS.map(function(s){ return '<option value="' + esc(s.nome) + '">' + esc(s.nome) + '</option>'; }).join('') + '</select>');
@@ -1855,7 +1855,14 @@ export default async function handler(req, res) {
 
   const row = {
     nome,
-    tel: tel || "",
+    // Correção do bug de máscara encontrado na validação manual do 3.3B-A2
+    // (2026-08-17): tel bruto podia chegar sem formatação (falha do lado do
+    // navegador, sem reforço nenhum no backend). Normaliza com a mesma
+    // formatarTelefone já usada pra máscara em tempo real -- não é uma
+    // segunda lógica, é a função exportada no topo do arquivo. Não toca a
+    // variável tel em si: telDigits/calcularChaveDedup/detectarCompartilhamento
+    // continuam lendo o valor bruto original, só o que é persistido muda.
+    tel: formatarTelefone(tel),
     email: email || "",
     insta: insta || "",
     qual: "Q1",
@@ -2147,7 +2154,10 @@ export default async function handler(req, res) {
         if (nomeVal) updateFields.nome = nomeVal;
         const emailVal = maisCompleto(match.email, email);
         if (emailVal) updateFields.email = emailVal;
-        if (telDigits && !match.tel) updateFields.tel = tel;
+        // Mesma correção do bug de máscara (2026-08-17): trava original
+        // (telDigits && !match.tel) intacta -- só o valor persistido passa
+        // por formatarTelefone antes de gravar.
+        if (telDigits && !match.tel) updateFields.tel = formatarTelefone(tel);
         const instaVal = maisCompleto(match.insta, insta);
         if (instaVal) updateFields.insta = instaVal;
         if (nascimentoISO && !match.nascimento) updateFields.nascimento = nascimentoISO;
