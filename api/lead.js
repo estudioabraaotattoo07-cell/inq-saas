@@ -1024,6 +1024,21 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     el.textContent = msg;
     el.style.display = 'block';
   }
+  // Bloco 3.3B-A2 -- mensagem do WhatsApp pré-preenchida da captação
+  // essencial. Isolada de montarTextoWhatsApp (ficha antiga, linha ~927):
+  // usa só nome/tel/email que o próprio visitante acabou de digitar neste
+  // formulário, nunca dado do backend -- mesma mensagem pra cliente novo e
+  // reconhecido, não expõe/depende de reconhecimento de identidade.
+  function montarTextoWhatsAppCaptacaoEssencial(nome, tel, email) {
+    var partes = [
+      'Olá! Acabei de enviar uma solicitação pelo site da ' + NOME_ESTUDIO + '.',
+      'Meu nome é ' + nome + '.'
+    ];
+    if (tel) partes.push('WhatsApp: ' + tel + '.');
+    if (email) partes.push('E-mail: ' + email + '.');
+    partes.push('Gostaria de continuar meu atendimento por aqui.');
+    return partes.join('\n');
+  }
   function enviarCaptacaoEssencial(e) {
     e.preventDefault();
     if (ceEnviando) return;
@@ -1060,16 +1075,23 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
             '</div>';
           return;
         }
-        // Correção pré-commit do Bloco 3.3B-A -- sucesso normal passa a ser
-        // uma única experiência pública neutra, igual pra cliente novo e
-        // reconhecido (isNewClient nunca é exposto nem inferível por essa
-        // resposta). Convite ao WhatsApp sempre presente, reaproveitando
-        // WA_LINK/waBtnHtml() já existentes -- sem escrita nova, sem
-        // segunda requisição.
+        // Bloco 3.3B-A2 -- sucesso normal continua sendo uma única
+        // experiência pública neutra, igual pra cliente novo e reconhecido
+        // (isNewClient/d.* nunca influenciam este texto). A novidade é só a
+        // personalização com dados que o próprio visitante acabou de
+        // digitar: primeiro nome na tela (via esc()) e mensagem do WhatsApp
+        // pré-preenchida (via montarTextoWhatsAppCaptacaoEssencial, só
+        // nome/tel/email locais). Quando o estúdio não tem WhatsApp
+        // configurado (WA_LINK === '#'), nem o botão nem a frase que faz
+        // referência a ele aparecem -- mesma checagem simples já usada em
+        // todos os outros desfechos deste arquivo, sem estado novo.
+        var waDisponivelCE = WA_LINK !== '#';
+        var waTextoCE = montarTextoWhatsAppCaptacaoEssencial(nome, tel, email);
+        var waHrefCE = waDisponivelCE ? WA_LINK + '?text=' + encodeURIComponent(waTextoCE) : WA_LINK;
         $('captacao-essencial').innerHTML = '<div class="captacao-obrigado">' +
-          '<div>Pronto! Recebemos suas informações.</div>' +
-          '<div>Se quiser acrescentar algum detalhe, continuar um atendimento, agendar uma sessão ou falar conosco, continue pelo WhatsApp.</div>' +
-          (WA_LINK !== '#' ? '<a href="' + WA_LINK + '" target="_blank" class="aura-wa-btn">' + waBtnHtml() + 'Continuar pelo WhatsApp</a>' : '') +
+          '<div>Pronto, ' + esc(nome.split(' ')[0]) + '! Recebemos suas informações.</div>' +
+          '<div>' + (waDisponivelCE ? 'Se quiser continuar por aqui agora, toque no botão abaixo. Sua mensagem já vai preparada para nossa equipe.' : 'Em breve nossa equipe entrará em contato para continuar seu atendimento.') + '</div>' +
+          (waDisponivelCE ? '<a href="' + waHrefCE + '" target="_blank" class="aura-wa-btn">' + waBtnHtml() + 'Continuar pelo WhatsApp</a>' : '') +
           '</div>';
       })
       .catch(function () {
