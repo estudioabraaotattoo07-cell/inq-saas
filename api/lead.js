@@ -46,8 +46,101 @@ export function formatarTelefone(v) {
 export function textoObrigatorioValido(v) {
   return typeof v === "string" && v.trim().length > 0;
 }
+// Correção final pré-commit do Bloco 3.3A (2026-08-17): "preenchido" sozinho
+// deixou de bastar -- um contato informado precisa ter o formato mínimo de
+// um WhatsApp/e-mail de verdade, senão a requisição inteira é rejeitada
+// (nunca tratado como se o campo estivesse ausente, mesmo quando o outro
+// contato é válido). Funções sem depender de textoObrigatorioValido de
+// propósito -- não são chamadas por camposObrigatoriosPreenchidos.toString(),
+// mas por serem auto-contidas podem ser injetadas sozinhas no script do
+// navegador (mesmo padrão de formatarTelefone, abaixo), sem arrastar outra
+// função junto.
+export function telefoneValido(tel) {
+  if (typeof tel !== "string" || tel.trim().length === 0) return false;
+  return tel.replace(/[^0-9]/g, "").length >= 10;
+}
+export function emailValido(email) {
+  if (typeof email !== "string" || email.trim().length === 0) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+// Bloco 3.3A -- Nova Captação Essencial (2026-08-16): a regra deixou de
+// exigir telefone E e-mail simultaneamente -- agora é nome + pelo menos UM
+// contato válido (telefone OU e-mail). A ficha antiga sempre manda os três
+// campos preenchidos (continua obrigatória no HTML dela), então essa
+// relaxação nunca muda o comportamento observado por ela -- só habilita a
+// nova seção, que pode enviar só um dos dois contatos.
+//
+// Correção final pré-commit (2026-08-17): "pelo menos um contato" passou a
+// exigir que esse contato tenha formato válido -- e um contato PREENCHIDO
+// mas de formato inválido reprova a requisição inteira, mesmo que o outro
+// contato seja válido (não é tratado como se estivesse ausente).
 export function camposObrigatoriosPreenchidos(nome, tel, email) {
-  return textoObrigatorioValido(nome) && textoObrigatorioValido(tel) && textoObrigatorioValido(email);
+  const telPreenchido = textoObrigatorioValido(tel);
+  const emailPreenchido = textoObrigatorioValido(email);
+  const telOk = !telPreenchido || telefoneValido(tel);
+  const emailOk = !emailPreenchido || emailValido(email);
+  const peloMenosUmValido = (telPreenchido && telefoneValido(tel)) || (emailPreenchido && emailValido(email));
+  return textoObrigatorioValido(nome) && telOk && emailOk && peloMenosUmValido;
+}
+
+// Primeiro nome normalizado (sem acento, minúsculo) -- usado pra compor
+// chave_dedup e pra detectar compartilhamento de contato. Função pura e
+// exportada pelo mesmo motivo das acima: o teste precisa exercitar a mesma
+// função usada pelo handler real.
+export function primeiroNome(s) {
+  return (s || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(" ")[0] || "";
+}
+
+// Bloco 3.3A -- chave_dedup passa a aceitar e-mail como base alternativa
+// quando não há telefone. Prioridade preservada: telefone primeiro (mesma
+// fórmula de sempre, "<11 dígitos>|<primeiro nome>"), e só cai pro e-mail
+// (prefixado "email:" para nunca colidir com uma chave baseada em telefone)
+// quando não há dígito de telefone algum. Reaproveita a mesma constraint
+// UNIQUE(user_id, chave_dedup) já existente -- nenhuma migration/SQL novo.
+export function calcularChaveDedup(nomeVal, telVal, emailVal) {
+  const pn = primeiroNome(nomeVal);
+  if (!pn) return null;
+  const dig = telVal ? String(telVal).replace(/[^0-9]/g, "").slice(-11) : "";
+  if (dig) return dig + "|" + pn;
+  const emailNorm = emailVal ? String(emailVal).trim().toLowerCase() : "";
+  if (emailNorm) return "email:" + emailNorm + "|" + pn;
+  return null;
+}
+
+// Bloco 3.3A -- validação defensiva do consentimento de contato. Só aceita
+// {aceito:true, versao_texto:"<string não-vazia>"} -- rejeita objeto
+// ausente/malformado, aceito !== booleano true, versao_texto ausente/vazia/
+// não-string. "data" e "origem" nunca vêm do chamador (ver reconstrução no
+// handler) -- só valida o que o navegador realmente decide (o aceite em si).
+export function consentimentoValido(consentimento) {
+  return !!(
+    consentimento &&
+    typeof consentimento === "object" &&
+    !Array.isArray(consentimento) &&
+    typeof consentimento.aceito === "boolean" &&
+    consentimento.aceito === true &&
+    typeof consentimento.versao_texto === "string" &&
+    consentimento.versao_texto.trim().length > 0
+  );
+}
+
+// Bloco 3.3A -- normalização defensiva de tráfego: só as 9 chaves
+// permitidas (capturado_em é adicionado à parte, no handler, sempre com o
+// relógio do servidor), só valores JSON realmente string, truncados em 500
+// caracteres. Entrada ausente/malformada nunca lança erro, só produz um
+// objeto sem essas chaves -- tráfego nunca pode impedir a entrada do lead.
+const CHAVES_TRAFEGO_PERMITIDAS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "pagina_entrada", "referrer"];
+export function normalizarTrafego(trafego) {
+  const origemObj = (trafego && typeof trafego === "object" && !Array.isArray(trafego)) ? trafego : {};
+  const limpo = {};
+  for (const chave of CHAVES_TRAFEGO_PERMITIDAS) {
+    const valor = origemObj[chave];
+    if (typeof valor === "string" && valor.trim().length > 0) {
+      limpo[chave] = valor.slice(0, 500);
+    }
+  }
+  return limpo;
 }
 
 // Estilo premium compartilhado por todas as paginas publicas server-rendered
@@ -422,6 +515,20 @@ body{background:${fundoComBrilho};color:var(--cor-titulo);font-family:var(--font
 footer{border-top:0.5px solid rgba(255,255,255,0.06);padding:36px var(--pad) 28px;background:#050505;text-align:center}
 .footer-line{font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-bottom:6px}
 .footer-bottom{margin-top:20px;font-size:7.5px;color:rgba(255,255,255,0.18);letter-spacing:1.5px}
+/* Bloco 3.3A -- Nova Captação Essencial: seção nativa do site (convive
+temporariamente com o painel/ficha flutuante antigo, abaixo). Reaproveita
+as classes .ficha-field/.ficha-label/.ficha-req/.ficha-input/.ficha-erro/
+.ficha-submit já existentes (elas usam font-family:inherit, então herdam a
+fonte do site aqui, não a do painel antigo) -- só o contêiner e alguns
+elementos novos (título, dica, consentimento) precisam de CSS próprio. */
+.captacao-essencial{padding:88px var(--pad);border-top:0.5px solid rgba(255,255,255,0.04);max-width:420px;margin:0 auto}
+.captacao-title{font-family:var(--font-titulo);font-size:clamp(24px,3.5vw,36px);font-weight:300;text-align:center;margin-bottom:10px;color:var(--off)}
+.captacao-sub{font-size:12px;color:var(--dim);text-align:center;margin-bottom:28px;line-height:1.7}
+.captacao-form{display:flex;flex-direction:column;gap:14px}
+.captacao-hint{font-size:10.5px;color:var(--dim);margin-top:-6px}
+.captacao-consent{display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--dim);line-height:1.6;cursor:pointer}
+.captacao-consent input{margin-top:2px;flex-shrink:0}
+.captacao-obrigado{text-align:center;padding:24px 0;display:flex;flex-direction:column;gap:16px;align-items:center}
 .aura-fab{position:fixed;bottom:26px;right:26px;z-index:220;height:52px;padding:0 22px;border-radius:999px;background:linear-gradient(135deg,#E8C97A,#C9A84C 45%,#8a6a24);display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 22px rgba(201,168,76,0.4);cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.03em;color:#17140A;border:none;font-family:"Montserrat",sans-serif;white-space:nowrap}
 .aura-wa-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;background:#25D366;color:#fff;border:none;border-radius:999px;padding:11px;font-size:12px;font-weight:700;text-decoration:none;font-family:"Montserrat",sans-serif}
 .aura-panel{display:none;flex-direction:column;position:fixed;bottom:26px;right:26px;z-index:230;width:340px;max-width:calc(100vw - 32px);height:480px;max-height:calc(100vh - 60px);background:radial-gradient(ellipse 300px 160px at 50% -10%, rgba(139,92,222,0.2), transparent 70%), linear-gradient(180deg,#151515,#0A0A0A);border:1px solid rgba(201,168,76,0.35);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.6);overflow:hidden;font-family:"Montserrat",sans-serif}
@@ -482,6 +589,34 @@ ${site.banner_foto_url ? `<section class="banner">
     ${site.banner_texto ? `<p class="banner-body">${esc(site.banner_texto)}</p>` : ""}
   </div>
 </section>` : ""}
+<!-- Bloco 3.3A -- Nova Captação Essencial. Convive temporariamente com o
+painel/ficha antigo (#aura-panel, mais abaixo) -- nenhum CTA aponta pra cá
+ainda, nenhum código antigo foi removido. -->
+<section class="captacao-essencial" id="captacao-essencial">
+  <h2 class="captacao-title">Fale com a gente</h2>
+  <p class="captacao-sub">Deixe seus dados e nossa equipe entra em contato.</p>
+  <form id="ce-form" class="captacao-form" novalidate>
+    <div class="ficha-field">
+      <label class="ficha-label" for="ce-nome">Nome completo <span class="ficha-req">*</span></label>
+      <input class="ficha-input" id="ce-nome" name="nome" required placeholder="Seu nome completo">
+    </div>
+    <div class="ficha-field">
+      <label class="ficha-label" for="ce-tel">WhatsApp</label>
+      <input class="ficha-input" id="ce-tel" name="tel" type="text" inputmode="numeric" autocomplete="tel" placeholder="(99) 99999-9999">
+    </div>
+    <div class="ficha-field">
+      <label class="ficha-label" for="ce-email">E-mail</label>
+      <input class="ficha-input" id="ce-email" name="email" type="email" placeholder="seu@email.com">
+    </div>
+    <p class="captacao-hint">Informe ao menos um: WhatsApp ou e-mail.</p>
+    <label class="captacao-consent" for="ce-consent">
+      <input type="checkbox" id="ce-consent">
+      <span>Concordo em receber contato do estúdio sobre minha solicitação.</span>
+    </label>
+    <div class="ficha-erro" id="ce-erro" style="display:none"></div>
+    <button type="submit" class="ficha-submit" id="ce-submit">✦ Enviar minha solicitação</button>
+  </form>
+</section>
 <footer>
   ${local ? `<div class="footer-line">${esc(local)}</div>` : ""}
   <div class="footer-line">© ${new Date().getFullYear()} ${esc(nomeEstudio)}</div>
@@ -677,6 +812,8 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
   // navegador rode exatamente o mesmo código que os testes exercitam, nunca
   // uma segunda cópia digitada à mão que possa divergir da de produção.
   ${formatarTelefone.toString()}
+  ${telefoneValido.toString()}
+  ${emailValido.toString()}
 
   // Ficha única, preenchida pelo próprio visitante -- substitui a conversa
   // por etapas (decisão de 2026-08-14: menos código, menos superfície pra
@@ -842,6 +979,76 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
       '<a href="' + wa + '" target="_blank" class="aura-wa-btn">' + waBtnHtml() + 'Falar agora no WhatsApp</a>' +
       '</div>';
   }
+
+  // Bloco 3.3A -- Nova Captação Essencial (2026-08-16). Isolada da ficha
+  // antiga: não reaproveita montarFicha/enviarFicha/abrir/fechar (que
+  // continuam intocadas, servindo o painel flutuante), só reaproveita o que
+  // é genuinamente compartilhável (esc, formatarTelefone, API_BASE, SLUG,
+  // ORIGEM_SLUG, WA_LINK -- todas já existentes nesta mesma IIFE).
+  var CONSENTIMENTO_VERSAO = '2026-08-16-v1';
+  // Tráfego capturado uma única vez, na carga do script -- mesmo princípio
+  // já usado pro solicitacaoId em rodadas de planejamento anteriores: um
+  // reload da página é uma tentativa genuinamente nova, recaptura tudo.
+  function capturarTrafego() {
+    var params;
+    try { params = new URLSearchParams(window.location.search); } catch (e) { params = null; }
+    function p(nome) { try { return (params && params.get(nome)) || ''; } catch (e) { return ''; } }
+    var bruto = {
+      utm_source: p('utm_source'), utm_medium: p('utm_medium'), utm_campaign: p('utm_campaign'),
+      utm_content: p('utm_content'), utm_term: p('utm_term'), fbclid: p('fbclid'),
+      pagina_entrada: (function () { try { return window.location.href; } catch (e) { return ''; } })(),
+      referrer: (function () { try { return document.referrer || ''; } catch (e) { return ''; } })()
+    };
+    var limpo = {};
+    Object.keys(bruto).forEach(function (k) { if (bruto[k]) limpo[k] = bruto[k]; });
+    return limpo;
+  }
+  var TRAFEGO_CAPTURADO = capturarTrafego();
+  var ceEnviando = false;
+  function ceMostrarErro(msg) {
+    var el = $('ce-erro');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function enviarCaptacaoEssencial(e) {
+    e.preventDefault();
+    if (ceEnviando) return;
+    $('ce-erro').style.display = 'none';
+    var nome = $('ce-nome').value.trim();
+    var tel = $('ce-tel').value.trim();
+    var email = $('ce-email').value.trim();
+    var consentOk = $('ce-consent').checked;
+    if (!nome) { ceMostrarErro('Nome completo é obrigatório.'); return; }
+    if (tel && !telefoneValido(tel)) { ceMostrarErro('Confira o WhatsApp informado -- o número parece estar incompleto.'); return; }
+    if (email && !emailValido(email)) { ceMostrarErro('Confira o e-mail informado -- o endereço parece estar incorreto.'); return; }
+    if (!tel && !email) { ceMostrarErro('Informe pelo menos um contato: WhatsApp ou e-mail.'); return; }
+    if (!consentOk) { ceMostrarErro('É necessário concordar em receber contato para continuar.'); return; }
+    ceEnviando = true;
+    var btn = $('ce-submit');
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    var payload = {
+      nome: nome, tel: tel, email: email,
+      slug: SLUG, orig: 'Site', origem_slug: ORIGEM_SLUG, finalizado: true,
+      formulario: 'captacao_essencial',
+      consentimento: { aceito: true, versao_texto: CONSENTIMENTO_VERSAO },
+      trafego: TRAFEGO_CAPTURADO
+    };
+    fetch(API_BASE + '/api/lead', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.ok) throw new Error('falha');
+        $('captacao-essencial').innerHTML = '<div class="captacao-obrigado">Pronto, ' + esc(nome.split(' ')[0]) + '! Recebemos sua solicitação.</div>';
+      })
+      .catch(function () {
+        ceEnviando = false;
+        btn.disabled = false; btn.textContent = '✦ Enviar minha solicitação';
+        ceMostrarErro('Tivemos um problema técnico ao enviar. Tente novamente.');
+      });
+  }
+  $('ce-form').addEventListener('submit', enviarCaptacaoEssencial);
+  $('ce-tel').addEventListener('input', function () { this.value = formatarTelefone(this.value); });
 
   window.AuraChat = { abrir: abrir, fechar: fechar };
 })();
@@ -1516,19 +1723,70 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { nome, tel, email, idea, ideia, artista, artistaNome, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, slug: siteSlugRaw, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao, faixaInvestimento, retornoAtendimento, motivoRetorno, finalizado } = req.body;
+  const { nome, tel, email, idea, ideia, artista, artistaNome, insta, regiao, nascimento, referencias, orig, obs: obsExtra, chat_log, slug: siteSlugRaw, origem_slug: origemSlug, palavra_secreta: palavraSecreta, clienteId: clienteIdBody, servico, periodo_ligacao: periodoLigacao, faixaInvestimento, retornoAtendimento, motivoRetorno, finalizado, consentimento, trafego, formulario } = req.body;
   // Normalização equivalente à já usada em lead_busca -- espaço incidental
   // não deveria diferenciar um slug válido de "inexistente".
   const siteSlug = (siteSlugRaw || "").trim();
-  // Correção (Bloco 1 -- Reconstrução da Captação, 2026-08-15): a checagem
-  // anterior só rejeitava quando os TRÊS chegavam vazios ao mesmo tempo
-  // (`!nome && !tel && !email`) -- bastava um único campo preenchido pra
-  // passar, mesmo que os outros dois estivessem ausentes. Nome, WhatsApp e
-  // e-mail são obrigatórios de verdade: falta de QUALQUER um dos três
-  // rejeita a requisição inteira. Mensagem genérica de propósito -- não
-  // expõe qual validação específica falhou.
+  // Correção (Bloco 1 -- Reconstrução da Captação, 2026-08-15) + Bloco 3.3A
+  // (2026-08-16, revisado em 2026-08-17): nome é sempre obrigatório; telefone
+  // e e-mail deixaram de ser ambos obrigatórios -- basta um dos dois, mas o
+  // contato informado precisa ter formato mínimo válido (ver
+  // telefoneValido/emailValido, topo do arquivo) -- um contato preenchido
+  // porém inválido reprova a requisição inteira, mesmo com o outro contato
+  // válido. Mensagem específica por caso, sempre em linguagem simples (sem
+  // termos técnicos), decidida aqui a partir do mesmo resultado que
+  // camposObrigatoriosPreenchidos já calculou -- não é uma segunda decisão,
+  // só a escolha de qual texto mostrar.
   if (!camposObrigatoriosPreenchidos(nome, tel, email)) {
-    return res.status(400).json({ error: "Nome completo, WhatsApp e e-mail são obrigatórios." });
+    let mensagemErro = "Nome completo e pelo menos um contato (WhatsApp ou e-mail) são obrigatórios.";
+    const telPreenchido = textoObrigatorioValido(tel);
+    const emailPreenchido = textoObrigatorioValido(email);
+    if (textoObrigatorioValido(nome) && telPreenchido && !telefoneValido(tel)) {
+      mensagemErro = "Confira o WhatsApp informado -- o número parece estar incompleto.";
+    } else if (textoObrigatorioValido(nome) && emailPreenchido && !emailValido(email)) {
+      mensagemErro = "Confira o e-mail informado -- o endereço parece estar incorreto.";
+    } else if (textoObrigatorioValido(nome) && !telPreenchido && !emailPreenchido) {
+      mensagemErro = "Informe pelo menos um contato: WhatsApp ou e-mail.";
+    }
+    return res.status(400).json({ error: mensagemErro });
+  }
+
+  // Bloco 3.3A -- consentimento só é exigido quando o chamador declara que
+  // fala o novo contrato (a chave "consentimento" está presente no corpo).
+  // A ficha antiga nunca envia essa chave -- continua funcionando sem
+  // exigir aceite, preservando a convivência temporária entre as duas
+  // experiências de captação (nenhuma delas foi removida neste bloco).
+  //
+  // Correção final pré-commit (2026-08-17): quando o chamador se identifica
+  // como a nova ficha (formulario === "captacao_essencial"), consentimento
+  // deixa de ser opcional -- a ausência dele também reprova a requisição,
+  // não só a invalidade (já coberta pelo ramo abaixo, que roda sempre que a
+  // chave "consentimento" está presente, com ou sem "formulario"). O
+  // identificador é só operacional/temporário, não é mecanismo de
+  // autenticação -- não impede uma chamada manual de omitir/falsificar
+  // ambos os campos; garante o fluxo oficial da interface durante a
+  // convivência temporária das duas fichas.
+  let consentimentoFinal = null;
+  if (consentimento !== undefined) {
+    if (!consentimentoValido(consentimento)) {
+      return res.status(400).json({ error: "É necessário aceitar o consentimento de contato para continuar." });
+    }
+    consentimentoFinal = {
+      aceito: true,
+      data: new Date().toISOString(),
+      versao_texto: consentimento.versao_texto.trim().slice(0, 40),
+      origem: "site",
+    };
+  } else if (formulario === "captacao_essencial") {
+    return res.status(400).json({ error: "É necessário aceitar o consentimento de contato para continuar." });
+  }
+
+  // Bloco 3.3A -- tráfego é só captura passiva opcional, também condicionada
+  // à presença da chave (mesmo raciocínio do consentimento, acima). Nunca
+  // impede a entrada do lead -- na pior hipótese, grava só "capturado_em".
+  let trafegoFinal = null;
+  if (trafego !== undefined) {
+    trafegoFinal = { ...normalizarTrafego(trafego), capturado_em: new Date().toISOString() };
   }
 
   const ideaFinal = idea || ideia || "";
@@ -1577,6 +1835,12 @@ export default async function handler(req, res) {
     cri: "",
     dias: 0,
     referencias: Array.isArray(referencias) && referencias.length ? referencias : [],
+    // Bloco 3.3A -- só preenchidos quando o chamador declarou o novo
+    // contrato (ver consentimentoFinal/trafegoFinal acima); a ficha antiga
+    // nunca manda essas chaves, então essas colunas continuam null pra ela,
+    // exatamente como já eram antes deste bloco.
+    consentimento_contato: consentimentoFinal,
+    trafego: trafegoFinal ? { primeiro_toque: trafegoFinal, ultimo_toque: trafegoFinal } : null,
   };
 
   // Site do tenant sempre manda `slug` -- resolve o dono certo. Falha fechada
@@ -1630,18 +1894,8 @@ export default async function handler(req, res) {
     if (!n) return undefined; // mantém existente, não sobrescreve
     return n.length > e.length ? n : undefined; // novo mais longo = mais completo
   }
-  function primeiroNome(s) {
-    return (s || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(" ")[0] || "";
-  }
-  // Mesma composição usada na migration SQL de clientes.chave_dedup --
-  // telefone só dígitos + primeiro nome normalizado. Calculável assim que
-  // nome+telefone chegam juntos pela primeira vez (sempre acontece na mesma
-  // requisição, já que salvar() reenvia o objeto lead inteiro a cada passo).
-  function calcularChaveDedup(nomeVal, telVal) {
-    const dig = telVal ? String(telVal).replace(/[^0-9]/g, "").slice(-11) : "";
-    const pn = primeiroNome(nomeVal);
-    return (dig && pn) ? (dig + "|" + pn) : null;
-  }
+  // primeiroNome/calcularChaveDedup agora são funções puras no topo do
+  // arquivo (Bloco 3.3A) -- removida a duplicata local que existia aqui.
   // E-mail/telefone não são chave única de propósito (comum em estúdio: casal,
   // pai/filho, família dividindo uma conta) -- isso só monta o texto de aviso
   // pro Parecer da Aura quando o mesmo dado aparece em outro cadastro com nome
@@ -1676,7 +1930,7 @@ export default async function handler(req, res) {
   {
     const telDigits = tel ? tel.replace(/[^0-9]/g, "").slice(-11) : null;
     const emailNorm = email ? email.trim().toLowerCase() : null;
-    const chaveDedupAtual = calcularChaveDedup(nome, tel);
+    const chaveDedupAtual = calcularChaveDedup(nome, tel, email);
 
     let match = null;
 
@@ -1684,6 +1938,24 @@ export default async function handler(req, res) {
     if (clienteIdBody) {
       const { data } = await sb.from("clientes").select("*").eq("id", clienteIdBody).eq("user_id", row.user_id).maybeSingle();
       match = data || null;
+      if (match) isNewClient = false;
+    }
+
+    // 1.5) Correção do Bloco 3.3A -- calcularChaveDedup passou a priorizar
+    // telefone sobre e-mail (ver comentário na função, no topo do arquivo).
+    // Isso significa que uma pessoa cadastrada antes só com e-mail, que
+    // volta agora informando telefone TAMBÉM, calcularia uma chave nova
+    // (baseada em telefone) que nunca existiu -- o passo 2 abaixo criaria um
+    // SEGUNDO cliente em vez de reconhecer o primeiro, porque o upsert não
+    // teria nenhum conflito de chave pra evitar isso. Por isso, quando a
+    // submissão tem telefone E e-mail ao mesmo tempo, verificamos por
+    // e-mail ANTES do upsert por chave -- mesma busca do passo 3 (fallback),
+    // só antecipada pra este caso específico. Quando só um dos dois
+    // contatos existe, este bloco não roda -- comportamento idêntico ao que
+    // já era antes desta correção.
+    if (!match && tel && emailNorm) {
+      const { data: existentesPorEmail } = await sb.from("clientes").select("*").eq("user_id", row.user_id).is("excluido_em", null);
+      match = (existentesPorEmail || []).find(c => c.email && c.email.trim().toLowerCase() === emailNorm) || null;
       if (match) isNewClient = false;
     }
 
@@ -1705,8 +1977,21 @@ export default async function handler(req, res) {
       } else {
         const { data: existente } = await sb.from("clientes")
           .select("*").eq("user_id", row.user_id).eq("chave_dedup", chaveDedupAtual).maybeSingle();
-        match = existente || null;
-        if (match) isNewClient = false;
+        // Proteção contra reconhecimento de identidade errada -- quando a
+        // submissão e o registro encontrado pela chave têm e-mails
+        // preenchidos e DIFERENTES, isso é evidência positiva de que são
+        // pessoas diferentes que só coincidem em telefone + primeiro nome.
+        // Nesse caso, não tratamos "existente" como o cliente desta
+        // submissão -- match continua null e o fluxo já existente (passo 3 +
+        // fallback final) decide o que fazer, sem atualizar o cadastro
+        // errado. Quando não há e-mail em um dos dois lados, não há dado
+        // confiável pra essa checagem -- comportamento permanece o mesmo de
+        // antes (reconhece normalmente pela chave).
+        const conflitoDeEmail = !!(existente && emailNorm && existente.email && existente.email.trim().toLowerCase() !== emailNorm);
+        if (existente && !conflitoDeEmail) {
+          match = existente;
+          isNewClient = false;
+        }
       }
     }
 

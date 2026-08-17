@@ -165,15 +165,26 @@ test("lógica isNewClient do backend permanece intacta (if/else único, mesmo ga
   assert.equal(qtdIf, 1);
 });
 
-test("nenhum código de projetos/RPC/consentimento/tráfego foi introduzido em nenhum dos dois arquivos", () => {
+test("nenhuma arquitetura de RPC/solicitacao_id abandonada foi introduzida em nenhum dos dois arquivos", () => {
+  // consentimento_contato/utm_source/fbclid deixaram de ser proibidos em
+  // api/lead.js a partir do Bloco 3.3A (passaram a ser implementados de
+  // propósito, ver lead.captacaoEssencial3.3A.test.js) -- mas a arquitetura
+  // de RPC abandonada continua proibida em ambos os arquivos, sempre.
   const alvos = [
     ["api/lead.js", semComentariosJs(srcLead)],
     ["src/CRM Casa dos Carvalho.tsx", srcCrm.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n")],
   ];
-  const proibidos = [/resolver_solicitacao_lead/, /marcar_email_solicitacao_enviado/, /solicitacao_id/, /consentimento_contato/, /\butm_source\b/, /\bfbclid\b/];
+  const proibidos = [/resolver_solicitacao_lead/, /marcar_email_solicitacao_enviado/];
   for (const [nomeArquivo, conteudo] of alvos) {
     for (const re of proibidos) {
       assert.doesNotMatch(conteudo, re, `${nomeArquivo} não pode conter ${re}`);
     }
   }
+});
+
+test("CRM (aba Relacionamento) continua sem consentimento/tráfego -- escopo do 3.3A é só api/lead.js", () => {
+  const codigoAtivoCrm = srcCrm.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+  assert.doesNotMatch(codigoAtivoCrm, /consentimento_contato/);
+  assert.doesNotMatch(codigoAtivoCrm, /\butm_source\b/);
+  assert.doesNotMatch(codigoAtivoCrm, /\bfbclid\b/);
 });
