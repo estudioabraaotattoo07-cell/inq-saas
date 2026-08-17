@@ -1037,7 +1037,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     if (tel) partes.push('WhatsApp: ' + tel + '.');
     if (email) partes.push('E-mail: ' + email + '.');
     partes.push('Gostaria de continuar meu atendimento por aqui.');
-    return partes.join('\n');
+    return partes.join('\\n');
   }
   function enviarCaptacaoEssencial(e) {
     e.preventDefault();
