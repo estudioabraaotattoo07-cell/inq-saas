@@ -227,7 +227,12 @@ function trechoEnviarCaptacaoEssencial() {
 test("13. enviarCaptacaoEssencial reconhece d.ambiguo === true antes de mostrar sucesso normal", () => {
   const trecho = trechoEnviarCaptacaoEssencial();
   const idxAmbiguo = trecho.indexOf("if (d.ambiguo) {");
-  const idxSucessoNormal = trecho.indexOf("Recebemos sua solicitação");
+  // Copy do sucesso normal mudou no Bloco 3.3B-A (correção pré-commit,
+  // 2026-08-17) -- de "Recebemos sua solicitação" (com nome) para "Pronto!
+  // Recebemos suas informações." (neutro, igual pra cliente novo e
+  // reconhecido). O que este teste precisa continuar provando -- que
+  // d.ambiguo é checado antes do sucesso normal -- não muda.
+  const idxSucessoNormal = trecho.indexOf("Recebemos suas informações");
   assert.ok(idxAmbiguo !== -1 && idxSucessoNormal !== -1);
   assert.ok(idxAmbiguo < idxSucessoNormal, "a checagem de ambiguidade precisa vir antes da mensagem de sucesso normal");
 });

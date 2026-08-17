@@ -1060,7 +1060,17 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
             '</div>';
           return;
         }
-        $('captacao-essencial').innerHTML = '<div class="captacao-obrigado">Pronto, ' + esc(nome.split(' ')[0]) + '! Recebemos sua solicitação.</div>';
+        // Correção pré-commit do Bloco 3.3B-A -- sucesso normal passa a ser
+        // uma única experiência pública neutra, igual pra cliente novo e
+        // reconhecido (isNewClient nunca é exposto nem inferível por essa
+        // resposta). Convite ao WhatsApp sempre presente, reaproveitando
+        // WA_LINK/waBtnHtml() já existentes -- sem escrita nova, sem
+        // segunda requisição.
+        $('captacao-essencial').innerHTML = '<div class="captacao-obrigado">' +
+          '<div>Pronto! Recebemos suas informações.</div>' +
+          '<div>Se quiser acrescentar algum detalhe, continuar um atendimento, agendar uma sessão ou falar conosco, continue pelo WhatsApp.</div>' +
+          (WA_LINK !== '#' ? '<a href="' + WA_LINK + '" target="_blank" class="aura-wa-btn">' + waBtnHtml() + 'Continuar pelo WhatsApp</a>' : '') +
+          '</div>';
       })
       .catch(function () {
         ceEnviando = false;
@@ -2266,9 +2276,14 @@ export default async function handler(req, res) {
   // nem qualquer outro dado operacional interno do cadastro, novo ou
   // existente -- evita transformar o formulário público em mecanismo de
   // enumeração de clientes.
-  if (!isNewClient) {
-    if (!deveNotificar) return res.status(200).json({ ok: true, clienteId, updated: true, campanha: campanhaResp });
-  } else if (!deveNotificar) {
+  // Correção pré-commit do Bloco 3.3B-A (2026-08-17): este ramo chegava a
+  // devolver "updated: true" quando o cliente já era reconhecido e a
+  // conversa ainda não tinha sido finalizada -- um sinal público que
+  // permitia inferir, pela resposta, se um telefone/e-mail já pertencia a
+  // um cliente do estúdio. isNewClient continua decidindo o comportamento
+  // interno (E-mail 1/E-mail 2/alerta), só não é mais exposto aqui: os dois
+  // ramos agora devolvem a mesma resposta neutra.
+  if (!deveNotificar) {
     return res.status(200).json({ ok: true, clienteId, campanha: campanhaResp });
   }
 
@@ -2447,5 +2462,12 @@ export default async function handler(req, res) {
     }
   }
 
+  // Revertido no Bloco 3.3B-A (2026-08-17, correção pré-commit) -- a
+  // exposição de "updated: !isNewClient" neste retorno foi removida: o
+  // endpoint é público e sem autenticação, e ampliar esse sinal (mesmo que
+  // aditivamente) permitiria a qualquer chamador inferir, pela resposta, se
+  // um telefone/e-mail já pertence a um cliente do estúdio. isNewClient
+  // continua controlando E-mail 1/E-mail 2/alerta internamente, só não é
+  // mais exposto na resposta pública deste caminho.
   return res.status(200).json({ ok: true, clienteId, campanha: campanhaResp });
 }

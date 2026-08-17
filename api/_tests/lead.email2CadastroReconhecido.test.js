@@ -144,6 +144,13 @@ test("ausência de WhatsApp: E-mail 2 continua sendo enviado, sem botão quebrad
 });
 
 test("resposta pública final permanece exatamente igual -- bifurcação é só interna", () => {
+  // Bloco 3.3B-A (2026-08-17): uma rodada intermediária deste bloco chegou
+  // a adicionar "updated: !isNewClient" aqui, mas essa exposição foi
+  // revertida na correção pré-commit seguinte -- o endpoint é público e sem
+  // autenticação, e esse sinal permitiria inferir se um telefone/e-mail já
+  // pertence a um cliente do estúdio. Este teste volta a valer exatamente
+  // como era desde o 3.2B/3.2C: isNewClient nunca é exposto em nenhuma
+  // resposta JSON pública.
   assert.match(
     srcLead,
     /return res\.status\(200\)\.json\(\{ ok: true, clienteId, campanha: campanhaResp \}\);\r?\n\}/,

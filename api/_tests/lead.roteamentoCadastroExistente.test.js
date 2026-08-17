@@ -96,17 +96,25 @@ test("E-mail 1 (boas-vindas) continua incondicional a isNewClient -- preservado 
   assert.doesNotMatch(srcLead.slice(idx, idx + 200), /isNewClient/, "E-mail 1 não deve ser condicionado a isNewClient neste bloco -- isso pertence ao Bloco 3.2B (E-mail 2)");
 });
 
-test("resposta pública do ramo de cliente existente não finalizado é neutra -- sem etapa/projetos/artista/matchInfo", () => {
+test("resposta pública do ramo não finalizado é neutra -- sem etapa/projetos/artista/matchInfo/updated", () => {
+  // Correção pré-commit do Bloco 3.3B-A (2026-08-17): a versão original
+  // deste teste (Bloco 3.2A) esperava "updated: true" nesta resposta,
+  // exclusiva do ramo !isNewClient. Isso foi revertido -- esse campo
+  // permitia inferir, pela resposta pública, se um telefone/e-mail já
+  // pertencia a um cliente do estúdio. Os dois ramos (novo e reconhecido)
+  // foram unificados num único "if (!deveNotificar)", sem updated.
   assert.match(
     srcLead,
-    /if \(!deveNotificar\) return res\.status\(200\)\.json\(\{ ok: true, clienteId, updated: true, campanha: campanhaResp \}\);/,
-    "a resposta precisa ser exatamente {ok, clienteId, updated, campanha} -- sem spread de matchInfo nem campos operacionais"
+    /if \(!deveNotificar\) \{\r?\n\s*return res\.status\(200\)\.json\(\{ ok: true, clienteId, campanha: campanhaResp \}\);\r?\n\s*\}/,
+    "a resposta precisa ser exatamente {ok, clienteId, campanha} -- sem updated, sem spread de matchInfo nem campos operacionais"
   );
+  const codigoAtivo = codigoSemComentarios(srcLead);
+  assert.doesNotMatch(codigoAtivo, /\bupdated\b/, "updated não pode mais aparecer em nenhuma resposta pública ativa");
 });
 
 test("clienteId continua presente nas respostas públicas (decisão aprovada: manter)", () => {
   const ocorrencias = (srcLead.match(/res\.status\(200\)\.json\(\{ ok: true, clienteId/g) || []).length;
-  assert.ok(ocorrencias >= 3, "clienteId precisa continuar presente nos caminhos de resposta de sucesso");
+  assert.ok(ocorrencias >= 2, "clienteId precisa continuar presente nos caminhos de resposta de sucesso");
 });
 
 test("cadastro novo continua gravando descricao/regiao/referencias em row (Lead/Lead Quente intactos)", () => {
