@@ -959,6 +959,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     }).then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
         if (!d || !d.ok) throw new Error('falha');
+        if (d.ambiguo) { mostrarOrientacaoAmbiguidade(); return; }
         mostrarObrigado(dados);
       })
       .catch(function(){
@@ -977,6 +978,19 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     $('ficha-body').innerHTML = '<div class="ficha-obrigado">' +
       '<div style="font-size:14px;line-height:1.6;color:#f0ede8">Pronto, ' + esc((dados.nome || '').split(' ')[0]) + '! Já registramos seus dados — nossa equipe vai entrar em contato em breve. 🖤</div>' +
       '<a href="' + wa + '" target="_blank" class="aura-wa-btn">' + waBtnHtml() + 'Falar agora no WhatsApp</a>' +
+      '</div>';
+  }
+  // Correção final pré-commit do Bloco 3.3A (2026-08-17) -- adequação
+  // obrigatória: quando o backend responde identidade ambígua/conflitante
+  // (ok:true, ambiguo:true), a ficha antiga não pode mais chamar
+  // mostrarObrigado(), que afirmaria "já registramos seus dados" mesmo
+  // quando nada foi persistido de propósito. Mesma estrutura/classes de
+  // mostrarObrigado (só o texto e a ausência da afirmação de registro
+  // mudam) -- nenhuma arquitetura nova, nenhum campo novo.
+  function mostrarOrientacaoAmbiguidade(){
+    $('ficha-body').innerHTML = '<div class="ficha-obrigado">' +
+      '<div style="font-size:14px;line-height:1.6;color:#f0ede8">Já encontramos algumas informações suas em nosso cadastro. Para continuarmos com segurança, fale conosco pelo WhatsApp.</div>' +
+      (WA_LINK !== '#' ? '<a href="' + WA_LINK + '" target="_blank" class="aura-wa-btn">' + waBtnHtml() + 'Continuar pelo WhatsApp</a>' : '') +
       '</div>';
   }
 
@@ -1039,6 +1053,13 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     }).then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
         if (!d || !d.ok) throw new Error('falha');
+        if (d.ambiguo) {
+          $('captacao-essencial').innerHTML = '<div class="captacao-obrigado">' +
+            '<div>Já encontramos algumas informações suas em nosso cadastro. Para continuarmos com segurança, fale conosco pelo WhatsApp.</div>' +
+            (WA_LINK !== '#' ? '<a href="' + WA_LINK + '" target="_blank" class="aura-wa-btn">' + waBtnHtml() + 'Continuar pelo WhatsApp</a>' : '') +
+            '</div>';
+          return;
+        }
         $('captacao-essencial').innerHTML = '<div class="captacao-obrigado">Pronto, ' + esc(nome.split(' ')[0]) + '! Recebemos sua solicitação.</div>';
       })
       .catch(function () {
@@ -1927,6 +1948,17 @@ export default async function handler(req, res) {
   let clienteId = null;
   let isNewClient = true;
   let avisoCompartilhamento = null;
+  // Correção final pré-commit (2026-08-17) -- fecha a assimetria comprovada
+  // pelas duas fichas reais da Ana teste (telefone+e-mail -> depois só
+  // e-mail criava um segundo cliente) SEM nunca escolher automaticamente
+  // entre identidades conflitantes/ambíguas. Quando a própria resolução
+  // detecta que dois identificadores fortes da mesma submissão (telefone e
+  // e-mail) apontam pra clientes diferentes, ou que o e-mail é ambíguo
+  // (2+ candidatos ativos) e a chave_dedup exata não resolve isso com
+  // segurança, este flag vira true -- nenhuma ficha é criada nem
+  // atualizada, e a resposta pública devolve uma saída controlada (ver
+  // logo após o fechamento deste bloco), sem expor nenhum dado interno.
+  let identidadeConflitante = false;
   {
     const telDigits = tel ? tel.replace(/[^0-9]/g, "").slice(-11) : null;
     const emailNorm = email ? email.trim().toLowerCase() : null;
@@ -1941,73 +1973,116 @@ export default async function handler(req, res) {
       if (match) isNewClient = false;
     }
 
-    // 1.5) Correção do Bloco 3.3A -- calcularChaveDedup passou a priorizar
-    // telefone sobre e-mail (ver comentário na função, no topo do arquivo).
-    // Isso significa que uma pessoa cadastrada antes só com e-mail, que
-    // volta agora informando telefone TAMBÉM, calcularia uma chave nova
-    // (baseada em telefone) que nunca existiu -- o passo 2 abaixo criaria um
-    // SEGUNDO cliente em vez de reconhecer o primeiro, porque o upsert não
-    // teria nenhum conflito de chave pra evitar isso. Por isso, quando a
-    // submissão tem telefone E e-mail ao mesmo tempo, verificamos por
-    // e-mail ANTES do upsert por chave -- mesma busca do passo 3 (fallback),
-    // só antecipada pra este caso específico. Quando só um dos dois
-    // contatos existe, este bloco não roda -- comportamento idêntico ao que
-    // já era antes desta correção.
-    if (!match && tel && emailNorm) {
+    // 1.5) Candidatos por e-mail -- calculado SEMPRE que há e-mail válido
+    // nesta submissão, com ou sem telefone (correção final: antes só
+    // rodava com os dois juntos, o que deixava o caso "só e-mail" cair
+    // direto no upsert por chave e criar um segundo cliente). Só LÊ, nunca
+    // decide sozinho quem é "match" -- 0, 1 ou 2+ resultados, sem nenhuma
+    // escolha arbitrária entre eles nesta etapa.
+    let candidatosPorEmail = null;
+    if (!match && emailNorm) {
       const { data: existentesPorEmail } = await sb.from("clientes").select("*").eq("user_id", row.user_id).is("excluido_em", null);
-      match = (existentesPorEmail || []).find(c => c.email && c.email.trim().toLowerCase() === emailNorm) || null;
-      if (match) isNewClient = false;
+      candidatosPorEmail = (existentesPorEmail || []).filter(c => c.email && c.email.trim().toLowerCase() === emailNorm);
     }
 
-    // 2) Resolução atômica por chave_dedup (telefone + primeiro nome) -- cria
-    // só se realmente não existir ainda para este tenant. Duas requisições
-    // concorrentes (ex: duplo toque no mobile) nunca resultam em duas linhas:
-    // a segunda encontra o UNIQUE(user_id, chave_dedup) já ocupado e o
-    // upsert simplesmente não insere nada (ignoreDuplicates: true). Telefone
-    // compartilhado com primeiro nome diferente continua virando um
-    // registro à parte, de propósito -- chave diferente, sem conflito.
+    // 2) Quem já possui, hoje, a chave_dedup exata que esta submissão
+    // calcula (baseada em telefone se houver telefone -- calcularChaveDedup
+    // sempre prioriza telefone -- senão baseada em e-mail). Busca só de
+    // leitura, ANTES de qualquer upsert, pra poder cruzar com
+    // candidatosPorEmail antes de escrever qualquer coisa.
+    let donoExato = null;
     if (!match && chaveDedupAtual) {
-      const { data: criado } = await sb.from("clientes")
-        .upsert({ ...row, chave_dedup: chaveDedupAtual }, { onConflict: "user_id,chave_dedup", ignoreDuplicates: true })
-        .select("*")
-        .maybeSingle();
-      if (criado) {
-        match = criado;
-        isNewClient = true;
-      } else {
-        const { data: existente } = await sb.from("clientes")
-          .select("*").eq("user_id", row.user_id).eq("chave_dedup", chaveDedupAtual).maybeSingle();
-        // Proteção contra reconhecimento de identidade errada -- quando a
-        // submissão e o registro encontrado pela chave têm e-mails
-        // preenchidos e DIFERENTES, isso é evidência positiva de que são
-        // pessoas diferentes que só coincidem em telefone + primeiro nome.
-        // Nesse caso, não tratamos "existente" como o cliente desta
-        // submissão -- match continua null e o fluxo já existente (passo 3 +
-        // fallback final) decide o que fazer, sem atualizar o cadastro
-        // errado. Quando não há e-mail em um dos dois lados, não há dado
-        // confiável pra essa checagem -- comportamento permanece o mesmo de
-        // antes (reconhece normalmente pela chave).
-        const conflitoDeEmail = !!(existente && emailNorm && existente.email && existente.email.trim().toLowerCase() !== emailNorm);
-        if (existente && !conflitoDeEmail) {
-          match = existente;
+      const { data } = await sb.from("clientes").select("*").eq("user_id", row.user_id).eq("chave_dedup", chaveDedupAtual).maybeSingle();
+      donoExato = data || null;
+    }
+
+    if (!match) {
+      if (candidatosPorEmail && candidatosPorEmail.length === 1) {
+        const candidato = candidatosPorEmail[0];
+        if (!donoExato || donoExato.id === candidato.id) {
+          // Identidade inequívoca por e-mail -- e o telefone desta
+          // submissão (se houver) não contradiz: ou ninguém ainda possui
+          // essa chave baseada em telefone (é dado novo pra essa mesma
+          // pessoa), ou já é exatamente a mesma pessoa dos dois lados.
+          match = candidato;
           isNewClient = false;
+        } else {
+          // Telefone aponta pra donoExato, e-mail aponta pra candidato,
+          // IDs diferentes -- conflito entre identificadores fortes da
+          // mesma submissão. Não escolhe nenhum dos dois.
+          identidadeConflitante = true;
+        }
+      } else if (candidatosPorEmail && candidatosPorEmail.length > 1) {
+        if (donoExato && candidatosPorEmail.some(c => c.id === donoExato.id)) {
+          // 2+ candidatos por e-mail, mas a chave_dedup exata resolve
+          // deterministicamente qual deles corresponde a esta submissão --
+          // UNIQUE(user_id, chave_dedup) garante que só pode ser um.
+          match = donoExato;
+          isNewClient = false;
+        } else {
+          // Ou a chave exata pertence a alguém fora do conjunto ambíguo
+          // (conflito), ou nenhuma chave resolve (ambiguidade sem
+          // desempate seguro). Nos dois casos, não escolhe.
+          identidadeConflitante = true;
+        }
+      } else if (donoExato) {
+        // Sem candidatos por e-mail nesta submissão (0, ou sem e-mail
+        // algum) -- proteção pré-existente contra reconhecimento de
+        // identidade errada: só bloqueia quando o e-mail já cadastrado no
+        // registro encontrado pela chave é preenchido e DIFERENTE do desta
+        // submissão. Sem e-mail em um dos dois lados, reconhece
+        // normalmente pela chave, como sempre.
+        const conflitoDeEmail = !!(emailNorm && donoExato.email && donoExato.email.trim().toLowerCase() !== emailNorm);
+        if (!conflitoDeEmail) {
+          match = donoExato;
+          isNewClient = false;
+        }
+      } else if (chaveDedupAtual) {
+        // Ninguém possuía essa chave no momento em que donoExato foi lido --
+        // tenta o upsert atômico. Continua protegido contra concorrência
+        // real pelo UNIQUE(user_id, chave_dedup): a segunda requisição
+        // concorrente encontra a chave já ocupada e simplesmente não
+        // insere nada (ignoreDuplicates: true).
+        const { data: criado } = await sb.from("clientes")
+          .upsert({ ...row, chave_dedup: chaveDedupAtual }, { onConflict: "user_id,chave_dedup", ignoreDuplicates: true })
+          .select("*")
+          .maybeSingle();
+        if (criado) {
+          match = criado;
+          isNewClient = true;
+        } else {
+          // Correção de regressão de atomicidade (2026-08-17) -- o upsert
+          // não inseriu porque perdeu uma corrida genuinamente concorrente
+          // contra outra requisição com a MESMA chave_dedup exata. Sem esta
+          // busca de reforço (mesmo user_id + mesma chave, nunca atravessa
+          // tenant), match ficaria null e a requisição cairia no Fallback
+          // Final, criando uma segunda ficha órfã sem chave_dedup -- exatamente
+          // a duplicidade que o UNIQUE deveria impedir. Antes de reconhecer o
+          // vencedor, reaplica a MESMA proteção de conflito de e-mail já usada
+          // pra donoExato (não uma checagem nova): se o vencedor tiver e-mail
+          // preenchido e diferente do desta submissão, não é a mesma pessoa --
+          // marca identidadeConflitante em vez de reconhecer ou criar outra
+          // ficha, igual às demais proteções deste bloco.
+          const { data: vencedor } = await sb.from("clientes")
+            .select("*").eq("user_id", row.user_id).eq("chave_dedup", chaveDedupAtual).maybeSingle();
+          if (vencedor) {
+            const conflitoDeEmailVencedor = !!(emailNorm && vencedor.email && vencedor.email.trim().toLowerCase() !== emailNorm);
+            if (!conflitoDeEmailVencedor) {
+              match = vencedor;
+              isNewClient = false;
+            } else {
+              identidadeConflitante = true;
+            }
+          }
         }
       }
     }
 
-    // 3) Fallback -- só quando a chave ainda não pôde ser calculada nesta
-    // requisição específica (ex: telefone ainda inválido/ausente). Mesmo
-    // espírito da busca por e-mail que já existia antes desta mudança.
-    if (!match && emailNorm) {
-      const { data: existentes } = await sb.from("clientes").select("*").eq("user_id", row.user_id).is("excluido_em", null);
-      match = (existentes || []).find(c => c.email && c.email.trim().toLowerCase() === emailNorm) || null;
-      if (match) isNewClient = false;
-    }
-
     // Aviso de compartilhamento -- informativo pro Parecer (ex: telefone
-    // igual ao de outro cliente com primeiro nome diferente). Independente
-    // da resolução de identidade acima, que agora é garantida pelo banco.
-    if (telDigits || emailNorm) {
+    // igual ao de outro cliente com primeiro nome diferente). Não roda em
+    // identidade conflitante -- nenhuma ficha será tocada nesse caso, então
+    // não há necessidade da consulta extra.
+    if (!identidadeConflitante && (telDigits || emailNorm)) {
       const { data: candidatosAviso } = await sb.from("clientes")
         .select("id,nome,tel,email").eq("user_id", row.user_id).is("excluido_em", null);
       avisoCompartilhamento = detectarCompartilhamento(nome, tel, email, candidatosAviso, match ? match.id : null);
@@ -2117,6 +2192,15 @@ export default async function handler(req, res) {
         await sb.from("clientes").update({ parecer_aura: avisoCompartilhamento }).eq("id", match.id);
       }
     }
+  }
+
+  // Saída controlada -- identidade conflitante/ambígua detectada acima.
+  // Retorna ANTES do Fallback Final e de qualquer outra escrita: nenhum
+  // INSERT, nenhum UPDATE, nenhum e-mail, nenhum alerta ao artista. Resposta
+  // pública neutra, sem clienteId nem qualquer dado que permita inferir a
+  // existência ou os detalhes de outros cadastros.
+  if (identidadeConflitante) {
+    return res.status(200).json({ ok: true, ambiguo: true });
   }
 
   // Fallback final -- só chega aqui se chave_dedup não pôde ser calculada

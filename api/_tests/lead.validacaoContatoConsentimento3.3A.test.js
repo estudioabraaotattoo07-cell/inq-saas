@@ -274,7 +274,8 @@ test("nenhum RPC/SQL/migration foi introduzido por esta correção", () => {
   assert.doesNotMatch(codigoAtivo, /\.rpc\(/);
 });
 
-test("resolução de identidade e proteção de conflito permanecem intocadas (mesmos marcos estruturais já testados em lead.resolucaoIdentidade3.3A.test.js / lead.protecaoConflitoIdentidade3.3A.test.js)", () => {
-  assert.match(srcLead, /if \(!match && tel && emailNorm\) \{/);
-  assert.match(srcLead, /const conflitoDeEmail = !!\(existente && emailNorm && existente\.email && existente\.email\.trim\(\)\.toLowerCase\(\) !== emailNorm\);/);
+test("resolução de identidade continua existindo no arquivo -- estrutura foi substituída pela correção final pré-commit de 2026-08-17 (ver lead.identidadeConflitante3.3A.test.js), não removida", () => {
+  assert.match(srcLead, /let candidatosPorEmail = null;/);
+  assert.match(srcLead, /let donoExato = null;/);
+  assert.match(srcLead, /let identidadeConflitante = false;/);
 });
