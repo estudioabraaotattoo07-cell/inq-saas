@@ -87,7 +87,9 @@ test("update final do cadastro existente continua sendo aplicado no banco", () =
 });
 
 test("alerta ao artista ('Novo lead') só dispara para isNewClient === true", () => {
-  assert.match(srcLead, /if \(isNewClient && cfgDisparos\?\.fluxo_notificacao_artista_ativa !== false && resendKey\) \{/,
+  // Bloco 3.3B-B1 (2026-08-17): ganhou "formulario !== 'captacao_detalhamento'"
+  // -- isNewClient continua a checagem central, só o literal mudou.
+  assert.match(srcLead, /if \(isNewClient && formulario !== "captacao_detalhamento" && cfgDisparos\?\.fluxo_notificacao_artista_ativa !== false && resendKey\) \{/,
     "a condição de disparo do alerta precisa incluir isNewClient");
 });
 
@@ -96,7 +98,9 @@ test("template/conteúdo do alerta ao artista não foi alterado desnecessariamen
 });
 
 test("E-mail 1 (boas-vindas) continua incondicional a isNewClient -- preservado tal como está", () => {
-  const idx = srcLead.indexOf('if (cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {');
+  // Bloco 3.3B-B1 (2026-08-17): ganhou "formulario !== 'captacao_detalhamento'"
+  // -- só o literal exato mudou, a ausência de isNewClient neste gate continua.
+  const idx = srcLead.indexOf('if (formulario !== "captacao_detalhamento" && cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {');
   assert.ok(idx !== -1, "condição de disparo do E-mail 1 não encontrada como esperado");
   assert.doesNotMatch(srcLead.slice(idx, idx + 200), /isNewClient/, "E-mail 1 não deve ser condicionado a isNewClient neste bloco -- isso pertence ao Bloco 3.2B (E-mail 2)");
 });

@@ -32,8 +32,12 @@ import path from "node:path";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const srcLead = readFileSync(path.join(__dirname, "..", "lead.js"), "utf8");
 
+// Bloco 3.3B-B1 (2026-08-17): a condição deste ramo ganhou
+// "&& formulario !== 'captacao_detalhamento'" (essa modalidade nunca cria
+// cliente novo) -- só o literal exato usado como marcador de fronteira
+// mudou, a lógica de atomicidade auditada por este arquivo continua a mesma.
 function trechoRamoUpsert() {
-  const inicio = srcLead.indexOf("} else if (chaveDedupAtual) {");
+  const inicio = srcLead.indexOf('} else if (chaveDedupAtual && formulario !== "captacao_detalhamento") {');
   assert.ok(inicio !== -1, "ramo do upsert atômico não encontrado");
   const fim = srcLead.indexOf("// Aviso de compartilhamento", inicio);
   assert.ok(fim !== -1, "fim do ramo não encontrado");
@@ -167,7 +171,11 @@ test("8. os três pontos que marcam identidadeConflitante continuam sem nenhuma 
     ocorrenciasFlag.push(idx);
     pos = idx + 1;
   }
-  assert.equal(ocorrenciasFlag.length, 3, "esperava 3 pontos de marcação (Estado 6, Estados 4/5, e o novo conflito na busca de reforço)");
+  // Bloco 3.3B-B1 (2026-08-17): novo 4º ponto de marcação -- o guard
+  // fail-closed de captacao_detalhamento (nenhum match encontrado/criado
+  // para essa modalidade também vira identidadeConflitante, mesma saída
+  // neutra, sem nenhuma escrita).
+  assert.equal(ocorrenciasFlag.length, 4, "esperava 4 pontos de marcação (Estado 6, Estados 4/5, conflito na busca de reforço, e o fail-closed de captacao_detalhamento)");
   for (const idx of ocorrenciasFlag) {
     const trechoAteRetorno = srcLead.slice(idx, idxRetorno);
     // Cada ponto de marcação, até o retorno antecipado, não pode conter
@@ -196,7 +204,7 @@ test("9. cenário Ana (telefone+e-mail primeiro, só e-mail depois) continua res
   const fimDecisao = srcLead.indexOf("// Aviso de compartilhamento", inicio);
   const trecho = srcLead.slice(inicio, fimDecisao);
   const idx1 = trecho.indexOf("if (candidatosPorEmail && candidatosPorEmail.length === 1) {");
-  const idxUpsert = trecho.indexOf("} else if (chaveDedupAtual) {");
+  const idxUpsert = trecho.indexOf('} else if (chaveDedupAtual && formulario !== "captacao_detalhamento") {');
   assert.ok(idx1 !== -1 && idxUpsert !== -1 && idx1 < idxUpsert, "o ramo de 1 candidato precisa continuar sendo avaliado antes do ramo do upsert");
 });
 
@@ -207,7 +215,8 @@ test("10. os ramos de 0/1/2+ candidatos por e-mail continuam intactos -- a corre
   assert.match(trecho, /if \(candidatosPorEmail && candidatosPorEmail\.length === 1\) \{/);
   assert.match(trecho, /\} else if \(candidatosPorEmail && candidatosPorEmail\.length > 1\) \{/);
   assert.match(trecho, /\} else if \(donoExato\) \{/);
-  assert.match(trecho, /\} else if \(chaveDedupAtual\) \{/);
+  // Bloco 3.3B-B1 (2026-08-17): ganhou "&& formulario !== 'captacao_detalhamento'" -- só o literal exato mudou.
+  assert.match(trecho, /\} else if \(chaveDedupAtual && formulario !== "captacao_detalhamento"\) \{/);
   // Só 1 ocorrência de cada -- nenhum ramo foi duplicado por engano.
   for (const padrao of [
     /if \(candidatosPorEmail && candidatosPorEmail\.length === 1\) \{/g,

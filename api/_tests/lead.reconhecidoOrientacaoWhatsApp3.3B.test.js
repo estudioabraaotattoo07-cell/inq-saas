@@ -161,7 +161,9 @@ test("E-mail 2 continua no ramo else, exclusivo de cliente reconhecido", () => {
 });
 
 test("alerta ao artista continua condicionado só a isNewClient (Bloco 3.2A), não a nenhum sinal público", () => {
-  assert.match(srcLead, /if \(isNewClient && cfgDisparos\?\.fluxo_notificacao_artista_ativa !== false && resendKey\) \{/);
+  // Bloco 3.3B-B1 (2026-08-17): ganhou "formulario !== 'captacao_detalhamento'"
+  // -- isNewClient continua a checagem central, só o literal mudou.
+  assert.match(srcLead, /if \(isNewClient && formulario !== "captacao_detalhamento" && cfgDisparos\?\.fluxo_notificacao_artista_ativa !== false && resendKey\) \{/);
 });
 
 test("isNewClient continua sendo calculado e usado inteiramente dentro do backend -- nenhuma nova exposição em resposta JSON pública", () => {

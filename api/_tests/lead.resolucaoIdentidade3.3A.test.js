@@ -70,7 +70,8 @@ test("o upsert só roda no último ramo do if/else-if (ninguém possui a chave a
 test("1. Nome + e-mail (sem telefone), sem histórico: candidatosPorEmail roda, encontra 0 -- upsert cria normalmente (chave baseada em e-mail)", () => {
   const trecho = trechoResolucaoIdentidade();
   assert.match(trecho, /if \(!match && emailNorm\) \{/);
-  assert.match(trecho, /else if \(chaveDedupAtual\) \{/);
+  // Bloco 3.3B-B1 (2026-08-17): ganhou "&& formulario !== 'captacao_detalhamento'" -- só o literal exato mudou.
+  assert.match(trecho, /else if \(chaveDedupAtual && formulario !== "captacao_detalhamento"\) \{/);
 });
 
 test("2. Mesmo Nome + mesmo e-mail + telefone (2ª visita): exatamente 1 candidato por e-mail, sem donoExato conflitante -- reconhece direto, sem upsert", () => {
@@ -85,7 +86,8 @@ test("3. Depois disso, Nome + só o mesmo telefone (3ª visita): reconhece via c
 
 test("6. Cliente novo com telefone + e-mail, sem histórico: candidatosPorEmail encontra 0, donoExato não existe -- upsert cria normalmente", () => {
   const trecho = trechoResolucaoIdentidade();
-  const idxRamo = trecho.indexOf("else if (chaveDedupAtual) {");
+  // Bloco 3.3B-B1 (2026-08-17): ganhou "&& formulario !== 'captacao_detalhamento'" -- só o literal exato mudou.
+  const idxRamo = trecho.indexOf('else if (chaveDedupAtual && formulario !== "captacao_detalhamento") {');
   const idxUpsert = trecho.indexOf(".upsert(", idxRamo);
   assert.ok(idxRamo !== -1 && idxUpsert !== -1);
   assert.ok(idxUpsert > idxRamo, "o upsert precisa estar dentro do ramo 'else if (chaveDedupAtual)'");

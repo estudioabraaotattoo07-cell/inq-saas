@@ -160,7 +160,9 @@ test("nenhum toggleKey novo foi adicionado ao objeto fluxoToggles", () => {
 // ── Backend: lógica de roteamento e ausência de arquitetura fora de escopo ──
 
 test("lógica isNewClient do backend permanece intacta (if/else único, mesmo gate)", () => {
-  const trecho = srcLead.slice(srcLead.indexOf('if (cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {'));
+  // Bloco 3.3B-B1 (2026-08-17): ganhou "formulario !== 'captacao_detalhamento'"
+  // -- só o literal exato mudou.
+  const trecho = srcLead.slice(srcLead.indexOf('if (formulario !== "captacao_detalhamento" && cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {'));
   const qtdIf = (trecho.slice(0, trecho.indexOf("return res.status(200)")).match(/if \(isNewClient\) \{/g) || []).length;
   assert.equal(qtdIf, 1);
 });

@@ -2076,7 +2076,14 @@ export default async function handler(req, res) {
           match = donoExato;
           isNewClient = false;
         }
-      } else if (chaveDedupAtual) {
+      } else if (chaveDedupAtual && formulario !== "captacao_detalhamento") {
+        // Bloco 3.3B-B1 (2026-08-17): captacao_detalhamento nunca passa por
+        // este ramo de criação -- essa modalidade só existe depois de uma
+        // captação essencial bem-sucedida, então o cliente necessariamente
+        // já deveria existir. Sem o match encontrado acima, não tenta criar
+        // (match permanece null); o guard fail-closed logo após o
+        // fechamento deste bloco cuida da resposta neutra.
+        //
         // Ninguém possuía essa chave no momento em que donoExato foi lido --
         // tenta o upsert atômico. Continua protegido contra concorrência
         // real pelo UNIQUE(user_id, chave_dedup): a segunda requisição
@@ -2161,6 +2168,35 @@ export default async function handler(req, res) {
         const instaVal = maisCompleto(match.insta, insta);
         if (instaVal) updateFields.insta = instaVal;
         if (nascimentoISO && !match.nascimento) updateFields.nascimento = nascimentoISO;
+        // Bloco 3.3B-B1 -- captacao_detalhamento representa uma nova
+        // solicitação/projeto, independentemente de a ficha ter sido criada
+        // segundos antes ou já existir há anos (cliente existente != projeto
+        // existente). Nunca escreve em descricao/regiao do cliente (isso
+        // reabriria exatamente o que o Bloco 3.2A fechou) -- em vez disso,
+        // acrescenta um novo item ao FINAL de match.projetos, preservando
+        // todos os anteriores intactos. Só cria o item se houver conteúdo
+        // real (descrição, região ou referência) -- nunca um projeto vazio.
+        // Referências continuam exclusivamente em clientes.referencias
+        // (nunca duplicadas dentro de projetos[]), sempre concatenadas sobre
+        // o que já existia, nunca substituindo.
+        if (formulario === "captacao_detalhamento") {
+          const temDetalhamento = !!(ideaFinal || regiao || (Array.isArray(referencias) && referencias.length > 0));
+          if (temDetalhamento) {
+            const novoProjeto = {
+              id: Date.now().toString(),
+              status: "ativo",
+              etapa: "lead", etapa_desde: new Date().toISOString(),
+              desc: ideaFinal || "",
+              regiao: regiao || "",
+              estilo: "", servico: "", tam: "Medio", valorTotal: 0,
+              pagamentos: [], criadoEm: new Date().toLocaleDateString("pt-BR"),
+            };
+            updateFields.projetos = [...(match.projetos || []), novoProjeto];
+            if (Array.isArray(referencias) && referencias.length > 0) {
+              updateFields.referencias = [...(match.referencias || []), ...referencias];
+            }
+          }
+        }
         // Bloco de Unificação da Entrada de Clientes Interessados (2026-08-14):
         // removido o bloco que deixava a requisição pública escolher a etapa de um
         // cliente já existente via etapaSolicitada (campo "etapa" do corpo da
@@ -2246,6 +2282,17 @@ export default async function handler(req, res) {
       if (avisoCompartilhamento) {
         await sb.from("clientes").update({ parecer_aura: avisoCompartilhamento }).eq("id", match.id);
       }
+    }
+
+    // Bloco 3.3B-B1 -- fail-closed: captacao_detalhamento nunca pode chegar
+    // ao Fallback Final de criação (abaixo). Se, depois de toda a resolução
+    // acima, nenhum cliente foi encontrado/reconhecido (match nunca setado,
+    // ou conflito de e-mail no ramo donoExato/vencedor sem marcar
+    // identidadeConflitante), trata como identidade não confirmada -- mesma
+    // saída pública neutra do conflito de identidade, sem revelar se a causa
+    // foi cliente inexistente, conflito ou qualquer outra coisa.
+    if (formulario === "captacao_detalhamento" && !identidadeConflitante && !clienteId) {
+      identidadeConflitante = true;
     }
   }
 
@@ -2372,7 +2419,13 @@ export default async function handler(req, res) {
   // false) não deve gerar esse alerta, para não induzir a equipe a tratar
   // reincidência como entrada operacional nova. E-mail 2 pro cadastro
   // reconhecido pertence ao Bloco 3.2B, não implementado aqui.
-  if (isNewClient && cfgDisparos?.fluxo_notificacao_artista_ativa !== false && resendKey) {
+  // Bloco 3.3B-B1 -- captacao_detalhamento nunca dispara nenhuma comunicação
+  // automática: a comunicação pertinente já aconteceu na captação essencial
+  // imediatamente anterior; o detalhamento é continuação da mesma jornada,
+  // não um novo contato. Explícito aqui mesmo que isNewClient já impedisse
+  // isso indiretamente (captacao_detalhamento nunca cria cliente, então
+  // isNewClient nunca é true nesse caminho) -- defesa clara, não implícita.
+  if (isNewClient && formulario !== "captacao_detalhamento" && cfgDisparos?.fluxo_notificacao_artista_ativa !== false && resendKey) {
     let emailArtista = artistaEmailResolvido || cfgDisparos?.studio_email || null;
     const emailFrom2Raw = process.env.EMAIL_REMETENTE || "";
     const emailFrom2 = emailFrom2Raw ? nomeEstudioLead + " <" + emailFrom2Raw + ">" : emailFrom2Raw;
@@ -2398,7 +2451,10 @@ export default async function handler(req, res) {
     await enviarEmailLead("alerta ao artista", { from: emailFrom2, to: [emailArtista], subject: "✦ Novo lead — " + nome, html: htmlAlerta });
     }
   }
-  if (cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {
+  // Bloco 3.3B-B1 -- mesma exclusão explícita: nenhum E-mail 1 nem E-mail 2
+  // para captacao_detalhamento (ver comentário equivalente no gate do
+  // alerta ao artista, acima).
+  if (formulario !== "captacao_detalhamento" && cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {
     const emailFromRaw = process.env.EMAIL_REMETENTE || "";
     const emailFrom = emailFromRaw ? nomeEstudioLead + " <" + emailFromRaw + ">" : emailFromRaw;
     // waNumero depende só de cfgDisparos.studio_tel (do tenant, não de

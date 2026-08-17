@@ -36,7 +36,8 @@ function semComentarios(texto) {
 function trechoRamoSemCandidatos() {
   const idx = srcLead.indexOf("} else if (donoExato) {");
   assert.ok(idx !== -1, "ramo 'sem candidatos por e-mail' não encontrado");
-  const fim = srcLead.indexOf("} else if (chaveDedupAtual) {", idx);
+  // Bloco 3.3B-B1 (2026-08-17): a condição ganhou "&& formulario !== 'captacao_detalhamento'" -- só o literal exato mudou.
+  const fim = srcLead.indexOf('} else if (chaveDedupAtual && formulario !== "captacao_detalhamento") {', idx);
   assert.ok(fim !== -1, "fim do ramo não encontrado");
   return srcLead.slice(idx, fim);
 }

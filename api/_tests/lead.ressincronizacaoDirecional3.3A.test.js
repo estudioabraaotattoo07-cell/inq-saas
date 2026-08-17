@@ -93,7 +93,8 @@ test("3. não ocorre segunda criação nessa sequência: com a chave preservada,
   const fim = srcLead.indexOf("// Aviso de compartilhamento", inicio);
   const trecho = srcLead.slice(inicio, fim);
   const idxDonoExatoRamo = trecho.indexOf("} else if (donoExato) {");
-  const idxUpsertRamo = trecho.indexOf("} else if (chaveDedupAtual) {");
+  // Bloco 3.3B-B1 (2026-08-17): a condição ganhou "&& formulario !== 'captacao_detalhamento'" -- só o literal exato mudou.
+  const idxUpsertRamo = trecho.indexOf('} else if (chaveDedupAtual && formulario !== "captacao_detalhamento") {');
   assert.ok(idxDonoExatoRamo !== -1 && idxUpsertRamo !== -1);
   assert.ok(idxDonoExatoRamo < idxUpsertRamo, "o ramo que reconhece por donoExato precisa continuar sendo avaliado antes do ramo que tenta o upsert");
 });

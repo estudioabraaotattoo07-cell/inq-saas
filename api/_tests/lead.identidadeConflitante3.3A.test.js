@@ -73,8 +73,9 @@ function trechoSaidaControlada() {
 
 test("Estado 1: 0 candidatos + chave inexistente -- cria normalmente via upsert, isNewClient=true", () => {
   const trecho = trechoDecisao();
-  assert.match(trecho, /\} else if \(chaveDedupAtual\) \{/);
-  const idx = trecho.indexOf("} else if (chaveDedupAtual) {");
+  // Bloco 3.3B-B1 (2026-08-17): a condição ganhou "&& formulario !== 'captacao_detalhamento'" -- só o literal exato mudou.
+  assert.match(trecho, /\} else if \(chaveDedupAtual && formulario !== "captacao_detalhamento"\) \{/);
+  const idx = trecho.indexOf('} else if (chaveDedupAtual && formulario !== "captacao_detalhamento") {');
   const bloco = trecho.slice(idx);
   assert.match(bloco, /\.upsert\(/);
   assert.match(bloco, /isNewClient = true;/);

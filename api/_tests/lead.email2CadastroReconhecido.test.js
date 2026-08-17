@@ -25,9 +25,13 @@ const srcLead = readFileSync(path.join(__dirname, "..", "lead.js"), "utf8");
 // toggle até seu fechamento), pra checar precisamente os dois ramos sem
 // contaminar com outros trechos do arquivo.
 function trechoBlocoEmails() {
-  const inicio = srcLead.indexOf('if (cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {');
+  // Bloco 3.3B-B1 (2026-08-17): as duas condições ganharam
+  // "formulario !== 'captacao_detalhamento'" (exclusão explícita de
+  // comunicação automática nessa modalidade) -- só o literal exato mudou,
+  // a lógica de isolamento entre os testes deste arquivo continua a mesma.
+  const inicio = srcLead.indexOf('if (formulario !== "captacao_detalhamento" && cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {');
   assert.ok(inicio !== -1, "não encontrado: bloco condicional do e-mail automático");
-  const inicioAlerta = srcLead.lastIndexOf("if (isNewClient && cfgDisparos?.fluxo_notificacao_artista_ativa", inicio);
+  const inicioAlerta = srcLead.lastIndexOf('if (isNewClient && formulario !== "captacao_detalhamento" && cfgDisparos?.fluxo_notificacao_artista_ativa', inicio);
   assert.ok(inicioAlerta !== -1 && inicioAlerta < inicio, "referência de alerta ao artista não encontrada antes do bloco de e-mails");
   const fim = srcLead.indexOf("\n  return res.status(200).json({ ok: true, clienteId, campanha: campanhaResp });", inicio);
   assert.ok(fim !== -1, "não encontrado: fim do handler (resposta final)");
@@ -113,7 +117,7 @@ test("E-mail 2 NÃO inclui resumoDados nem dados da nova intenção (ideia/regi�
 });
 
 test("E-mail 2 não dispara alerta ao artista -- alerta continua isolado, condicionado só a isNewClient (Bloco 3.2A)", () => {
-  assert.match(srcLead, /if \(isNewClient && cfgDisparos\?\.fluxo_notificacao_artista_ativa !== false && resendKey\) \{/);
+  assert.match(srcLead, /if \(isNewClient && formulario !== "captacao_detalhamento" && cfgDisparos\?\.fluxo_notificacao_artista_ativa !== false && resendKey\) \{/);
   const trecho = trechoRamoExistente();
   assert.doesNotMatch(trecho, /alerta ao artista/);
 });

@@ -236,17 +236,15 @@ test("payload sem 'formulario' mas com consentimento inválido: continua rejeita
   assert.ok(idxIf !== -1 && idxElseIf !== -1 && idxIf < idxElseIf, "o ramo de validação de consentimento presente precisa continuar independente do identificador");
 });
 
-test("'formulario' não é persistido em 'row' nem usado fora da checagem de consentimento", () => {
+test("'formulario' nunca é persistido em 'row'/'updateFields' -- só lido como discriminador operacional", () => {
+  // Bloco 3.3B-B1 (2026-08-17): "formulario" passou a ser lido em mais
+  // pontos de propósito (guard de criação, fail-closed, gate de e-mail,
+  // gate de alerta, condição do novo item de projetos[]) -- todos eles
+  // LEITURA/comparação, igual ao uso já existente pra consentimento. O que
+  // continua garantido, e é o que este teste prova, é que "formulario"
+  // nunca vira uma coluna/campo gravado no banco.
   const codigoAtivo = semComentarios(srcLead);
-  // A única leitura de "formulario" fora da desestruturação do corpo da
-  // requisição deve ser a comparação de consentimento -- não pode aparecer
-  // dentro da montagem do objeto "row" nem em nenhum .insert/.upsert/.update.
-  const ocorrencias = (codigoAtivo.match(/\bformulario\b/g) || []).length;
-  // 1 no payload enviado pela ficha nova (JS do navegador) + 1 na
-  // desestruturação do req.body (servidor) + 1 na comparação de
-  // consentimento (servidor) = 3.
-  assert.equal(ocorrencias, 3, "formulario só pode aparecer no payload da ficha nova, na desestruturação do corpo e na comparação de consentimento");
-  assert.doesNotMatch(codigoAtivo, /row\.formulario|formulario:\s*formulario|\.\.\.\s*formulario/);
+  assert.doesNotMatch(codigoAtivo, /row\.formulario|updateFields\.formulario|formulario:\s*formulario|\.\.\.\s*formulario/);
 });
 
 test("'formulario' não é mecanismo de autenticação -- nenhuma verificação de token/hash/jwt foi introduzida na checagem de consentimento", () => {

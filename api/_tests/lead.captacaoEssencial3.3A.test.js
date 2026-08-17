@@ -233,11 +233,13 @@ test("row grava consentimento_contato e trafego (null quando não aplicável)", 
 // ═══════════════════════════════════════════════════════════════════════════
 
 test("E-mail 1 continua condicionado a 'email' truthy (gate pré-existente, inalterado) -- não dispara sem e-mail na submissão", () => {
-  assert.match(srcLead, /if \(cfgDisparos\?\.fluxo_boas_vindas_email_ativa !== false && resendKey && email\) \{/);
+  // Bloco 3.3B-B1 (2026-08-17): ganhou "formulario !== 'captacao_detalhamento'"
+  // -- a exigência de 'email' truthy continua, só o literal exato mudou.
+  assert.match(srcLead, /if \(formulario !== "captacao_detalhamento" && cfgDisparos\?\.fluxo_boas_vindas_email_ativa !== false && resendKey && email\) \{/);
 });
 test("E-mail 2 está dentro do mesmo gate que exige 'email' -- não dispara sem e-mail na submissão", () => {
   const trecho = semComentarios(srcLead);
-  const idxGate = trecho.indexOf("if (cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {");
+  const idxGate = trecho.indexOf('if (formulario !== "captacao_detalhamento" && cfgDisparos?.fluxo_boas_vindas_email_ativa !== false && resendKey && email) {');
   const idxElse = trecho.indexOf("} else {", idxGate);
   const idxCadastroReconhecido = trecho.indexOf('"cadastro reconhecido"', idxElse);
   assert.ok(idxGate !== -1 && idxElse !== -1 && idxCadastroReconhecido !== -1 && idxCadastroReconhecido > idxElse, "E-mail 2 precisa continuar dentro do gate que exige email");
@@ -247,7 +249,10 @@ test("templates de E-mail 1 e E-mail 2 não foram reescritos neste bloco (assunt
   assert.match(srcLead, /subject: "Vamos continuar seu atendimento, " \+ fn \+ "\?"/);
 });
 test("alerta ao artista não foi alterado além do necessário -- condição isNewClient preservada", () => {
-  assert.match(srcLead, /if \(isNewClient && cfgDisparos\?\.fluxo_notificacao_artista_ativa !== false && resendKey\) \{/);
+  // Bloco 3.3B-B1 (2026-08-17): a condição ganhou "formulario !== 'captacao_detalhamento'"
+  // (exclusão explícita de comunicação automática nessa modalidade) -- isNewClient
+  // continua sendo a checagem central, só o literal exato mudou.
+  assert.match(srcLead, /if \(isNewClient && formulario !== "captacao_detalhamento" && cfgDisparos\?\.fluxo_notificacao_artista_ativa !== false && resendKey\) \{/);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
