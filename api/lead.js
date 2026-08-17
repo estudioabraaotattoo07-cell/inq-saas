@@ -2177,7 +2177,20 @@ export default async function handler(req, res) {
         // requisição (ex: correção no fim da conversa) -- tentativa separada
         // e silenciosa, pra nunca derrubar o salvamento principal por causa
         // disso (ex: colisão rara com a chave de outro cliente já existente).
-        if (chaveDedupAtual && chaveDedupAtual !== match.chave_dedup) {
+        //
+        // Correção de direção da ressincronização (2026-08-17) -- bug real
+        // comprovado em produção: a chave só pode EVOLUIR de baseada em
+        // e-mail para baseada em telefone (mais forte), nunca regredir. Sem
+        // o "telDigits &&" abaixo, uma submissão só-e-mail que reconhecia um
+        // cliente já com chave baseada em telefone rebaixava essa chave pra
+        // uma baseada em e-mail (chaveDedupAtual desta submissão, sem
+        // telefone, é sempre email-based) -- liberando a chave baseada em
+        // telefone pra ser "roubada" por uma visita seguinte só com
+        // telefone, criando uma segunda ficha. telDigits só é truthy quando
+        // ESTA submissão contém telefone -- exatamente quando calcularChaveDedup
+        // prioriza telefone e a migração é uma evolução legítima, nunca uma
+        // regressão.
+        if (telDigits && chaveDedupAtual && chaveDedupAtual !== match.chave_dedup) {
           sb.from("clientes").update({ chave_dedup: chaveDedupAtual }).eq("id", match.id).then(() => {}).catch(() => {});
         }
         const { error: erroUpdateMatch } = await sb.from("clientes").update(updateFields).eq("id", match.id);

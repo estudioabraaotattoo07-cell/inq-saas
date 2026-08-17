@@ -70,9 +70,9 @@ test("updateFields do cadastro existente MANTÉM só o enriquecimento cadastral 
   assert.match(trecho, /if \(nascimentoISO && !match\.nascimento\) updateFields\.nascimento = nascimentoISO;/, "nascimento só-se-vazio precisa continuar");
 });
 
-test("ressincronização de chave_dedup continua acontecendo pro cadastro existente", () => {
+test("ressincronização de chave_dedup continua acontecendo pro cadastro existente, agora só quando a submissão tem telefone (correção de direção, 2026-08-17 -- ver lead.ressincronizacaoDirecional3.3A.test.js)", () => {
   const trecho = trechoUpdateFieldsExistente();
-  assert.match(trecho, /if \(chaveDedupAtual && chaveDedupAtual !== match\.chave_dedup\)/, "ressincronização de chave_dedup precisa continuar");
+  assert.match(trecho, /if \(telDigits && chaveDedupAtual && chaveDedupAtual !== match\.chave_dedup\)/, "ressincronização de chave_dedup precisa continuar, condicionada a telDigits");
   assert.match(trecho, /sb\.from\("clientes"\)\.update\(\{ chave_dedup: chaveDedupAtual \}\)\.eq\("id", match\.id\)/, "update de chave_dedup precisa continuar");
 });
 

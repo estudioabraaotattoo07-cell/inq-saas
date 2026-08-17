@@ -79,8 +79,8 @@ test("2. Mesmo Nome + mesmo e-mail + telefone (2ª visita): exatamente 1 candida
   assert.match(trecho, /if \(!donoExato \|\| donoExato\.id === candidato\.id\) \{/, "só reconhece direto quando não há telefone contraditório -- preserva a correção final desta rodada");
 });
 
-test("3. Depois disso, Nome + só o mesmo telefone (3ª visita): reconhece via chave_dedup exata, se a ressincronização da 2ª visita tiver migrado a chave -- mecanismo pré-existente, intocado", () => {
-  assert.match(srcLead, /if \(chaveDedupAtual && chaveDedupAtual !== match\.chave_dedup\) \{/, "ressincronização pré-existente precisa continuar lá, intocada");
+test("3. Depois disso, Nome + só o mesmo telefone (3ª visita): reconhece via chave_dedup exata -- garantido agora pela correção de direção da ressincronização (2026-08-17): a 2ª visita (só e-mail) NÃO pode ter rebaixado a chave baseada em telefone, então ela continua lá pra ser encontrada. Ver lead.ressincronizacaoDirecional3.3A.test.js para a prova comportamental da direção.", () => {
+  assert.match(srcLead, /if \(telDigits && chaveDedupAtual && chaveDedupAtual !== match\.chave_dedup\) \{/, "ressincronização precisa continuar lá, agora condicionada a telDigits");
 });
 
 test("6. Cliente novo com telefone + e-mail, sem histórico: candidatosPorEmail encontra 0, donoExato não existe -- upsert cria normalmente", () => {
@@ -101,7 +101,7 @@ test("9. Somente um contato, sem histórico: candidatosPorEmail continua null qu
 // ═══════════════════════════════════════════════════════════════════════════
 
 test("10. ressincronização de chave_dedup continua um UPDATE simples (não upsert) -- uma violação de UNIQUE é REJEITADA pelo Postgres, nunca sobrescreve outro registro", () => {
-  const idx = srcLead.indexOf("if (chaveDedupAtual && chaveDedupAtual !== match.chave_dedup) {");
+  const idx = srcLead.indexOf("if (telDigits && chaveDedupAtual && chaveDedupAtual !== match.chave_dedup) {");
   assert.ok(idx !== -1, "ressincronização não encontrada");
   const bloco = srcLead.slice(idx, idx + 250);
   assert.match(bloco, /sb\.from\("clientes"\)\.update\(\{ chave_dedup: chaveDedupAtual \}\)\.eq\("id", match\.id\)/);
@@ -109,7 +109,7 @@ test("10. ressincronização de chave_dedup continua um UPDATE simples (não ups
 });
 
 test("10. a rejeição do Postgres continua engolida sem derrubar a requisição", () => {
-  const idx = srcLead.indexOf("if (chaveDedupAtual && chaveDedupAtual !== match.chave_dedup) {");
+  const idx = srcLead.indexOf("if (telDigits && chaveDedupAtual && chaveDedupAtual !== match.chave_dedup) {");
   const bloco = srcLead.slice(idx, idx + 250);
   assert.match(bloco, /\.then\(\(\) => \{\}\)\.catch\(\(\) => \{\}\);/);
 });
