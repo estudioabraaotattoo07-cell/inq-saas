@@ -1725,7 +1725,8 @@ export default function CRM() {
   const [nascDraft, setNascDraft] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [fichaTab, setFichaTab] = useState<"dados"|"docs"|"historico">("dados");
   const [fichaEditada, setFichaEditada] = useState(false);
-  const [fichaSaveStep, setFichaSaveStep] = useState(0);
+  const [fichaDraft, setFichaDraft] = useState<{ clienteId: any; nome?: string; tel?: string; email?: string; insta?: string; nascimento?: string; obs?: string } | null>(null);
+  const [salvandoFicha, setSalvandoFicha] = useState(false);
   const [fichaTabPendente, setFichaTabPendente] = useState<string|null>(null);
   const [fichaWarnSair, setFichaWarnSair] = useState(false);
   const [docsAberto, setDocsAberto] = useState<string|null>(null);
@@ -2418,7 +2419,7 @@ export default function CRM() {
         }
       } catch {}
     }
-    await dbUpsert("clientes", {
+    return await dbUpsert("clientes", {
       id: typeof c.id === "number" ? undefined : c.id,
       nome: c.nome, insta: c.insta || "", tel: c.tel || "",
       qual: c.qual, artista: c.artista, etapa: c.etapa, etapa_desde: (c as any).etapa_desde ?? null,
@@ -3209,6 +3210,36 @@ export default function CRM() {
   const upCFicha = (cid: number, f: string, v: any) => {
     setClients(p => p.map(c => c.id !== cid ? c : { ...c, [f]: v }));
     setFichaEditada(true);
+  };
+
+  // ─── DRAFT DE EDIÇÃO DA FICHA (Bloco 3.4A) ──────────────────────────────
+  // Nome/Telefone/Email/Instagram/Nascimento/Observações não gravam mais em
+  // `clients` a cada edição — ficam isolados em `fichaDraft` até "Salvar
+  // alterações" confirmar sucesso no banco, ou serem descartados.
+  const fichaDraftValor = (clienteId: any, campo: string, fallback: any) => {
+    return (fichaDraft && fichaDraft.clienteId === clienteId && campo in fichaDraft) ? (fichaDraft as any)[campo] : fallback;
+  };
+  const setFichaDraftField = (clienteId: any, campo: string, valor: any) => {
+    setFichaDraft(prev => (prev && prev.clienteId === clienteId) ? { ...prev, [campo]: valor } : { clienteId, [campo]: valor });
+  };
+  const descartarFichaAlteracoes = () => {
+    setFichaDraft(null);
+    setNascDraft({ dia: "", mes: "", ano: "" });
+    setFichaEditada(false);
+  };
+  const salvarFichaAlteracoes = async (clienteAtual: any) => {
+    if (!fichaDraft || fichaDraft.clienteId !== clienteAtual.id) return;
+    setSalvandoFicha(true);
+    const { clienteId, ...camposDraft } = fichaDraft;
+    const atualizado = { ...clienteAtual, ...camposDraft };
+    const resultado = await saveClientDb(atualizado);
+    setSalvandoFicha(false);
+    if (resultado) {
+      setClients(prev => prev.map(c => c.id === clienteAtual.id ? atualizado : c));
+      setFichaDraft(null);
+      setNascDraft({ dia: "", mes: "", ano: "" });
+      setFichaEditada(false);
+    }
   };
 
   const registrarFalta = (cid: number, artista: string) => {
@@ -5817,7 +5848,7 @@ export default function CRM() {
                   <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: "var(--gold)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>🎂 Aniversários nos próximos 7 dias</div>
                     {aniversariantes.map((c: any) => (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags">
                           <span className="atag" style={{ color: "var(--gold)" }}>
@@ -5837,7 +5868,7 @@ export default function CRM() {
                   <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: "#E67E22", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>🛡 Garantias vencendo (D+30 a D+37)</div>
                     {garantias.map(c => (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags"><span className="atag" style={{ color: "#E67E22" }}>D+{c.dias} — {37 - c.dias} dias restantes</span></div>
                       </div>
@@ -5853,7 +5884,7 @@ export default function CRM() {
                   <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: "#888", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>💤 Inativos há 40+ dias</div>
                     {inativos.map(c => (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags"><span className="atag" style={{ color: "#888" }}>Inativo há {c.dias}d</span></div>
                       </div>
@@ -5869,7 +5900,7 @@ export default function CRM() {
                   <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: "var(--q1)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>🔴 Avaliações negativas — requer contato</div>
                     {negativas.map(c => (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags">
                           <span className="atag" style={{ color: "var(--q1)" }}>Avaliação negativa</span>
@@ -5892,7 +5923,7 @@ export default function CRM() {
                   <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: "var(--q1)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>📞 Precisa remarcar — cliente sinalizou pelo link de confirmação</div>
                     {remarcar.map(c => (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags"><span className="atag" style={{ color: "var(--q1)" }}>Precisa remarcar</span></div>
                       </div>
@@ -5916,7 +5947,7 @@ export default function CRM() {
                     const m = miss(c); const ch = churn(c);
                     const projSemValor = (c.projetos || []).some((p: any) => { const vt = Number(String(p.valorTotal || "0").replace(/\./g,"").replace(",",".")); return p.status !== "concluido" && p.status !== "cancelado" && vt <= 0; }) && c.etapa !== "lead";
                     return (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags">
                           {ch === "red" && <span className="co co-r">🔴 1a sem retorno</span>}
@@ -6146,7 +6177,7 @@ export default function CRM() {
                           onTouchStart={e => onCardTouchStart(e, c.id)}
                           onTouchMove={onCardTouchMove}
                           onTouchEnd={onCardTouchEnd}
-                          onClick={() => { if (carryingClientId !== null) { dropCarriedClient(stage.id); return; } setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}
+                          onClick={() => { if (carryingClientId !== null) { dropCarriedClient(stage.id); return; } setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}
                           style={{ animation: "fadeSlideIn .22s ease both", opacity: (draggingClientId === c.id || carryingClientId === c.id) ? 0.4 : 1, outline: carryingClientId === c.id ? "2px dashed var(--gold)" : undefined, cursor: "grab", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}>
                           <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "4px", background: "var(--gold)", borderRadius: "12px 0 0 12px" }} />
                           <div className="ctop">
@@ -8190,7 +8221,7 @@ export default function CRM() {
                     : alertas.map(c => {
                       const m = miss(c); const ch = churn(c);
                       return (
-                        <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }} className="alert-row" style={{ padding: "9px 11px", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 9, marginBottom: 6, cursor: "pointer" }}>
+                        <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }} className="alert-row" style={{ padding: "9px 11px", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 9, marginBottom: 6, cursor: "pointer" }}>
                           <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, marginBottom: 3 }}>{c.nome}</div>
                           <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                             {m.map(x => <span key={x} className="atag">⚠ Sem {x}</span>)}
@@ -8269,7 +8300,7 @@ export default function CRM() {
                   {reativacao.length === 0
                     ? <div style={{ color: "var(--tx3)", fontSize: 12 }}>Nenhum cliente para reativar.</div>
                     : reativacao.map(c => (
-                      <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }} className="alert-row" style={{ padding: "9px 11px", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 9, marginBottom: 6, cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
+                      <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }} className="alert-row" style={{ padding: "9px 11px", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 9, marginBottom: 6, cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontWeight: 600, color: "var(--tx)" }}>{c.nome}</div>
                           <div style={{ fontSize: 11, color: "var(--tx2)" }}>{c.dias} dias sem movimento {c.qual}</div>
@@ -8480,7 +8511,7 @@ export default function CRM() {
                           {c.nps && <span style={{ marginLeft: 9, color: "var(--gold)", fontWeight: 600 }}>NPS: {c.nps}/10</span>}
                         </div>
                       </div>
-                      <button className="mc" style={{ width: "auto", padding: "0 9px", fontSize: 11 }} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); }}>Ver ficha</button>
+                      <button className="mc" style={{ width: "auto", padding: "0 9px", fontSize: 11 }} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>Ver ficha</button>
                     </div>
                     <div className="pvt">
                       {c.pv.map((p: any, i: number) => (
@@ -9647,19 +9678,23 @@ export default function CRM() {
                   if (fichaTabPendente) {
                     setFichaTab(fichaTabPendente as any);
                     setFichaTabPendente(null);
-                    setFichaEditada(false);
-                    setFichaSaveStep(0);
+                    descartarFichaAlteracoes();
                   } else {
+                    descartarFichaAlteracoes();
                     setSel(null);
                     setFichaWarnSair(false);
-                    setFichaEditada(false);
-                    setFichaSaveStep(0);
                     setFichaTab("dados");
                   }
                 }} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "7px 14px", fontSize: 12, color: "var(--q1)", cursor: "pointer", fontWeight: 600 }}>
                   Descartar alterações
                 </button>
-                <button onClick={() => { setFichaWarnSair(false); setFichaTabPendente(null); setFichaSaveStep(1); }}
+                <button onClick={async () => {
+                  setFichaWarnSair(false);
+                  const trocarPara = fichaTabPendente;
+                  setFichaTabPendente(null);
+                  if (sc) await salvarFichaAlteracoes(sc);
+                  if (trocarPara) setFichaTab(trocarPara as any);
+                }}
                   style={{ background: "var(--gold)", border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 12, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>
                   Salvar antes
                 </button>
@@ -9670,7 +9705,7 @@ export default function CRM() {
 
         {/* ── MODAL CLIENTE ── */}
         {sc && (
-          <div className="ov" onClick={e => { if (e.target === e.currentTarget) { if (fichaEditada) { setFichaWarnSair(true); } else { setSel(null); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); } } }}>
+          <div className="ov" onClick={e => { if (e.target === e.currentTarget) { if (fichaEditada || (fichaDraft && fichaDraft.clienteId === sc.id)) { setFichaWarnSair(true); } else { setSel(null); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); } } }}>
             <div className="modal">
               <div className="mh" style={{ position: "relative" }}>
                 <div style={{ flex: 1 }}>
@@ -9697,7 +9732,7 @@ export default function CRM() {
                     {miss(sc).map((m: string) => <span key={m} className="atag">⚠ Sem {m}</span>)}
                   </div>
                 </div>
-                <button className="mc" onClick={() => { if (fichaEditada) { setFichaWarnSair(true); } else { setSel(null); setFichaTab("dados"); setFichaEditada(false); setFichaSaveStep(0); } }}>✕</button>
+                <button className="mc" onClick={() => { if (fichaEditada || (fichaDraft && fichaDraft.clienteId === sc.id)) { setFichaWarnSair(true); } else { setSel(null); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); } }}>✕</button>
               </div>
               {/* ── TABS DA FICHA ── */}
               <div style={{ display: "flex", borderBottom: "1px solid var(--br)", background: "var(--dk2)", overflowX: "auto", flexShrink: 0, WebkitOverflowScrolling: "touch" as any }}>
@@ -9706,9 +9741,9 @@ export default function CRM() {
                   return (
                     <button key={tab} onClick={() => {
                       if (tab === fichaTab) return;
-                      if (fichaEditada) { setFichaTabPendente(tab); } else { setFichaTab(tab); }
+                      if (fichaEditada || (fichaDraft && fichaDraft.clienteId === sc.id)) { setFichaTabPendente(tab); } else { setFichaTab(tab); }
                     }} style={{ padding: "9px 14px", fontSize: 12, fontWeight: 500, color: fichaTab === tab ? "var(--gold)" : "var(--tx2)", background: "none", border: "none", borderBottom: fichaTab === tab ? "2px solid var(--gold)" : "2px solid transparent", cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'DM Sans',sans-serif" }}>
-                      {labels[tab]}{fichaEditada && tab === fichaTab ? " •" : ""}
+                      {labels[tab]}{(fichaEditada || (fichaDraft && fichaDraft.clienteId === sc.id)) && tab === fichaTab ? " •" : ""}
                     </button>
                   );
                 })}
@@ -9730,22 +9765,26 @@ export default function CRM() {
                   <div className="fg2">
                     {[
                       { l: "Nome", f: "nome" }, { l: "Telefone", f: "tel" },
-                      { l: "Email", f: "email", w: !sc.email }, { l: "Instagram", f: "insta", w: !sc.insta }
-                    ].map((fd, i) => (
+                      { l: "Email", f: "email" }, { l: "Instagram", f: "insta" }
+                    ].map((fd, i) => {
+                      const valorAtual = fichaDraftValor(sc.id, fd.f, (sc as any)[fd.f] || "");
+                      const w = (fd.f === "email" || fd.f === "insta") && !valorAtual;
+                      return (
                       <div className="fi2" key={i}>
-                        <div className="fil">{fd.l}{(fd as any).w ? " ⚠" : ""}</div>
-                        <input className="ef" value={fd.f === "tel" ? maskTel((sc as any)[fd.f] || "") : (sc as any)[fd.f] || ""} placeholder={(fd as any).w ? "Clique para adicionar" : fd.f === "tel" ? "(99) 99999-9999" : fd.f === "insta" ? "@perfil" : ""}
+                        <div className="fil">{fd.l}{w ? " ⚠" : ""}</div>
+                        <input className="ef" value={fd.f === "tel" ? maskTel(valorAtual) : valorAtual} placeholder={w ? "Clique para adicionar" : fd.f === "tel" ? "(99) 99999-9999" : fd.f === "insta" ? "@perfil" : ""}
                           onChange={e => {
                             const v = e.target.value;
                             const vFinal = fd.f === "tel" ? v.replace(/\D/g, "") : fd.f === "insta" && v && !v.startsWith("@") ? "@" + v : v;
-                            upCFicha(sc.id, fd.f, vFinal);
+                            setFichaDraftField(sc.id, fd.f, vFinal);
                           }}
-                          style={{ borderColor: fd.f === "email" && (sc as any).email && !validarEmail((sc as any).email) ? "var(--q1)" : (fd as any).w && !(sc as any)[fd.f] ? "var(--q2)" : "var(--br)" }} />
-                        {fd.f === "email" && (sc as any).email && !validarEmail((sc as any).email) && (
+                          style={{ borderColor: fd.f === "email" && valorAtual && !validarEmail(valorAtual) ? "var(--q1)" : w ? "var(--q2)" : "var(--br)" }} />
+                        {fd.f === "email" && valorAtual && !validarEmail(valorAtual) && (
                           <span style={{ fontSize: 10, color: "var(--q1)", marginTop: 3, display: "block" }}>Email inválido</span>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                     <div className="fi2">
                       <div className="fil">Profissional Responsável</div>
                       <select className="ef" value={sc.artista || ""} onChange={e => {
@@ -9770,7 +9809,7 @@ export default function CRM() {
                     <div className="fi2">
                       <div className="fil">Data de Nascimento</div>
                       {(() => {
-                        const nasc = (sc as any).nascimento || "";
+                        const nasc = fichaDraftValor(sc.id, "nascimento", (sc as any).nascimento || "");
                         const partes = nasc.includes("/") ? nasc.split("/") : nasc.includes("-") ? [nasc.split("-")[2], nasc.split("-")[1], nasc.split("-")[0]] : ["","",""];
                         const diaDB = partes[0] || "";
                         const mesDB = partes[1] || "";
@@ -9788,7 +9827,7 @@ export default function CRM() {
                           const m = campo === "mes" ? valor : mesV;
                           const a = campo === "ano" ? valor : anoV;
                           if (d && m && a) {
-                            upCFicha(sc.id, "nascimento", d.padStart(2,"0") + "/" + m.padStart(2,"0") + "/" + a);
+                            setFichaDraftField(sc.id, "nascimento", d.padStart(2,"0") + "/" + m.padStart(2,"0") + "/" + a);
                             setNascDraft({ dia: "", mes: "", ano: "" });
                           }
                         };
@@ -11411,8 +11450,7 @@ export default function CRM() {
                   )}
                   <div className="fi2" style={{ marginTop: 7 }}>
                     <div className="fil">Observações Internas</div>
-                    <textarea value={sc.obs} onChange={e => upCLocal(sc.id, "obs", e.target.value)}
-                      onBlur={e => upC(sc.id, "obs", e.target.value)}
+                    <textarea value={fichaDraftValor(sc.id, "obs", sc.obs || "")} onChange={e => setFichaDraftField(sc.id, "obs", e.target.value)}
                       style={{ width: "100%", minHeight: 50, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "6px 8px", fontSize: 11, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", outline: "none", resize: "vertical", marginTop: 3 }}
                       placeholder="Anotações privadas..." />
                   </div>
@@ -12195,24 +12233,16 @@ export default function CRM() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--br)", marginTop: 8, gap: 8, flexWrap: "wrap" }}>
                     <button onClick={() => setConfirmExcluirCliente(sc)} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "7px 16px", fontSize: 12, color: "var(--q1)", cursor: "pointer", fontWeight: 600 }}>🗑 Excluir cliente</button>
                     <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
-                      {fichaSaveStep === 0 && (
-                        <button onClick={() => { if (fichaEditada) setFichaSaveStep(1); }} disabled={!fichaEditada}
-                          style={{ background: fichaEditada ? "var(--gold)" : "var(--dk3)", border: "none", borderRadius: 6, padding: "7px 20px", fontSize: 12, color: fichaEditada ? "#1a1a1a" : "var(--tx3)", cursor: fichaEditada ? "pointer" : "not-allowed", fontWeight: 700, opacity: fichaEditada ? 1 : 0.5 }}>
-                          💾 Salvar{fichaEditada ? " *" : ""}
+                      {(fichaDraft && fichaDraft.clienteId === sc.id) && (
+                        <button onClick={() => descartarFichaAlteracoes()} disabled={salvandoFicha}
+                          style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 16px", fontSize: 12, color: "var(--tx2)", cursor: salvandoFicha ? "not-allowed" : "pointer", fontWeight: 600, opacity: salvandoFicha ? 0.5 : 1 }}>
+                          Descartar alterações
                         </button>
                       )}
-                      {fichaSaveStep === 1 && (
-                        <div style={{ display: "flex", gap: 6, alignItems: "center", background: "rgba(201,168,76,.1)", border: "1px solid rgba(201,168,76,.3)", borderRadius: 8, padding: "6px 12px" }}>
-                          <span style={{ fontSize: 12, color: "var(--tx2)" }}>Confirmar alterações?</span>
-                          <button onClick={() => setFichaSaveStep(0)} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 5, padding: "4px 10px", fontSize: 11, color: "var(--tx2)", cursor: "pointer" }}>Cancelar</button>
-                          <button onClick={async () => {
-                            const updated = clients.find(c => c.id === sc.id);
-                            if (updated) { await saveClientDb(updated); }
-                            setFichaEditada(false);
-                            setFichaSaveStep(0);
-                          }} style={{ background: "var(--gold)", border: "none", borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#1a1a1a", cursor: "pointer", fontWeight: 700 }}>Confirmar</button>
-                        </div>
-                      )}
+                      <button onClick={() => salvarFichaAlteracoes(sc)} disabled={!(fichaDraft && fichaDraft.clienteId === sc.id) || salvandoFicha}
+                        style={{ background: (fichaDraft && fichaDraft.clienteId === sc.id) ? "var(--gold)" : "var(--dk3)", border: "none", borderRadius: 6, padding: "7px 20px", fontSize: 12, color: (fichaDraft && fichaDraft.clienteId === sc.id) ? "#1a1a1a" : "var(--tx3)", cursor: (fichaDraft && fichaDraft.clienteId === sc.id) && !salvandoFicha ? "pointer" : "not-allowed", fontWeight: 700, opacity: (fichaDraft && fichaDraft.clienteId === sc.id) ? 1 : 0.5 }}>
+                        {salvandoFicha ? "Salvando..." : ("💾 Salvar alterações" + ((fichaDraft && fichaDraft.clienteId === sc.id) ? " *" : ""))}
+                      </button>
                     </div>
                   </div>
                 )}
