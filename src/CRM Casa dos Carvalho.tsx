@@ -1754,6 +1754,10 @@ export default function CRM() {
   const [confirmTrocarProfissional, setConfirmTrocarProfissional] = useState<{clienteId: any; novoArtista: string; antigoArtista: string} | null>(null);
   const [nascDraft, setNascDraft] = useState<{dia: string; mes: string; ano: string}>({ dia: "", mes: "", ano: "" });
   const [fichaTab, setFichaTab] = useState<"dados"|"docs"|"historico">("dados");
+  // Resumo do Cliente (Bloco 3.5, versão mínima) -- somente leitura, contatos
+  // clicáveis. "resumo" é o modo padrão de abertura; "Editar ficha" leva a
+  // "edicao", que é a ficha completa já existente, sem nenhuma mudança nela.
+  const [modoFicha, setModoFicha] = useState<"resumo"|"edicao">("resumo");
   const [fichaEditada, setFichaEditada] = useState(false);
   const [fichaDraft, setFichaDraft] = useState<{ clienteId: any; nome?: string; tel?: string; email?: string; insta?: string; nascimento?: string; obs?: string } | null>(null);
   const [salvandoFicha, setSalvandoFicha] = useState(false);
@@ -5880,7 +5884,7 @@ export default function CRM() {
                   <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: "var(--gold)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>🎂 Aniversários nos próximos 7 dias</div>
                     {aniversariantes.map((c: any) => (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); setModoFicha("resumo"); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags">
                           <span className="atag" style={{ color: "var(--gold)" }}>
@@ -5900,7 +5904,7 @@ export default function CRM() {
                   <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: "#E67E22", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>🛡 Garantias vencendo (D+30 a D+37)</div>
                     {garantias.map(c => (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); setModoFicha("resumo"); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags"><span className="atag" style={{ color: "#E67E22" }}>D+{c.dias} — {37 - c.dias} dias restantes</span></div>
                       </div>
@@ -5916,7 +5920,7 @@ export default function CRM() {
                   <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: "#888", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>💤 Inativos há 40+ dias</div>
                     {inativos.map(c => (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); setModoFicha("resumo"); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags"><span className="atag" style={{ color: "#888" }}>Inativo há {c.dias}d</span></div>
                       </div>
@@ -5932,7 +5936,7 @@ export default function CRM() {
                   <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: "var(--q1)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>🔴 Avaliações negativas — requer contato</div>
                     {negativas.map(c => (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); setModoFicha("resumo"); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags">
                           <span className="atag" style={{ color: "var(--q1)" }}>Avaliação negativa</span>
@@ -5955,7 +5959,7 @@ export default function CRM() {
                   <div style={{ borderBottom: "1px solid var(--br)", paddingBottom: 8, marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: "var(--q1)", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 14px 4px" }}>📞 Precisa remarcar — cliente sinalizou pelo link de confirmação</div>
                     {remarcar.map(c => (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); setModoFicha("resumo"); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags"><span className="atag" style={{ color: "var(--q1)" }}>Precisa remarcar</span></div>
                       </div>
@@ -5979,7 +5983,7 @@ export default function CRM() {
                     const m = miss(c); const ch = churn(c);
                     const projSemValor = (c.projetos || []).some((p: any) => { const vt = Number(String(p.valorTotal || "0").replace(/\./g,"").replace(",",".")); return p.status !== "concluido" && p.status !== "cancelado" && vt <= 0; }) && c.etapa !== "lead";
                     return (
-                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>
+                      <div key={c.id} className="ad-item" onClick={() => { setSel(c); setSelCtx("clientes"); setShowAlerts(false); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); setModoFicha("resumo"); }}>
                         <div className="ad-name">{c.nome}</div>
                         <div className="ad-tags">
                           {ch === "red" && <span className="co co-r">🔴 1a sem retorno</span>}
@@ -6209,7 +6213,7 @@ export default function CRM() {
                           onTouchStart={e => onCardTouchStart(e, c.id)}
                           onTouchMove={onCardTouchMove}
                           onTouchEnd={onCardTouchEnd}
-                          onClick={() => { if (carryingClientId !== null) { dropCarriedClient(stage.id); return; } setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}
+                          onClick={() => { if (carryingClientId !== null) { dropCarriedClient(stage.id); return; } setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); setModoFicha("resumo"); }}
                           style={{ animation: "fadeSlideIn .22s ease both", opacity: (draggingClientId === c.id || carryingClientId === c.id) ? 0.4 : 1, outline: carryingClientId === c.id ? "2px dashed var(--gold)" : undefined, cursor: "grab", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}>
                           <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "4px", background: "var(--gold)", borderRadius: "12px 0 0 12px" }} />
                           <div className="ctop">
@@ -6499,7 +6503,7 @@ export default function CRM() {
                             if (selMode) {
                               setSelIds(prev => { const n = new Set(prev); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; });
                             } else {
-                              setSel(c); setSelCtx("clientes");
+                              setSel(c); setSelCtx("clientes"); setModoFicha("resumo");
                             }
                           }}>
                           {selMode && (
@@ -8253,7 +8257,7 @@ export default function CRM() {
                     : alertas.map(c => {
                       const m = miss(c); const ch = churn(c);
                       return (
-                        <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }} className="alert-row" style={{ padding: "9px 11px", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 9, marginBottom: 6, cursor: "pointer" }}>
+                        <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); setModoFicha("resumo"); }} className="alert-row" style={{ padding: "9px 11px", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 9, marginBottom: 6, cursor: "pointer" }}>
                           <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, marginBottom: 3 }}>{c.nome}</div>
                           <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                             {m.map(x => <span key={x} className="atag">⚠ Sem {x}</span>)}
@@ -8332,7 +8336,7 @@ export default function CRM() {
                   {reativacao.length === 0
                     ? <div style={{ color: "var(--tx3)", fontSize: 12 }}>Nenhum cliente para reativar.</div>
                     : reativacao.map(c => (
-                      <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }} className="alert-row" style={{ padding: "9px 11px", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 9, marginBottom: 6, cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
+                      <div key={c.id} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); setModoFicha("resumo"); }} className="alert-row" style={{ padding: "9px 11px", background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 9, marginBottom: 6, cursor: "pointer", display: "flex", alignItems: "center", gap: 9 }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontWeight: 600, color: "var(--tx)" }}>{c.nome}</div>
                           <div style={{ fontSize: 11, color: "var(--tx2)" }}>{c.dias} dias sem movimento {c.qual}</div>
@@ -8543,7 +8547,7 @@ export default function CRM() {
                           {c.nps && <span style={{ marginLeft: 9, color: "var(--gold)", fontWeight: 600 }}>NPS: {c.nps}/10</span>}
                         </div>
                       </div>
-                      <button className="mc" style={{ width: "auto", padding: "0 9px", fontSize: 11 }} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); }}>Ver ficha</button>
+                      <button className="mc" style={{ width: "auto", padding: "0 9px", fontSize: 11 }} onClick={() => { setSel(c); setSelCtx("clientes"); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); setModoFicha("resumo"); }}>Ver ficha</button>
                     </div>
                     <div className="pvt">
                       {c.pv.map((p: any, i: number) => (
@@ -9716,6 +9720,7 @@ export default function CRM() {
                     setSel(null);
                     setFichaWarnSair(false);
                     setFichaTab("dados");
+                    setModoFicha("resumo");
                   }
                 }} style={{ background: "rgba(192,57,43,.15)", border: "1px solid rgba(192,57,43,.3)", borderRadius: 6, padding: "7px 14px", fontSize: 12, color: "var(--q1)", cursor: "pointer", fontWeight: 600 }}>
                   Descartar alterações
@@ -9735,8 +9740,60 @@ export default function CRM() {
           </div>
         )}
 
-        {/* ── MODAL CLIENTE ── */}
-        {sc && (
+        {/* ── RESUMO DO CLIENTE (Bloco 3.5, versão mínima) — somente leitura, contatos clicáveis ── */}
+        {sc && modoFicha === "resumo" && (
+          <div className="ov" onClick={e => { if (e.target === e.currentTarget) { setSel(null); setModoFicha("resumo"); } }}>
+            <div className="modal" style={{ maxWidth: 420 }}>
+              <div className="mh" style={{ position: "relative" }}>
+                <div style={{ flex: 1 }}>
+                  <div className="mn">{sc.nome}</div>
+                </div>
+                <button className="mc" onClick={() => { setSel(null); setModoFicha("resumo"); }}>✕</button>
+              </div>
+              <div className="mb">
+                <div className="stit">Contato</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+                  {(() => {
+                    const telOk = ((sc as any).tel || "").replace(/\D/g, "").length >= 10;
+                    return telOk ? (
+                      <a href={linkWhatsAppCliente((sc as any).tel)} target="_blank" rel="noopener noreferrer" className="btn-sm gold" style={{ textDecoration: "none", textAlign: "center" }}>
+                        💬 Abrir WhatsApp
+                      </a>
+                    ) : (
+                      <div className="fiv" style={{ color: "var(--tx3)" }}>WhatsApp não informado</div>
+                    );
+                  })()}
+                  {(() => {
+                    const instaCanonico = normalizarInstagram((sc as any).insta || "");
+                    return instaCanonico ? (
+                      <a href={`https://instagram.com/${instaCanonico.slice(1)}`} target="_blank" rel="noopener noreferrer" className="btn-sm" style={{ textDecoration: "none", textAlign: "center", background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx)" }}>
+                        📷 Abrir Instagram ({instaCanonico})
+                      </a>
+                    ) : (
+                      <div className="fiv" style={{ color: "var(--tx3)" }}>Instagram não informado</div>
+                    );
+                  })()}
+                  {(() => {
+                    const emailOk = ((sc as any).email || "").trim();
+                    return emailOk ? (
+                      <a href={`mailto:${emailOk.toLowerCase()}`} className="btn-sm" style={{ textDecoration: "none", textAlign: "center", background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx)" }}>
+                        ✉ Enviar e-mail
+                      </a>
+                    ) : (
+                      <div className="fiv" style={{ color: "var(--tx3)" }}>E-mail não informado</div>
+                    );
+                  })()}
+                </div>
+                <button className="btn-sm gold" style={{ width: "100%", marginTop: 18 }} onClick={() => setModoFicha("edicao")}>
+                  ✏️ Editar ficha
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MODAL CLIENTE (ficha completa, modo Edição) ── */}
+        {sc && modoFicha === "edicao" && (
           <div className="ov" onClick={e => { if (e.target === e.currentTarget) { if (fichaEditada || (fichaDraft && fichaDraft.clienteId === sc.id)) { setFichaWarnSair(true); } else { setSel(null); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); } } }}>
             <div className="modal">
               <div className="mh" style={{ position: "relative" }}>
@@ -9764,7 +9821,7 @@ export default function CRM() {
                     {miss(sc).map((m: string) => <span key={m} className="atag">⚠ Sem {m}</span>)}
                   </div>
                 </div>
-                <button className="mc" onClick={() => { if (fichaEditada || (fichaDraft && fichaDraft.clienteId === sc.id)) { setFichaWarnSair(true); } else { setSel(null); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); } }}>✕</button>
+                <button className="mc" onClick={() => { if (fichaEditada || (fichaDraft && fichaDraft.clienteId === sc.id)) { setFichaWarnSair(true); } else { setSel(null); setFichaTab("dados"); setFichaEditada(false); setFichaDraft(null); setNascDraft({ dia: "", mes: "", ano: "" }); setModoFicha("resumo"); } }}>✕</button>
               </div>
               {/* ── TABS DA FICHA ── */}
               <div style={{ display: "flex", borderBottom: "1px solid var(--br)", background: "var(--dk2)", overflowX: "auto", flexShrink: 0, WebkitOverflowScrolling: "touch" as any }}>
