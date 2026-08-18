@@ -1349,6 +1349,31 @@ function linkWhatsAppCliente(tel: string): string {
   const telWa = digitos.startsWith("55") ? digitos : "55" + digitos;
   return "https://wa.me/" + telWa;
 }
+// Extração do Refinamento do Resumo Premium (Bloco 3.5) -- mesma fórmula que
+// já existia inline no painel "Financeiro" da ficha completa, agora
+// compartilhada por ela e pelo Resumo, sem duplicar a matemática pela
+// terceira vez. Não inclui "Total Pago" de propósito -- esse dado continua
+// calculado só dentro do painel da ficha, via seu próprio filtro por
+// cliente_id/cliente_nome em `fin`, não fazia parte do pedido de extração.
+function saldoFinanceiroCliente(sc: any, fin: any[]): { saldoDevedor: number; credito: number } {
+  const credito = sc.credito || 0;
+  const projs = (sc.projetos || []).filter((p: any) => p.status === "ativo");
+  const saldoDevedor = projs.reduce((s: number, p: any) => {
+    const pago = (p.pagamentos || []).reduce((ss: number, pg: any) => ss + (Number(pg.valor) || 0), 0);
+    return s + Math.max((Number(p.valorTotal) || 0) - pago, 0);
+  }, 0);
+  return { saldoDevedor, credito };
+}
+// Heurística mínima, sem dependência externa, para distinguir celular de
+// desktop/tablet no atalho de SMS do Resumo Premium (Bloco 3.5). Não cobre
+// 100% dos casos (nenhuma heurística de user agent cobre), mas é o menor
+// mecanismo seguro disponível no frontend atual -- tablets Android (sem
+// "Mobile" no user agent) e iPad caem em "não é celular" de propósito,
+// recebendo a orientação em vez do atalho sms:.
+function ehCelular(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|Android.*Mobile|Windows Phone/i.test(navigator.userAgent);
+}
 function parseNascimento(nasc: string): Date | null {
   if (!nasc) return null;
   if (nasc.includes("/")) {
@@ -1758,6 +1783,15 @@ export default function CRM() {
   // clicáveis. "resumo" é o modo padrão de abertura; "Editar ficha" leva a
   // "edicao", que é a ficha completa já existente, sem nenhuma mudança nela.
   const [modoFicha, setModoFicha] = useState<"resumo"|"edicao">("resumo");
+  // Refinamento do Resumo Premium (Bloco 3.5) -- estados efêmeros, locais à
+  // interface, nunca persistidos: aviso de SMS indisponível no ambiente
+  // atual, e o compositor de e-mail (destinatário fixo em sc.email, assunto/
+  // mensagem digitados manualmente, só usados para montar um mailto: ao
+  // confirmar -- nenhum dos dois edita o cliente nem o fichaDraft do 3.4A).
+  const [smsAvisoAberto, setSmsAvisoAberto] = useState(false);
+  const [emailComposerAberto, setEmailComposerAberto] = useState(false);
+  const [emailComposerAssunto, setEmailComposerAssunto] = useState("");
+  const [emailComposerMensagem, setEmailComposerMensagem] = useState("");
   const [fichaEditada, setFichaEditada] = useState(false);
   const [fichaDraft, setFichaDraft] = useState<{ clienteId: any; nome?: string; tel?: string; email?: string; insta?: string; nascimento?: string; obs?: string } | null>(null);
   const [salvandoFicha, setSalvandoFicha] = useState(false);
@@ -9740,53 +9774,177 @@ export default function CRM() {
           </div>
         )}
 
-        {/* ── RESUMO DO CLIENTE (Bloco 3.5, versão mínima) — somente leitura, contatos clicáveis ── */}
+        {/* ── RESUMO DO CLIENTE (Bloco 3.5, refinamento) — somente leitura, apresentação operacional ── */}
         {sc && modoFicha === "resumo" && (
-          <div className="ov" onClick={e => { if (e.target === e.currentTarget) { setSel(null); setModoFicha("resumo"); } }}>
-            <div className="modal" style={{ maxWidth: 420 }}>
+          <div className="ov" onClick={e => { if (e.target === e.currentTarget) { setSel(null); setModoFicha("resumo"); setSmsAvisoAberto(false); setEmailComposerAberto(false); } }}>
+            <div className="modal" style={{ maxWidth: 440 }}>
               <div className="mh" style={{ position: "relative" }}>
                 <div style={{ flex: 1 }}>
-                  <div className="mn">{sc.nome}</div>
+                  <div className="mn">{isMenor((sc as any).nascimento || "") ? "👼 " : ""}{isAniversHoje((sc as any).nascimento || "") ? "🎂 " : ""}{sc.nome}</div>
+                  <div style={{ fontSize: 12, color: "var(--tx2)", marginTop: 3 }}>
+                    {stages.find(s => s.id === sc.etapa)?.label || sc.etapa}
+                    {sc.artista && aName(sc.artista) ? " · " + aName(sc.artista) : ""}
+                  </div>
                 </div>
-                <button className="mc" onClick={() => { setSel(null); setModoFicha("resumo"); }}>✕</button>
+                <button className="mc" onClick={() => { setSel(null); setModoFicha("resumo"); setSmsAvisoAberto(false); setEmailComposerAberto(false); }}>✕</button>
               </div>
               <div className="mb">
-                <div className="stit">Contato</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
-                  {(() => {
-                    const telOk = ((sc as any).tel || "").replace(/\D/g, "").length >= 10;
-                    return telOk ? (
-                      <a href={linkWhatsAppCliente((sc as any).tel)} target="_blank" rel="noopener noreferrer" className="btn-sm gold" style={{ textDecoration: "none", textAlign: "center" }}>
-                        💬 Abrir WhatsApp
-                      </a>
-                    ) : (
-                      <div className="fiv" style={{ color: "var(--tx3)" }}>WhatsApp não informado</div>
-                    );
-                  })()}
-                  {(() => {
-                    const instaCanonico = normalizarInstagram((sc as any).insta || "");
-                    return instaCanonico ? (
-                      <a href={`https://instagram.com/${instaCanonico.slice(1)}`} target="_blank" rel="noopener noreferrer" className="btn-sm" style={{ textDecoration: "none", textAlign: "center", background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx)" }}>
-                        📷 Abrir Instagram ({instaCanonico})
-                      </a>
-                    ) : (
-                      <div className="fiv" style={{ color: "var(--tx3)" }}>Instagram não informado</div>
-                    );
-                  })()}
-                  {(() => {
-                    const emailOk = ((sc as any).email || "").trim();
-                    return emailOk ? (
-                      <a href={`mailto:${emailOk.toLowerCase()}`} className="btn-sm" style={{ textDecoration: "none", textAlign: "center", background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx)" }}>
-                        ✉ Enviar e-mail
-                      </a>
-                    ) : (
-                      <div className="fiv" style={{ color: "var(--tx3)" }}>E-mail não informado</div>
-                    );
-                  })()}
+                {/* SOLICITAÇÕES -- todas, na ordem do array, sem valorTotal */}
+                {(sc.projetos || []).length > 0 && (
+                  <div>
+                    <div className="stit">Solicitações</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
+                      {(sc.projetos || []).map((proj: any, i: number) => {
+                        const nomeProj = proj.estilo || "(sem título)";
+                        const artistaProjNome = aName(artistaDoProjeto(proj, sc));
+                        const linhaSecundaria = [proj.regiao, proj.servico, artistaProjNome].filter(Boolean).join(" · ");
+                        const statusLabel = proj.status === "concluido" ? "Concluída" : proj.status === "cancelado" ? "Cancelada" : "Ativa";
+                        const statusCor = proj.status === "concluido" ? "#27AE60" : proj.status === "cancelado" ? "#E74C3C" : "var(--gold)";
+                        return (
+                          <div key={proj.id || i} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 12px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)" }}>{nomeProj}</div>
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 3, background: statusCor + "22", border: "1px solid " + statusCor + "55", color: statusCor, flexShrink: 0 }}>{statusLabel}</span>
+                            </div>
+                            {linhaSecundaria && <div style={{ fontSize: 11, color: "var(--tx2)", marginTop: 3 }}>{linhaSecundaria}</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* PRÓXIMO AGENDAMENTO -- só quando existir */}
+                {(() => {
+                  const agora = new Date();
+                  const proximos = agEvents
+                    .filter((e: any) => e.cliente_id === sc.id && e.status !== "concluido" && e.status !== "cancelado" && new Date(e.date + "T23:59:00") >= agora)
+                    .sort((a: any, b: any) => a.date === b.date ? (Number(a.start) || 0) - (Number(b.start) || 0) : (a.date < b.date ? -1 : 1));
+                  const prox = proximos[0];
+                  if (!prox) return null;
+                  const dataFmt = (() => { try { const [y, m, d] = prox.date.split("-"); return `${d}/${m}/${y}`; } catch { return prox.date; } })();
+                  const artistaEv = prox.artista && aName(prox.artista) ? aName(prox.artista) : "";
+                  return (
+                    <div style={{ marginTop: 14 }}>
+                      <div className="stit">Próximo Agendamento</div>
+                      <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 12px", marginTop: 6, fontSize: 12, color: "var(--tx)" }}>
+                        {[dataFmt, String(prox.start).padStart(2, "0") + "h", getEventLabel(prox.tipo, artists), artistaEv].filter(Boolean).join(" · ")}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* FINANCEIRO -- só saldo devedor/crédito, só quando > 0, mesma fórmula da ficha completa */}
+                {(() => {
+                  const { saldoDevedor, credito } = saldoFinanceiroCliente(sc, fin);
+                  if (saldoDevedor <= 0 && credito <= 0) return null;
+                  return (
+                    <div style={{ marginTop: 14 }}>
+                      <div className="stit">Financeiro</div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                        {saldoDevedor > 0 && (
+                          <div style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 12px" }}>
+                            <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em" }}>Saldo devedor</div>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: "#E74C3C", fontFamily: "'Cormorant Garamond',serif" }}>R$ {saldoDevedor.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+                          </div>
+                        )}
+                        {credito > 0 && (
+                          <div style={{ background: "var(--dk3)", border: "1px solid rgba(201,168,76,.4)", borderRadius: 7, padding: "8px 12px" }}>
+                            <div style={{ fontSize: 10, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: ".05em" }}>Crédito</div>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--gold)", fontFamily: "'Cormorant Garamond',serif" }}>R$ {credito.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* CONTATOS -- compactos, alinhados à esquerda */}
+                <div style={{ marginTop: 14 }}>
+                  <div className="stit">Contatos</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+                    {(() => {
+                      const telDigits = ((sc as any).tel || "").replace(/\D/g, "");
+                      const pillAtiva = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx)", textDecoration: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" } as const;
+                      const pillInativa = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx3)", opacity: 0.6, fontFamily: "'DM Sans',sans-serif" } as const;
+                      return telDigits.length >= 10
+                        ? <a href={linkWhatsAppCliente((sc as any).tel)} target="_blank" rel="noopener noreferrer" style={pillAtiva}>💬 WhatsApp</a>
+                        : <span style={pillInativa}>💬 WhatsApp não informado</span>;
+                    })()}
+                    {(() => {
+                      const instaCanonico = normalizarInstagram((sc as any).insta || "");
+                      const pillAtiva = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx)", textDecoration: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" } as const;
+                      const pillInativa = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx3)", opacity: 0.6, fontFamily: "'DM Sans',sans-serif" } as const;
+                      return instaCanonico
+                        ? <a href={`https://instagram.com/${instaCanonico.slice(1)}`} target="_blank" rel="noopener noreferrer" style={pillAtiva}>📷 Instagram</a>
+                        : <span style={pillInativa}>📷 Instagram não informado</span>;
+                    })()}
+                    {(() => {
+                      const telDigits = ((sc as any).tel || "").replace(/\D/g, "");
+                      const pillBotao = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" } as const;
+                      const pillInativa = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx3)", opacity: 0.6, fontFamily: "'DM Sans',sans-serif" } as const;
+                      if (telDigits.length < 10) return <span style={pillInativa}>📩 SMS não informado</span>;
+                      return (
+                        <button onClick={() => { if (ehCelular()) { window.location.href = "sms:" + telDigits; } else { setSmsAvisoAberto(v => !v); } }} style={pillBotao}>📩 SMS</button>
+                      );
+                    })()}
+                    {(() => {
+                      const emailOk = ((sc as any).email || "").trim();
+                      const pillBotao = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" } as const;
+                      const pillInativa = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx3)", opacity: 0.6, fontFamily: "'DM Sans',sans-serif" } as const;
+                      if (!emailOk) return <span style={pillInativa}>✉ E-mail não informado</span>;
+                      return (
+                        <button onClick={() => { setEmailComposerAssunto(""); setEmailComposerMensagem(""); setEmailComposerAberto(true); }} style={pillBotao}>✉ E-mail</button>
+                      );
+                    })()}
+                  </div>
+                  {smsAvisoAberto && (
+                    <div style={{ marginTop: 8, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 12px", fontSize: 11, color: "var(--tx2)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                      <span>Para enviar um SMS direto, acesse o INK SYSTEM pelo celular. O envio de SMS pelo próprio sistema chega em breve.</span>
+                      <button onClick={() => setSmsAvisoAberto(false)} style={{ background: "none", border: "none", color: "var(--tx3)", cursor: "pointer", flexShrink: 0, fontSize: 13 }}>✕</button>
+                    </div>
+                  )}
                 </div>
-                <button className="btn-sm gold" style={{ width: "100%", marginTop: 18 }} onClick={() => setModoFicha("edicao")}>
-                  ✏️ Editar ficha
-                </button>
+
+                <div style={{ borderTop: "1px solid var(--br)", marginTop: 18, paddingTop: 14, display: "flex", justifyContent: "flex-end" }}>
+                  <button className="btn-sm gold" onClick={() => setModoFicha("edicao")}>Editar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* COMPOSITOR DE E-MAIL PROVISÓRIO (Bloco 3.5) -- estado só local/efêmero,
+            nunca persistido; ao confirmar, só monta um mailto: com destinatário
+            fixo (sc.email), assunto/mensagem digitados manualmente. NÃO chama
+            api/resend.js, NÃO usa resendApiKey, NÃO registra envio -- o INK
+            SYSTEM não tem confirmação real de que o e-mail foi enviado nesta
+            etapa. Overlay irmão do Resumo (não aninhado em .modal), mesmo
+            padrão já usado pelo diálogo "Alterações não salvas" da ficha. */}
+        {sc && emailComposerAberto && (
+          <div className="ov" style={{ zIndex: 400 }} onClick={e => { if (e.target === e.currentTarget) setEmailComposerAberto(false); }}>
+            <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 11, padding: "22px 24px", maxWidth: 380, width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--tx)" }}>Enviar e-mail</div>
+              <div>
+                <div className="fil">Para</div>
+                <div className="fiv">{(sc as any).email}</div>
+              </div>
+              <div>
+                <div className="fil">Assunto</div>
+                <input className="ef" value={emailComposerAssunto} onChange={e => setEmailComposerAssunto(e.target.value)} style={{ width: "100%", marginTop: 3 }} />
+              </div>
+              <div>
+                <div className="fil">Mensagem</div>
+                <textarea value={emailComposerMensagem} onChange={e => setEmailComposerMensagem(e.target.value)}
+                  style={{ width: "100%", minHeight: 90, background: "var(--dk4)", border: "1px solid var(--br)", borderRadius: 5, padding: "6px 8px", fontSize: 12, color: "var(--tx)", fontFamily: "'DM Sans',sans-serif", outline: "none", resize: "vertical", marginTop: 3 }} />
+              </div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button onClick={() => setEmailComposerAberto(false)} style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "7px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer" }}>Cancelar</button>
+                <a href={`mailto:${((sc as any).email || "").trim().toLowerCase()}?subject=${encodeURIComponent(emailComposerAssunto)}&body=${encodeURIComponent(emailComposerMensagem)}`}
+                  onClick={() => setEmailComposerAberto(false)}
+                  style={{ background: "var(--gold)", border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 12, color: "#1a1a1a", cursor: "pointer", fontWeight: 700, textDecoration: "none" }}>
+                  Abrir e-mail
+                </a>
               </div>
             </div>
           </div>
@@ -10900,12 +11058,7 @@ export default function CRM() {
                       (sc.nome && f.cliente_nome?.toLowerCase().trim() === sc.nome.toLowerCase().trim())
                     );
                     const totalPago = pagCliente.reduce((s: number, f: any) => s + (Number(f.val_a)||0), 0);
-                    const credito = sc.credito || 0;
-                    const projs = (sc.projetos || []).filter((p: any) => p.status === "ativo");
-                    const totalDevedor = projs.reduce((s: number, p: any) => {
-                      const pago = (p.pagamentos || []).reduce((ss: number, pg: any) => ss + (Number(pg.valor)||0), 0);
-                      return s + Math.max((Number(p.valorTotal)||0) - pago, 0);
-                    }, 0);
+                    const { saldoDevedor: totalDevedor, credito } = saldoFinanceiroCliente(sc, fin);
                     return (
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
