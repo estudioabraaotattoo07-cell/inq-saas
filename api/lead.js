@@ -1133,7 +1133,7 @@ ${stripIdsComFotos.map(id => `setupStrip(${JSON.stringify(id)});`).join("\n")}
     $('captacao-essencial').innerHTML =
       '<form id="cd-form" class="captacao-form" novalidate>' +
       campo('Conte um pouco sobre sua ideia (opcional)', '<textarea class="ficha-textarea" id="cd-descricao" placeholder="Descreva o que você imagina..."></textarea>') +
-      campo('Região do corpo (opcional)', '<input class="ficha-input" id="cd-regiao" placeholder="Ex: braço, costas...">') +
+      campo('Onde exatamente no corpo você pretende fazer a tatuagem? (opcional)', '<input class="ficha-input" id="cd-regiao" placeholder="Ex.: parte interna do antebraço, panturrilha direita, lateral das costelas, costas completas...">') +
       campo('Imagens de referência (opcional)', '<input type="file" id="cd-file-input" accept="image/*" multiple style="display:none">' +
         '<button type="button" class="ficha-file-btn" id="cd-file-btn">📷 Escolher imagens</button>' +
         '<div class="ficha-file-status" id="cd-file-status"></div>') +

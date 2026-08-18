@@ -1700,7 +1700,7 @@ export default function CRM() {
   const [piercingEditProjId, setPiercingEditProjId] = useState<any>(null);
   const [piercingEditItemId, setPiercingEditItemId] = useState<string | null>(null); // se setado, o painel edita esse item em vez de adicionar um novo
   const [piercingEditForm, setPiercingEditForm] = useState({ joiaId: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", desconto: "" });
-  const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] as { id: string; joiaId: string; nome: string; tamanho?: string; valorJoia: number; valorAplicacao: number }[] });
+  const [novoProjetoForm, setNovoProjetoForm] = useState({ estilo: "", tam: "Medio", regiao: "", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "" as "" | "joia" | "joia_aplicacao", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] as { id: string; joiaId: string; nome: string; tamanho?: string; valorJoia: number; valorAplicacao: number }[] });
   const [showRecorrenteModal, setShowRecorrenteModal] = useState<{cid: any} | null>(null);
   const [recorrenteForm, setRecorrenteForm] = useState({ dataInicio: new Date().toISOString().split("T")[0], intervalo: 7, total: 4, hora: 9, duracao: 2, artista: "" });
   const [fichaRevelada, setFichaRevelada] = useState<Set<any>>(new Set());
@@ -11477,7 +11477,7 @@ export default function CRM() {
                     {novoProjetoAberto !== sc.id && (
                       <button title="Cada projeto representa uma tatuagem ou trabalho artístico do cliente. Você pode ter múltiplos projetos por cliente." onClick={() => {
                         setNovoProjetoAberto(sc.id);
-                        setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] });
+                        setNovoProjetoForm({ estilo: "", tam: "Medio", regiao: "", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] });
                       }} style={{ fontSize: 11, fontWeight: 600, background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 6, padding: "4px 10px", color: "var(--gold)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
                         + Nova Solicitação de Serviço
                       </button>
@@ -11674,12 +11674,16 @@ export default function CRM() {
                         <textarea className="ef" placeholder="Descreva o projeto..." value={novoProjetoForm.desc} onChange={e => setNovoProjetoForm(p => ({ ...p, desc: e.target.value }))}
                           style={{ resize: "vertical", minHeight: 55, width: "100%", fontFamily: "inherit" }} />
                       </div>
+                      <div className="fi2">
+                        <div className="fil">Local do corpo</div>
+                        <input className="ef" placeholder="Ex.: parte interna do antebraço, panturrilha direita, lateral das costelas, costas completas…" value={novoProjetoForm.regiao} onChange={e => setNovoProjetoForm(p => ({ ...p, regiao: e.target.value }))} />
+                      </div>
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <button onClick={() => { setNovoProjetoAberto(null); setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] }); }} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Descartar</button>
+                        <button onClick={() => { setNovoProjetoAberto(null); setNovoProjetoForm({ estilo: "", tam: "Medio", regiao: "", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] }); }} style={{ background: "none", border: "1px solid var(--br)", borderRadius: 6, padding: "6px 14px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Descartar</button>
                         <button onClick={() => {
                           if (!novoProjetoForm.estilo.trim()) { setShowAviso("Preencha o nome/identificação do projeto."); return; }
                           const val = parseFloat(novoProjetoForm.valorTotal.replace(/\./g,"").replace(",",".")) || 0;
-                          const proj: any = { id: Date.now(), estilo: novoProjetoForm.estilo, tam: novoProjetoForm.tam, primeira: novoProjetoForm.primeira, desc: novoProjetoForm.desc, servico: (novoProjetoForm as any).servico || sc.servico || "", artista: novoProjetoForm.artista || sc.artista || "", valorTotal: val, status: "ativo", etapa: "lead", etapa_desde: new Date().toISOString(), criadoEm: new Date().toLocaleDateString("pt-BR"), pagamentos: [] };
+                          const proj: any = { id: Date.now(), estilo: novoProjetoForm.estilo, tam: novoProjetoForm.tam, regiao: novoProjetoForm.regiao, primeira: novoProjetoForm.primeira, desc: novoProjetoForm.desc, servico: (novoProjetoForm as any).servico || sc.servico || "", artista: novoProjetoForm.artista || sc.artista || "", valorTotal: val, status: "ativo", etapa: "lead", etapa_desde: new Date().toISOString(), criadoEm: new Date().toLocaleDateString("pt-BR"), pagamentos: [] };
                           if (novoProjetoForm.piercingItens.length > 0) {
                             proj.piercingItens = novoProjetoForm.piercingItens;
                           }
@@ -11690,7 +11694,7 @@ export default function CRM() {
                           projs.push(proj);
                           upC(sc.id, "projetos", projs);
                           setNovoProjetoAberto(null);
-                          setNovoProjetoForm({ estilo: "", tam: "Medio", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] });
+                          setNovoProjetoForm({ estilo: "", tam: "Medio", regiao: "", primeira: false, desc: "", valorTotal: "", servico: "", artista: "", piercingModo: "", joiaId: "", valorAplicacao: "", joiaCascGrupo: "", joiaCascSubgrupo: "", piercingItens: [] });
                           setClients(p => p.map(c => c.id !== sc.id ? c : { ...c, hist: [...c.hist, { t: "Projeto criado: R$" + val.toLocaleString("pt-BR",{minimumFractionDigits:2}), d: new Date().toLocaleDateString("pt-BR") }] }));
                         }} style={{ background: "var(--gold)", color: "#000", border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Salvar Projeto</button>
                       </div>
@@ -11930,6 +11934,10 @@ export default function CRM() {
                               <div className="fil">Descrição do Serviço</div>
                               <textarea className="ef" value={draft.desc || ""} onChange={e => setProjDraftField(proj, { desc: e.target.value })}
                                 style={{ resize: "vertical", minHeight: 55, width: "100%", fontFamily: "inherit" }} />
+                            </div>
+                            <div className="fi2">
+                              <div className="fil">Local do corpo</div>
+                              <input className="ef" placeholder="Ex.: parte interna do antebraço, panturrilha direita, lateral das costelas, costas completas…" value={draft.regiao || ""} onChange={e => setProjDraftField(proj, { regiao: e.target.value })} />
                             </div>
                             {dirty && (
                               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", borderTop: "1px solid var(--br)", paddingTop: 8, marginTop: 2 }}>
