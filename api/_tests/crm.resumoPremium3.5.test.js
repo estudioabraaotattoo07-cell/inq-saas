@@ -73,19 +73,54 @@ test("novos estados efêmeros existem e nascem 'fechados'/vazios", () => {
 // 1-4. Cabeçalho -- badges 🎂/👼, reuso literal dos helpers já existentes
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("cabeçalho do Resumo reaproveita isMenor/isAniversHoje literalmente -- mesma expressão já usada no card do pipeline e na ficha completa, nenhuma regra nova", () => {
+test("cabeçalho do Resumo usa isAniversMes (aniversariante do MÊS) -- corrigido do isAniversHoje original, mesma expressão já usada no cabeçalho da ficha completa (modo Edição) e na linha de nome da lista de clientes", () => {
   const trecho = trechoResumo();
   assert.match(
     trecho,
-    /<div className="mn">\{isMenor\(\(sc as any\)\.nascimento \|\| ""\) \? "👼 " : ""\}\{isAniversHoje\(\(sc as any\)\.nascimento \|\| ""\) \? "🎂 " : ""\}\{sc\.nome\}<\/div>/
+    /<div className="mn">\{isMenor\(\(sc as any\)\.nascimento \|\| ""\) \? "👼 " : ""\}\{isAniversMes\(\(sc as any\)\.nascimento \|\| ""\) \? "🎂 " : ""\}\{sc\.nome\}<\/div>/
   );
+});
+
+test("cabeçalho do Resumo NÃO usa mais isAniversHoje para o emoji -- ausência total da função no bloco do Resumo", () => {
+  const trecho = trechoResumo();
+  assert.doesNotMatch(trecho, /isAniversHoje/, "isAniversHoje não pode mais aparecer em nenhum ponto do Resumo Premium");
 });
 
 test("os dois badges podem coexistir -- são checagens independentes, uma não exclui a outra", () => {
   const trecho = trechoResumo();
   const idxMenor = trecho.indexOf('isMenor((sc as any).nascimento || "") ? "👼 " : ""');
-  const idxAnivers = trecho.indexOf('isAniversHoje((sc as any).nascimento || "") ? "🎂 " : ""');
+  const idxAnivers = trecho.indexOf('isAniversMes((sc as any).nascimento || "") ? "🎂 " : ""');
   assert.ok(idxMenor !== -1 && idxAnivers !== -1 && idxMenor < idxAnivers);
+});
+
+test("regras de aniversário do pipeline (card e linha de lista) permanecem intocadas -- isAniversHoje/isAniversMes continuam usadas exatamente como antes fora do Resumo", () => {
+  // Card do pipeline: header usa isAniversHoje (dia exato); badge de alerta
+  // mais abaixo no mesmo card usa isAniversMes (mês) -- os dois continuam
+  // coexistindo no pipeline, sem qualquer alteração feita por este bloco.
+  assert.match(srcCrm, /const anivMes = isAniversMes\(\(c as any\)\.nascimento \|\| ""\);/);
+  assert.match(srcCrm, /const anivHoje = isAniversHoje\(\(c as any\)\.nascimento \|\| ""\);/);
+  assert.match(srcCrm, /<div className="cname">\{eMenorCard \? "👼 " : ""\}\{anivHoje \? "🎂 " : ""\}\{c\.nome\}<\/div>/);
+  assert.match(srcCrm, /\{anivMes && <span className="atag" style=\{\{ background: "rgba\(201,168,76,\.2\)", color: "var\(--gold\)", border: "1px solid rgba\(201,168,76,\.4\)" \}\}>🎂 Aniversário<\/span>\}/);
+  // Linha de nome da lista de clientes (.tdn) também intocada, isAniversMes.
+  assert.match(srcCrm, /<div className="tdn">\{isMenor\(\(c as any\)\.nascimento \|\| ""\) \? "👼 " : ""\}\{isAniversMes\(\(c as any\)\.nascimento \|\| ""\) \? "🎂 " : ""\}\{c\.nome\}<\/div>/);
+});
+
+test("badge específica 'Aniversário hoje!' da ficha completa permanece com isAniversHoje, intocada -- conceito diferente do cabeçalho (dia exato, não mês)", () => {
+  assert.match(
+    srcCrm,
+    /\{isAniversHoje\(\(sc as any\)\.nascimento \|\| ""\) && <span style=\{\{ fontSize: 10, fontWeight: 700, color: "var\(--gold\)", background: "rgba\(201,168,76,\.15\)", border: "1px solid rgba\(201,168,76,\.3\)", borderRadius: 4, padding: "1px 6px" \}\}>🎂 Aniversário hoje!<\/span>\}/
+  );
+});
+
+test("isAniversHoje/isAniversMes/isAniversarioPromoAtivo permanecem byte-idênticas -- nenhum helper de aniversário foi modificado, só reaproveitado", () => {
+  assert.match(
+    srcCrm,
+    /function isAniversHoje\(nasc: string\): boolean \{\s*\n\s*if \(!nasc\) return false;\s*\n\s*const d = parseNascimento\(nasc\);\s*\n\s*if \(!d\) return false;\s*\n\s*const hoje = new Date\(\);\s*\n\s*return d\.getMonth\(\) === hoje\.getMonth\(\) && d\.getDate\(\) === hoje\.getDate\(\);\s*\n\s*\}/
+  );
+  assert.match(
+    srcCrm,
+    /function isAniversMes\(nasc: string\): boolean \{\s*\n\s*if \(!nasc\) return false;\s*\n\s*const d = parseNascimento\(nasc\);\s*\n\s*if \(!d\) return false;\s*\n\s*return d\.getMonth\(\) === new Date\(\)\.getMonth\(\);\s*\n\s*\}/
+  );
 });
 
 test("bolinhas de completude/sessão NÃO entram no Resumo -- ausência de background baseado em status concluido/futuro típico das bolinhas", () => {
@@ -206,11 +241,42 @@ test("Resumo usa saldoFinanceiroCliente(sc, fin), mostra Saldo devedor e Crédit
 // 12-13. Layout de Contatos + separador + botão Editar isolado
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("Contatos usam flexWrap, alinhados à esquerda (sem textAlign:center, sem width total de 4 botões grandes)", () => {
+function trechoContatos() {
   const trecho = trechoResumo();
-  const blocoContatos = trecho.slice(trecho.indexOf('<div className="stit">Contatos</div>'), trecho.indexOf("Editar"));
-  assert.match(blocoContatos, /display: "flex", flexWrap: "wrap", gap: 8/);
-  assert.doesNotMatch(blocoContatos, /width: "100%".*btn-sm/);
+  return trecho.slice(trecho.indexOf('<div className="stit">Contatos</div>'), trecho.indexOf("Editar"));
+}
+
+test("Contatos estão estruturados verticalmente -- contêiner em coluna (flexDirection: column), não mais em linha", () => {
+  const blocoContatos = trechoContatos();
+  assert.match(blocoContatos, /display: "flex", flexDirection: "column", gap: 6, marginTop: 6/);
+  assert.doesNotMatch(blocoContatos, /display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6/, "layout horizontal antigo não pode mais existir");
+});
+
+test("cada um dos 4 contatos tem rótulo em destaque (fontWeight 600) e dado secundário abaixo (fontSize menor, cor secundária) -- hierarquia visual de 2 níveis", () => {
+  const blocoContatos = trechoContatos();
+  assert.match(blocoContatos, /const rotuloAtivo = \{ fontSize: 13, fontWeight: 600, color: "var\(--tx\)" \} as const;/);
+  assert.match(blocoContatos, /const dadoStyle = \{ fontSize: 11, color: "var\(--tx2\)", marginTop: 1 \} as const;/);
+  // 4 ocorrências de rótulo (div com rotuloAtivo) + 4 de dado, uma por canal
+  const qtdRotulosAtivos = (blocoContatos.match(/<div style=\{rotuloAtivo\}>/g) || []).length;
+  const qtdDados = (blocoContatos.match(/<div style=\{dadoStyle\}>/g) || []).length;
+  assert.equal(qtdRotulosAtivos, 4, "esperava 4 rótulos ativos (um por canal, quando informado)");
+  assert.equal(qtdDados, 4, "esperava 4 linhas de dado secundário (uma por canal, quando informado)");
+});
+
+test("WhatsApp e SMS mostram o telefone formatado (maskTel) como dado secundário; Instagram mostra o handle canônico; E-mail mostra o endereço", () => {
+  const blocoContatos = trechoContatos();
+  assert.match(blocoContatos, /const telFormatado = maskTel\(\(sc as any\)\.tel \|\| ""\);/);
+  assert.match(blocoContatos, /<div style=\{dadoStyle\}>\{telFormatado\}<\/div>/);
+  assert.match(blocoContatos, /<div style=\{dadoStyle\}>\{instaCanonico\}<\/div>/);
+  assert.match(blocoContatos, /<div style=\{dadoStyle\}>\{emailOk\}<\/div>/);
+});
+
+test("dado ausente produz estado visual desabilitado com o texto exato 'Não informado', sem link/onClick -- 4 ocorrências, uma por canal", () => {
+  const blocoContatos = trechoContatos();
+  const qtdNaoInformado = (blocoContatos.match(/Não informado/g) || []).length;
+  assert.equal(qtdNaoInformado, 4, "esperava exatamente 4 estados de 'Não informado', um por canal");
+  // O bloco inativo é um <div> puro (sem href/onClick) -- nunca <a>/<button>.
+  assert.match(blocoContatos, /const linhaInativa = \{ display: "block", textAlign: "left", background: "var\(--dk3\)", border: "1px solid var\(--br\)", borderRadius: 7, padding: "7px 12px", opacity: 0\.6, fontFamily: "'DM Sans',sans-serif" \} as const;/);
 });
 
 test("existe separador (borda superior) entre Contatos e o botão Editar, e o botão fica isolado, alinhado à direita, com o texto exato 'Editar'", () => {
@@ -225,7 +291,8 @@ test("existe separador (borda superior) entre Contatos e o botão Editar, e o bo
 
 test("WhatsApp continua usando linkWhatsAppCliente(), abrindo em nova aba, sem Zenvia", () => {
   const trecho = trechoResumo();
-  assert.match(trecho, /<a href=\{linkWhatsAppCliente\(\(sc as any\)\.tel\)\} target="_blank" rel="noopener noreferrer" style=\{pillAtiva\}>💬 WhatsApp<\/a>/);
+  assert.match(trecho, /<a href=\{linkWhatsAppCliente\(\(sc as any\)\.tel\)\} target="_blank" rel="noopener noreferrer" style=\{linhaAtiva\}>/);
+  assert.doesNotMatch(trechoContatos(), /api\/zenvia|zenviaApiKey/);
 });
 
 test("Instagram continua usando normalizarInstagram() e a mesma derivação de URL já homologada, sem segunda normalização", () => {
@@ -259,9 +326,12 @@ test("clique em SMS: celular -> sms: via window.location.href; senão -> alterna
   assert.doesNotMatch(blocoContatos, /api\/zenvia|zenviaApiKey|zenviaNumero/);
 });
 
-test("SMS sem telefone mostra fallback 'SMS não informado', igual ao padrão de WhatsApp/Instagram/E-mail", () => {
-  const trecho = trechoResumo();
-  assert.match(trecho, /if \(telDigits\.length < 10\) return <span style=\{pillInativa\}>📩 SMS não informado<\/span>;/);
+test("SMS sem telefone mostra o mesmo estado desabilitado 'Não informado' dos demais canais", () => {
+  const blocoContatos = trechoContatos();
+  // SMS e WhatsApp compartilham a mesma condição telDigits.length >= 10 --
+  // confirma que ambos ficam desabilitados juntos quando não há telefone.
+  const ocorrenciasCondicao = (blocoContatos.match(/telDigits\.length >= 10 \? \(/g) || []).length;
+  assert.equal(ocorrenciasCondicao, 2, "WhatsApp e SMS devem compartilhar a mesma condição de telefone válido");
 });
 
 test("aviso de SMS é curto, não-técnico, dispensável, e não menciona Zenvia/API/backend", () => {

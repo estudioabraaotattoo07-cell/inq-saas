@@ -9780,7 +9780,7 @@ export default function CRM() {
             <div className="modal" style={{ maxWidth: 440 }}>
               <div className="mh" style={{ position: "relative" }}>
                 <div style={{ flex: 1 }}>
-                  <div className="mn">{isMenor((sc as any).nascimento || "") ? "👼 " : ""}{isAniversHoje((sc as any).nascimento || "") ? "🎂 " : ""}{sc.nome}</div>
+                  <div className="mn">{isMenor((sc as any).nascimento || "") ? "👼 " : ""}{isAniversMes((sc as any).nascimento || "") ? "🎂 " : ""}{sc.nome}</div>
                   <div style={{ fontSize: 12, color: "var(--tx2)", marginTop: 3 }}>
                     {stages.find(s => s.id === sc.etapa)?.label || sc.etapa}
                     {sc.artista && aName(sc.artista) ? " · " + aName(sc.artista) : ""}
@@ -9859,42 +9859,70 @@ export default function CRM() {
                   );
                 })()}
 
-                {/* CONTATOS -- compactos, alinhados à esquerda */}
+                {/* CONTATOS -- lista vertical, rótulo em destaque + dado secundário abaixo */}
                 <div style={{ marginTop: 14 }}>
                   <div className="stit">Contatos</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
                     {(() => {
+                      const linhaAtiva = { display: "block", textAlign: "left", textDecoration: "none", cursor: "pointer", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "7px 12px", fontFamily: "'DM Sans',sans-serif" } as const;
+                      const linhaInativa = { display: "block", textAlign: "left", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "7px 12px", opacity: 0.6, fontFamily: "'DM Sans',sans-serif" } as const;
+                      const rotuloAtivo = { fontSize: 13, fontWeight: 600, color: "var(--tx)" } as const;
+                      const rotuloInativo = { fontSize: 13, fontWeight: 600, color: "var(--tx3)" } as const;
+                      const dadoStyle = { fontSize: 11, color: "var(--tx2)", marginTop: 1 } as const;
+                      const dadoInativo = { fontSize: 11, color: "var(--tx3)", marginTop: 1 } as const;
+
                       const telDigits = ((sc as any).tel || "").replace(/\D/g, "");
-                      const pillAtiva = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx)", textDecoration: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" } as const;
-                      const pillInativa = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx3)", opacity: 0.6, fontFamily: "'DM Sans',sans-serif" } as const;
-                      return telDigits.length >= 10
-                        ? <a href={linkWhatsAppCliente((sc as any).tel)} target="_blank" rel="noopener noreferrer" style={pillAtiva}>💬 WhatsApp</a>
-                        : <span style={pillInativa}>💬 WhatsApp não informado</span>;
-                    })()}
-                    {(() => {
+                      const telFormatado = maskTel((sc as any).tel || "");
                       const instaCanonico = normalizarInstagram((sc as any).insta || "");
-                      const pillAtiva = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx)", textDecoration: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" } as const;
-                      const pillInativa = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx3)", opacity: 0.6, fontFamily: "'DM Sans',sans-serif" } as const;
-                      return instaCanonico
-                        ? <a href={`https://instagram.com/${instaCanonico.slice(1)}`} target="_blank" rel="noopener noreferrer" style={pillAtiva}>📷 Instagram</a>
-                        : <span style={pillInativa}>📷 Instagram não informado</span>;
-                    })()}
-                    {(() => {
-                      const telDigits = ((sc as any).tel || "").replace(/\D/g, "");
-                      const pillBotao = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" } as const;
-                      const pillInativa = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx3)", opacity: 0.6, fontFamily: "'DM Sans',sans-serif" } as const;
-                      if (telDigits.length < 10) return <span style={pillInativa}>📩 SMS não informado</span>;
-                      return (
-                        <button onClick={() => { if (ehCelular()) { window.location.href = "sms:" + telDigits; } else { setSmsAvisoAberto(v => !v); } }} style={pillBotao}>📩 SMS</button>
-                      );
-                    })()}
-                    {(() => {
                       const emailOk = ((sc as any).email || "").trim();
-                      const pillBotao = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" } as const;
-                      const pillInativa = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", borderRadius: 20, background: "var(--dk3)", border: "1px solid var(--br)", color: "var(--tx3)", opacity: 0.6, fontFamily: "'DM Sans',sans-serif" } as const;
-                      if (!emailOk) return <span style={pillInativa}>✉ E-mail não informado</span>;
+
                       return (
-                        <button onClick={() => { setEmailComposerAssunto(""); setEmailComposerMensagem(""); setEmailComposerAberto(true); }} style={pillBotao}>✉ E-mail</button>
+                        <>
+                          {telDigits.length >= 10 ? (
+                            <a href={linkWhatsAppCliente((sc as any).tel)} target="_blank" rel="noopener noreferrer" style={linhaAtiva}>
+                              <div style={rotuloAtivo}>💬 WhatsApp</div>
+                              <div style={dadoStyle}>{telFormatado}</div>
+                            </a>
+                          ) : (
+                            <div style={linhaInativa}>
+                              <div style={rotuloInativo}>💬 WhatsApp</div>
+                              <div style={dadoInativo}>Não informado</div>
+                            </div>
+                          )}
+                          {instaCanonico ? (
+                            <a href={`https://instagram.com/${instaCanonico.slice(1)}`} target="_blank" rel="noopener noreferrer" style={linhaAtiva}>
+                              <div style={rotuloAtivo}>📷 Instagram</div>
+                              <div style={dadoStyle}>{instaCanonico}</div>
+                            </a>
+                          ) : (
+                            <div style={linhaInativa}>
+                              <div style={rotuloInativo}>📷 Instagram</div>
+                              <div style={dadoInativo}>Não informado</div>
+                            </div>
+                          )}
+                          {telDigits.length >= 10 ? (
+                            <button onClick={() => { if (ehCelular()) { window.location.href = "sms:" + telDigits; } else { setSmsAvisoAberto(v => !v); } }} style={{ ...linhaAtiva, width: "100%", border: linhaAtiva.border, textAlign: "left" }}>
+                              <div style={rotuloAtivo}>📩 SMS</div>
+                              <div style={dadoStyle}>{telFormatado}</div>
+                            </button>
+                          ) : (
+                            <div style={linhaInativa}>
+                              <div style={rotuloInativo}>📩 SMS</div>
+                              <div style={dadoInativo}>Não informado</div>
+                            </div>
+                          )}
+                          {emailOk ? (
+                            <button onClick={() => { setEmailComposerAssunto(""); setEmailComposerMensagem(""); setEmailComposerAberto(true); }} style={{ ...linhaAtiva, width: "100%", border: linhaAtiva.border, textAlign: "left" }}>
+                              <div style={rotuloAtivo}>✉ E-mail</div>
+                              <div style={dadoStyle}>{emailOk}</div>
+                            </button>
+                          ) : (
+                            <div style={linhaInativa}>
+                              <div style={rotuloInativo}>✉ E-mail</div>
+                              <div style={dadoInativo}>Não informado</div>
+                            </div>
+                          )}
+                        </>
                       );
                     })()}
                   </div>
