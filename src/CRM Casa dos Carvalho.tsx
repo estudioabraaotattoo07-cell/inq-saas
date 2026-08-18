@@ -522,6 +522,9 @@ table.ft tr:nth-child(even) td{background:var(--dk4);}
 .btn-sm:hover{border-color:var(--brh);color:var(--tx);}
 .btn-sm.gold{border-color:rgba(201,168,76,0.5);color:var(--gold);box-shadow:0 0 10px rgba(201,168,76,0.15);}
 .btn-sm.red:hover{border-color:var(--q1);color:var(--q1);}
+.resumo-contato-cell{box-shadow:0 2px 5px rgba(0,0,0,.35);transition:transform .12s ease,box-shadow .12s ease;}
+.resumo-contato-cell:hover{transform:translateY(-1px);box-shadow:0 3px 7px rgba(0,0,0,.4);}
+.resumo-contato-cell:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.3);}
 .dw{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:13px;}
 .dgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 .dcard{background:var(--dk3);border:1px solid var(--br);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.22);}
@@ -9864,8 +9867,8 @@ export default function CRM() {
                   <div className="stit">Contatos</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
                     {(() => {
-                      const linhaAtiva = { display: "block", textAlign: "left", textDecoration: "none", cursor: "pointer", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "7px 12px", fontFamily: "'DM Sans',sans-serif" } as const;
-                      const linhaInativa = { display: "block", textAlign: "left", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "7px 12px", opacity: 0.6, fontFamily: "'DM Sans',sans-serif" } as const;
+                      const linhaAtiva = { display: "block", textAlign: "left", textDecoration: "none", cursor: "pointer", background: "var(--dk3)", border: "1px solid rgba(201,168,76,.35)", borderRadius: 16, padding: "7px 12px", fontFamily: "'DM Sans',sans-serif" } as const;
+                      const linhaInativa = { display: "block", textAlign: "left", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 16, padding: "7px 12px", opacity: 0.6, fontFamily: "'DM Sans',sans-serif" } as const;
                       const rotuloAtivo = { fontSize: 13, fontWeight: 600, color: "var(--tx)" } as const;
                       const rotuloInativo = { fontSize: 13, fontWeight: 600, color: "var(--tx3)" } as const;
                       const dadoStyle = { fontSize: 11, color: "var(--tx2)", marginTop: 1 } as const;
@@ -9879,7 +9882,7 @@ export default function CRM() {
                       return (
                         <>
                           {telDigits.length >= 10 ? (
-                            <a href={linkWhatsAppCliente((sc as any).tel)} target="_blank" rel="noopener noreferrer" style={linhaAtiva}>
+                            <a href={linkWhatsAppCliente((sc as any).tel)} target="_blank" rel="noopener noreferrer" className="resumo-contato-cell" style={linhaAtiva}>
                               <div style={rotuloAtivo}>💬 WhatsApp</div>
                               <div style={dadoStyle}>{telFormatado}</div>
                             </a>
@@ -9890,7 +9893,7 @@ export default function CRM() {
                             </div>
                           )}
                           {instaCanonico ? (
-                            <a href={`https://instagram.com/${instaCanonico.slice(1)}`} target="_blank" rel="noopener noreferrer" style={linhaAtiva}>
+                            <a href={`https://instagram.com/${instaCanonico.slice(1)}`} target="_blank" rel="noopener noreferrer" className="resumo-contato-cell" style={linhaAtiva}>
                               <div style={rotuloAtivo}>📷 Instagram</div>
                               <div style={dadoStyle}>{instaCanonico}</div>
                             </a>
@@ -9901,7 +9904,7 @@ export default function CRM() {
                             </div>
                           )}
                           {telDigits.length >= 10 ? (
-                            <button onClick={() => { if (ehCelular()) { window.location.href = "sms:" + telDigits; } else { setSmsAvisoAberto(v => !v); } }} style={{ ...linhaAtiva, width: "100%", border: linhaAtiva.border, textAlign: "left" }}>
+                            <button onClick={() => { if (ehCelular()) { window.location.href = "sms:" + telDigits; } else { setSmsAvisoAberto(v => !v); } }} className="resumo-contato-cell" style={{ ...linhaAtiva, width: "100%", border: linhaAtiva.border, textAlign: "left" }}>
                               <div style={rotuloAtivo}>📩 SMS</div>
                               <div style={dadoStyle}>{telFormatado}</div>
                             </button>
@@ -9912,7 +9915,7 @@ export default function CRM() {
                             </div>
                           )}
                           {emailOk ? (
-                            <button onClick={() => { setEmailComposerAssunto(""); setEmailComposerMensagem(""); setEmailComposerAberto(true); }} style={{ ...linhaAtiva, width: "100%", border: linhaAtiva.border, textAlign: "left" }}>
+                            <button onClick={() => { setEmailComposerAssunto(""); setEmailComposerMensagem(""); setEmailComposerAberto(true); }} className="resumo-contato-cell" style={{ ...linhaAtiva, width: "100%", border: linhaAtiva.border, textAlign: "left" }}>
                               <div style={rotuloAtivo}>✉ E-mail</div>
                               <div style={dadoStyle}>{emailOk}</div>
                             </button>

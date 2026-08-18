@@ -275,8 +275,44 @@ test("dado ausente produz estado visual desabilitado com o texto exato 'Não inf
   const blocoContatos = trechoContatos();
   const qtdNaoInformado = (blocoContatos.match(/Não informado/g) || []).length;
   assert.equal(qtdNaoInformado, 4, "esperava exatamente 4 estados de 'Não informado', um por canal");
-  // O bloco inativo é um <div> puro (sem href/onClick) -- nunca <a>/<button>.
-  assert.match(blocoContatos, /const linhaInativa = \{ display: "block", textAlign: "left", background: "var\(--dk3\)", border: "1px solid var\(--br\)", borderRadius: 7, padding: "7px 12px", opacity: 0\.6, fontFamily: "'DM Sans',sans-serif" \} as const;/);
+  // O bloco inativo é um <div> puro (sem href/onClick) -- nunca <a>/<button>,
+  // e nunca recebe a classe visual de cápsula (sem sombra/hover/active).
+  assert.match(blocoContatos, /const linhaInativa = \{ display: "block", textAlign: "left", background: "var\(--dk3\)", border: "1px solid var\(--br\)", borderRadius: 16, padding: "7px 12px", opacity: 0\.6, fontFamily: "'DM Sans',sans-serif" \} as const;/);
+  assert.doesNotMatch(blocoContatos, /style=\{linhaInativa\}[^>]*className="resumo-contato-cell"|className="resumo-contato-cell"[^>]*style=\{linhaInativa\}/, "o estado inativo nunca pode receber a classe visual de cápsula");
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Refinamento visual "cápsula" dos contatos -- borderRadius 16, borda
+// dourada discreta, sombra/hover/active via classe CSS aditiva, aplicada
+// só aos 4 itens ATIVOS (nunca ao estado "Não informado", nunca ao botão
+// Editar). Nenhuma mudança de href/onClick/lógica.
+// ═══════════════════════════════════════════════════════════════════════════
+
+test("linhaAtiva tem borderRadius: 16 (formato cápsula) e borda dourada discreta -- objeto compartilhado pelos 4 canais, alterado em um único ponto", () => {
+  const blocoContatos = trechoContatos();
+  assert.match(
+    blocoContatos,
+    /const linhaAtiva = \{ display: "block", textAlign: "left", textDecoration: "none", cursor: "pointer", background: "var\(--dk3\)", border: "1px solid rgba\(201,168,76,\.35\)", borderRadius: 16, padding: "7px 12px", fontFamily: "'DM Sans',sans-serif" \} as const;/
+  );
+});
+
+test("classe CSS .resumo-contato-cell existe na folha de estilo já embutida, com sombra curta e transições sutis (sem transform/box-shadow chamativos)", () => {
+  assert.match(srcCrm, /\.resumo-contato-cell\{box-shadow:0 2px 5px rgba\(0,0,0,\.35\);transition:transform \.12s ease,box-shadow \.12s ease;\}/);
+  assert.match(srcCrm, /\.resumo-contato-cell:hover\{transform:translateY\(-1px\);box-shadow:0 3px 7px rgba\(0,0,0,\.4\);\}/);
+  assert.match(srcCrm, /\.resumo-contato-cell:active\{transform:translateY\(1px\);box-shadow:0 1px 2px rgba\(0,0,0,\.3\);\}/);
+});
+
+test("os 4 canais ativos (WhatsApp, Instagram, SMS, E-mail) recebem className=\"resumo-contato-cell\" -- exatamente 4 ocorrências no bloco de Contatos", () => {
+  const blocoContatos = trechoContatos();
+  const qtd = (blocoContatos.match(/className="resumo-contato-cell"/g) || []).length;
+  assert.equal(qtd, 4, "esperava exatamente 4 elementos ativos com a classe visual de cápsula");
+});
+
+test("botão Editar NÃO recebe a classe visual dos contatos -- permanece com btn-sm gold, isolado, sem resumo-contato-cell", () => {
+  const trecho = trechoResumo();
+  const blocoEditar = trecho.slice(trecho.indexOf("borderTop:"));
+  assert.match(blocoEditar, /<button className="btn-sm gold" onClick=\{\(\) => setModoFicha\("edicao"\)\}>Editar<\/button>/);
+  assert.doesNotMatch(blocoEditar, /resumo-contato-cell/);
 });
 
 test("existe separador (borda superior) entre Contatos e o botão Editar, e o botão fica isolado, alinhado à direita, com o texto exato 'Editar'", () => {
@@ -291,7 +327,7 @@ test("existe separador (borda superior) entre Contatos e o botão Editar, e o bo
 
 test("WhatsApp continua usando linkWhatsAppCliente(), abrindo em nova aba, sem Zenvia", () => {
   const trecho = trechoResumo();
-  assert.match(trecho, /<a href=\{linkWhatsAppCliente\(\(sc as any\)\.tel\)\} target="_blank" rel="noopener noreferrer" style=\{linhaAtiva\}>/);
+  assert.match(trecho, /<a href=\{linkWhatsAppCliente\(\(sc as any\)\.tel\)\} target="_blank" rel="noopener noreferrer" className="resumo-contato-cell" style=\{linhaAtiva\}>/);
   assert.doesNotMatch(trechoContatos(), /api\/zenvia|zenviaApiKey/);
 });
 
