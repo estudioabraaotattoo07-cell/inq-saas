@@ -1319,6 +1319,36 @@ function validarEmail(email: string): boolean {
   if (!email) return true;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
+// Canonização definitiva do Instagram do cliente, chamada só em
+// salvarFichaAlteracoes (Refinamento de Contato pós-3.4A) -- nunca no
+// onChange, que só aplica @+minúsculas visual (ver loop de Dados Básicos).
+// Remove o @ ANTES de tentar reconhecer protocolo/www/instagram.com -- o
+// valor pode chegar aqui já prefixado com @ pela digitação ao vivo (ex.:
+// colar uma URL vira "@https://instagram.com/..." no draft), e as âncoras
+// de início de string (^https?://, ^www\.) não bateriam se o @ viesse antes.
+function normalizarInstagram(v: string): string {
+  const bruto = (v || "").trim();
+  if (!bruto) return "";
+  let s = bruto.replace(/^@/, "");
+  s = s.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
+  s = s.replace(/^instagram\.com\//i, "");
+  s = s.split("?")[0].replace(/\/+$/, "");
+  s = s.replace(/^@/, "");
+  s = s.toLowerCase();
+  return s ? "@" + s : "";
+}
+// Único helper de link de WhatsApp do CLIENTE no CRM -- substitui a fórmula
+// que estava duplicada em dois pontos da ficha (assinatura de documento e
+// confirmação de presença). Devolve a URL base, sem "?text=...": cada
+// chamador anexa sua própria mensagem, e o futuro Resumo Premium pode usar
+// o link puro, sem texto pré-preenchido. Não mexe em api/lead.js nem
+// api/zenvia.js -- ambientes e propósitos diferentes (telefone do estúdio,
+// não do cliente; ou payload de envio real via API da Zenvia).
+function linkWhatsAppCliente(tel: string): string {
+  const digitos = (tel || "").replace(/\D/g, "");
+  const telWa = digitos.startsWith("55") ? digitos : "55" + digitos;
+  return "https://wa.me/" + telWa;
+}
 function parseNascimento(nasc: string): Date | null {
   if (!nasc) return null;
   if (nasc.includes("/")) {
@@ -3231,6 +3261,8 @@ export default function CRM() {
     if (!fichaDraft || fichaDraft.clienteId !== clienteAtual.id) return;
     setSalvandoFicha(true);
     const { clienteId, ...camposDraft } = fichaDraft;
+    if ("insta" in camposDraft) camposDraft.insta = normalizarInstagram(camposDraft.insta as string);
+    if ("email" in camposDraft) camposDraft.email = ((camposDraft.email as string) || "").trim().toLowerCase();
     const atualizado = { ...clienteAtual, ...camposDraft };
     const resultado = await saveClientDb(atualizado);
     setSalvandoFicha(false);
@@ -9775,7 +9807,9 @@ export default function CRM() {
                         <input className="ef" value={fd.f === "tel" ? maskTel(valorAtual) : valorAtual} placeholder={w ? "Clique para adicionar" : fd.f === "tel" ? "(99) 99999-9999" : fd.f === "insta" ? "@perfil" : ""}
                           onChange={e => {
                             const v = e.target.value;
-                            const vFinal = fd.f === "tel" ? v.replace(/\D/g, "") : fd.f === "insta" && v && !v.startsWith("@") ? "@" + v : v;
+                            const vFinal = fd.f === "tel" ? v.replace(/\D/g, "")
+                              : fd.f === "insta" ? (v ? (v.toLowerCase().startsWith("@") ? "@" + v.toLowerCase().slice(1) : "@" + v.toLowerCase()) : "")
+                              : v;
                             setFichaDraftField(sc.id, fd.f, vFinal);
                           }}
                           style={{ borderColor: fd.f === "email" && valorAtual && !validarEmail(valorAtual) ? "var(--q1)" : w ? "var(--q2)" : "var(--br)" }} />
@@ -10745,14 +10779,13 @@ export default function CRM() {
                                   })()}
                                   {authEmail === OWNER_EMAIL && (() => {
                                     const telCliente = ((sc as any).tel || "").replace(/\D/g, "");
-                                    const telWa = telCliente.startsWith("55") ? telCliente : "55" + telCliente;
                                     const linkDoc = (sc as any).assinar_link?.[doc.id]?.token
                                       ? `${window.location.origin}/assinar.html?token=${(sc as any).assinar_link[doc.id].token}`
                                       : "";
                                     const msgWa = linkDoc
                                       ? `Olá! Segue o link para assinatura do seu documento (${doc.titulo}): ${linkDoc}`
                                       : `Olá! Entre em contato com o estúdio para mais informações.`;
-                                    const waUrl = `https://wa.me/${telWa}?text=${encodeURIComponent(msgWa)}`;
+                                    const waUrl = `${linkWhatsAppCliente((sc as any).tel)}?text=${encodeURIComponent(msgWa)}`;
                                     const temTel = telCliente.length >= 10;
                                     const temLink = !!linkDoc;
                                     return (
@@ -11232,9 +11265,8 @@ export default function CRM() {
                     const link = `${window.location.origin}/confirmar.html?token=${token}`;
                     try { await navigator.clipboard.writeText(link); } catch {}
                     const telCliente = ((sc as any).tel || "").replace(/\D/g, "");
-                    const telWa = telCliente.startsWith("55") ? telCliente : "55" + telCliente;
                     const msg = `Olá! Confirme sua presença na sua sessão${evFuturo?.date ? " do dia " + new Date(evFuturo.date + "T12:00:00").toLocaleDateString("pt-BR") : ""}: ${link}`;
-                    if (telCliente.length >= 10) window.open(`https://wa.me/${telWa}?text=${encodeURIComponent(msg)}`, "_blank");
+                    if (telCliente.length >= 10) window.open(`${linkWhatsAppCliente((sc as any).tel)}?text=${encodeURIComponent(msg)}`, "_blank");
                     else { setShowAviso("Link copiado! " + link); }
                   };
                   return (
