@@ -7,7 +7,7 @@ const sb = createClient(
 
 // Limites por endpoint (Bloco 1 de hardening) -- um só lugar pra ajustar,
 // em vez de duplicado em cada arquivo.
-const LIMITES = { resend: 30, zenvia: 20, chat: 10, agendar: 5, lead_post: 20, lead_busca: 5, lead_global: 60 };
+const LIMITES = { resend: 30, zenvia: 20, chat: 10, aura: 30, integracoes: 10, agendar: 5, lead_post: 20, lead_busca: 5, lead_global: 60 };
 
 export function identificadorPorIp(req) {
   const fwd = req.headers["x-forwarded-for"];

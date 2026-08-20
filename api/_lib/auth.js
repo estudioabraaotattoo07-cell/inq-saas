@@ -27,7 +27,7 @@ export async function autenticarChamador(req) {
     try {
       const { data, error } = await sbAuth.auth.getUser(token);
       if (!error && data?.user) {
-        return { ok: true, tipo: "user", identificador: "user:" + data.user.id, userId: data.user.id };
+        return { ok: true, tipo: "user", identificador: "user:" + data.user.id, userId: data.user.id, email: data.user.email || "" };
       }
     } catch (e) {
       // Falha de rede validando a sessão nunca deve virar 500 -- trata como

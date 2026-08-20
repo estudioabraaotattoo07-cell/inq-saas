@@ -54,20 +54,18 @@ const DEFAULT_FORMAS_PAGAMENTO: { chave_sistema: string; nome: string }[] = [
 // As funções de servidor (/api/*) só existem no deploy do inq-saas — usar URL absoluta
 // garante que funcionem mesmo quando o CRM é acessado por outro domínio (ex: inksystem.com.br).
 const API_BASE = "https://inq-saas.vercel.app";
+// Cofre BYOK, Anthropic, Zenvia e integrações de custo do cliente vivem no
+// projeto Vercel separado ink-system-implementacoes.
+const IMPLEMENTACOES_API_BASE = (import.meta.env.VITE_IMPLEMENTACOES_API_BASE as string) || "https://ink-system-implementacoes.vercel.app";
 // inksystem.com.br hoje pertence ao projeto de vendas (ink-system-plataform), não
 // ao inq-saas -- não existe rewrite nenhum que ligue "inksystem.com.br/{slug}" a
 // este servidor. O endereço que realmente funciona é este, direto no domínio do
 // próprio inq-saas. Quando o Laboratório ganhar domínio próprio, troca só aqui.
 const urlSiteTenant = (slug: string) => `${API_BASE}/api/lead?acao=site&slug=${slug}`;
-// Pacotes de recarga de SMS/e-mail — crédito persistente: compra manual e
+// Pacotes de recarga de e-mail — crédito persistente: compra manual e
 // autônoma, sem relação com plano comercial (ver Bloco 2, remoção de
 // Bronze/Prata/Ouro, 2026-08-13). O que sobrar não expira (acumula pro mês
 // seguinte).
-const RECARGA_SMS_TIERS = [
-  { qtd: 20, preco: 9 },
-  { qtd: 30, preco: 12 },
-  { qtd: 50, preco: 18 },
-];
 const RECARGA_EMAIL_TIERS = [
   { qtd: 50, preco: 5 },
   { qtd: 100, preco: 10 },
@@ -1516,7 +1514,7 @@ export default function CRM() {
   const [metaSessoes, setMetaSessoes] = useState(0);
   const [metaLeads, setMetaLeads] = useState(0);
   const [metaNPS, setMetaNPS] = useState(0);
-  const [settingsTab, setSettingsTab] = useState<"estudio"|"profissionais"|"estoque"|"ia"|"sistema">("estudio");
+  const [settingsTab, setSettingsTab] = useState<"estudio"|"profissionais"|"estoque"|"sistema"|"implementacoes">("estudio");
   // ── ESTOQUE (materiais de procedimento, joias/revenda, limpeza, equipamentos) ──
   // Guardado como lista dentro de `configuracoes` (mesmo padrão já usado por servicoOpts) —
   // nasce vazio pra cada estúdio novo, sem nada fixo no código.
@@ -1566,9 +1564,7 @@ export default function CRM() {
   const [meuSlug, setMeuSlug] = useState<string>("");
   const [storageUsadoMb, setStorageUsadoMb] = useState<number>(0);
   const [storageExtraMb, setStorageExtraMb] = useState<number>(0);
-  // Crédito comprado de SMS/e-mail — não expira, fica disponível até ser usado
-  // manualmente (comprarRecarga). O que sobra acumula.
-  const [smsCreditoExtra, setSmsCreditoExtra] = useState<number>(0);
+  // Crédito comprado de e-mail — não expira e fica disponível até ser usado.
   const [emailCreditoExtra, setEmailCreditoExtra] = useState<number>(0);
   const [slugProposto, setSlugProposto] = useState<string>("");
   const [slugConfirmando, setSlugConfirmando] = useState(false);
@@ -1892,12 +1888,16 @@ export default function CRM() {
   // ── DISPARO MANUAL: estado de confirmação ──
   const [disparoManualPendente, setDisparoManualPendente] = useState<{etapa: any; tipoRegua: string; campo?: string} | null>(null);
   const [disparosHist, setDisparosHist] = useState<any[]>([]);
-  const [resendApiKey, setResendApiKey] = useState("");
   const [emailRemetente, setEmailRemetente] = useState("");
   const [nomeRemetente, setNomeRemetente] = useState("");
-  const [zenviaApiKey, setZenviaApiKey] = useState("");
-  const [zenviaNumero, setZenviaNumero] = useState("");
-  const [auraApiKey, setAuraApiKey] = useState("");
+  const [zenviaConfigurada, setZenviaConfigurada] = useState(false);
+  const [zenviaGerenciada, setZenviaGerenciada] = useState(false);
+  const [zenviaChaveNova, setZenviaChaveNova] = useState("");
+  const [zenviaRemetenteNovo, setZenviaRemetenteNovo] = useState("");
+  const [anthropicConfigurada, setAnthropicConfigurada] = useState(false);
+  const [anthropicChaveNova, setAnthropicChaveNova] = useState("");
+  const [integracoesCarregando, setIntegracoesCarregando] = useState(false);
+  const [integracoesSalvando, setIntegracoesSalvando] = useState(false);
   const [showAuraChat, setShowAuraChat] = useState(false);
   const [auraBtnPos, setAuraBtnPos] = useState<{ x: number; y: number } | null>(null);
   const [auraDragging, setAuraDragging] = useState(false);
@@ -1928,6 +1928,31 @@ export default function CRM() {
       auraChatEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [auraChatMessages, auraChatLoading]);
+
+  useEffect(() => {
+    if (!userId) return;
+    let ativo = true;
+    setIntegracoesCarregando(true);
+    (async () => {
+      try {
+        const headers = await authHeaderMensageria();
+        const resp = await fetch(IMPLEMENTACOES_API_BASE + "/api/integracoes", { headers });
+        const json = await resp.json();
+        if (!resp.ok) throw new Error(json.error || "Não foi possível carregar as integrações.");
+        if (ativo) {
+          setAnthropicConfigurada(Boolean(json.anthropic?.configurada));
+          setZenviaConfigurada(Boolean(json.zenvia?.configurada));
+          setZenviaGerenciada(Boolean(json.zenvia?.gerenciada));
+          setCanaisHabilitados(prev => ({ ...prev, sms: Boolean(json.zenvia?.configurada), whatsapp: Boolean(json.zenvia?.configurada) }));
+        }
+      } catch (erro: any) {
+        if (ativo) setShowAviso("❌ " + (erro?.message || "Não foi possível carregar as integrações."));
+      } finally {
+        if (ativo) setIntegracoesCarregando(false);
+      }
+    })();
+    return () => { ativo = false; };
+  }, [userId, showSettings, settingsTab]);
 
   // Renomeio dinâmico de "aura_agend"/"lead_morno" com o nome da Aura foi
   // removido (Bloco de Unificação da Entrada de Clientes Interessados,
@@ -1970,11 +1995,10 @@ export default function CRM() {
       return;
     }
     setLicencaOk(true);
-    const { data: inkCli } = await sb.from("ink_clientes").select("slug, storage_usado_mb, storage_extra_mb, sms_credito_extra, email_credito_extra").eq("auth_user_id", uid).limit(1).maybeSingle();
+    const { data: inkCli } = await sb.from("ink_clientes").select("slug, storage_usado_mb, storage_extra_mb, email_credito_extra").eq("auth_user_id", uid).limit(1).maybeSingle();
     setMeuSlug(inkCli?.slug || "");
     setStorageUsadoMb(Number(inkCli?.storage_usado_mb) || 0);
     setStorageExtraMb(Number(inkCli?.storage_extra_mb) || 0);
-    setSmsCreditoExtra(Number(inkCli?.sms_credito_extra) || 0);
     setEmailCreditoExtra(Number(inkCli?.email_credito_extra) || 0);
     // Verificar perfil: artista residente com email cadastrado?
     const { data: artEncontrado } = await sb.from("artistas").select("id,email").eq("email", email).limit(1).single();
@@ -2204,12 +2228,8 @@ export default function CRM() {
           if (cfg.servico_opts && Array.isArray(cfg.servico_opts) && cfg.servico_opts.length) setServicoOpts(cfg.servico_opts);
           if (cfg.estoque_itens && Array.isArray(cfg.estoque_itens)) setEstoqueItens(cfg.estoque_itens);
           if (cfg.studio_site) setStudioSite(cfg.studio_site);
-          if (cfg.resend_api_key) setResendApiKey(cfg.resend_api_key);
           if (cfg.email_remetente) setEmailRemetente(cfg.email_remetente);
           if (cfg.nome_remetente) setNomeRemetente(cfg.nome_remetente);
-          if (cfg.zenvia_api_key) setZenviaApiKey(cfg.zenvia_api_key);
-          if (cfg.zenvia_numero) setZenviaNumero(cfg.zenvia_numero);
-          if (cfg.aura_api_key) setAuraApiKey(cfg.aura_api_key);
           // ── CANAIS HABILITADOS ──
           if (cfg.canais_habilitados) {
             try {
@@ -2335,7 +2355,7 @@ export default function CRM() {
           await fetch(API_BASE + "/api/resend", {
             method: "POST",
             headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
-            body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: pendente.cliente_email, subject: acao === "aprovar" ? "Agendamento confirmado — " + (studioName || "INK SYSTEM") : "Sobre seu agendamento — " + (studioName || "INK SYSTEM"), html })
+            body: JSON.stringify({ from: remetenteFrom(), to: pendente.cliente_email, subject: acao === "aprovar" ? "Agendamento confirmado — " + (studioName || "INK SYSTEM") : "Sobre seu agendamento — " + (studioName || "INK SYSTEM"), html })
           });
           logEnvio("email");
         } catch (e: any) { logFalha("email", e?.message || "erro ao confirmar agendamento"); }
@@ -2379,15 +2399,15 @@ export default function CRM() {
           await fetch(API_BASE + "/api/resend", {
             method: "POST",
             headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
-            body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: cliente.email, subject: etapa.label + " — " + (studioName || "INK SYSTEM"), html })
+            body: JSON.stringify({ from: remetenteFrom(), to: cliente.email, subject: etapa.label + " — " + (studioName || "INK SYSTEM"), html })
           });
           logEnvio("email");
           enviados++;
-        } else if ((canal === "whatsapp" || canal === "sms") && zenviaApiKey && zenviaNumero && cliente.tel) {
-          await fetch(API_BASE + "/api/zenvia", {
+        } else if ((canal === "whatsapp" || canal === "sms") && zenviaConfigurada && cliente.tel) {
+          await fetch(IMPLEMENTACOES_API_BASE + "/api/zenvia", {
             method: "POST",
             headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
-            body: JSON.stringify({ from: zenviaNumero, to: cliente.tel, text: msg, canal })
+            body: JSON.stringify({ to: cliente.tel, text: msg, canal })
           });
           if (canal === "sms") logEnvio("sms");
           enviados++;
@@ -2447,7 +2467,6 @@ export default function CRM() {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
         body: JSON.stringify({
-          apiKey: resendApiKey,
           from: remetenteFrom(),
           to: studioEmail,
           subject: "📊 Relatório Financeiro — " + nomeMes + "/" + ano + " · " + (studioName || "INK SYSTEM"),
@@ -3640,7 +3659,7 @@ export default function CRM() {
       await fetch(API_BASE + "/api/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
-        body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Seu piercing foi feito, ${cliente.nome}! Cuidados importantes 🖤`, html }),
+        body: JSON.stringify({ from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Seu piercing foi feito, ${cliente.nome}! Cuidados importantes 🖤`, html }),
       });
       logEnvio("email");
     } catch (e: any) { logFalha("email", e?.message || "erro no e-mail de pós-venda de piercing"); }
@@ -3681,7 +3700,7 @@ export default function CRM() {
       await fetch(API_BASE + "/api/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
-        body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Bem-vindo(a) à ${studioNomeF}, ${cliente.nome}! 🖤`, html }),
+        body: JSON.stringify({ from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Bem-vindo(a) à ${studioNomeF}, ${cliente.nome}! 🖤`, html }),
       });
       logEnvio("email");
     } catch (e: any) { logFalha("email", e?.message || "erro no e-mail de boas-vindas"); }
@@ -3748,7 +3767,7 @@ export default function CRM() {
       await fetch(API_BASE + "/api/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
-        body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: assunto, html }),
+        body: JSON.stringify({ from: remetenteFrom(studioNomeF), to: cliente.email, subject: assunto, html }),
       });
       logEnvio("email");
     } catch (e: any) { logFalha("email", e?.message || "erro na confirmação de agendamento"); }
@@ -3785,7 +3804,7 @@ export default function CRM() {
       await fetch(API_BASE + "/api/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
-        body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Seu agendamento foi alterado, ${cliente.nome} ✦`, html }),
+        body: JSON.stringify({ from: remetenteFrom(studioNomeF), to: cliente.email, subject: `Seu agendamento foi alterado, ${cliente.nome} ✦`, html }),
       });
       logEnvio("email");
     } catch (e: any) { logFalha("email", e?.message || "erro no e-mail de reagendamento"); }
@@ -4036,7 +4055,6 @@ export default function CRM() {
             method: "POST",
             headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
             body: JSON.stringify({
-              apiKey: resendApiKey,
               from: remetenteFrom(),
               to: [cliente.email],
               subject: "Mensagem de " + (studioName || "seu estúdio"),
@@ -4047,14 +4065,13 @@ export default function CRM() {
           emailOk++;
         } catch (e: any) { logFalha("email", e?.message || "erro no disparo em massa"); }
       }
-      if (cliente.tel && zenviaApiKey && zenviaNumero) {
+      if (cliente.tel && zenviaConfigurada) {
         try {
           const smsBody = mensagem.slice(0, 160);
-          await fetch(API_BASE + "/api/zenvia", {
+          await fetch(IMPLEMENTACOES_API_BASE + "/api/zenvia", {
             method: "POST",
             headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
             body: JSON.stringify({
-              from: zenviaNumero,
               to: cliente.tel,
               text: smsBody
             })
@@ -4351,7 +4368,6 @@ export default function CRM() {
           method: "POST",
           headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
           body: JSON.stringify({
-            apiKey: resendApiKey,
             from: remetenteFrom(),
             to: [params.cliente_email],
             subject: params.assunto,
@@ -4474,14 +4490,13 @@ export default function CRM() {
       }
       if (tool === "disparar_sms") {
         try {
-          if (!zenviaApiKey) {
-            return "❌ Credenciais Zenvia não configuradas. Acesse **Configurações → IA → SMS** para configurar.";
+          if (!zenviaConfigurada) {
+            return "❌ O WhatsApp ainda não está conectado. Acompanhe a disponibilidade em **Configurações → Implementações**.";
           }
-          const smsResp = await fetch(API_BASE + "/api/zenvia", {
+          const smsResp = await fetch(IMPLEMENTACOES_API_BASE + "/api/zenvia", {
             method: "POST",
             headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
             body: JSON.stringify({
-              from: zenviaNumero,
               to: params.cliente_tel,
               text: params.mensagem
             })
@@ -4510,7 +4525,6 @@ export default function CRM() {
             method: "POST",
             headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
             body: JSON.stringify({
-              apiKey: resendApiKey,
               from: remetenteFrom(),
               to: params.destinatario_email,
               subject: params.assunto,
@@ -4632,8 +4646,8 @@ export default function CRM() {
   const enviarMensagemAura = async (msgOverride?: string, imagemBase64?: string, imagemMediaType?: string) => {
     const userMsg = msgOverride !== undefined ? msgOverride : auraChatInput.trim();
     if (!userMsg && !imagemBase64) return;
-    if (!auraApiKey) {
-      setAuraChatMessages(p => [...p, { role: "assistant", content: "Configure a chave API em Configurações → IA para ativar o chat." }]);
+    if (!anthropicConfigurada) {
+      setAuraChatMessages(p => [...p, { role: "assistant", content: "Configure a Anthropic em Configurações → Implementações para ativar a secretária." }]);
       return;
     }
     setAuraChatInput("");
@@ -4717,10 +4731,10 @@ export default function CRM() {
         if (typeof m.content === "string" && m.content.startsWith("📷")) return null;
         return m;
       }).filter(Boolean);
-      const resp = await fetch(API_BASE + "/api/aura", {
+      const resp = await fetch(IMPLEMENTACOES_API_BASE + "/api/aura", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: auraApiKey, system: contexto, messages: apiMessages, tools: AURA_TOOLS })
+        headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
+        body: JSON.stringify({ system: contexto, messages: apiMessages, tools: AURA_TOOLS })
       });
       const json = await resp.json();
       if (json.stop_reason === "tool_use") {
@@ -4791,7 +4805,7 @@ export default function CRM() {
         }
       }
     } catch {
-      setAuraChatMessages(prev => [...prev, { role: "assistant", content: "Erro ao conectar com a API. Verifique sua chave em Configurações → IA." }]);
+      setAuraChatMessages(prev => [...prev, { role: "assistant", content: "Erro ao conectar com a API. Verifique a Anthropic em Configurações → Implementações." }]);
     }
     setAuraChatLoading(false);
   };
@@ -6373,10 +6387,10 @@ export default function CRM() {
               try {
                 if (disparoMassa!.canal === "email" && c.email) {
                   const html = "<div style='font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:600px'>" + msg.replace(/\n/g, "<br>") + "</div>";
-                  const r = await fetch(API_BASE + "/api/resend", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) }, body: JSON.stringify({ apiKey: resendApiKey, from: remetenteFrom(), to: c.email, subject: "Mensagem de " + (studioName || "INK SYSTEM"), html }) });
+                  const r = await fetch(API_BASE + "/api/resend", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) }, body: JSON.stringify({ from: remetenteFrom(), to: c.email, subject: "Mensagem de " + (studioName || "INK SYSTEM"), html }) });
                   if (r.ok) { ok++; logEnvio("email"); } else { logFalha("email", "HTTP " + r.status + " no disparo em massa"); }
-                } else if (disparoMassa!.canal === "sms" && c.tel && zenviaApiKey && zenviaNumero) {
-                  const r = await fetch(API_BASE + "/api/zenvia", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) }, body: JSON.stringify({ from: zenviaNumero, to: c.tel, text: msg, canal: "sms" }) });
+                } else if (disparoMassa!.canal === "sms" && c.tel && zenviaConfigurada) {
+                  const r = await fetch(IMPLEMENTACOES_API_BASE + "/api/zenvia", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) }, body: JSON.stringify({ to: c.tel, text: msg, canal: "sms" }) });
                   if (r.ok) { ok++; logEnvio("sms"); } else { logFalha("sms", "HTTP " + r.status + " no disparo em massa"); }
                 }
               } catch (e: any) { logFalha(disparoMassa!.canal === "sms" ? "sms" : "email", e?.message || "erro no disparo em massa"); }
@@ -6431,9 +6445,9 @@ export default function CRM() {
                         <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 6 }}>Canal</div>
                         <div style={{ display: "flex", gap: 8 }}>
                           <button className={"fb" + (disparoMassa.canal === "email" ? " on" : "")} onClick={() => setDisparoMassa(d => d ? { ...d, canal: "email" } : d)}>✉ E-mail</button>
-                          <button className={"fb" + (disparoMassa.canal === "sms" ? " on" : "")} style={{ opacity: (zenviaApiKey && canaisHabilitados.sms) ? 1 : 0.4, cursor: (zenviaApiKey && canaisHabilitados.sms) ? "pointer" : "not-allowed" }}
-                            onClick={() => { if (zenviaApiKey && canaisHabilitados.sms) setDisparoMassa(d => d ? { ...d, canal: "sms" } : d); }}>
-                            💬 SMS{!(zenviaApiKey && canaisHabilitados.sms) ? " (não configurado)" : ""}
+                          <button className={"fb" + (disparoMassa.canal === "sms" ? " on" : "")} style={{ opacity: (zenviaConfigurada && canaisHabilitados.sms) ? 1 : 0.4, cursor: (zenviaConfigurada && canaisHabilitados.sms) ? "pointer" : "not-allowed" }}
+                            onClick={() => { if (zenviaConfigurada && canaisHabilitados.sms) setDisparoMassa(d => d ? { ...d, canal: "sms" } : d); }}>
+                            💬 SMS{!(zenviaConfigurada && canaisHabilitados.sms) ? " (não configurado)" : ""}
                           </button>
                         </div>
                       </div>
@@ -8476,17 +8490,17 @@ export default function CRM() {
               {/* ── CANAIS HABILITADOS (status somente leitura, baseado em teste confirmado) ── */}
               <div style={{ padding: "16px 18px", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 14, margin: "8px 0 0", boxShadow: "0 1px 3px rgba(0,0,0,.22)" }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--tx)", marginBottom: 4 }}>Canais habilitados</div>
-                <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 10 }}>Status definido por teste real, em Configurações → IA. O canal usado em cada mensagem é escolhido na própria régua.</div>
+                <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 10 }}>O canal usado em cada mensagem é escolhido na própria régua. Novas conexões serão disponibilizadas em Configurações → Implementações.</div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   {(["email", "whatsapp", "sms"] as const).map((ch) => {
                     const label = ch === "email" ? "E-mail" : ch === "sms" ? "SMS" : "WhatsApp";
                     const testado = canaisHabilitados[ch] === true;
                     const enviados = ch === "email" ? usoMensal.emailEnviados : ch === "sms" ? usoMensal.smsEnviados : 0;
-                    const comprado = ch === "email" ? emailCreditoExtra : ch === "sms" ? smsCreditoExtra : 0;
+                    const comprado = ch === "email" ? emailCreditoExtra : 0;
                     return (
                       <div key={ch} style={{ minWidth: 150 }}>
                         <div
-                          title={testado ? "Testado e aprovado" : "Ainda não testado — vá em Configurações → IA para testar"}
+                          title={testado ? "Testado e aprovado" : "Ainda não testado — consulte Configurações → Implementações"}
                           style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 12px", background: testado ? "rgba(39,174,96,.08)" : "var(--dk4)", border: "1px solid " + (testado ? "rgba(39,174,96,.3)" : "var(--br)"), borderRadius: 9, opacity: testado ? 1 : 0.55 }}>
                           <div style={{ width: 9, height: 9, borderRadius: "50%", background: testado ? "var(--q3)" : "var(--tx3)", flexShrink: 0 }} />
                           <span style={{ fontSize: 12, color: testado ? "var(--q3)" : "var(--tx3)", fontWeight: 500 }}>{label}</span>
@@ -8494,10 +8508,7 @@ export default function CRM() {
                         </div>
                         {(ch === "email" || ch === "sms") && (
                           <div style={{ marginTop: 6 }}>
-                            <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{enviados} enviados este mês{comprado > 0 ? ` · ${comprado} de crédito extra disponível` : ""}</div>
-                            {/* SMS fora da oferta comercial da v1.0 (Bloco Corretivo, 2026-08-20)
-                                -- o status do canal (badge testado/não testado) e o crédito já
-                                existente continuam visíveis acima; só o gatilho de compra some. */}
+                            <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{enviados} enviados este mês{ch === "email" && comprado > 0 ? ` · ${comprado} de crédito extra disponível` : ch === "sms" ? " · consumo cobrado pela sua conta Zenvia" : ""}</div>
                             {ch === "email" && (
                               <button onClick={() => setShowRecargaModal(ch)} style={{ background: "none", border: "none", color: "var(--gold)", fontSize: 10, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
                                 + Comprar crédito extra
@@ -9190,14 +9201,13 @@ export default function CRM() {
                                       disabled={gerandoDisparo === item.id || !(instrucaoDisparo[item.id] || "").trim()}
                                       onClick={async () => {
                                         const instrucao = (instrucaoDisparo[item.id] || "").trim();
-                                        if (!instrucao || !auraApiKey) return;
+                                        if (!instrucao || !anthropicConfigurada) return;
                                         setGerandoDisparo(item.id);
                                         try {
-                                          const resp = await fetch(API_BASE + "/api/aura", {
+                                          const resp = await fetch(IMPLEMENTACOES_API_BASE + "/api/aura", {
                                             method: "POST",
-                                            headers: { "Content-Type": "application/json" },
+                                            headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
                                             body: JSON.stringify({
-                                              apiKey: auraApiKey,
                                               system: "Você é " + (auraName || "a IA") + " do sistema INK SYSTEM. Gere uma mensagem de comunicação para o segmento indicado com base na instrução do usuário. Responda APENAS com o texto da mensagem, sem explicações, sem aspas, sem prefácio.",
                                               messages: [{ role: "user", content: "Segmento: " + item.label + "\nDestinatários: " + cnt + " clientes\nInstrução: " + instrucao }],
                                               tools: []
@@ -9938,7 +9948,7 @@ export default function CRM() {
         {/* COMPOSITOR DE E-MAIL PROVISÓRIO (Bloco 3.5) -- estado só local/efêmero,
             nunca persistido; ao confirmar, só monta um mailto: com destinatário
             fixo (sc.email), assunto/mensagem digitados manualmente. NÃO chama
-            api/resend.js, NÃO usa resendApiKey, NÃO registra envio -- o INK
+            não chama o motor de e-mail nem registra envio -- o INK
             SYSTEM não tem confirmação real de que o e-mail foi enviado nesta
             etapa. Overlay irmão do Resumo (não aninhado em .modal), mesmo
             padrão já usado pelo diálogo "Alterações não salvas" da ficha. */}
@@ -10451,7 +10461,6 @@ export default function CRM() {
                         method: "POST",
                         headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
                         body: JSON.stringify({
-                          apiKey: resendApiKey,
                           from: remetenteFrom(studioNomeFormatado),
                           to: sc.email,
                           subject: `${titulo} — ${studioNomeFormatado}`,
@@ -10550,7 +10559,6 @@ export default function CRM() {
                         method: "POST",
                         headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) },
                         body: JSON.stringify({
-                          apiKey: resendApiKey,
                           from: remetenteFrom(studioNomeFormatado),
                           to: emailDestino,
                           subject: `Assine seu ${titulo} — ${studioNomeFormatado}`,
@@ -15333,10 +15341,10 @@ export default function CRM() {
                 <button className="mc" onClick={() => setShowSettings(false)}>✕</button>
               </div>
               {/* ABAS */}
-              <div className="settings-tabs-bar" style={{ display: "flex", borderBottom: "1px solid var(--br)" }}>
-                {([["estudio","🏠 Estúdio"],["profissionais","💼 Colaboradores"],["estoque","📦 Estoque"],["sistema","⚙️ Sistema"]] as const).map(([id, label]) => (
+              <div className="settings-tabs-bar" style={{ display: "flex", borderBottom: "1px solid var(--br)", overflowX: "auto" }}>
+                {([["estudio","🏠 Estúdio"],["profissionais","💼 Colaboradores"],["estoque","📦 Estoque"],["sistema","⚙️ Sistema"],["implementacoes","🔌 Implementações"]] as const).map(([id, label]) => (
                   <div key={id} onClick={() => setSettingsTab(id)}
-                    style={{ flex: 1, padding: "10px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, cursor: "pointer", letterSpacing: ".04em",
+                    style={{ flex: "1 0 auto", minWidth: id === "implementacoes" ? 118 : 92, padding: "10px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, cursor: "pointer", letterSpacing: ".04em",
                       color: settingsTab === id ? "var(--gold)" : "var(--tx3)",
                       borderBottom: settingsTab === id ? "2px solid var(--gold)" : "2px solid transparent",
                       background: settingsTab === id ? "rgba(201,168,76,.05)" : "none" }}>
@@ -16150,22 +16158,118 @@ export default function CRM() {
                   </div>
                 </>}
 
+                {/* ── ABA IMPLEMENTAÇÕES ── */}
+                {settingsTab === "implementacoes" && <>
+                  <div>
+                    <div className="stit">Central de Implementações</div>
+                    <div style={{ fontSize: 12, color: "var(--tx2)", lineHeight: 1.65 }}>
+                      Conecte serviços contratados diretamente pelo seu estúdio. O Ink System organiza as integrações; assinaturas, planos e consumo dessas ferramentas são pagos pelo próprio usuário.
+                    </div>
+                  </div>
+
+                  <div style={{ background: "rgba(201,168,76,.07)", border: "1px solid rgba(201,168,76,.25)", borderRadius: 9, padding: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--gold)", marginBottom: 5 }}>✨ Secretária Ink System</div>
+                        <div style={{ fontSize: 12, color: "var(--tx2)", lineHeight: 1.55 }}>Treinamento, comportamento e regras operacionais definidos e mantidos pelo Ink System.</div>
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#27AE60", whiteSpace: "nowrap" }}>PADRÃO INK</span>
+                    </div>
+                  </div>
+
+                  <div style={{ border: "1px solid var(--br)", borderRadius: 9, padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>Anthropic</div>
+                        <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 3 }}>A chave paga o consumo de IA da própria conta do usuário.</div>
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: anthropicConfigurada ? "#27AE60" : "var(--tx3)" }}>
+                        {integracoesCarregando ? "CARREGANDO" : anthropicConfigurada ? "ATIVA" : "NÃO CONFIGURADA"}
+                      </span>
+                    </div>
+                    {anthropicConfigurada && <div style={{ fontSize: 11, color: "var(--tx2)", fontFamily: "monospace" }}>sk-ant-••••••••••••••••••••••••••••••••</div>}
+                    <input className="ef" type="password" autoComplete="new-password" value={anthropicChaveNova} onChange={e => setAnthropicChaveNova(e.target.value)} placeholder={anthropicConfigurada ? "Cole uma nova chave para substituir" : "Cole sua chave sk-ant-..."} />
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button className="btn-s" disabled={integracoesSalvando || !anthropicChaveNova.trim()} onClick={async () => {
+                        setIntegracoesSalvando(true);
+                        try {
+                          const resp = await fetch(IMPLEMENTACOES_API_BASE + "/api/integracoes", { method: "PUT", headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) }, body: JSON.stringify({ provedor: "anthropic", chave: anthropicChaveNova }) });
+                          const json = await resp.json();
+                          if (!resp.ok) throw new Error(json.error || "Não foi possível validar a chave.");
+                          setAnthropicConfigurada(true); setAnthropicChaveNova("");
+                          setShowAviso("✅ Anthropic conectada e testada com sucesso.");
+                        } catch (erro: any) { setShowAviso("❌ " + (erro?.message || "Não foi possível validar a chave.")); }
+                        finally { setIntegracoesSalvando(false); }
+                      }}>{integracoesSalvando ? "Testando..." : anthropicConfigurada ? "Testar e substituir chave" : "Testar e conectar"}</button>
+                      {anthropicConfigurada && <button className="btn-c" disabled={integracoesSalvando} onClick={async () => {
+                        if (!window.confirm("Desconectar a Anthropic e desativar a secretária?")) return;
+                        setIntegracoesSalvando(true);
+                        try {
+                          const resp = await fetch(IMPLEMENTACOES_API_BASE + "/api/integracoes?provedor=anthropic", { method: "DELETE", headers: await authHeaderMensageria() });
+                          const json = await resp.json(); if (!resp.ok) throw new Error(json.error || "Não foi possível desconectar.");
+                          setAnthropicConfigurada(false); setAnthropicChaveNova("");
+                        } catch (erro: any) { setShowAviso("❌ " + (erro?.message || "Não foi possível desconectar.")); }
+                        finally { setIntegracoesSalvando(false); }
+                      }}>Desconectar</button>}
+                    </div>
+                  </div>
+
+                  <div style={{ border: "1px solid var(--br)", borderRadius: 9, padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <div><div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>Zenvia · SMS e WhatsApp</div><div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 3 }}>Cada estúdio usa e paga sua própria conta Zenvia.</div></div>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: zenviaConfigurada ? "#27AE60" : "var(--tx3)" }}>{zenviaGerenciada ? "CONTA DO PROPRIETÁRIO" : zenviaConfigurada ? "ATIVA" : "NÃO CONFIGURADA"}</span>
+                    </div>
+                    {zenviaConfigurada && <div style={{ fontSize: 11, color: "var(--tx2)", fontFamily: "monospace" }}>Token Zenvia: ••••••••••••••••••••••••••••••••</div>}
+                    <input className="ef" type="password" autoComplete="new-password" value={zenviaChaveNova} onChange={e => setZenviaChaveNova(e.target.value)} placeholder={zenviaConfigurada ? "Cole um novo token para substituir" : "Cole o token da sua conta Zenvia"} />
+                    <input className="ef" value={zenviaRemetenteNovo} onChange={e => setZenviaRemetenteNovo(e.target.value)} placeholder="Identificador de envio (sender ID / número Zenvia)" />
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button className="btn-s" disabled={integracoesSalvando || !zenviaChaveNova.trim() || !zenviaRemetenteNovo.trim()} onClick={async () => {
+                        setIntegracoesSalvando(true);
+                        try {
+                          const resp = await fetch(IMPLEMENTACOES_API_BASE + "/api/integracoes", { method: "PUT", headers: { "Content-Type": "application/json", ...(await authHeaderMensageria()) }, body: JSON.stringify({ provedor: "zenvia", chave: zenviaChaveNova, remetente: zenviaRemetenteNovo }) });
+                          const json = await resp.json(); if (!resp.ok) throw new Error(json.error || "Não foi possível salvar a Zenvia.");
+                          setZenviaConfigurada(true); setZenviaGerenciada(false); setZenviaChaveNova(""); setZenviaRemetenteNovo(""); setShowAviso("✅ Zenvia protegida e conectada a este CRM.");
+                        } catch (erro: any) { setShowAviso("❌ " + (erro?.message || "Não foi possível salvar a Zenvia.")); }
+                        finally { setIntegracoesSalvando(false); }
+                      }}>{integracoesSalvando ? "Salvando..." : zenviaConfigurada ? "Substituir credenciais" : "Conectar Zenvia"}</button>
+                      {zenviaConfigurada && !zenviaGerenciada && <button className="btn-c" disabled={integracoesSalvando} onClick={async () => {
+                        if (!window.confirm("Desconectar a Zenvia deste CRM?")) return;
+                        setIntegracoesSalvando(true);
+                        try { const resp = await fetch(IMPLEMENTACOES_API_BASE + "/api/integracoes?provedor=zenvia", { method: "DELETE", headers: await authHeaderMensageria() }); const json = await resp.json(); if (!resp.ok) throw new Error(json.error || "Não foi possível desconectar."); setZenviaConfigurada(false); }
+                        catch (erro: any) { setShowAviso("❌ " + (erro?.message || "Não foi possível desconectar.")); }
+                        finally { setIntegracoesSalvando(false); }
+                      }}>Desconectar</button>}
+                    </div>
+                  </div>
+
+                  {[
+                    ["✉️", "E-mail", "Incluído e operado pelo Ink System.", "INCLUÍDO"],
+                    ["📣", "ManyChat e redes sociais", "Automação de comentários, directs e conversão de leads.", "EM BREVE"],
+                    ["🔗", "Outras integrações", "Novos conectores serão disponibilizados nas próximas versões.", "EM BREVE"]
+                  ].map(([icone, nome, descricao, status]) => (
+                    <div key={nome} style={{ border: "1px solid var(--br)", borderRadius: 9, padding: "12px 14px", display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <div><div style={{ fontSize: 13, fontWeight: 700, color: "var(--tx)" }}>{icone} {nome}</div><div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 4 }}>{descricao}</div></div>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: status === "INCLUÍDO" ? "#27AE60" : "var(--tx3)", whiteSpace: "nowrap" }}>{status}</span>
+                    </div>
+                  ))}
+                </>}
+
               </div>
 
               <div className="fmf" style={{ position: "relative" }}>
                 <button className="btn-c" onClick={() => setShowSettings(false)}>Cancelar</button>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {settingsTab !== "sistema" && (
+                  {settingsTab !== "sistema" && settingsTab !== "implementacoes" && (
                     <button style={{ background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 7, padding: "8px 16px", fontSize: 12, color: "var(--tx2)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
                       onClick={() => {
-                        const order = ["estudio","profissionais","sistema"];
+                        const order = ["estudio","profissionais","estoque","sistema","implementacoes"];
                         const idx = order.indexOf(settingsTab);
                         if (idx < order.length - 1) setSettingsTab(order[idx + 1] as any);
                       }}>
                       Próximo →
                     </button>
                   )}
-                  <button className="btn-s" onClick={async () => {
+                  {settingsTab !== "implementacoes" && <button className="btn-s" onClick={async () => {
                   if (!studioName.trim()) {
                     setShowAviso("Preencha ao menos o Nome do Estúdio para salvar.");
                     return;
@@ -16190,12 +16294,8 @@ export default function CRM() {
                     entrada_cats: entradaCats,
                     saida_cats: saidaCats,
                     servico_opts: servicoOpts,
-                    resend_api_key: resendApiKey,
                     email_remetente: emailRemetente,
                     nome_remetente: nomeRemetente,
-                    zenvia_api_key: zenviaApiKey,
-                    zenvia_numero: zenviaNumero,
-                    aura_api_key: auraApiKey,
                     user_id: userId,
                     updated_at: new Date().toISOString()
                   };
@@ -16206,7 +16306,8 @@ export default function CRM() {
                   if (errCfg) { setShowAviso("❌ Erro ao salvar configurações: " + errCfg.message); return; }
                   setShowSettings(false);
                   setShowAviso("Configurações salvas com sucesso.");
-                }}>Salvar e Continuar</button>
+                }}>Salvar e Continuar</button>}
+                  {settingsTab === "implementacoes" && <button className="btn-s" onClick={() => setShowSettings(false)}>Concluir</button>}
                 </div>
               </div>
               </div>{/* end settings-content */}

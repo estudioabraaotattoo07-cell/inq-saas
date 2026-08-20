@@ -1,6 +1,8 @@
 import { ALLOWED_ORIGINS } from "./_lib/allowedOrigins.js";
 import { autenticarChamador } from "./_lib/auth.js";
 import { verificarRateLimit } from "./_lib/rateLimit.js";
+import { createClient } from "@supabase/supabase-js";
+import { origemPermitida, usuarioTemAcessoCrm } from "./_lib/acessoCrm.js";
 
 export default async function handler(req, res) {
   const origin = req.headers.origin || "";
@@ -10,6 +12,9 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Internal-Service-Key");
 
+  const auth = await autenticarChamador(req);
+  const chamadaInterna = auth.ok && auth.tipo === "service";
+  if (!chamadaInterna && !origemPermitida(req)) return res.status(403).json({ error: "Acesso não permitido" });
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
@@ -20,7 +25,6 @@ export default async function handler(req, res) {
 
   // Bloco 1 -- hardening: exige sessão Supabase válida ou segredo de serviço.
   // user_id isolado no corpo nunca é aceito como prova de identidade.
-  const auth = await autenticarChamador(req);
   if (!auth.ok) {
     return res.status(401).json({ error: "Não autenticado" });
   }
@@ -30,18 +34,24 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: "Limite de envios excedido. Tente novamente em instantes." });
   }
 
-  const { apiKey, from, to, subject, html } = req.body;
+  if (auth.tipo === "user") {
+    const serviceKey = (process.env.SUPABASE_SERVICE_KEY || "").trim();
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    if (!serviceKey || !supabaseUrl) return res.status(500).json({ error: "Serviço de e-mail indisponível." });
+    const sb = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+    if (!(await usuarioTemAcessoCrm(sb, auth))) return res.status(403).json({ error: "Acesso não permitido" });
+  }
 
-  // Resiliência: se o cliente não enviar chave/remetente válidos (ex: sessão
-  // com config incompleta), usa as credenciais do servidor. A chave real do
-  // estúdio fica em variável de ambiente e nunca é exposta ao navegador.
-  const finalKey = apiKey || process.env.RESEND_API_KEY;
+  const { to, subject, html } = req.body;
+
+  // O e-mail é provisionado pelo Ink System: chave e remetente vivem somente
+  // no servidor e nunca são aceitos do navegador.
+  const finalKey = process.env.RESEND_API_KEY;
   const envRemetente = process.env.EMAIL_REMETENTE || "";
-  const fromValido = from && from.includes("@") && !from.includes("<>");
-  const finalFrom = fromValido ? from : envRemetente;
+  const finalFrom = envRemetente;
 
   if (!finalKey) {
-    return res.status(400).json({ error: "Nenhuma chave Resend disponível (nem no cliente nem no servidor)" });
+    return res.status(500).json({ error: "Serviço de e-mail indisponível." });
   }
   if (!to) {
     return res.status(400).json({ error: "Destinatário obrigatório" });

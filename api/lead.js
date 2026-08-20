@@ -2518,7 +2518,6 @@ export default async function handler(req, res) {
     .eq("user_id", row.user_id).single();
   const nomeEstudioLead = cfgDisparos?.studio_name || "seu estúdio";
 
-  const zenviaKey = process.env.ZENVIA_API_KEY;
   const fn = (nome || "").trim().split(" ")[0] || "Cliente";
 
   // artista chega como ID (não mais texto) -- resolve nome/e-mail uma vez só,
