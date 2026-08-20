@@ -1615,7 +1615,10 @@ export default function CRM() {
   const [srch, setSrch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [showArtForm, setShowArtForm] = useState(false);
-  const [showRecargaModal, setShowRecargaModal] = useState<"sms" | "email" | "storage" | null>(null);
+  // SMS fora da oferta comercial da v1.0 (Bloco Corretivo, 2026-08-20) --
+  // nenhum gatilho de UI abre este modal com "sms" (ver Canais habilitados);
+  // o tipo abaixo já não inclui "sms" para deixar isso garantido no código.
+  const [showRecargaModal, setShowRecargaModal] = useState<"email" | "storage" | null>(null);
   const [comprandoRecarga, setComprandoRecarga] = useState(false);
   const [showAgForm, setShowAgForm] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
@@ -1837,35 +1840,17 @@ export default function CRM() {
     if (!userId) return;
     sb.rpc("registrar_falha_mensageria", { p_user_id: userId, p_canal: canal, p_motivo: motivo }).then(() => {}, () => {});
   }, [userId]);
-  // Recarga self-service: aplica a compra na hora (soma em emails_comprados/sms_comprados),
-  // sem cobrança automática ainda — fica registrado no histórico pra reconciliar
-  // manualmente com o cliente até o gateway de pagamento existir.
-  const comprarRecarga = async (canal: "email" | "sms" | "storage", tier: { qtd: number; preco: number }) => {
-    if (!userId) return;
-    setComprandoRecarga(true);
-    try {
-      if (canal === "storage") {
-        // Recorrente: soma na cota extra permanente (não reseta todo mês, diferente de SMS/e-mail).
-        const { error } = await sb.rpc("comprar_storage_extra", { p_user_id: userId, p_mb: tier.qtd });
-        if (error) { setShowAviso("Erro ao registrar a compra: " + error.message); return; }
-        setStorageExtraMb(p => p + tier.qtd);
-        addLog(`Armazenamento extra comprado: +${(tier.qtd / 1024).toFixed(0)}GB/mês — R$${tier.preco.toFixed(2)}/mês`);
-        setShowRecargaModal(null);
-        return;
-      }
-      // Crédito persistente (não é por mês) — registrado como saldo disponível
-      // (ver "Canais habilitados"), mas não existe mais nenhuma cota mensal
-      // pra "ultrapassar": desde o Bloco 2 (remoção de Bronze/Prata/Ouro,
-      // 2026-08-13), logEnvio não decrementa mais esse saldo automaticamente.
-      // A reconciliação da compra continua manual (ver comentário acima).
-      const { error } = await sb.rpc("comprar_credito_mensageria", { p_user_id: userId, p_canal: canal, p_qtd: tier.qtd });
-      if (error) { setShowAviso("Erro ao registrar a recarga: " + error.message); return; }
-      if (canal === "email") setEmailCreditoExtra(p => p + tier.qtd); else setSmsCreditoExtra(p => p + tier.qtd);
-      addLog(`Recarga comprada: +${tier.qtd} ${canal === "email" ? "e-mails" : "SMS"} — R$${tier.preco.toFixed(2)}`);
-      setShowRecargaModal(null);
-    } finally {
-      setComprandoRecarga(false);
-    }
+  // Compra direta desativada (Bloco Corretivo de Segurança de Créditos/
+  // Storage/Licenças, 2026-08-20): comprar_credito_mensageria e
+  // comprar_storage_extra foram congeladas no banco (fail-closed) --
+  // qualquer chamada real seria rejeitada com exceção. A concessão
+  // gratuita de crédito sem verificação de pagamento foi a vulnerabilidade
+  // corrigida. O fluxo definitivo (catálogo + Asaas + extrato auditável)
+  // ainda não existe -- até lá, só informamos o usuário, sem chamar RPC
+  // nenhuma, sem alterar estado local, sem simular sucesso.
+  const comprarRecarga = async (_canal: "email" | "sms" | "storage", _tier: { qtd: number; preco: number }) => {
+    setShowAviso("A compra de disparos adicionais estará disponível assim que o pagamento integrado for ativado.");
+    setShowRecargaModal(null);
   };
   // Soma o tamanho de cada upload no total de armazenamento usado (fire-and-forget).
   const logStorage = (bytes: number) => {
@@ -8510,9 +8495,14 @@ export default function CRM() {
                         {(ch === "email" || ch === "sms") && (
                           <div style={{ marginTop: 6 }}>
                             <div style={{ fontSize: 10, color: "var(--tx3)", marginBottom: 3 }}>{enviados} enviados este mês{comprado > 0 ? ` · ${comprado} de crédito extra disponível` : ""}</div>
-                            <button onClick={() => setShowRecargaModal(ch)} style={{ background: "none", border: "none", color: "var(--gold)", fontSize: 10, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
-                              + Comprar crédito extra
-                            </button>
+                            {/* SMS fora da oferta comercial da v1.0 (Bloco Corretivo, 2026-08-20)
+                                -- o status do canal (badge testado/não testado) e o crédito já
+                                existente continuam visíveis acima; só o gatilho de compra some. */}
+                            {ch === "email" && (
+                              <button onClick={() => setShowRecargaModal(ch)} style={{ background: "none", border: "none", color: "var(--gold)", fontSize: 10, cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                                + Comprar crédito extra
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -16595,14 +16585,21 @@ export default function CRM() {
           </div>
         )}
 
-        {/* ── COMPRAR RECARGA DE SMS/E-MAIL (self-service, aplica na hora) ── */}
+        {/* ── COMPRAR RECARGA DE E-MAIL/ARMAZENAMENTO -- compra direta
+             temporariamente desativada até a ativação do pagamento
+             integrado (Bloco Corretivo de Segurança, 2026-08-20):
+             comprarRecarga() só exibe aviso informativo, sem chamar RPC.
+             SMS fora da oferta comercial da v1.0: showRecargaModal nunca
+             vale "sms" (ver estado acima e Canais habilitados), e este
+             bloco não referencia RECARGA_SMS_TIERS nem monta texto de
+             "SMS extra". ── */}
         {showRecargaModal && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
             onClick={() => { if (!comprandoRecarga) setShowRecargaModal(null); }}>
             <div style={{ background: "var(--dk2)", border: "1px solid var(--br)", borderRadius: 14, padding: 28, minWidth: 320, maxWidth: 400 }}
               onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, color: "var(--gold)", marginBottom: 4 }}>
-                {showRecargaModal === "storage" ? "Aumentar armazenamento" : `Comprar ${showRecargaModal === "email" ? "e-mails" : "SMS"} extra`}
+                {showRecargaModal === "storage" ? "Aumentar armazenamento" : "Comprar e-mails extra"}
               </div>
               <p style={{ fontSize: 12, color: "var(--tx3)", lineHeight: 1.6, marginBottom: 16 }}>
                 {showRecargaModal === "storage"
@@ -16610,10 +16607,10 @@ export default function CRM() {
                   : "Escolha um pacote. Ele soma direto na sua cota do mês."}
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-                {(showRecargaModal === "email" ? RECARGA_EMAIL_TIERS : showRecargaModal === "storage" ? RECARGA_STORAGE_TIERS : RECARGA_SMS_TIERS).map((tier: any) => (
+                {(showRecargaModal === "storage" ? RECARGA_STORAGE_TIERS : RECARGA_EMAIL_TIERS).map((tier: any) => (
                   <button key={tier.qtd} disabled={comprandoRecarga} onClick={() => comprarRecarga(showRecargaModal, tier)}
                     style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", background: "var(--dk3)", border: "1px solid var(--br)", borderRadius: 9, padding: "12px 16px", cursor: comprandoRecarga ? "not-allowed" : "pointer", fontFamily: "'DM Sans',sans-serif", opacity: comprandoRecarga ? 0.6 : 1 }}>
-                    <span style={{ fontSize: 13, color: "var(--tx)", fontWeight: 600 }}>{tier.label || `+${tier.qtd} ${showRecargaModal === "email" ? "e-mails" : "SMS"}`}</span>
+                    <span style={{ fontSize: 13, color: "var(--tx)", fontWeight: 600 }}>{tier.label || `+${tier.qtd} e-mails`}</span>
                     <span style={{ fontSize: 13, color: "var(--gold)", fontWeight: 700 }}>R${tier.preco.toFixed(2)}{showRecargaModal === "storage" ? "/mês" : ""}</span>
                   </button>
                 ))}

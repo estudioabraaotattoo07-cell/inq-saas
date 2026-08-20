@@ -1,11 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 
-const sb = createClient(
-  "https://zkzsykmnhrkwmvgekshh.supabase.co",
-  process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY,
-  { auth: { persistSession: false } }
-);
-
 const STUDIO_USER_ID = process.env.STUDIO_USER_ID || "2d366d35-1cae-40d5-ba92-06fe2ab8a763";
 
 // Extraído à parte pra ser testável sem depender de um handler HTTP nem do
@@ -15,12 +9,34 @@ export function licencaDemoPayload(uid) {
   return { user_id: uid, status: "ativo", data_vencimento: "2099-12-31", plano: null };
 }
 
+// Ponto de injeção só para testes controlados (auditoria pós-implementação,
+// 2026-08-20) -- em produção, sempre usa o createClient real do Supabase.
+// Nenhuma chamada externa acontece por causa desta função existir; ela só
+// permite que um teste substitua a fábrica por um cliente falso, sem rede.
+let _fabricaClienteSupabase = (chaveServico) =>
+  createClient("https://zkzsykmnhrkwmvgekshh.supabase.co", chaveServico, { auth: { persistSession: false } });
+
+export function __usarFabricaClienteSupabaseParaTeste(fabrica) {
+  _fabricaClienteSupabase = fabrica;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+
+  // Fail-closed (Bloco Corretivo de Segurança, 2026-08-20; reforçado na
+  // auditoria pós-implementação): nunca usar a chave anônima como
+  // substituta da chave de serviço. Ausente, vazia ou só espaços em branco
+  // -- os três casos abortam com erro controlado, sem revelar o valor nem
+  // o nome da variável na resposta ao cliente.
+  const chaveServico = process.env.SUPABASE_SERVICE_KEY;
+  if (!chaveServico || !chaveServico.trim()) {
+    return res.status(500).json({ error: "Configuração de serviço indisponível." });
+  }
+  const sb = _fabricaClienteSupabase(chaveServico);
 
   // Reset + reseed da conta demo — chamado a cada carregamento de ?demo=1,
   // pra quem está testando sempre ver dados fictícios do zero.
