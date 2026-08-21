@@ -381,9 +381,12 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .tab{padding:10px 9px!important;font-size:11px!important;}
   /* Configurações: mantém as cinco abas visíveis no celular. */
   .settings-tabs-bar{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr));overflow-x:hidden!important;}
-  .settings-tab{min-width:0!important;white-space:normal;line-height:1.25;}
+  .settings-tab{min-width:0!important;min-height:48px;white-space:normal;line-height:1.25;display:flex;align-items:center;justify-content:center;border-right:1px solid rgba(201,168,76,.18);border-bottom:1px solid rgba(201,168,76,.18);opacity:.52;}
+  .settings-tab-active{opacity:1;box-shadow:inset 0 -2px 0 var(--gold);}
   .settings-tab:nth-child(-n+3){grid-column:span 2;}
   .settings-tab:nth-child(n+4){grid-column:span 3;}
+  .settings-tab:nth-child(3),.settings-tab:nth-child(5){border-right:none;}
+  .settings-tab:not(.settings-tab-active):nth-child(n+4){border-bottom-color:transparent;}
   /* Formulário modal */
   .fmh{padding:12px 14px!important;}
   .fmb{padding:12px 14px!important;gap:9px!important;}
@@ -664,7 +667,8 @@ table.ft tr:nth-child(even) td{background:var(--dk4);}
 .btn-s:disabled{opacity:.45;cursor:not-allowed;transform:none;}
 .settings-modal{background:radial-gradient(ellipse 420px 260px at 50% -10%, rgba(139,92,222,0.26), transparent 72%), linear-gradient(180deg, #1A1A1A, #0F0F0F);border:1.5px solid rgba(201,168,76,0.4);border-radius:16px;width:100%;max-width:560px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,0.75), 0 0 34px rgba(201,168,76,0.14);}
 .settings-tabs-bar{position:sticky;top:0;z-index:10;background:var(--dk2);flex:0 0 auto;min-height:39px;display:flex;border-bottom:1px solid var(--br);overflow-x:auto;}
-.settings-tab{flex:1 0 auto;min-width:92px;padding:10px 8px;text-align:center;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.04em;}
+.settings-tab{flex:1 0 auto;min-width:92px;padding:10px 8px;text-align:center;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.04em;color:var(--tx3);border-bottom:2px solid transparent;background:transparent;transition:color .15s,background .15s,opacity .15s;}
+.settings-tab-active{color:var(--gold);border-bottom-color:var(--gold);background:rgba(201,168,76,.07);}
 .settings-tab-implementacoes{min-width:118px;}
 .settings-content{overflow-y:auto;flex:1 1 auto;min-height:0;}
 .hr-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--br);}
@@ -15350,11 +15354,7 @@ export default function CRM() {
               {/* ABAS */}
               <div className="settings-tabs-bar">
                 {([["estudio","🏠 Estúdio"],["profissionais","💼 Colaboradores"],["estoque","📦 Estoque"],["sistema","⚙️ Sistema"],["implementacoes","🔌 Implementações"]] as const).map(([id, label]) => (
-                  <div key={id} className={`settings-tab${id === "implementacoes" ? " settings-tab-implementacoes" : ""}`} onClick={() => setSettingsTab(id)}
-                    style={{
-                      color: settingsTab === id ? "var(--gold)" : "var(--tx3)",
-                      borderBottom: settingsTab === id ? "2px solid var(--gold)" : "2px solid transparent",
-                      background: settingsTab === id ? "rgba(201,168,76,.05)" : "none" }}>
+                  <div key={id} role="tab" aria-selected={settingsTab === id} className={`settings-tab${id === "implementacoes" ? " settings-tab-implementacoes" : ""}${settingsTab === id ? " settings-tab-active" : ""}`} onClick={() => setSettingsTab(id)}>
                     {label}
                   </div>
                 ))}
