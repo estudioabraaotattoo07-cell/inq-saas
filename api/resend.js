@@ -42,13 +42,25 @@ export default async function handler(req, res) {
     if (!(await usuarioTemAcessoCrm(sb, auth))) return res.status(403).json({ error: "Acesso não permitido" });
   }
 
-  const { to, subject, html } = req.body;
+  const { to, subject, html, senderName } = req.body;
 
   // O e-mail é provisionado pelo Ink System: chave e remetente vivem somente
   // no servidor e nunca são aceitos do navegador.
   const finalKey = process.env.RESEND_API_KEY;
   const envRemetente = process.env.EMAIL_REMETENTE || "";
-  const finalFrom = envRemetente;
+  const nomesCorporativos = new Set([
+    "Ink System | Acesso e Segurança",
+    "Ink System | Relacionamento",
+    "Ink System | Assinaturas",
+    "Ink System | Suporte",
+  ]);
+  const emailRemetente = (envRemetente.match(/<([^>]+)>/)?.[1] || envRemetente).trim();
+  // Somente projetos internos autenticados podem escolher um dos nomes da
+  // identidade corporativa. Usuários do CRM nunca controlam o remetente.
+  const nomeCorporativo = chamadaInterna && nomesCorporativos.has(senderName) ? senderName : "";
+  const finalFrom = nomeCorporativo && emailRemetente
+    ? `${nomeCorporativo} <${emailRemetente}>`
+    : envRemetente;
 
   if (!finalKey) {
     return res.status(500).json({ error: "Serviço de e-mail indisponível." });
