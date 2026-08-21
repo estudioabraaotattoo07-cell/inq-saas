@@ -379,6 +379,11 @@ body{background:var(--dk);color:var(--tx);font-family:'DM Sans',sans-serif;}
   .btn-new{font-size:11px!important;padding:6px 10px!important;}
   /* Tabs */
   .tab{padding:10px 9px!important;font-size:11px!important;}
+  /* Configurações: mantém as cinco abas visíveis no celular. */
+  .settings-tabs-bar{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr));overflow-x:hidden!important;}
+  .settings-tab{min-width:0!important;white-space:normal;line-height:1.25;}
+  .settings-tab:nth-child(-n+3){grid-column:span 2;}
+  .settings-tab:nth-child(n+4){grid-column:span 3;}
   /* Formulário modal */
   .fmh{padding:12px 14px!important;}
   .fmb{padding:12px 14px!important;gap:9px!important;}
@@ -658,7 +663,9 @@ table.ft tr:nth-child(even) td{background:var(--dk4);}
 .btn-s:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(201,168,76,0.4),inset 0 1px 0 rgba(255,255,255,0.4);}
 .btn-s:disabled{opacity:.45;cursor:not-allowed;transform:none;}
 .settings-modal{background:radial-gradient(ellipse 420px 260px at 50% -10%, rgba(139,92,222,0.26), transparent 72%), linear-gradient(180deg, #1A1A1A, #0F0F0F);border:1.5px solid rgba(201,168,76,0.4);border-radius:16px;width:100%;max-width:560px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,0.75), 0 0 34px rgba(201,168,76,0.14);}
-.settings-tabs-bar{position:sticky;top:0;z-index:10;background:var(--dk2);flex:0 0 auto;min-height:39px;}
+.settings-tabs-bar{position:sticky;top:0;z-index:10;background:var(--dk2);flex:0 0 auto;min-height:39px;display:flex;border-bottom:1px solid var(--br);overflow-x:auto;}
+.settings-tab{flex:1 0 auto;min-width:92px;padding:10px 8px;text-align:center;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.04em;}
+.settings-tab-implementacoes{min-width:118px;}
 .settings-content{overflow-y:auto;flex:1 1 auto;min-height:0;}
 .hr-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--br);}
 .hr-dia{font-size:12px;font-weight:600;color:var(--tx);width:70px;flex-shrink:0;}
@@ -15341,10 +15348,10 @@ export default function CRM() {
                 <button className="mc" onClick={() => setShowSettings(false)}>✕</button>
               </div>
               {/* ABAS */}
-              <div className="settings-tabs-bar" style={{ display: "flex", borderBottom: "1px solid var(--br)", overflowX: "auto" }}>
+              <div className="settings-tabs-bar">
                 {([["estudio","🏠 Estúdio"],["profissionais","💼 Colaboradores"],["estoque","📦 Estoque"],["sistema","⚙️ Sistema"],["implementacoes","🔌 Implementações"]] as const).map(([id, label]) => (
-                  <div key={id} onClick={() => setSettingsTab(id)}
-                    style={{ flex: "1 0 auto", minWidth: id === "implementacoes" ? 118 : 92, padding: "10px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, cursor: "pointer", letterSpacing: ".04em",
+                  <div key={id} className={`settings-tab${id === "implementacoes" ? " settings-tab-implementacoes" : ""}`} onClick={() => setSettingsTab(id)}
+                    style={{
                       color: settingsTab === id ? "var(--gold)" : "var(--tx3)",
                       borderBottom: settingsTab === id ? "2px solid var(--gold)" : "2px solid transparent",
                       background: settingsTab === id ? "rgba(201,168,76,.05)" : "none" }}>
