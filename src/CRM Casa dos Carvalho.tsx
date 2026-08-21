@@ -4521,11 +4521,11 @@ export default function CRM() {
             await sb.from("historico").insert({
               data: dataStr,
               hora: horaStr,
-              acao: (auraName || "IA") + " enviou SMS para " + params.cliente_nome + " (" + telZenvia + ")",
+              acao: (auraName || "IA") + " enviou SMS para " + params.cliente_nome + " (" + params.cliente_tel + ")",
               user_id: userId
             });
           } catch {}
-          return "✅ SMS enviado para **" + params.cliente_nome + "** (" + telZenvia + ").";
+          return "✅ SMS enviado para **" + params.cliente_nome + "** (" + params.cliente_tel + ").";
         } catch (err: any) {
           return "❌ Erro ao enviar SMS: " + (err?.message || "erro desconhecido") + ". Verifique as credenciais Zenvia em Configurações.";
         }
@@ -10280,8 +10280,9 @@ export default function CRM() {
                       if(docId==="menor"){
                         const nomeMin = sc.nome.replace(/ /g,"-");
                         const data = new Date().toLocaleDateString("pt-BR").replace(/\//g,"-");
+                        const responsavelPrincipal = (sc as any).menor_responsavel || {};
                         const resps: Array<{label:string, dados: Record<string,string>, campoAssin: string, sufixo: string}> = [
-                          { label:"RESPONSAVEL 1", dados:(sc as any).menor_responsavel||{}, campoAssin:"menor_assinatura",     sufixo:"RESPONSAVEL-1" },
+                          { label:"RESPONSAVEL 1", dados:responsavelPrincipal, campoAssin:"menor_assinatura",     sufixo:"RESPONSAVEL-1" },
                           { label:"RESPONSAVEL 2", dados:(sc as any).menor_responsavel_mae||{}, campoAssin:"menor_assinatura_mae", sufixo:"RESPONSAVEL-2" },
                         ];
                         let arquivosAtuais: any[] = (sc as any).docs_arquivos || [];
@@ -10307,8 +10308,8 @@ export default function CRM() {
                           ln2(`Menor: ${sc.nome} (${idade} anos)  |  Data: ${new Date().toLocaleDateString("pt-BR")}`,10,false,[100,100,100]);
                           y2+=5;
                           // Serviço autorizado
-                          const srvAut = resp.dados.servico||pai.servico||"—";
-                          const areaAut = resp.dados.area||pai.area||"—";
+                          const srvAut = resp.dados.servico||responsavelPrincipal.servico||"—";
+                          const areaAut = resp.dados.area||responsavelPrincipal.area||"—";
                           ln2(`Servico autorizado: ${srvAut}  |  Area de aplicacao: ${areaAut}`,10,false,[60,60,60]);
                           y2+=5;
                           // Declaração completa

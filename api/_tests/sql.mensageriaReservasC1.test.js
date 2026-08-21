@@ -57,7 +57,7 @@ function contemTrecho(agulha) {
 function apenasCodigo(texto) {
   return texto
     .split("\n")
-    .map((linha) => linha.replace(/--.*$/, ""))
+    .map((linha) => linha.replace(/--[^\r\n]*/g, ""))
     .join("\n");
 }
 
