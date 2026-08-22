@@ -5880,9 +5880,6 @@ export default function CRM() {
                 💰 {colaboradoresComPendencia.length} repasse{colaboradoresComPendencia.length > 1 ? "s" : ""} pendente{colaboradoresComPendencia.length > 1 ? "s" : ""}
               </div>
             )}
-            {authEmail === OWNER_EMAIL && (
-              <a href="https://inksystem.com.br/admin" target="_blank" rel="noreferrer" title="Painel Admin" className="theme-btn" style={{ fontSize: 13, textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>🛠️</a>
-            )}
             <button className="btn-copper" title="Suporte e Assessoria"
               onClick={() => { setShowSolicitacao(true); setSolicEnviada(false); }}
               style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
